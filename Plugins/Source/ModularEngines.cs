@@ -448,7 +448,6 @@ namespace ModularFuelTanks
         public static Dictionary<string, List<float>> TLTTWRs;
 
         public ConfigNode techNodes = new ConfigNode();
-        public ConfigNode moduleTechNodes = new ConfigNode();
 
         public static ConfigNode MFSSettings = null;
         
@@ -477,7 +476,8 @@ namespace ModularFuelTanks
 
 
         public bool localCorrectThrust = true;
-        public double thrustMult = 1.0;
+        public float configMaxThrust = 1.0f;
+        public float configMinThrust = 0.0f;
 
         // *NEW* TL Handling
         public class TechLevel
@@ -488,6 +488,7 @@ namespace ModularFuelTanks
             public double thrustMultiplier;
             public double massMultiplier;
 
+            // CONSTRUCTORS
             public TechLevel()
             {
                 atmosphereCurve = null;
@@ -496,11 +497,20 @@ namespace ModularFuelTanks
                 thrustMultiplier = -1;
                 massMultiplier = -1;
             }
+            public TechLevel(TechLevel t)
+            {
+                atmosphereCurve = t.atmosphereCurve;
+                velocityCurve = t.velocityCurve;
+                TWR = t.TWR;
+                thrustMultiplier = t.thrustMultiplier;
+                massMultiplier = t.massMultiplier;
+            }
             public TechLevel(ConfigNode node)
             {
                 Load(node);
             }
 
+            // LOADERS
             // loads from an override node
             public bool Load(ConfigNode node)
             {
@@ -586,29 +596,58 @@ namespace ModularFuelTanks
             public bool Load(ConfigNode config, ConfigNode module, string type, int level)
             {
                 // check local techlevel configs
-                var tLs = config.GetNodes("TECHLEVEL");
-                if (tLs.Count() > 0)
+                if (config != null)
                 {
-                    foreach (ConfigNode n in tLs)
-                        if (n.HasValue("name") && n.GetValue("name").Equals(level.ToString()))
-                            return Load(n);
-                    return false;
+                    var tLs = config.GetNodes("TECHLEVEL");
+                    if (tLs.Count() > 0)
+                    {
+                        foreach (ConfigNode n in tLs)
+                            if (n.HasValue("name") && n.GetValue("name").Equals(level.ToString()))
+                                return Load(n);
+                        return false;
+                    }
+                    if (config.HasValue("techLevelType"))
+                        return Load(config.GetValue("techLevelType"), level);
                 }
-                if (config.HasValue("techLevelType"))
-                    return Load(config.GetValue("techLevelType"), level);
 
                 // check module techlevel configs
-                tLs = module.GetNodes("TECHLEVEL");
-                if (tLs.Count() > 0)
+                if (module != null)
                 {
-                    foreach (ConfigNode n in tLs)
-                        if (n.HasValue("name") && n.GetValue("name").Equals(level.ToString()))
-                            return Load(n);
-                    return false;
+                    var tLs = module.GetNodes("TECHLEVEL");
+                    if (tLs.Count() > 0)
+                    {
+                        foreach (ConfigNode n in tLs)
+                            if (n.HasValue("name") && n.GetValue("name").Equals(level.ToString()))
+                                return Load(n);
+                        return false;
+                    }
                 }
 
                 // check global
                 return Load(type, level);
+            }
+
+            // MULTIPLIERS
+            public double Thrust(TechLevel oldTL, bool constantMass = false)
+            {
+                if (oldTL.thrustMultiplier > 0 && thrustMultiplier > 0)
+                    return thrustMultiplier / oldTL.thrustMultiplier;
+
+                if(constantMass)
+                    return TWR / oldTL.TWR;
+                else
+                    return TWR / oldTL.TWR * oldTL.atmosphereCurve.Evaluate(0) * atmosphereCurve.Evaluate(0);
+            }
+
+            public double Mass(TechLevel oldTL, bool constantThrust = false)
+            {
+                if (oldTL.massMultiplier > 0 && massMultiplier > 0)
+                    return massMultiplier / oldTL.massMultiplier;
+
+                if (constantThrust)
+                    return oldTL.TWR / TWR;
+                else
+                    return oldTL.atmosphereCurve.Evaluate(0) * atmosphereCurve.Evaluate(0);
             }
 
             // looks up in global techlevels
@@ -812,11 +851,25 @@ namespace ModularFuelTanks
             }
 		}
 
-        private float ThrustTL(float thrust)
+        private double ThrustTL()
         {
             if (techLevel != -1 && !engineType.Contains("S"))
-                return thrust * TLTTWRs[engineType][techLevel] / TLTTWRs[engineType][origTechLevel] / TLTIsps[engineType][techLevel].Evaluate(0) * TLTIsps[engineType][origTechLevel].Evaluate(0);
-            return thrust;
+            {
+                //return thrust * TLTTWRs[engineType][techLevel] / TLTTWRs[engineType][origTechLevel] / TLTIsps[engineType][techLevel].Evaluate(0) * TLTIsps[engineType][origTechLevel].Evaluate(0);
+                TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
+                if (!oldTL.Load(config, techNodes, engineType, origTechLevel))
+                    return 1.0;
+                if (!newTL.Load(config, techNodes, engineType, techLevel))
+                    return 1.0;
+
+                return newTL.Thrust(oldTL);
+            }
+            return 1.0;
+        }
+
+        private float ThrustTL(float thrust)
+        {
+            return (float)Math.Round(thrust * ThrustTL(), 3);
         }
 
         private float ThrustTL(string thrust)
@@ -824,6 +877,26 @@ namespace ModularFuelTanks
             float tmp = 1.0f;
             float.TryParse(thrust, out tmp);
             return ThrustTL(tmp);
+        }
+
+        private double MassTL()
+        {
+            if (techLevel != -1)
+            {
+                TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
+                if (!oldTL.Load(config, techNodes, engineType, origTechLevel))
+                    return 1.0;
+                if (!newTL.Load(config, techNodes, engineType, techLevel))
+                    return 1.0;
+
+                return newTL.Mass(oldTL, engineType.Contains("S"));
+            }
+            return 1.0;
+        }
+
+        private float MassTL(float mass)
+        {
+            return (float)Math.Round(mass * MassTL(), 3);
         }
 
         private string TLTInfo()
@@ -848,8 +921,8 @@ namespace ModularFuelTanks
 			string info = TLTInfo() + "\nAlternate configurations:\n";
             
             TechLevel moduleTLInfo = new TechLevel();
-            if (moduleTechNodes != null)
-                moduleTLInfo.Load(moduleTechNodes, techLevel);
+            if (techNodes != null)
+                moduleTLInfo.Load(techNodes, techLevel);
             else
                 moduleTLInfo = null;
 
@@ -906,10 +979,10 @@ namespace ModularFuelTanks
 		{
 			base.OnLoad (node);
 
-            moduleTechNodes = new ConfigNode();
+            techNodes = new ConfigNode();
             var tLs = node.GetNodes("TECHLEVEL");
             foreach (ConfigNode n in tLs)
-                moduleTechNodes.AddNode(n);
+                techNodes.AddNode(n);
             
             if (node.HasValue("engineType"))
                 engineType = node.GetValue("engineType");
@@ -957,10 +1030,10 @@ namespace ModularFuelTanks
             }*/
 		}
 
-        virtual public void DoConfig(ConfigNode Config)
+        virtual public void DoConfig(ConfigNode cfg)
         {
             // fix propellant ratios to not be rounded
-            foreach (ConfigNode pNode in config.GetNodes("PROPELLANT"))
+            foreach (ConfigNode pNode in cfg.GetNodes("PROPELLANT"))
             {
                 if (pNode.HasValue("ratio"))
                 {
@@ -970,36 +1043,50 @@ namespace ModularFuelTanks
                 }
             }
 
-            if (config.HasValue("heatProduction")) // ohai amsi
-                config.SetValue("heatProduction", ((float)Math.Round(float.Parse(config.GetValue("heatProduction")) * heatMult,0)).ToString());
+            if (cfg.HasValue("heatProduction")) // ohai amsi: allow heat production to be changed by multiplier
+                cfg.SetValue("heatProduction", ((float)Math.Round(float.Parse(cfg.GetValue("heatProduction")) * heatMult,0)).ToString());
+
             if (techLevel != -1)
             {
-                if (config.HasValue("IspSL") && config.HasValue("IspV"))
+                TechLevel cTL = new TechLevel();
+                cTL.Load(cfg, techNodes, engineType, techLevel);
+                TechLevel oTL = new TechLevel();
+                cTL.Load(cfg, techNodes, engineType, origTechLevel);
+                if (cfg.HasValue("IspSL") && cfg.HasValue("IspV"))
                 {
-                    config.RemoveNode("atmosphereCurve");
+                    cfg.RemoveNode("atmosphereCurve");
                     ConfigNode curve = new ConfigNode("atmosphereCurve");
                     float ispSL, ispV;
-                    float.TryParse(config.GetValue("IspSL"), out ispSL);
-                    float.TryParse(config.GetValue("IspV"), out ispV);
-                    ispSL *= ispSLMult * TLTIsps[engineType][techLevel].Evaluate(1);
-                    ispV *= ispVMult * TLTIsps[engineType][techLevel].Evaluate(0);
-                    curve.AddValue("key", "0 " + ispV.ToString("0"));
-                    curve.AddValue("key", "1 " + ispSL.ToString("0"));
-                    config.AddNode(curve);
+                    float.TryParse(cfg.GetValue("IspSL"), out ispSL);
+                    float.TryParse(cfg.GetValue("IspV"), out ispV);
+                    ispSL *= ispSLMult;// *TLTIsps[engineType][techLevel].Evaluate(1);
+                    ispV *= ispVMult; //*TLTIsps[engineType][techLevel].Evaluate(0);
+                    FloatCurve aC = new FloatCurve();
+                    aC = Mod(cTL.atmosphereCurve, ispSL, ispV);
+                    aC.Save(curve);
+                    cfg.AddNode(curve);
                 }
-                if (config.HasValue("maxThrust"))
+                if (cfg.HasValue("maxThrust"))
                 {
                     float thr;
-                    float.TryParse(config.GetValue("maxThrust"), out thr);
-                    float newThr = ThrustTL(thr);
-                    config.SetValue("maxThrust", newThr.ToString("0.00"));
+                    float.TryParse(cfg.GetValue("maxThrust"), out thr);
+                    configMaxThrust = ThrustTL(thr);
+                    cfg.SetValue("maxThrust", configMaxThrust.ToString("0.00"));
+                    if (cfg.HasValue("minThrust"))
+                    {
+                        float.TryParse(cfg.GetValue("minThrust"), out thr);
+                        configMinThrust = ThrustTL(thr);
+                        cfg.SetValue("minThrust", configMinThrust.ToString("0.00"));
+                    }
+                    
                     // mass change
                     if (origMass > 0)
                     {
-                        if (!engineType.Contains("S"))
+                        part.mass = MassTL(origMass);
+                        /*if (!engineType.Contains("S"))
                             part.mass = (float)Math.Round(origMass / TLTIsps[engineType][techLevel].Evaluate(0) * TLTIsps[engineType][origTechLevel].Evaluate(0) * massMult, 3);
                         else
-                            part.mass = (float)Math.Round(origMass * TLTTWRs[engineType][origTechLevel] / TLTTWRs[engineType][techLevel], 3);
+                            part.mass = (float)Math.Round(origMass * TLTTWRs[engineType][origTechLevel] / TLTTWRs[engineType][techLevel], 3);*/
                     }
                 }
             }
@@ -1037,11 +1124,14 @@ namespace ModularFuelTanks
 					rcs.Load (config);
 					rcs.SetResource (resource);
 				} else { // is an ENGINE
-
+                    if (type.Equals("ModuleEngines"))
+                    {
+                        configMaxThrust = ((ModuleEngines)part.Modules[type]).maxThrust;
+                        configMinThrust = ((ModuleEngines)part.Modules[type]).minThrust;
+                    }
                     DoConfig(config);
 					part.Modules[type].Load (config);
 					part.Modules[type].OnStart (StartState.None);
-                    //TODO: CONFIG AS TITLE
 				}
                 /*
                 print("*MFS* part " + part.name + " has effects: ");
@@ -1107,14 +1197,16 @@ namespace ModularFuelTanks
 		{
             if (!type.Equals("ModuleEngines") || !correctThrust || !localCorrectThrust)
 				return;
+
 			ModuleEngines engine = (ModuleEngines) part.Modules["ModuleEngines"];
-			ConfigNode config = configs.Find (c => c.GetValue ("name").Equals (configuration));			
-			if (config != null && engine.realIsp > 0) {
-				float maxThrust = 0;
-				float.TryParse (config.GetValue ("maxThrust"), out maxThrust);
-                maxThrust *= engine.realIsp / engine.atmosphereCurve.Evaluate(0); // NK scale from max, not min, thrust.
-                maxThrust = ThrustTL(maxThrust);
-				engine.maxThrust = maxThrust;
+			//ConfigNode config = configs.Find (c => c.GetValue ("name").Equals (configuration));			
+			if (config != null && engine.realIsp > 0)
+            {
+				/*float maxThrust = 0;
+				float.TryParse (config.GetValue ("maxThrust"), out maxThrust);*/
+                float multiplier = engine.realIsp / engine.atmosphereCurve.Evaluate(0);
+				engine.maxThrust = configMaxThrust * multiplier;
+                engine.minThrust = configMinThrust * multiplier;
 			}
 		}
 
@@ -1151,7 +1243,6 @@ namespace ModularFuelTanks
                     SetConfiguration(configuration);
                     UpdateSymmetryCounterparts();
                 }
-
             }
             GUILayout.EndHorizontal();
 
