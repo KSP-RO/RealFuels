@@ -487,15 +487,17 @@ namespace ModularFuelTanks
             public double TWR;
             public double thrustMultiplier;
             public double massMultiplier;
+            string techRequired;
 
             // CONSTRUCTORS
             public TechLevel()
             {
-                atmosphereCurve = null;
-                velocityCurve = null;
+                atmosphereCurve = new FloatCurve();
+                velocityCurve = new FloatCurve();
                 TWR = -1;
                 thrustMultiplier = -1;
                 massMultiplier = -1;
+                techRequired = "";
             }
             public TechLevel(TechLevel t)
             {
@@ -504,6 +506,7 @@ namespace ModularFuelTanks
                 TWR = t.TWR;
                 thrustMultiplier = t.thrustMultiplier;
                 massMultiplier = t.massMultiplier;
+                techRequired = t.techRequired;
             }
             public TechLevel(ConfigNode node)
             {
@@ -542,6 +545,11 @@ namespace ModularFuelTanks
                 else
                     massMultiplier = -1;
 
+                if (node.HasValue("techRequired"))
+                    techRequired = node.GetValue("techRequired");
+                else
+                    techRequired = "";
+
                 return true;
             }
 
@@ -578,13 +586,21 @@ namespace ModularFuelTanks
                 else
                     TWR = 60;
 
+                if (node.HasValue("TLTECH"+level))
+                    techRequired = node.GetValue("TLTECH"+level);
+                else
+                    techRequired = "";
+
                 return true;
             }
 
             // loads from global techlevels
             public bool Load(string type, int level)
             {
-                foreach (ConfigNode node in MFSSettings.GetNodes("ENGINETYPE"))
+                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
+                    return false;
+
+                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                         return Load(node, level);
@@ -593,12 +609,12 @@ namespace ModularFuelTanks
             }
 
             // loads from anything
-            public bool Load(ConfigNode config, ConfigNode module, string type, int level)
+            public bool Load(ConfigNode cfg, ConfigNode mod, string type, int level)
             {
                 // check local techlevel configs
-                if (config != null)
+                if (cfg != null)
                 {
-                    var tLs = config.GetNodes("TECHLEVEL");
+                    var tLs = cfg.GetNodes("TECHLEVEL");
                     if (tLs.Count() > 0)
                     {
                         foreach (ConfigNode n in tLs)
@@ -606,14 +622,14 @@ namespace ModularFuelTanks
                                 return Load(n);
                         return false;
                     }
-                    if (config.HasValue("techLevelType"))
-                        return Load(config.GetValue("techLevelType"), level);
+                    if (cfg.HasValue("techLevelType"))
+                        return Load(cfg.GetValue("techLevelType"), level);
                 }
 
                 // check module techlevel configs
-                if (module != null)
+                if (mod != null)
                 {
-                    var tLs = module.GetNodes("TECHLEVEL");
+                    var tLs = mod.GetNodes("TECHLEVEL");
                     if (tLs.Count() > 0)
                     {
                         foreach (ConfigNode n in tLs)
@@ -624,6 +640,7 @@ namespace ModularFuelTanks
                 }
 
                 // check global
+                //print("*MFS* Fallback to global for type " + type + ", TL " + level);
                 return Load(type, level);
             }
 
@@ -632,43 +649,45 @@ namespace ModularFuelTanks
             {
                 if (oldTL.thrustMultiplier > 0 && thrustMultiplier > 0)
                     return thrustMultiplier / oldTL.thrustMultiplier;
-
+                
                 if(constantMass)
                     return TWR / oldTL.TWR;
                 else
-                    return TWR / oldTL.TWR * oldTL.atmosphereCurve.Evaluate(0) * atmosphereCurve.Evaluate(0);
+                    return TWR / oldTL.TWR * oldTL.atmosphereCurve.Evaluate(0) / atmosphereCurve.Evaluate(0);
             }
 
             public double Mass(TechLevel oldTL, bool constantThrust = false)
             {
                 if (oldTL.massMultiplier > 0 && massMultiplier > 0)
                     return massMultiplier / oldTL.massMultiplier;
-
+                
                 if (constantThrust)
                     return oldTL.TWR / TWR;
                 else
-                    return oldTL.atmosphereCurve.Evaluate(0) * atmosphereCurve.Evaluate(0);
+                    return oldTL.atmosphereCurve.Evaluate(0) / atmosphereCurve.Evaluate(0);
             }
 
             // looks up in global techlevels
-            public static int maxTL(string type)
+            public static int MaxTL(string type)
             {
                 int max = -1;
-                foreach (ConfigNode node in MFSSettings.GetNodes("ENGINETYPE"))
+                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
+                    return max;
+                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                     {
                         var tLs = node.GetNodes("TECHLEVEL");
                         if (tLs.Count() > 0)
                         {
-                            return maxTL(node);
+                            return MaxTL(node);
                         }
                         foreach (ConfigNode.Value val in node.values)
                         {
                             string stmp = val.name;
                             stmp = stmp.Replace("TLTWR", "");
                             int itmp;
-                            if (int.TryParse(stmp, out itmp))
+                            if (int.TryParse(stmp.Trim(), out itmp))
                                 if (itmp > max)
                                     max = itmp;
                         }
@@ -678,24 +697,26 @@ namespace ModularFuelTanks
             }
 
             // looks up in global techlevels
-            public static int minTL(string type)
+            public static int MinTL(string type)
             {
                 int min = int.MaxValue;
-                foreach (ConfigNode node in MFSSettings.GetNodes("ENGINETYPE"))
+                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
+                    return min;
+                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                     {
                         var tLs = node.GetNodes("TECHLEVEL");
                         if (tLs.Count() > 0)
                         {
-                            return minTL(node);
+                            return MinTL(node);
                         }
                         foreach (ConfigNode.Value val in node.values)
                         {
                             string stmp = val.name;
                             stmp = stmp.Replace("TLTWR", "");
                             int itmp;
-                            if (int.TryParse(stmp, out itmp))
+                            if (int.TryParse(stmp.Trim(), out itmp))
                                 if (itmp < min)
                                     min = itmp;
                         }
@@ -705,57 +726,72 @@ namespace ModularFuelTanks
             }
 
             // local check, with optional fallback to global
-            public static int maxTL(ConfigNode node, string type = "")
+            public static int MaxTL(ConfigNode node, string type = "")
             {
                 int max = -1;
-                foreach (ConfigNode n in node.nodes)
+                if (node != null)
                 {
-                    int itmp;
-                    if (int.TryParse(n.name, out itmp))
-                        if (itmp > max)
-                            max = itmp;
+                    foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
+                    {
+                        int itmp;
+                        if (int.TryParse(n.name, out itmp))
+                            if (itmp > max)
+                                max = itmp;
+                    }
                 }
                 if (max < 0 && !type.Equals(""))
-                    max = maxTL(type);
+                    max = MaxTL(type);
                 return max;
             }
 
             // local check, with optional fallback to global
-            public static int minTL(ConfigNode node, string type = "")
+            public static int MinTL(ConfigNode node, string type = "")
             {
                 int min = int.MaxValue;
-                foreach (ConfigNode n in node.nodes)
+                if (node != null)
                 {
-                    int itmp;
-                    if (int.TryParse(n.name, out itmp))
-                        if (itmp < min)
-                            min = itmp;
+                    foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
+                    {
+                        int itmp;
+                        if (int.TryParse(n.name, out itmp))
+                            if (itmp < min)
+                                min = itmp;
+                    }
                 }
                 if (min >= int.MaxValue && !type.Equals(""))
-                    min = minTL(type);
+                    min = MinTL(type);
                 return min;
             }
 
             // full check
-            public static int maxTL(ConfigNode config, ConfigNode module, string type)
+            public static int MaxTL(ConfigNode cfg, ConfigNode mod, string type)
             {
-                if (config.GetNodes("TECHLEVEL").Count() > 0)
-                    return maxTL(config, type);
-                else if (config.HasValue("techLevelType"))
-                    return maxTL(config.GetValue("techLevelType"));
+                if (cfg.GetNodes("TECHLEVEL").Count() > 0)
+                    return MaxTL(cfg, type);
+                else if (cfg.HasValue("techLevelType"))
+                    return MaxTL(cfg.GetValue("techLevelType"));
                 else
-                    return maxTL(module, type);
+                    return MaxTL(mod, type);
             }
 
             // full check
-            public static int minTL(ConfigNode config, ConfigNode module, string type)
+            public static int MinTL(ConfigNode cfg, ConfigNode mod, string type)
             {
-                if (config.GetNodes("TECHLEVEL").Count() > 0)
-                    return minTL(config, type);
-                else if (config.HasValue("techLevelType"))
-                    return minTL(config.GetValue("techLevelType"));
+                if (cfg.GetNodes("TECHLEVEL").Count() > 0)
+                    return MinTL(cfg, type);
+                else if (cfg.HasValue("techLevelType"))
+                    return MinTL(cfg.GetValue("techLevelType"));
                 else
-                    return minTL(module, type);
+                    return MinTL(mod, type);
+            }
+
+            // Check if can switch to TL
+            public static bool CanTL(ConfigNode cfg, ConfigNode mod, string type, int level)
+            {
+                TechLevel nTL = new TechLevel();
+                if (!nTL.Load(cfg, mod, type, level))
+                    return false;
+                return HighLogic.CurrentGame.Mode != Game.Modes.CAREER || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
             }
         }
         
@@ -772,7 +808,7 @@ namespace ModularFuelTanks
                 //print("Got string !" + k.value + ", split into " + val.Count() + " elements");
                 float atmo = float.Parse(val[0]);
                 float isp = float.Parse(val[1]);
-                isp = isp * ((sMult * atmo) + (ispVMult * (1f - atmo))); // lerp between vac and SL
+                isp = isp * ((sMult * atmo) + (vMult * (1f - atmo))); // lerp between vac and SL
                 val[1] = Math.Round(isp,1).ToString(); // round for neatness
                 string newVal = "";
                 foreach (string s in val)
@@ -851,15 +887,15 @@ namespace ModularFuelTanks
             }
 		}
 
-        private double ThrustTL()
+        private double ThrustTL(ConfigNode cfg = null)
         {
             if (techLevel != -1 && !engineType.Contains("S"))
             {
                 //return thrust * TLTTWRs[engineType][techLevel] / TLTTWRs[engineType][origTechLevel] / TLTIsps[engineType][techLevel].Evaluate(0) * TLTIsps[engineType][origTechLevel].Evaluate(0);
                 TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
-                if (!oldTL.Load(config, techNodes, engineType, origTechLevel))
+                if (!oldTL.Load(cfg == null ? config : cfg, techNodes, engineType, origTechLevel))
                     return 1.0;
-                if (!newTL.Load(config, techNodes, engineType, techLevel))
+                if (!newTL.Load(cfg == null ? config : cfg, techNodes, engineType, techLevel))
                     return 1.0;
 
                 return newTL.Thrust(oldTL);
@@ -867,26 +903,26 @@ namespace ModularFuelTanks
             return 1.0;
         }
 
-        private float ThrustTL(float thrust)
+        private float ThrustTL(float thrust, ConfigNode cfg = null)
         {
-            return (float)Math.Round(thrust * ThrustTL(), 3);
+            return (float)Math.Round((double)thrust * ThrustTL(cfg), 3);
         }
 
-        private float ThrustTL(string thrust)
+        private float ThrustTL(string thrust, ConfigNode cfg = null)
         {
             float tmp = 1.0f;
             float.TryParse(thrust, out tmp);
-            return ThrustTL(tmp);
+            return ThrustTL(tmp, cfg);
         }
 
-        private double MassTL()
+        private double MassTL(ConfigNode cfg = null)
         {
             if (techLevel != -1)
             {
                 TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
-                if (!oldTL.Load(config, techNodes, engineType, origTechLevel))
+                if (!oldTL.Load(cfg == null ? config : cfg, techNodes, engineType, origTechLevel))
                     return 1.0;
-                if (!newTL.Load(config, techNodes, engineType, techLevel))
+                if (!newTL.Load(cfg == null ? config : cfg, techNodes, engineType, techLevel))
                     return 1.0;
 
                 return newTL.Mass(oldTL, engineType.Contains("S"));
@@ -896,7 +932,7 @@ namespace ModularFuelTanks
 
         private float MassTL(float mass)
         {
-            return (float)Math.Round(mass * MassTL(), 3);
+            return (float)Math.Round((double)mass * MassTL(), 3);
         }
 
         private string TLTInfo()
@@ -930,7 +966,7 @@ namespace ModularFuelTanks
 				if(!config.GetValue ("name").Equals (configuration)) {
 					info += "   " + config.GetValue ("name") + "\n";
 					if(config.HasValue (thrustRating))
-						info += "    (" + ThrustTL(config.GetValue (thrustRating)).ToString("0.00") + " Thrust";
+						info += "    (" + ThrustTL(config.GetValue (thrustRating), config).ToString("0.00") + " Thrust";
 					else
 						info += "    (Unknown Thrust";
 					
@@ -992,7 +1028,7 @@ namespace ModularFuelTanks
             if (node.HasValue("maxTechLevel"))
                 int.TryParse(node.GetValue("maxTechLevel"), out maxTechLevel);
             else
-                { if (techLevel != -1) { maxTechLevel = TechLevel.maxTL(node, engineType); } }
+                { if (techLevel != -1) { maxTechLevel = TechLevel.MaxTL(node, engineType); } }
 
             if (node.HasValue("origMass"))
             {
@@ -1048,7 +1084,9 @@ namespace ModularFuelTanks
 
             if (techLevel != -1)
             {
+                maxTechLevel = TechLevel.MaxTL(cfg, techNodes, engineType);
                 TechLevel cTL = new TechLevel();
+                //print("For engine " + part.name + ", config " + configuration + ", max TL: " + TechLevel.MaxTL(cfg, techNodes, engineType));
                 cTL.Load(cfg, techNodes, engineType, techLevel);
                 TechLevel oTL = new TechLevel();
                 cTL.Load(cfg, techNodes, engineType, origTechLevel);
@@ -1225,24 +1263,38 @@ namespace ModularFuelTanks
             // NK Tech Level
             GUILayout.BeginHorizontal();
             GUILayout.Label("Tech Level: ");
-            if(GUILayout.Button("-"))
+            string minusStr = "X";
+            bool canMinus = false;
+            if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > origTechLevel)
             {
-                if (techLevel > origTechLevel)
-                {
+                minusStr = "-";
+                canMinus = true;
+            }
+            if(GUILayout.Button(minusStr) && canMinus)
+            {
+                //if (techLevel > origTechLevel)
+                //{
                     techLevel--;
                     SetConfiguration(configuration);
                     UpdateSymmetryCounterparts();
-                }
+                //}
             }
             GUILayout.Label(techLevel.ToString());
-            if(GUILayout.Button("+"))
+            string plusStr = "X";
+            bool canPlus = false;
+            if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1))
             {
-                if (techLevel < maxTechLevel)
-                {
+                plusStr = "+";
+                canPlus = true;
+            }
+            if(GUILayout.Button(plusStr) && canPlus)
+            {
+                //if (techLevel < TechLevel.MaxTL(config, techNodes, engineType))
+                //{
                     techLevel++;
                     SetConfiguration(configuration);
                     UpdateSymmetryCounterparts();
-                }
+                //}
             }
             GUILayout.EndHorizontal();
 
