@@ -42,7 +42,11 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
-v3.4 = \/
+v4.0 = \/
+*Rewritten Techlevels system. Supports per-part and per-config techlevel overrides.
+*Techlevels can be keyed to technodes. Stock, TLs are tied to the Rocketry nodes.
+
+v3.4 = \/ (unreleased)
 *Fixed basemass issue when using custom basemass (Thanks, RedAV8R!)
 *Fixed Hybrid Engine techlevel support
 *Native KSPI support

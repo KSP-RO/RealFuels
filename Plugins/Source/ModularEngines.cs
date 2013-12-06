@@ -478,6 +478,7 @@ namespace ModularFuelTanks
         public bool localCorrectThrust = true;
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
+        public float configMassMult = 1.0f;
 
         // *NEW* TL Handling
         public class TechLevel
@@ -932,7 +933,7 @@ namespace ModularFuelTanks
 
         private float MassTL(float mass)
         {
-            return (float)Math.Round((double)mass * MassTL(), 3);
+            return (float)Math.Round((double)mass * MassTL(), 4);
         }
 
         private string TLTInfo()
@@ -1120,7 +1121,13 @@ namespace ModularFuelTanks
                     // mass change
                     if (origMass > 0)
                     {
-                        part.mass = MassTL(origMass);
+                        float ftmp;
+                        configMassMult = 1.0f;
+                        if (cfg.HasValue("massMult"))
+                            if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
+                                configMassMult = ftmp;
+
+                        part.mass = MassTL(origMass * configMassMult);
                         /*if (!engineType.Contains("S"))
                             part.mass = (float)Math.Round(origMass / TLTIsps[engineType][techLevel].Evaluate(0) * TLTIsps[engineType][origTechLevel].Evaluate(0) * massMult, 3);
                         else
@@ -1166,6 +1173,18 @@ namespace ModularFuelTanks
                     {
                         configMaxThrust = ((ModuleEngines)part.Modules[type]).maxThrust;
                         configMinThrust = ((ModuleEngines)part.Modules[type]).minThrust;
+                        if (config.HasValue("maxThrust"))
+                        {
+                            float thr;
+                            if(float.TryParse(config.GetValue("maxThrust"), out thr))
+                                configMaxThrust = thr;
+                        }
+                        if (config.HasValue("minThrust"))
+                        {
+                            float thr;
+                            if(float.TryParse(config.GetValue("minThrust"), out thr))
+                                configMinThrust = thr;
+                        }
                     }
                     DoConfig(config);
 					part.Modules[type].Load (config);
@@ -1265,7 +1284,7 @@ namespace ModularFuelTanks
             GUILayout.Label("Tech Level: ");
             string minusStr = "X";
             bool canMinus = false;
-            if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > origTechLevel)
+            if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > origTechLevel && techLevel != -1)
             {
                 minusStr = "-";
                 canMinus = true;
@@ -1282,7 +1301,7 @@ namespace ModularFuelTanks
             GUILayout.Label(techLevel.ToString());
             string plusStr = "X";
             bool canPlus = false;
-            if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1))
+            if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel != -1)
             {
                 plusStr = "+";
                 canPlus = true;
