@@ -505,11 +505,9 @@ namespace ModularFuelTanks
             {
                 foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
                     MFSSettings = n;
-                if (MFSSettings == null)
-                    throw new UnityException("*MFS* MFSSettings not found!");
             }
             double dtmp;
-            if (MFSSettings.HasValue("BatteryMultiplier"))
+            if (MFSSettings != null && MFSSettings.HasValue("BatteryMultiplier"))
             {
                 if (double.TryParse(MFSSettings.GetValue("BatteryMultiplier"), out dtmp))
                     FuelTank.ELECTRICCHARGEMULT = dtmp;
@@ -723,10 +721,8 @@ namespace ModularFuelTanks
             {
                 foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
                     MFSSettings = node;
-                if (MFSSettings == null)
-                    throw new UnityException("*MFS* MFSSettings not found!");
             }
-            if (MFSSettings.HasValue("useRealisticMass"))
+            if (MFSSettings != null && MFSSettings.HasValue("useRealisticMass"))
             {
                 bool usereal = false;
                 bool.TryParse(MFSSettings.GetValue("useRealisticMass"), out usereal);
