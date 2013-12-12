@@ -194,20 +194,6 @@ namespace ModularFuelTanks
         public static float massMult = 1.0f;
         public static ConfigNode MFSSettings = null;
 
-        public static bool roundAmount = true; // do we round to 4sigfig?
-
-		public static float RoundTo4SigFigs(double f)
-		{
-			if(f >= 1000)
-				return (float) Math.Floor (f);
-			else if(f >= 100)
-				return (float) Math.Floor (f * 10.0) / 10;
-			else if(f >= 10)
-				return (float) Math.Floor (f * 100.0) / 100;
-			else
-				return (float) Math.Floor (f * 1000.0) / 1000;
-		}
-
 		// A FuelTank is a single TANK {} entry from the part.cfg file.
 		// it defines four properties:
 		// name = the name of the resource that can be stored
@@ -284,24 +270,13 @@ namespace ModularFuelTanks
                         return 0.0f;
                     else
                     {
-                        if (ModuleFuelTanks.roundAmount)
-                            return RoundTo4SigFigs(name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount); // NK echarge
-                        else
-                            return name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount;
+						return name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount;
                     }
 				}
 				
 				set {
 
                     double newMaxAmount = value;
-                    if (ModuleFuelTanks.roundAmount)
-                    {
-                        newMaxAmount = RoundTo4SigFigs(value);
-                        if (newMaxAmount > RoundTo4SigFigs(module.availableVolume * utilization + maxAmount))
-                        {
-                            newMaxAmount = RoundTo4SigFigs(module.availableVolume * utilization + maxAmount);
-                        }
-                    }
 
 					if (resource != null && newMaxAmount <= 0.0) {
 						part.Resources.list.Remove (resource);
@@ -374,7 +349,7 @@ namespace ModularFuelTanks
 						double v;
 						if(node.GetValue ("maxAmount").Contains ("%")) {
 							double.TryParse(node.GetValue("maxAmount").Replace("%", "").Trim(), out v);
-							maxAmount = RoundTo4SigFigs(v * module.volume * 0.01); // NK
+							maxAmount = v * module.volume * 0.01; // NK
 						} else {
 							double.TryParse(node.GetValue ("maxAmount"), out v);
 							maxAmount = v;
@@ -435,13 +410,13 @@ namespace ModularFuelTanks
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						v += fuel.maxAmount / fuel.utilization;
 				}
-				return RoundTo4SigFigs(v);
+				return (float) v;
 			}
 		}
 		
 		public float availableVolume {
 			get {
-				return RoundTo4SigFigs(volume - usedVolume);
+				return volume - usedVolume;
 			}
 		}
         public float tank_massPV = 0.0f;
@@ -454,8 +429,8 @@ namespace ModularFuelTanks
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						m += (float) fuel.maxAmount * fuel.mass * massMult; // NK for realistic masses
 				}
-                tank_massPV = RoundTo4SigFigs(m / volume);
-				return RoundTo4SigFigs(m);
+                tank_massPV = m / volume;
+				return m;
 			}
 		}
 
@@ -542,7 +517,7 @@ namespace ModularFuelTanks
                 {
                     float.TryParse(base_mass.Replace("volume", "").Replace("*", "").Trim(), out basemass);
                     basemassPV = basemass;
-                    basemass = RoundTo4SigFigs(basemass * volume);
+                    basemass = basemass * volume;
                 }
                 // NK allow static basemass
                 else
@@ -882,7 +857,7 @@ namespace ModularFuelTanks
 			GUILayout.BeginVertical ();
 
 			GUILayout.BeginHorizontal();
-			GUILayout.Label ("Current mass: " + ModuleFuelTanks.RoundTo4SigFigs(part.mass + part.GetResourceMass()) + " Ton(s)");
+			GUILayout.Label ("Current mass: " + part.mass + part.GetResourceMass() + " Ton(s)");
 			GUILayout.Label ("Dry mass: " + Math.Round(1000 * part.mass) / 1000.0 + " Ton(s)");
 			GUILayout.EndHorizontal ();
 			
@@ -920,8 +895,8 @@ namespace ModularFuelTanks
 				}
 				GUILayout.Label(" " + tank, GUILayout.Width (120));
 				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {					
-					double amount = ModuleFuelTanks.RoundTo4SigFigs (part.Resources[tank].amount);
-					double maxAmount = ModuleFuelTanks.RoundTo4SigFigs (part.Resources[tank].maxAmount);
+					double amount = part.Resources[tank].amount;
+					double maxAmount = part.Resources[tank].maxAmount;
 					
 					GUIStyle color = new GUIStyle(GUI.skin.textField);
 					if(tank.fillable) {
@@ -1006,7 +981,7 @@ namespace ModularFuelTanks
 					}
 					
 				} else if(availableVolume >= 0.001) {
-					string extraData = "Max: " + ModuleFuelTanks.RoundTo4SigFigs(availableVolume * tank.utilization).ToString () + " (+" + ModuleFuelTanks.RoundTo4SigFigs(availableVolume * tank.utilization * tank.mass) + " tons)" ;
+					string extraData = "Max: " + (availableVolume * tank.utilization).ToString () + " (+" + availableVolume * tank.utilization * tank.mass + " tons)" ;
 					
 					GUILayout.Label(extraData, GUILayout.Width (150));
 					
@@ -1181,11 +1156,6 @@ namespace ModularFuelTanks
 			return new List<Part>(ppart.FindChildParts<Part> (true)).FindAll (p => p.Modules.Contains ("ModuleEngines"));
 		}
 
-        // called by StretchyTanks
-        public void RoundOn(bool on)
-        {
-            roundAmount = on;
-        }
         //called by StretchyTanks
         public void ChangeVolume(float newVolume)
         {
@@ -1210,14 +1180,14 @@ namespace ModularFuelTanks
                 double newMax = (maxes[i] / totalAmt) * totalVol;
                 if (newMax < tank.maxAmount)
                 {
-                    tank.amount = amtratios[i] * newMax; // not rounding!
-                    tank.maxAmount = newMax; // not rounding!
+                    tank.amount = amtratios[i] * newMax;
+                    tank.maxAmount = newMax;
                 }
                 else
                 {
                     //print("Decreasing " + tank.name + " to " + newMax);
-                    tank.maxAmount = newMax; // not rounding!
-                    tank.amount = amtratios[i] * newMax; // not rounding!
+                    tank.maxAmount = newMax;
+                    tank.amount = amtratios[i] * newMax;
                 }
             }
             if(textFields != null)
