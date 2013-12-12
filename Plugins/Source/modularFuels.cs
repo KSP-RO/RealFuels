@@ -1066,7 +1066,7 @@ namespace ModularFuelTanks
                     // then final volume per fuel = fuel_ratio / fuel_utilization / efficciency
 
 
-                    foreach (ModuleEngines.Propellant tfuel in thruster.propellants)
+                    foreach (Propellant tfuel in thruster.propellants)
                     {
                         if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null)
                         {
@@ -1096,7 +1096,7 @@ namespace ModularFuelTanks
                     if (ratio_factor > 0.0)
                     {
                         string label = "";
-                        foreach (ModuleEngines.Propellant tfuel in thruster.propellants)
+                        foreach (Propellant tfuel in thruster.propellants)
                         {
                             if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                             {
@@ -1135,8 +1135,8 @@ namespace ModularFuelTanks
                         {
                             textFields.Clear();
 
-                            double total_volume = availableVolume; //* (1 - usedBy[label].inefficiency / usedBy[label].ratio_factor);
-                            foreach (ModuleEngines.Propellant tfuel in usedBy[label].thruster.propellants)
+                            double total_volume = availableVolume * (1 - usedBy[label].inefficiency / usedBy[label].ratio_factor);
+                            foreach (Propellant tfuel in usedBy[label].thruster.propellants)
                             {
                                 if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                                 {

@@ -75,7 +75,7 @@ namespace ModularFuelTanks
 			}
 			
 			//  set up propellants
-			foreach (ModuleEngines.Propellant propellant in ActiveEngine.propellants) {
+			foreach (Propellant propellant in ActiveEngine.propellants) {
 				if(propellant.drawStackGauge) { // we need to handle fuel gauges ourselves
 					propellant.drawStackGauge = false;
 					propellants.Add (propellant);
@@ -99,7 +99,7 @@ namespace ModularFuelTanks
 		{
 			SetThrust ();
 			if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
-				foreach (ModuleEngines.Propellant propellant in propellants) {
+				foreach (Propellant propellant in propellants) {
 					if (!meters.ContainsKey (propellant.name)) // how did we miss one?
 						meters.Add (propellant.name, NewMeter (propellant.name));
 					
@@ -132,12 +132,12 @@ namespace ModularFuelTanks
 			}
 		}
 		
-		List<ModuleEngines.Propellant> _props; 
-		List<ModuleEngines.Propellant> propellants 
+		List<Propellant> _props; 
+		List<Propellant> propellants 
 		{
 			get {
 				if(_props == null)
-					_props = new List<ModuleEngines.Propellant>();
+					_props = new List<Propellant>();
 				return _props;
 			}
 		}
@@ -285,7 +285,7 @@ namespace ModularFuelTanks
 			}
 
 			//  set up propellants
-			foreach (ModuleEngines.Propellant propellant in ActiveEngine.propellants) {
+			foreach (Propellant propellant in ActiveEngine.propellants) {
 				if(propellant.drawStackGauge) { // we need to handle fuel gauges ourselves
 					propellant.drawStackGauge = false;
 					propellants.Add (propellant);
@@ -326,7 +326,7 @@ namespace ModularFuelTanks
 		{
 			if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
 				SetThrust ((float) vessel.atmDensity);
-				foreach (ModuleEngines.Propellant propellant in propellants) {
+				foreach (Propellant propellant in propellants) {
 					if (!meters.ContainsKey (propellant.name)) // how did we miss one?
 						meters.Add (propellant.name, NewMeter (propellant.name));
 					
@@ -375,12 +375,12 @@ namespace ModularFuelTanks
 			ActiveEngine.maxThrust = maxThrust;
 		}
 
-		List<ModuleEngines.Propellant> _props; 
-		List<ModuleEngines.Propellant> propellants 
+		List<Propellant> _props; 
+		List<Propellant> propellants 
 		{
 			get {
 				if(_props == null)
-					_props = new List<ModuleEngines.Propellant>();
+					_props = new List<Propellant>();
 				return _props;
 			}
 		}
