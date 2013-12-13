@@ -458,6 +458,9 @@ namespace ModularFuelTanks
 		public float volume = 0.0f;
 
 		public List<FuelTank> fuelList;
+		public List<ConfigNode> tNodes;
+		double total_volume;
+		double ratio_factor;
 
 		public static ConfigNode TankDefinition(string name)
 		{
@@ -491,6 +494,38 @@ namespace ModularFuelTanks
                 return MFSSettings.GetValue(setting);
             }
 			return dflt;
+		}
+
+		public override void OnInitialize()
+		{
+			foreach (ConfigNode tankNode in tNodes) {
+				double ratio;
+				double.TryParse (tankNode.GetValue ("maxAmount").Replace ("%", "").Trim (), out ratio);
+                // NK amount < full
+                // for now, treat as ratio.
+                double amt;
+                if (tankNode.HasValue("amount"))
+                {
+                    if (tankNode.GetValue("amount").Trim().ToLower().Equals("full"))
+                            amt = 1.0;
+                    else
+                    {
+                        double.TryParse(tankNode.GetValue("amount"), out amt);
+                    }
+                }
+                else
+                    amt = 1.0;
+
+
+				FuelTank tank = fuelList.Find (t => t.name == tankNode.GetValue ("name"));
+
+                tank.maxAmount = Math.Floor(1000 * total_volume * ratio / ratio_factor) / 1000.0;
+                if (tank.fillable)
+                    tank.amount = Math.Floor(1000 * total_volume * ratio * amt / ratio_factor) / 1000.0;
+                else
+                    tank.amount = 0;
+
+			}
 		}
 
 		public override void OnLoad(ConfigNode node)
@@ -549,9 +584,9 @@ namespace ModularFuelTanks
 			else
 				fuelList.Clear ();
 
-			List<ConfigNode> tNodes = new List<ConfigNode> ();
+			tNodes = new List<ConfigNode> ();
 			double inefficiency = 0;
-			double ratio_factor = 0;
+			ratio_factor = 0;
 
 			foreach (ConfigNode tankNode in node.nodes) {
 				if (tankNode.name.Equals ("TANK")) {
@@ -592,36 +627,7 @@ namespace ModularFuelTanks
 					}
 				}
 			}
-			double total_volume = availableVolume * (1 - inefficiency / ratio_factor);
-
-			foreach (ConfigNode tankNode in tNodes) {
-				double ratio;
-				double.TryParse (tankNode.GetValue ("maxAmount").Replace ("%", "").Trim (), out ratio);
-                // NK amount < full
-                // for now, treat as ratio.
-                double amt;
-                if (tankNode.HasValue("amount"))
-                {
-                    if (tankNode.GetValue("amount").Trim().ToLower().Equals("full"))
-                            amt = 1.0;
-                    else
-                    {
-                        double.TryParse(tankNode.GetValue("amount"), out amt);
-                    }
-                }
-                else
-                    amt = 1.0;
-
-
-				FuelTank tank = fuelList.Find (t => t.name == tankNode.GetValue ("name"));
-
-                tank.maxAmount = Math.Floor(1000 * total_volume * ratio / ratio_factor) / 1000.0;
-                if (tank.fillable)
-                    tank.amount = Math.Floor(1000 * total_volume * ratio * amt / ratio_factor) / 1000.0;
-                else
-                    tank.amount = 0;
-
-			}
+			total_volume = availableVolume * (1 - inefficiency / ratio_factor);
 
 #if DEBUG
 			print ("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
