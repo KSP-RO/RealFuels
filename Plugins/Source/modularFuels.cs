@@ -468,6 +468,17 @@ namespace ModularFuelTanks
 			return null;
 		}
 
+		private void CopyConfigValue(ConfigNode src, ConfigNode dst, string key)
+		{
+			if (src.HasValue(key))
+			{
+				if(dst.HasValue(key))
+					dst.SetValue(key, src.GetValue(key));
+				else
+					dst.AddValue(key, src.GetValue(key));
+			}
+		}
+
 		public static string GetSetting(string setting, string dflt)
 		{
             if (MFSSettings == null)
@@ -556,63 +567,14 @@ namespace ModularFuelTanks
                     {
                         if (tnk.name.Equals("TANK") && tnk.HasValue("name") && tnk.GetValue("name").Equals(tankNode.GetValue("name")))
                         {
-                            if (tnk.HasValue("fillable"))
-                            {
-                                if (tankNode.HasValue("fillable"))
-                                    tankNode.SetValue("fillable", tnk.GetValue("fillable"));
-                                else
-                                    tankNode.AddValue("fillable", tnk.GetValue("fillable"));
-                            }
-                            if (tnk.HasValue("utilization"))
-                            {
-                                if(tankNode.HasValue("utilization"))
-                                    tankNode.SetValue("utilization", tnk.GetValue("utilization"));
-                                else
-                                    tankNode.AddValue("utilization", tnk.GetValue("utilization"));
-                            }
-                            if (tnk.HasValue("mass"))
-                            {
-                                if(tankNode.HasValue("mass"))
-                                    tankNode.SetValue("mass", tnk.GetValue("mass"));
-                                else
-                                    tankNode.AddValue("mass", tnk.GetValue("mass"));
-                            }
-                            if (tnk.HasValue("temperature"))
-                            {
-                                if(tankNode.HasValue("temperature"))
-                                    tankNode.SetValue("temperature", tnk.GetValue("temperature"));
-                                else
-                                    tankNode.AddValue("temperature", tnk.GetValue("temperature"));
-                            }
-                            if (tnk.HasValue("loss_rate"))
-                            {
-                                if(tankNode.HasValue("loss_rate"))
-                                    tankNode.SetValue("loss_rate", tnk.GetValue("loss_rate"));
-                                else
-                                    tankNode.AddValue("loss_rate", tnk.GetValue("loss_rate"));
-                            }
-                            if (tnk.HasValue("amount"))
-                            {
-                                if(tankNode.HasValue("amount"))
-                                    tankNode.SetValue("amount", tnk.GetValue("amount"));
-                                else
-                                    tankNode.AddValue("amount", tnk.GetValue("amount"));
-                            }
-                            if (tnk.HasValue("maxAmount"))
-                            {
-                                if(tankNode.HasValue("maxAmount"))
-                                    tankNode.SetValue("maxAmount", tnk.GetValue("maxAmount"));
-                                else
-                                    tankNode.AddValue("maxAmount", tnk.GetValue("maxAmount"));
-                            }
-                            if (tnk.HasValue("note"))
-                            {
-                                if(tankNode.HasValue("note"))
-                                    tankNode.SetValue("note", tnk.GetValue("note"));
-                                else
-                                    tankNode.AddValue("note", tnk.GetValue("note"));
-                            }
-
+							CopyConfigValue(tnk, tankNode, "fillable");
+							CopyConfigValue(tnk, tankNode, "utilization");
+							CopyConfigValue(tnk, tankNode, "mass");
+							CopyConfigValue(tnk, tankNode, "temperature");
+							CopyConfigValue(tnk, tankNode, "loss_rate");
+							CopyConfigValue(tnk, tankNode, "amount");
+							CopyConfigValue(tnk, tankNode, "maxAmount");
+							CopyConfigValue(tnk, tankNode, "note");
                         }
                     }
                     // NK end
