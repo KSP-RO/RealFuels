@@ -468,6 +468,20 @@ namespace ModularFuelTanks
 			return null;
 		}
 
+		public static string GetSetting(string setting, string dflt)
+		{
+            if (MFSSettings == null)
+            {
+                foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
+                    MFSSettings = n;
+            }
+            if (MFSSettings != null && MFSSettings.HasValue(setting))
+            {
+                return MFSSettings.GetValue(setting);
+            }
+			return dflt;
+		}
+
 		public override void OnLoad(ConfigNode node)
 		{
 #if debug
@@ -476,19 +490,11 @@ namespace ModularFuelTanks
 #endif
 
             // NK Load ELECTRICCHARGEMULT
-            if (MFSSettings == null)
-            {
-                foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
-                    MFSSettings = n;
-            }
-            double dtmp;
-            if (MFSSettings != null && MFSSettings.HasValue("BatteryMultiplier"))
-            {
-                if (double.TryParse(MFSSettings.GetValue("BatteryMultiplier"), out dtmp))
-                    FuelTank.ELECTRICCHARGEMULT = dtmp;
-                else
-                    FuelTank.ELECTRICCHARGEMULT = 100;
-            }
+			double dtmp;
+			if (double.TryParse(GetSetting("BatteryMultiplier", "100"), out dtmp))
+				FuelTank.ELECTRICCHARGEMULT = dtmp;
+			else
+				FuelTank.ELECTRICCHARGEMULT = 100;
 
             ConfigNode oldnode = new ConfigNode(); // NK allow override TANK
             node.CopyTo(oldnode);
@@ -692,22 +698,12 @@ namespace ModularFuelTanks
 #if DEBUG
 			print ("========ModuleFuelTanks.OnStart( State == " + state.ToString () + ")=======");
 #endif
-            if (MFSSettings == null)
-            {
-                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
-                    MFSSettings = node;
-            }
-            if (MFSSettings != null && MFSSettings.HasValue("useRealisticMass"))
-            {
-                bool usereal = false;
-                bool.TryParse(MFSSettings.GetValue("useRealisticMass"), out usereal);
-                if (!usereal)
-                    massMult = massMult = float.Parse(MFSSettings.GetValue("tankMassMultiplier"));
-                else
-                    massMult = 1.0f;
-            }
-            else
-                massMult = 1.0f;
+			bool usereal = false;
+			bool.TryParse(GetSetting("useRealisticMass", "false"), out usereal);
+			if (!usereal)
+				massMult = float.Parse(GetSetting("tankMassMultiplier", "1.0"));
+			else
+				massMult = 1.0f;
 
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
