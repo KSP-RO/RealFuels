@@ -606,7 +606,7 @@ namespace ModularFuelTanks
                             amt = 1.0;
                     else
                     {
-                        double.TryParse(node.GetValue("amount"), out amt);
+                        double.TryParse(tankNode.GetValue("amount"), out amt);
                     }
                 }
                 else
