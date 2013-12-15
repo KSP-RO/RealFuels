@@ -194,7 +194,7 @@ namespace ModularFuelTanks
         public static float massMult = 1.0f;
         public static ConfigNode MFSSettings = null;
 
-        public static bool roundAmount = true; // do we round to 4sigfig?
+        public static bool roundAmount = false; // do we round to 4sigfig?
 
 		public static float RoundTo4SigFigs(double f)
 		{
@@ -560,7 +560,8 @@ namespace ModularFuelTanks
 				fuelList.Clear ();
 
 			List<ConfigNode> tNodes = new List<ConfigNode> ();
-			double inefficiency = 0;
+            // disabled inefficiency code: now you set volumes without regard to utilization.
+			//double inefficiency = 0;
 			double ratio_factor = 0;
 
 			foreach (ConfigNode tankNode in node.nodes) {
@@ -645,13 +646,13 @@ namespace ModularFuelTanks
 						double ratio;
 						double.TryParse (tankNode.GetValue ("maxAmount").Replace ("%", "").Trim (), out ratio);
 
-						inefficiency += (1 - tank.utilization) * ratio;
+						//inefficiency += (1 - tank.utilization) * ratio;
 						ratio_factor += ratio;
 
 					}
 				}
 			}
-			double total_volume = availableVolume * (1 - inefficiency / ratio_factor);
+            double total_volume = availableVolume / ratio_factor; //availableVolume * (1 - inefficiency / ratio_factor);
 
 			foreach (ConfigNode tankNode in tNodes) {
 				double ratio;
@@ -674,9 +675,9 @@ namespace ModularFuelTanks
 
 				FuelTank tank = fuelList.Find (t => t.name == tankNode.GetValue ("name"));
 
-                tank.maxAmount = Math.Floor(1000 * total_volume * ratio / ratio_factor) / 1000.0;
+                tank.maxAmount = total_volume * ratio / ratio_factor * tank.utilization;
                 if (tank.fillable)
-                    tank.amount = Math.Floor(1000 * total_volume * ratio * amt / ratio_factor) / 1000.0;
+                    tank.amount = total_volume * ratio * amt / ratio_factor * tank.utilization;
                 else
                     tank.amount = 0;
 
@@ -878,7 +879,7 @@ namespace ModularFuelTanks
         {
             public string names;
             public ModuleEngines thruster;
-            public double inefficiency;
+            public double efficiency;
             public double ratio_factor;
         }
 		private void fuelManagerGUI(int WindowID)
@@ -1015,7 +1016,7 @@ namespace ModularFuelTanks
 					GUILayout.Label(extraData, GUILayout.Width (150));
 					
 					if(GUILayout.Button("Add", GUILayout.Width (130))) {
-						tank.maxAmount = Math.Floor (1000 * availableVolume * tank.utilization) / 1000.0;
+						tank.maxAmount = availableVolume * tank.utilization;
 						if(tank.fillable)
 							tank.amount = tank.maxAmount;
 						else
@@ -1057,13 +1058,12 @@ namespace ModularFuelTanks
                 foreach (Part engine in GetEnginesFedBy(part))
                 {
                     double ratio_factor = 0.0;
-                    double inefficiency = 0.0;
+                    double efficiency = 0.0;
                     ModuleEngines thruster = (ModuleEngines)engine.Modules["ModuleEngines"];
 
                     // tank math:
-                    // inefficiency = sum[(1 - utilization) * ratio]
-                    // fluid_v = v * (1 - inefficiency)
-                    // f = fluid_v * ratio
+                    // efficiency = sum[utilization * ratio]
+                    // then final volume per fuel = fuel_ratio / fuel_utilization / efficciency
 
 
                     foreach (ModuleEngines.Propellant tfuel in thruster.propellants)
@@ -1083,7 +1083,7 @@ namespace ModularFuelTanks
                             ModuleFuelTanks.FuelTank tank = fuelList.Find(f => f.ToString().Equals(tfuel.name));
                             if (tank)
                             {
-                                inefficiency += (1 - tank.utilization) * tfuel.ratio;
+                                efficiency += tfuel.ratio / tank.utilization;
                                 ratio_factor += tfuel.ratio;
                             }
                             else
@@ -1102,7 +1102,7 @@ namespace ModularFuelTanks
                             {
                                 if (label.Length > 0)
                                     label += " / ";
-                                label += Math.Round(100 * tfuel.ratio / ratio_factor).ToString() + "% " + tfuel.name;
+                                label += Math.Round(100 * tfuel.ratio / ratio_factor,1).ToString() + "% " + tfuel.name;
                             }
 
                         }
@@ -1110,7 +1110,7 @@ namespace ModularFuelTanks
                         {
                             FuelInfo f = new FuelInfo();
                             f.names = "Used by: " + thruster.part.partInfo.title;
-                            f.inefficiency = inefficiency;
+                            f.efficiency = efficiency;
                             f.ratio_factor = ratio_factor;
                             f.thruster = thruster;
                             usedBy.Add(label, f);
@@ -1135,7 +1135,7 @@ namespace ModularFuelTanks
                         {
                             textFields.Clear();
 
-                            double total_volume = availableVolume * (1 - usedBy[label].inefficiency / usedBy[label].ratio_factor);
+                            double total_volume = availableVolume; //* (1 - usedBy[label].inefficiency / usedBy[label].ratio_factor);
                             foreach (ModuleEngines.Propellant tfuel in usedBy[label].thruster.propellants)
                             {
                                 if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
@@ -1143,8 +1143,11 @@ namespace ModularFuelTanks
                                     ModuleFuelTanks.FuelTank tank = fuelList.Find(t => t.name.Equals(tfuel.name));
                                     if (tank)
                                     {
-                                        tank.maxAmount += Math.Floor(1000 * total_volume * tfuel.ratio / usedBy[label].ratio_factor) / 1000.0;
-                                        tank.amount += Math.Floor(1000 * total_volume * tfuel.ratio / usedBy[label].ratio_factor) / 1000.0;
+                                        //tank.maxAmount += Math.Floor(1000 * total_volume * tfuel.ratio / usedBy[label].ratio_factor) / 1000.0;
+                                        //tank.amount += Math.Floor(1000 * total_volume * tfuel.ratio / usedBy[label].ratio_factor) / 1000.0;
+                                        double amt = total_volume * tfuel.ratio / usedBy[label].efficiency;
+                                        tank.maxAmount += amt;
+                                        tank.amount += amt;
                                     }
                                 }
                             }
@@ -1188,7 +1191,7 @@ namespace ModularFuelTanks
         // called by StretchyTanks
         public void RoundOn(bool on)
         {
-            roundAmount = on;
+            roundAmount = false; // on
         }
         //called by StretchyTanks
         public void ChangeVolume(float newVolume)
@@ -1211,7 +1214,8 @@ namespace ModularFuelTanks
             for (int i = 0; i < fuelList.Count; i++)
             {
                 ModuleFuelTanks.FuelTank tank = fuelList[i];
-                double newMax = (maxes[i] / totalAmt) * totalVol;
+                // this screws up re: utilization -- double newMax = (maxes[i] / totalAmt) * totalVol;
+                double newMax = maxes[i] * volRatio;
                 if (newMax < tank.maxAmount)
                 {
                     tank.amount = amtratios[i] * newMax; // not rounding!

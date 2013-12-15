@@ -1222,7 +1222,7 @@ namespace ModularFuelTanks
         //called by StretchyTanks StretchySRB
         virtual public void ChangeThrust(float newThrust)
         {
-            //print("*MFS* Setting new max thrust " + newThrust.ToString());
+            //print("*MFS* For " + part.GetInstanceID() + ", Setting new max thrust " + newThrust.ToString());
             foreach(ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust.ToString());
