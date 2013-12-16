@@ -8,10 +8,10 @@ namespace ModularFuelTanks
 {
 	public class RefuelingPump: PartModule
 	{
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		double timestamp = 0.0;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		double pump_rate = 100.0; // 625 liters/second seems reasonable.
 
 		public override string GetInfo ()
@@ -52,7 +52,7 @@ namespace ModularFuelTanks
 			}
 		}
 	}
-	
+
 	public class ModuleHeatPump: PartModule
 	{
 		public class ResourceRate
@@ -109,13 +109,13 @@ namespace ModularFuelTanks
 			base.Events ["Activate"].active = true;
 		}
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public bool isActive = false;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float heatDissipation = 0.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float heatTransfer = 0.0f;
 
 		public List<ResourceRate> resources;
@@ -132,7 +132,7 @@ namespace ModularFuelTanks
 				else
 					s += "  " + resource.name + ": " + (resource.rate * 3600).ToString ("2F") + "/h\n";
 			}
-			
+
 			return s;
 		}
 
@@ -229,7 +229,7 @@ namespace ModularFuelTanks
 					return name.GetHashCode ();
 				}
 			}
-			
+
 			public Part part
 			{
 				get {
@@ -238,7 +238,7 @@ namespace ModularFuelTanks
 					return module.part;
 				}
 			}
-			
+
 			public PartResource resource
 			{
 				get {
@@ -247,7 +247,7 @@ namespace ModularFuelTanks
 					return part.Resources [name];
 				}
 			}
-			
+
 
 			public double amount {
 				get {
@@ -260,10 +260,10 @@ namespace ModularFuelTanks
 					double newAmount = value;
 					if(newAmount > maxAmount)
 						newAmount = maxAmount;
-					
+
 					if(resource != null)
                         resource.amount = name.Equals("ElectricCharge") ? ELECTRICCHARGEMULT * newAmount : newAmount; // NK echarge
-					
+
 				}
 			}
 
@@ -276,7 +276,7 @@ namespace ModularFuelTanks
 						return name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount;
                     }
 				}
-				
+
 				set {
 
                     double newMaxAmount = value;
@@ -316,7 +316,7 @@ namespace ModularFuelTanks
 			{
 				return (f != null);
 			}
-			
+
 			public static implicit operator string(FuelTank f)
 			{
 				return f.name;
@@ -328,7 +328,7 @@ namespace ModularFuelTanks
 					return "NULL";
 				return name;
 			}
-			
+
 			//------------------- IConfigNode implementation
 			public void Load(ConfigNode node)
 			{
@@ -373,7 +373,7 @@ namespace ModularFuelTanks
 					}
 				}
 			}
-			
+
 			public void Save(ConfigNode node)
 			{
 				if (name != null) {
@@ -385,7 +385,7 @@ namespace ModularFuelTanks
                     node.AddValue("fillable", fillable);
 
 					//if(HighLogic.LoadedSceneIsEditor) {
-					// You would think we only want to do this in the editor, but 
+					// You would think we only want to do this in the editor, but
 					// as it turns out, KSP is terrible about consistently setting
 					// up resources between the editor and the launchpad.
 						node.AddValue ("amount", amount);
@@ -400,7 +400,7 @@ namespace ModularFuelTanks
 			public FuelTank()
 			{
 			}
-			
+
 		}
 
 		public static string GetSetting(string setting, string dflt)
@@ -452,7 +452,7 @@ namespace ModularFuelTanks
 				return (float) v;
 			}
 		}
-		
+
 		public float availableVolume {
 			get {
 				return volume - usedVolume;
@@ -475,26 +475,26 @@ namespace ModularFuelTanks
 		}
 
 		//------------------- this is all KSP stuff
-		
-		[KSPField(isPersistant = true)] 
+
+		[KSPField(isPersistant = true)]
 		public double timestamp = 0.0;
-		
-		[KSPField(isPersistant = true)] 
+
+		[KSPField(isPersistant = true)]
 		public float radius = 0.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float rscale = 1.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float length = 1.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float basemass = 0.0f;
 
         [KSPField(isPersistant = true)]
         public float basemassPV = 0.0f;
-		
-		[KSPField(isPersistant = true)] 
+
+		[KSPField(isPersistant = true)]
 		public float volume = 0.0f;
 
 		public ConfigNode stage;		// configuration for this part (instance)
@@ -634,8 +634,8 @@ namespace ModularFuelTanks
 #endif
 		}
 
-		
-		
+
+
 		public override void OnSave (ConfigNode node)
 		{
 #if DEBUG
@@ -728,7 +728,7 @@ namespace ModularFuelTanks
 		public override string GetInfo ()
 		{
 			string info = "Modular Fuel Tank: \n"
-				+ "  Max Volume: " + volume.ToString () + "\n" 
+				+ "  Max Volume: " + volume.ToString () + "\n"
 					+ "  Tank can hold:";
 			foreach(FuelTank tank in fuelList)
 			{
@@ -775,15 +775,15 @@ namespace ModularFuelTanks
 			GUILayout.Label ("Current mass: " + part.mass + part.GetResourceMass() + " Ton(s)");
 			GUILayout.Label ("Dry mass: " + Math.Round(1000 * part.mass) / 1000.0 + " Ton(s)");
 			GUILayout.EndHorizontal ();
-			
+
 			if (fuelList.Count == 0) {
-				
+
 				GUILayout.BeginHorizontal();
 				GUILayout.Label ("This fuel tank cannot hold resources.");
 				GUILayout.EndHorizontal ();
 				return;
 			}
-			
+
 			GUILayout.BeginHorizontal();
 			GUILayout.Label ("Available volume: " + availableVolume + " / " + volume);
 			GUILayout.EndHorizontal ();
@@ -809,10 +809,10 @@ namespace ModularFuelTanks
 					textFields[maxAmountField] = tank.maxAmount.ToString();
 				}
 				GUILayout.Label(" " + tank, GUILayout.Width (120));
-				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {					
+				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {
 					double amount = part.Resources[tank].amount;
 					double maxAmount = part.Resources[tank].maxAmount;
-					
+
 					GUIStyle color = new GUIStyle(GUI.skin.textField);
 					if(tank.fillable) {
 						if(textFields[amountField].Trim().Equals ("")) // I'm not sure why this happens, but we'll fix it here.
@@ -837,9 +837,9 @@ namespace ModularFuelTanks
 						GUILayout.Label ("None", color, GUILayout.Width (65));
 					}
 					GUILayout.Label("/", GUILayout.Width (5));
-					
-					
-					
+
+
+
 					color = new GUIStyle(GUI.skin.textField);
                     if (textFields[maxAmountField].Equals((maxAmount / (tank.ToString().Equals("ElectricCharge") ? FuelTank.ELECTRICCHARGEMULT : 1.0)).ToString()))
                     {
@@ -854,11 +854,11 @@ namespace ModularFuelTanks
 						color.hover.textColor = Color.yellow;
 					}
 					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], color, GUILayout.Width (65));
-					
+
 					GUILayout.Label(" ", GUILayout.Width (5));
-					
+
 					if(GUILayout.Button ("Update", GUILayout.Width (60))) {
-						
+
 						double newMaxAmount = maxAmount;
 						if(!double.TryParse (textFields[maxAmountField], out newMaxAmount))
 							newMaxAmount = maxAmount;
@@ -872,70 +872,70 @@ namespace ModularFuelTanks
 						}
 						if(newMaxAmount != maxAmount) {
 							tank.maxAmount = newMaxAmount;
-							
+
 						}
-						
+
 						if(newAmount != amount || newAmount == 0) { // NK kethane fix?
 							tank.amount = newAmount;
 						}
-						
+
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
-						
-						if(part.symmetryCounterparts.Count > 0) 
+
+						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-						
+
 					}
 					if(GUILayout.Button ("Remove", GUILayout.Width (60))) {
 						tank.maxAmount = 0;
 						textFields[amountField] = "0";
 						textFields[maxAmountField] = "0";
-						if(part.symmetryCounterparts.Count > 0) 
+						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-						
+
 					}
-					
+
 				} else if(availableVolume >= 0.001) {
 					string extraData = "Max: " + (availableVolume * tank.utilization).ToString () + " (+" + availableVolume * tank.utilization * tank.mass + " tons)" ;
-					
+
 					GUILayout.Label(extraData, GUILayout.Width (150));
-					
+
 					if(GUILayout.Button("Add", GUILayout.Width (130))) {
 						tank.maxAmount = availableVolume * tank.utilization;
 						if(tank.fillable)
 							tank.amount = tank.maxAmount;
 						else
 							tank.amount = 0;
-						
+
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
-						if(part.symmetryCounterparts.Count > 0) 
+						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-						
+
 					}
 				} else {
 					GUILayout.Label ("  No room for tank.", GUILayout.Width (150));
-					
+
 				}
 				GUILayout.EndHorizontal ();
-				
+
 			}
-			
+
 			GUILayout.BeginHorizontal();
 			if(GUILayout.Button ("Remove All Tanks")) {
 				textFields.Clear ();
 				foreach(ModuleFuelTanks.FuelTank tank in fuelList)
 					tank.maxAmount = 0;
-				if(part.symmetryCounterparts.Count > 0) 
+				if(part.symmetryCounterparts.Count > 0)
 					UpdateSymmetryCounterparts();
-				
-			}	
+
+			}
 			GUILayout.EndHorizontal();
 			if(GetEnginesFedBy(part).Count > 0 && availableVolume >= 0.001)
 			{
                 Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
-				
+
 				GUILayout.BeginHorizontal();
 				GUILayout.Label ("Configure remaining volume for engines:");
 				GUILayout.EndHorizontal();
@@ -1062,14 +1062,14 @@ namespace ModularFuelTanks
             }
             //print("GT: " + GUI.tooltip);
 		}
-		
+
 
 		public static List<Part> GetEnginesFedBy(Part part)
 		{
 			Part ppart = part;
 			while (ppart.parent != null && ppart.parent != ppart)
 				ppart = ppart.parent;
-			
+
 			return new List<Part>(ppart.FindChildParts<Part> (true)).FindAll (p => p.Modules.Contains ("ModuleEngines"));
 		}
 
