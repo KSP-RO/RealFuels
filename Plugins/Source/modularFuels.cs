@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using KSP;
 
@@ -193,6 +194,8 @@ namespace ModularFuelTanks
 	{
         public static float massMult = 1.0f;
         public static ConfigNode MFSSettings = null;
+		private static bool initialized = false;
+		public static Dictionary<string, ConfigNode> stageDefinitions;	// configuration for all parts of this type
 
 		// A FuelTank is a single TANK {} entry from the part.cfg file.
 		// it defines four properties:
@@ -345,11 +348,11 @@ namespace ModularFuelTanks
 						double.TryParse (node.GetValue("loss_rate"), out loss_rate);
 					if(node.HasValue ("mass"))
 						float.TryParse (node.GetValue("mass"), out mass);
-					if(node.HasValue ("maxAmount") && !node.GetValue ("maxAmount").Contains ("%")) {
+					if(node.HasValue ("maxAmount")) {
 						double v;
 						if(node.GetValue ("maxAmount").Contains ("%")) {
 							double.TryParse(node.GetValue("maxAmount").Replace("%", "").Trim(), out v);
-							maxAmount = v * module.volume * 0.01; // NK
+							maxAmount = v * utilization * module.volume * 0.01; // NK
 						} else {
 							double.TryParse(node.GetValue ("maxAmount"), out v);
 							maxAmount = v;
@@ -361,8 +364,9 @@ namespace ModularFuelTanks
 								double.TryParse(node.GetValue ("amount"), out v);
 								amount = v;
 							}
-						} else 
+						} else {
 							amount = 0;
+						}
 					} else {
 						maxAmount = 0;
 						amount = 0;
@@ -399,6 +403,41 @@ namespace ModularFuelTanks
 			
 		}
 
+		public static string GetSetting(string setting, string dflt)
+		{
+            if (MFSSettings == null)
+            {
+                foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
+                    MFSSettings = n;
+            }
+            if (MFSSettings != null && MFSSettings.HasValue(setting))
+            {
+                return MFSSettings.GetValue(setting);
+            }
+			return dflt;
+		}
+
+		private void InitMFS()
+		{
+            // NK Load ELECTRICCHARGEMULT
+			double dtmp;
+			if (double.TryParse(GetSetting("BatteryMultiplier", "100"), out dtmp))
+				FuelTank.ELECTRICCHARGEMULT = dtmp;
+			else
+				FuelTank.ELECTRICCHARGEMULT = 100;
+
+			bool usereal = false;
+			bool.TryParse(GetSetting("useRealisticMass", "false"), out usereal);
+			if (!usereal)
+				massMult = float.Parse(GetSetting("tankMassMultiplier", "1.0"));
+			else
+				massMult = 1.0f;
+
+			initialized = true;
+
+			stageDefinitions = new Dictionary<string, ConfigNode>();
+		}
+
 
 		//------------- this is all my non-KSP stuff
 
@@ -426,6 +465,7 @@ namespace ModularFuelTanks
 				float m = 0.0f;
 				foreach (FuelTank fuel in fuelList)
 				{
+					print(String.Format("{0} {1} {2} {3}", fuel.maxAmount, fuel.utilization, fuel.mass, massMult));
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						m += (float) fuel.maxAmount * fuel.mass * massMult; // NK for realistic masses
 				}
@@ -457,8 +497,8 @@ namespace ModularFuelTanks
 		[KSPField(isPersistant = true)] 
 		public float volume = 0.0f;
 
+		public ConfigNode stage;		// configuration for this part (instance)
 		public List<FuelTank> fuelList;
-		public List<ConfigNode> tNodes;
 		double total_volume;
 		double ratio_factor;
 
@@ -482,89 +522,94 @@ namespace ModularFuelTanks
 			}
 		}
 
-		public static string GetSetting(string setting, string dflt)
-		{
-            if (MFSSettings == null)
-            {
-                foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
-                    MFSSettings = n;
-            }
-            if (MFSSettings != null && MFSSettings.HasValue(setting))
-            {
-                return MFSSettings.GetValue(setting);
-            }
-			return dflt;
-		}
-
 		public override void OnInitialize()
 		{
-			foreach (ConfigNode tankNode in tNodes) {
-				double ratio;
-				double.TryParse (tankNode.GetValue ("maxAmount").Replace ("%", "").Trim (), out ratio);
-                // NK amount < full
-                // for now, treat as ratio.
-                double amt;
-                if (tankNode.HasValue("amount"))
-                {
-                    if (tankNode.GetValue("amount").Trim().ToLower().Equals("full"))
-                            amt = 1.0;
-                    else
-                    {
-                        double.TryParse(tankNode.GetValue("amount"), out amt);
-                    }
-                }
-                else
-                    amt = 1.0;
+			print ("========ModuleFuelTanks.OnInitialize=======");
+			double inefficiency = 0;
+			ratio_factor = 0;
+			fuelList = new List<FuelTank> ();
 
+			if (stage == null) {	// OnLoad does not get called in the VAB or SPH
+				string part_name = part.name;
+				if (part_name.Contains("_"))
+					part_name = part_name.Remove(part_name.LastIndexOf("_"));
+				if (part_name.Contains("(Clone)"))
+					part_name = part_name.Remove(part_name.LastIndexOf("(Clone)"));
 
-				FuelTank tank = fuelList.Find (t => t.name == tankNode.GetValue ("name"));
-
-                tank.maxAmount = Math.Floor(1000 * total_volume * ratio / ratio_factor) / 1000.0;
-                if (tank.fillable)
-                    tank.amount = Math.Floor(1000 * total_volume * ratio * amt / ratio_factor) / 1000.0;
-                else
-                    tank.amount = 0;
-
+				stage = new ConfigNode ();
+				stageDefinitions[part.name].CopyTo (stage);
 			}
+			foreach (ConfigNode tankNode in stage.GetNodes("TANK")) {
+#if DEBUG
+				print ("loading FuelTank from node " + tankNode.ToString ());
+#endif
+				FuelTank tank = new FuelTank ();
+				tank.module = this;
+				tank.Load (tankNode);
+				fuelList.Add (tank);
+			}
+#if DEBUG
+			print ("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
+#endif
 		}
 
 		public override void OnLoad(ConfigNode node)
 		{
-#if debug
+#if DEBUG
 			print ("========ModuleFuelTanks.OnLoad called. Node is:=======");
-			print (node.ToString ());
+			print (part.name);
 #endif
+			if (!initialized)
+				InitMFS ();
 
-            // NK Load ELECTRICCHARGEMULT
-			double dtmp;
-			if (double.TryParse(GetSetting("BatteryMultiplier", "100"), out dtmp))
-				FuelTank.ELECTRICCHARGEMULT = dtmp;
-			else
-				FuelTank.ELECTRICCHARGEMULT = 100;
+			string part_name = part.name;
+			if (part_name.Contains("_"))
+				part_name = part_name.Remove(part_name.LastIndexOf("_"));
 
-            ConfigNode oldnode = new ConfigNode(); // NK allow override TANK
-            node.CopyTo(oldnode);
-            string base_mass = "null"; // NK allow custom tank basemass
+			stage = new ConfigNode ();
+
+			bool needInitialize = false;
+			// Only the part config nodes "type", so missing "type" implies a persistence file or saved craft
+			// "volume" is required for part config nodes, but optional for the others
             if (node.HasValue ("type") && node.HasValue ("volume")) {
-				string volume = node.GetValue ("volume");
 				string tank_type = node.GetValue ("type");
-                // NK allow custom tank basemass
-                if(node.HasValue("basemass"))
-                    base_mass = node.GetValue("basemass");
+				ConfigNode tankDef = TankDefinition (tank_type);
+				if (tankDef != null)
+					tankDef.CopyTo (stage);
+				CopyConfigValue (node, stage, "volume");
+				CopyConfigValue (node, stage, "basemass");
 
-				if (TankDefinition (tank_type) != null) {
-					node = new ConfigNode ();
-					TankDefinition (tank_type).CopyTo (node);
-					node.AddValue ("volume", volume);
-				}
+				stageDefinitions[part_name] = stage;
+				needInitialize = true;
+			} else {
+				stageDefinitions[part_name].CopyTo (stage);
 			}
-			base.OnLoad (node);
+#if DEBUG
+			print (stage);
+#endif
+			// Override tank definitions
+			foreach (var tank in node.GetNodes("TANK")) {
+				string tank_name = tank.GetValue("name");
+				ConfigNode stageTank = stage.GetNodes("TANK").Where(p => p.GetValue("name") == tank_name).First();
+				if (stageTank == null) {
+					stageTank = stage.AddNode("TANK");
+				}
+				CopyConfigValue(tank, stageTank, "name");
+				CopyConfigValue(tank, stageTank, "fillable");
+				CopyConfigValue(tank, stageTank, "utilization");
+				CopyConfigValue(tank, stageTank, "mass");
+				CopyConfigValue(tank, stageTank, "temperature");
+				CopyConfigValue(tank, stageTank, "loss_rate");
+				CopyConfigValue(tank, stageTank, "amount");
+				CopyConfigValue(tank, stageTank, "maxAmount");
+				CopyConfigValue(tank, stageTank, "note");
+			}
+
             // NK use custom basemass
-            if (node.HasValue("basemass"))
-                if (base_mass.Equals("null"))
-                    base_mass = node.GetValue("basemass");
-            if(!(base_mass.Equals("null")))
+            if (stage.HasValue("basemass"))
             {
+				string base_mass = stage.GetValue("basemass");
+				print (String.Format("basemass: {0} {1}", basemass, base_mass));
                 if (base_mass.Contains("*") && base_mass.Contains("volume"))
                 {
                     float.TryParse(base_mass.Replace("volume", "").Replace("*", "").Trim(), out basemass);
@@ -579,62 +624,15 @@ namespace ModularFuelTanks
                 }
 			}
 
-			if (fuelList == null)
-				fuelList = new List<FuelTank> ();
-			else
-				fuelList.Clear ();
-
-			tNodes = new List<ConfigNode> ();
-			double inefficiency = 0;
-			ratio_factor = 0;
-
-			foreach (ConfigNode tankNode in node.nodes) {
-				if (tankNode.name.Equals ("TANK")) {
-
-#if DEBUG
-					print ("loading FuelTank from node " + tankNode.ToString ());
-#endif
-					FuelTank tank = new FuelTank ();
-					tank.module = this;
-                    // NK allow override TANK
-                    foreach (ConfigNode tnk in oldnode.nodes)
-                    {
-                        if (tnk.name.Equals("TANK") && tnk.HasValue("name") && tnk.GetValue("name").Equals(tankNode.GetValue("name")))
-                        {
-							CopyConfigValue(tnk, tankNode, "fillable");
-							CopyConfigValue(tnk, tankNode, "utilization");
-							CopyConfigValue(tnk, tankNode, "mass");
-							CopyConfigValue(tnk, tankNode, "temperature");
-							CopyConfigValue(tnk, tankNode, "loss_rate");
-							CopyConfigValue(tnk, tankNode, "amount");
-							CopyConfigValue(tnk, tankNode, "maxAmount");
-							CopyConfigValue(tnk, tankNode, "note");
-                        }
-                    }
-                    // NK end
-					tank.Load (tankNode);
-					fuelList.Add (tank);
-
-					if(tankNode.HasValue ("maxAmount") && tankNode.GetValue ("maxAmount").Contains("%")) {
-						tNodes.Add (tankNode);
-
-						double ratio;
-						double.TryParse (tankNode.GetValue ("maxAmount").Replace ("%", "").Trim (), out ratio);
-
-						//inefficiency += (1 - tank.utilization) * ratio;
-						ratio_factor += ratio;
-
-					}
-				}
+			if (needInitialize) {
+				OnInitialize ();
+				UpdateMass ();
 			}
-			total_volume = availableVolume * (1 - inefficiency / ratio_factor);
 
 #if DEBUG
-			print ("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
 
 			print ("ModuleFuelTanks loaded. ");
 #endif
-            UpdateMass();
 		}
 
 		
@@ -665,59 +663,14 @@ namespace ModularFuelTanks
 #if DEBUG
 			print ("========ModuleFuelTanks.OnStart( State == " + state.ToString () + ")=======");
 #endif
-			bool usereal = false;
-			bool.TryParse(GetSetting("useRealisticMass", "false"), out usereal);
-			if (!usereal)
-				massMult = float.Parse(GetSetting("tankMassMultiplier", "1.0"));
-			else
-				massMult = 1.0f;
 
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
-			if(fuelList == null) {
-				fuelList = new List<ModuleFuelTanks.FuelTank> ();
-			}
 
-			if (fuelList.Count == 0) {
-				// when we get called from the editor, the fuelList won't be populated
-				// because OnLoad() was never called. This is a hack to fix that.
-				Part prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains ("ModuleFuelTanks") 
-				                                             && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count >0);
-				if(prefab) {
-#if DEBUG
-					print ("ModuleFuelTanks.OnStart: copying from a symmetryCounterpart with a ModuleFuelTanks PartModule");
-#endif
-				} else {
-					AvailablePart partData = PartLoader.getPartInfoByName (part.partInfo.name);
-					if(partData == null) {
-						print ("ModuleFuelTanks.OnStart could not find AvailablePart for " + part.partInfo.name);
-					} else if(partData.partPrefab == null) {
-						print ("ModuleFuelTanks.OnStart: AvailablePart.partPrefab is null.");
-					} else {
-						prefab = partData.partPrefab;
-						if(!prefab.Modules.Contains ("ModuleFuelTanks"))
-						{
-							print ("ModuleFuelTanks.OnStart: AvailablePart.partPrefab does not contain a ModuleFuelTanks.");
-							prefab = null;
-						} 
-					}
-				}
-				if(prefab) {
-					ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
-					if(pModule == this)
-						print ("ModuleFuelTanks.OnStart: Copying from myself won't do any good.");
-					else {
-						ConfigNode node = new ConfigNode("MODULE");
-						pModule.OnSave (node);
-						#if DEBUG
-						print ("ModuleFuelTanks.OnStart node from prefab:" + node);
-						#endif
-						this.OnLoad (node);
-					}
-				}
-			} 
-			foreach(FuelTank tank in fuelList)
-				tank.module = this;
+			if(fuelList == null || fuelList.Count == 0) {
+				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
+				OnInitialize ();
+			}
 
 			/*if (radius > 0 && length > 0) {
 				part.transform.localScale = new Vector3(rscale / radius, length, rscale / radius);
@@ -732,7 +685,6 @@ namespace ModularFuelTanks
 				UpdateSymmetryCounterparts();
 					// if we detach and then re-attach a configured tank with symmetry on, make sure the copies are configured.
 			}
-
 		}
 
 		public void CheckSymmetry()
@@ -1164,6 +1116,9 @@ namespace ModularFuelTanks
 
         public void UpdateMass()
         {
+#if DEBUG
+			print ("=== MFS: UpdateMass: " + basemass.ToString() + " , " + basemassPV.ToString() + " , " + volume.ToString() + " , " + massMult.ToString() + " , " + tank_mass.ToString());
+#endif
             if (basemass >= 0)
             {
                 basemass = basemassPV * volume;
