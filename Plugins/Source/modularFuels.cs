@@ -525,7 +525,6 @@ namespace ModularFuelTanks
 		public override void OnInitialize()
 		{
 			print ("========ModuleFuelTanks.OnInitialize=======");
-			double inefficiency = 0;
 			ratio_factor = 0;
 			fuelList = new List<FuelTank> ();
 
@@ -1021,7 +1020,7 @@ namespace ModularFuelTanks
                         {
                             textFields.Clear();
 
-                            double total_volume = availableVolume * (1 - usedBy[label].inefficiency / usedBy[label].ratio_factor);
+                            double total_volume = availableVolume;
                             foreach (Propellant tfuel in usedBy[label].thruster.propellants)
                             {
                                 if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
