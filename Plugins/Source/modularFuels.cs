@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using KSP;
 
@@ -7,10 +8,10 @@ namespace ModularFuelTanks
 {
 	public class RefuelingPump: PartModule
 	{
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		double timestamp = 0.0;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		double pump_rate = 100.0; // 625 liters/second seems reasonable.
 
 		public override string GetInfo ()
@@ -51,7 +52,7 @@ namespace ModularFuelTanks
 			}
 		}
 	}
-	
+
 	public class ModuleHeatPump: PartModule
 	{
 		public class ResourceRate
@@ -108,13 +109,13 @@ namespace ModularFuelTanks
 			base.Events ["Activate"].active = true;
 		}
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public bool isActive = false;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float heatDissipation = 0.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float heatTransfer = 0.0f;
 
 		public List<ResourceRate> resources;
@@ -131,7 +132,7 @@ namespace ModularFuelTanks
 				else
 					s += "  " + resource.name + ": " + (resource.rate * 3600).ToString ("2F") + "/h\n";
 			}
-			
+
 			return s;
 		}
 
@@ -193,20 +194,8 @@ namespace ModularFuelTanks
 	{
         public static float massMult = 1.0f;
         public static ConfigNode MFSSettings = null;
-
-        public static bool roundAmount = false; // do we round to 4sigfig?
-
-		public static float RoundTo4SigFigs(double f)
-		{
-			if(f >= 1000)
-				return (float) Math.Floor (f);
-			else if(f >= 100)
-				return (float) Math.Floor (f * 10.0) / 10;
-			else if(f >= 10)
-				return (float) Math.Floor (f * 100.0) / 100;
-			else
-				return (float) Math.Floor (f * 1000.0) / 1000;
-		}
+		private static bool initialized = false;
+		public static Dictionary<string, ConfigNode> stageDefinitions;	// configuration for all parts of this type
 
 		// A FuelTank is a single TANK {} entry from the part.cfg file.
 		// it defines four properties:
@@ -240,7 +229,7 @@ namespace ModularFuelTanks
 					return name.GetHashCode ();
 				}
 			}
-			
+
 			public Part part
 			{
 				get {
@@ -249,7 +238,7 @@ namespace ModularFuelTanks
 					return module.part;
 				}
 			}
-			
+
 			public PartResource resource
 			{
 				get {
@@ -258,7 +247,7 @@ namespace ModularFuelTanks
 					return part.Resources [name];
 				}
 			}
-			
+
 
 			public double amount {
 				get {
@@ -271,10 +260,10 @@ namespace ModularFuelTanks
 					double newAmount = value;
 					if(newAmount > maxAmount)
 						newAmount = maxAmount;
-					
+
 					if(resource != null)
                         resource.amount = name.Equals("ElectricCharge") ? ELECTRICCHARGEMULT * newAmount : newAmount; // NK echarge
-					
+
 				}
 			}
 
@@ -284,24 +273,13 @@ namespace ModularFuelTanks
                         return 0.0f;
                     else
                     {
-                        if (ModuleFuelTanks.roundAmount)
-                            return RoundTo4SigFigs(name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount); // NK echarge
-                        else
-                            return name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount;
+						return name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount;
                     }
 				}
-				
+
 				set {
 
                     double newMaxAmount = value;
-                    if (ModuleFuelTanks.roundAmount)
-                    {
-                        newMaxAmount = RoundTo4SigFigs(value);
-                        if (newMaxAmount > RoundTo4SigFigs(module.availableVolume * utilization + maxAmount))
-                        {
-                            newMaxAmount = RoundTo4SigFigs(module.availableVolume * utilization + maxAmount);
-                        }
-                    }
 
 					if (resource != null && newMaxAmount <= 0.0) {
 						part.Resources.list.Remove (resource);
@@ -338,7 +316,7 @@ namespace ModularFuelTanks
 			{
 				return (f != null);
 			}
-			
+
 			public static implicit operator string(FuelTank f)
 			{
 				return f.name;
@@ -350,7 +328,7 @@ namespace ModularFuelTanks
 					return "NULL";
 				return name;
 			}
-			
+
 			//------------------- IConfigNode implementation
 			public void Load(ConfigNode node)
 			{
@@ -370,11 +348,11 @@ namespace ModularFuelTanks
 						double.TryParse (node.GetValue("loss_rate"), out loss_rate);
 					if(node.HasValue ("mass"))
 						float.TryParse (node.GetValue("mass"), out mass);
-					if(node.HasValue ("maxAmount") && !node.GetValue ("maxAmount").Contains ("%")) {
+					if(node.HasValue ("maxAmount")) {
 						double v;
 						if(node.GetValue ("maxAmount").Contains ("%")) {
 							double.TryParse(node.GetValue("maxAmount").Replace("%", "").Trim(), out v);
-							maxAmount = RoundTo4SigFigs(v * module.volume * 0.01); // NK
+							maxAmount = v * utilization * module.volume * 0.01; // NK
 						} else {
 							double.TryParse(node.GetValue ("maxAmount"), out v);
 							maxAmount = v;
@@ -386,15 +364,16 @@ namespace ModularFuelTanks
 								double.TryParse(node.GetValue ("amount"), out v);
 								amount = v;
 							}
-						} else 
+						} else {
 							amount = 0;
+						}
 					} else {
 						maxAmount = 0;
 						amount = 0;
 					}
 				}
 			}
-			
+
 			public void Save(ConfigNode node)
 			{
 				if (name != null) {
@@ -406,7 +385,7 @@ namespace ModularFuelTanks
                     node.AddValue("fillable", fillable);
 
 					//if(HighLogic.LoadedSceneIsEditor) {
-					// You would think we only want to do this in the editor, but 
+					// You would think we only want to do this in the editor, but
 					// as it turns out, KSP is terrible about consistently setting
 					// up resources between the editor and the launchpad.
 						node.AddValue ("amount", amount);
@@ -421,7 +400,42 @@ namespace ModularFuelTanks
 			public FuelTank()
 			{
 			}
-			
+
+		}
+
+		public static string GetSetting(string setting, string dflt)
+		{
+            if (MFSSettings == null)
+            {
+                foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
+                    MFSSettings = n;
+            }
+            if (MFSSettings != null && MFSSettings.HasValue(setting))
+            {
+                return MFSSettings.GetValue(setting);
+            }
+			return dflt;
+		}
+
+		private void InitMFS()
+		{
+            // NK Load ELECTRICCHARGEMULT
+			double dtmp;
+			if (double.TryParse(GetSetting("BatteryMultiplier", "100"), out dtmp))
+				FuelTank.ELECTRICCHARGEMULT = dtmp;
+			else
+				FuelTank.ELECTRICCHARGEMULT = 100;
+
+			bool usereal = false;
+			bool.TryParse(GetSetting("useRealisticMass", "false"), out usereal);
+			if (!usereal)
+				massMult = float.Parse(GetSetting("tankMassMultiplier", "1.0"));
+			else
+				massMult = 1.0f;
+
+			initialized = true;
+
+			stageDefinitions = new Dictionary<string, ConfigNode>();
 		}
 
 
@@ -435,13 +449,13 @@ namespace ModularFuelTanks
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						v += fuel.maxAmount / fuel.utilization;
 				}
-				return RoundTo4SigFigs(v);
+				return (float) v;
 			}
 		}
-		
+
 		public float availableVolume {
 			get {
-				return RoundTo4SigFigs(volume - usedVolume);
+				return volume - usedVolume;
 			}
 		}
         public float tank_massPV = 0.0f;
@@ -451,38 +465,42 @@ namespace ModularFuelTanks
 				float m = 0.0f;
 				foreach (FuelTank fuel in fuelList)
 				{
+					print(String.Format("{0} {1} {2} {3}", fuel.maxAmount, fuel.utilization, fuel.mass, massMult));
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						m += (float) fuel.maxAmount * fuel.mass * massMult; // NK for realistic masses
 				}
-                tank_massPV = RoundTo4SigFigs(m / volume);
-				return RoundTo4SigFigs(m);
+                tank_massPV = m / volume;
+				return m;
 			}
 		}
 
 		//------------------- this is all KSP stuff
-		
-		[KSPField(isPersistant = true)] 
+
+		[KSPField(isPersistant = true)]
 		public double timestamp = 0.0;
-		
-		[KSPField(isPersistant = true)] 
+
+		[KSPField(isPersistant = true)]
 		public float radius = 0.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float rscale = 1.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float length = 1.0f;
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public float basemass = 0.0f;
 
         [KSPField(isPersistant = true)]
         public float basemassPV = 0.0f;
-		
-		[KSPField(isPersistant = true)] 
+
+		[KSPField(isPersistant = true)]
 		public float volume = 0.0f;
 
+		public ConfigNode stage;		// configuration for this part (instance)
 		public List<FuelTank> fuelList;
+		double total_volume;
+		double ratio_factor;
 
 		public static ConfigNode TankDefinition(string name)
 		{
@@ -493,58 +511,109 @@ namespace ModularFuelTanks
 			return null;
 		}
 
+		private void CopyConfigValue(ConfigNode src, ConfigNode dst, string key)
+		{
+			if (src.HasValue(key))
+			{
+				if(dst.HasValue(key))
+					dst.SetValue(key, src.GetValue(key));
+				else
+					dst.AddValue(key, src.GetValue(key));
+			}
+		}
+
+		public override void OnInitialize()
+		{
+			print ("========ModuleFuelTanks.OnInitialize=======");
+			ratio_factor = 0;
+			fuelList = new List<FuelTank> ();
+
+			if (stage == null) {	// OnLoad does not get called in the VAB or SPH
+				string part_name = part.name;
+				if (part_name.Contains("_"))
+					part_name = part_name.Remove(part_name.LastIndexOf("_"));
+				if (part_name.Contains("(Clone)"))
+					part_name = part_name.Remove(part_name.LastIndexOf("(Clone)"));
+
+				stage = new ConfigNode ();
+				stageDefinitions[part.name].CopyTo (stage);
+			}
+			foreach (ConfigNode tankNode in stage.GetNodes("TANK")) {
+#if DEBUG
+				print ("loading FuelTank from node " + tankNode.ToString ());
+#endif
+				FuelTank tank = new FuelTank ();
+				tank.module = this;
+				tank.Load (tankNode);
+				fuelList.Add (tank);
+			}
+#if DEBUG
+			print ("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
+#endif
+		}
+
 		public override void OnLoad(ConfigNode node)
 		{
-#if debug
+#if DEBUG
 			print ("========ModuleFuelTanks.OnLoad called. Node is:=======");
-			print (node.ToString ());
+			print (part.name);
 #endif
+			if (!initialized)
+				InitMFS ();
 
-            // NK Load ELECTRICCHARGEMULT
-            if (MFSSettings == null)
-            {
-                foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
-                    MFSSettings = n;
-                if (MFSSettings == null)
-                    throw new UnityException("*MFS* MFSSettings not found!");
-            }
-            double dtmp;
-            if (MFSSettings.HasValue("BatteryMultiplier"))
-            {
-                if (double.TryParse(MFSSettings.GetValue("BatteryMultiplier"), out dtmp))
-                    FuelTank.ELECTRICCHARGEMULT = dtmp;
-                else
-                    FuelTank.ELECTRICCHARGEMULT = 100;
-            }
+			string part_name = part.name;
+			if (part_name.Contains("_"))
+				part_name = part_name.Remove(part_name.LastIndexOf("_"));
 
-            ConfigNode oldnode = new ConfigNode(); // NK allow override TANK
-            node.CopyTo(oldnode);
-            string base_mass = "null"; // NK allow custom tank basemass
+			stage = new ConfigNode ();
+
+			bool needInitialize = false;
+			// Only the part config nodes "type", so missing "type" implies a persistence file or saved craft
+			// "volume" is required for part config nodes, but optional for the others
             if (node.HasValue ("type") && node.HasValue ("volume")) {
-				string volume = node.GetValue ("volume");
 				string tank_type = node.GetValue ("type");
-                // NK allow custom tank basemass
-                if(node.HasValue("basemass"))
-                    base_mass = node.GetValue("basemass");
+				ConfigNode tankDef = TankDefinition (tank_type);
+				if (tankDef != null)
+					tankDef.CopyTo (stage);
+				CopyConfigValue (node, stage, "volume");
+				CopyConfigValue (node, stage, "basemass");
 
-				if (TankDefinition (tank_type) != null) {
-					node = new ConfigNode ();
-					TankDefinition (tank_type).CopyTo (node);
-					node.AddValue ("volume", volume);
-				}
+				stageDefinitions[part_name] = stage;
+				needInitialize = true;
+			} else {
+				stageDefinitions[part_name].CopyTo (stage);
 			}
-			base.OnLoad (node);
+#if DEBUG
+			print (stage);
+#endif
+			// Override tank definitions
+			foreach (var tank in node.GetNodes("TANK")) {
+				string tank_name = tank.GetValue("name");
+				ConfigNode stageTank = stage.GetNodes("TANK").Where(p => p.GetValue("name") == tank_name).First();
+				if (stageTank == null) {
+					stageTank = stage.AddNode("TANK");
+				}
+				CopyConfigValue(tank, stageTank, "name");
+				CopyConfigValue(tank, stageTank, "fillable");
+				CopyConfigValue(tank, stageTank, "utilization");
+				CopyConfigValue(tank, stageTank, "mass");
+				CopyConfigValue(tank, stageTank, "temperature");
+				CopyConfigValue(tank, stageTank, "loss_rate");
+				CopyConfigValue(tank, stageTank, "amount");
+				CopyConfigValue(tank, stageTank, "maxAmount");
+				CopyConfigValue(tank, stageTank, "note");
+			}
+
             // NK use custom basemass
-            if (node.HasValue("basemass"))
-                if (base_mass.Equals("null"))
-                    base_mass = node.GetValue("basemass");
-            if(!(base_mass.Equals("null")))
+            if (stage.HasValue("basemass"))
             {
+				string base_mass = stage.GetValue("basemass");
+				print (String.Format("basemass: {0} {1}", basemass, base_mass));
                 if (base_mass.Contains("*") && base_mass.Contains("volume"))
                 {
                     float.TryParse(base_mass.Replace("volume", "").Replace("*", "").Trim(), out basemass);
                     basemassPV = basemass;
-                    basemass = RoundTo4SigFigs(basemass * volume);
+                    basemass = basemass * volume;
                 }
                 // NK allow static basemass
                 else
@@ -554,145 +623,19 @@ namespace ModularFuelTanks
                 }
 			}
 
-			if (fuelList == null)
-				fuelList = new List<FuelTank> ();
-			else
-				fuelList.Clear ();
-
-			List<ConfigNode> tNodes = new List<ConfigNode> ();
-            // disabled inefficiency code: now you set volumes without regard to utilization.
-			//double inefficiency = 0;
-			double ratio_factor = 0;
-
-			foreach (ConfigNode tankNode in node.nodes) {
-				if (tankNode.name.Equals ("TANK")) {
-
-#if DEBUG
-					print ("loading FuelTank from node " + tankNode.ToString ());
-#endif
-					FuelTank tank = new FuelTank ();
-					tank.module = this;
-                    // NK allow override TANK
-                    foreach (ConfigNode tnk in oldnode.nodes)
-                    {
-                        if (tnk.name.Equals("TANK") && tnk.HasValue("name") && tnk.GetValue("name").Equals(tankNode.GetValue("name")))
-                        {
-                            if (tnk.HasValue("fillable"))
-                            {
-                                if (tankNode.HasValue("fillable"))
-                                    tankNode.SetValue("fillable", tnk.GetValue("fillable"));
-                                else
-                                    tankNode.AddValue("fillable", tnk.GetValue("fillable"));
-                            }
-                            if (tnk.HasValue("utilization"))
-                            {
-                                if(tankNode.HasValue("utilization"))
-                                    tankNode.SetValue("utilization", tnk.GetValue("utilization"));
-                                else
-                                    tankNode.AddValue("utilization", tnk.GetValue("utilization"));
-                            }
-                            if (tnk.HasValue("mass"))
-                            {
-                                if(tankNode.HasValue("mass"))
-                                    tankNode.SetValue("mass", tnk.GetValue("mass"));
-                                else
-                                    tankNode.AddValue("mass", tnk.GetValue("mass"));
-                            }
-                            if (tnk.HasValue("temperature"))
-                            {
-                                if(tankNode.HasValue("temperature"))
-                                    tankNode.SetValue("temperature", tnk.GetValue("temperature"));
-                                else
-                                    tankNode.AddValue("temperature", tnk.GetValue("temperature"));
-                            }
-                            if (tnk.HasValue("loss_rate"))
-                            {
-                                if(tankNode.HasValue("loss_rate"))
-                                    tankNode.SetValue("loss_rate", tnk.GetValue("loss_rate"));
-                                else
-                                    tankNode.AddValue("loss_rate", tnk.GetValue("loss_rate"));
-                            }
-                            if (tnk.HasValue("amount"))
-                            {
-                                if(tankNode.HasValue("amount"))
-                                    tankNode.SetValue("amount", tnk.GetValue("amount"));
-                                else
-                                    tankNode.AddValue("amount", tnk.GetValue("amount"));
-                            }
-                            if (tnk.HasValue("maxAmount"))
-                            {
-                                if(tankNode.HasValue("maxAmount"))
-                                    tankNode.SetValue("maxAmount", tnk.GetValue("maxAmount"));
-                                else
-                                    tankNode.AddValue("maxAmount", tnk.GetValue("maxAmount"));
-                            }
-                            if (tnk.HasValue("note"))
-                            {
-                                if(tankNode.HasValue("note"))
-                                    tankNode.SetValue("note", tnk.GetValue("note"));
-                                else
-                                    tankNode.AddValue("note", tnk.GetValue("note"));
-                            }
-
-                        }
-                    }
-                    // NK end
-					tank.Load (tankNode);
-					fuelList.Add (tank);
-
-					if(tankNode.HasValue ("maxAmount") && tankNode.GetValue ("maxAmount").Contains("%")) {
-						tNodes.Add (tankNode);
-
-						double ratio;
-						double.TryParse (tankNode.GetValue ("maxAmount").Replace ("%", "").Trim (), out ratio);
-
-						//inefficiency += (1 - tank.utilization) * ratio;
-						ratio_factor += ratio;
-
-					}
-				}
-			}
-            double total_volume = availableVolume / ratio_factor; //availableVolume * (1 - inefficiency / ratio_factor);
-
-			foreach (ConfigNode tankNode in tNodes) {
-				double ratio;
-				double.TryParse (tankNode.GetValue ("maxAmount").Replace ("%", "").Trim (), out ratio);
-                // NK amount < full
-                // for now, treat as ratio.
-                double amt;
-                if (tankNode.HasValue("amount"))
-                {
-                    if (tankNode.GetValue("amount").Trim().ToLower().Equals("full"))
-                            amt = 1.0;
-                    else
-                    {
-                        double.TryParse(node.GetValue("amount"), out amt);
-                    }
-                }
-                else
-                    amt = 1.0;
-
-
-				FuelTank tank = fuelList.Find (t => t.name == tankNode.GetValue ("name"));
-
-                tank.maxAmount = total_volume * ratio / ratio_factor * tank.utilization;
-                if (tank.fillable)
-                    tank.amount = total_volume * ratio * amt / ratio_factor * tank.utilization;
-                else
-                    tank.amount = 0;
-
+			if (needInitialize) {
+				OnInitialize ();
+				UpdateMass ();
 			}
 
 #if DEBUG
-			print ("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
 
 			print ("ModuleFuelTanks loaded. ");
 #endif
-            UpdateMass();
 		}
 
-		
-		
+
+
 		public override void OnSave (ConfigNode node)
 		{
 #if DEBUG
@@ -719,71 +662,14 @@ namespace ModularFuelTanks
 #if DEBUG
 			print ("========ModuleFuelTanks.OnStart( State == " + state.ToString () + ")=======");
 #endif
-            if (MFSSettings == null)
-            {
-                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
-                    MFSSettings = node;
-                if (MFSSettings == null)
-                    throw new UnityException("*MFS* MFSSettings not found!");
-            }
-            if (MFSSettings.HasValue("useRealisticMass"))
-            {
-                bool usereal = false;
-                bool.TryParse(MFSSettings.GetValue("useRealisticMass"), out usereal);
-                if (!usereal)
-                    massMult = massMult = float.Parse(MFSSettings.GetValue("tankMassMultiplier"));
-                else
-                    massMult = 1.0f;
-            }
-            else
-                massMult = 1.0f;
 
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
-			if(fuelList == null) {
-				fuelList = new List<ModuleFuelTanks.FuelTank> ();
-			}
 
-			if (fuelList.Count == 0) {
-				// when we get called from the editor, the fuelList won't be populated
-				// because OnLoad() was never called. This is a hack to fix that.
-				Part prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains ("ModuleFuelTanks") 
-				                                             && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count >0);
-				if(prefab) {
-#if DEBUG
-					print ("ModuleFuelTanks.OnStart: copying from a symmetryCounterpart with a ModuleFuelTanks PartModule");
-#endif
-				} else {
-					AvailablePart partData = PartLoader.getPartInfoByName (part.partInfo.name);
-					if(partData == null) {
-						print ("ModuleFuelTanks.OnStart could not find AvailablePart for " + part.partInfo.name);
-					} else if(partData.partPrefab == null) {
-						print ("ModuleFuelTanks.OnStart: AvailablePart.partPrefab is null.");
-					} else {
-						prefab = partData.partPrefab;
-						if(!prefab.Modules.Contains ("ModuleFuelTanks"))
-						{
-							print ("ModuleFuelTanks.OnStart: AvailablePart.partPrefab does not contain a ModuleFuelTanks.");
-							prefab = null;
-						} 
-					}
-				}
-				if(prefab) {
-					ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
-					if(pModule == this)
-						print ("ModuleFuelTanks.OnStart: Copying from myself won't do any good.");
-					else {
-						ConfigNode node = new ConfigNode("MODULE");
-						pModule.OnSave (node);
-						#if DEBUG
-						print ("ModuleFuelTanks.OnStart node from prefab:" + node);
-						#endif
-						this.OnLoad (node);
-					}
-				}
-			} 
-			foreach(FuelTank tank in fuelList)
-				tank.module = this;
+			if(fuelList == null || fuelList.Count == 0) {
+				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
+				OnInitialize ();
+			}
 
 			/*if (radius > 0 && length > 0) {
 				part.transform.localScale = new Vector3(rscale / radius, length, rscale / radius);
@@ -798,7 +684,6 @@ namespace ModularFuelTanks
 				UpdateSymmetryCounterparts();
 					// if we detach and then re-attach a configured tank with symmetry on, make sure the copies are configured.
 			}
-
 		}
 
 		public void CheckSymmetry()
@@ -843,7 +728,7 @@ namespace ModularFuelTanks
 		public override string GetInfo ()
 		{
 			string info = "Modular Fuel Tank: \n"
-				+ "  Max Volume: " + volume.ToString () + "\n" 
+				+ "  Max Volume: " + volume.ToString () + "\n"
 					+ "  Tank can hold:";
 			foreach(FuelTank tank in fuelList)
 			{
@@ -887,18 +772,18 @@ namespace ModularFuelTanks
 			GUILayout.BeginVertical ();
 
 			GUILayout.BeginHorizontal();
-			GUILayout.Label ("Current mass: " + ModuleFuelTanks.RoundTo4SigFigs(part.mass + part.GetResourceMass()) + " Ton(s)");
+			GUILayout.Label ("Current mass: " + part.mass + part.GetResourceMass() + " Ton(s)");
 			GUILayout.Label ("Dry mass: " + Math.Round(1000 * part.mass) / 1000.0 + " Ton(s)");
 			GUILayout.EndHorizontal ();
-			
+
 			if (fuelList.Count == 0) {
-				
+
 				GUILayout.BeginHorizontal();
 				GUILayout.Label ("This fuel tank cannot hold resources.");
 				GUILayout.EndHorizontal ();
 				return;
 			}
-			
+
 			GUILayout.BeginHorizontal();
 			GUILayout.Label ("Available volume: " + availableVolume + " / " + volume);
 			GUILayout.EndHorizontal ();
@@ -924,10 +809,10 @@ namespace ModularFuelTanks
 					textFields[maxAmountField] = tank.maxAmount.ToString();
 				}
 				GUILayout.Label(" " + tank, GUILayout.Width (120));
-				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {					
-					double amount = ModuleFuelTanks.RoundTo4SigFigs (part.Resources[tank].amount);
-					double maxAmount = ModuleFuelTanks.RoundTo4SigFigs (part.Resources[tank].maxAmount);
-					
+				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {
+					double amount = part.Resources[tank].amount;
+					double maxAmount = part.Resources[tank].maxAmount;
+
 					GUIStyle color = new GUIStyle(GUI.skin.textField);
 					if(tank.fillable) {
 						if(textFields[amountField].Trim().Equals ("")) // I'm not sure why this happens, but we'll fix it here.
@@ -952,9 +837,9 @@ namespace ModularFuelTanks
 						GUILayout.Label ("None", color, GUILayout.Width (65));
 					}
 					GUILayout.Label("/", GUILayout.Width (5));
-					
-					
-					
+
+
+
 					color = new GUIStyle(GUI.skin.textField);
                     if (textFields[maxAmountField].Equals((maxAmount / (tank.ToString().Equals("ElectricCharge") ? FuelTank.ELECTRICCHARGEMULT : 1.0)).ToString()))
                     {
@@ -969,11 +854,11 @@ namespace ModularFuelTanks
 						color.hover.textColor = Color.yellow;
 					}
 					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], color, GUILayout.Width (65));
-					
+
 					GUILayout.Label(" ", GUILayout.Width (5));
-					
+
 					if(GUILayout.Button ("Update", GUILayout.Width (60))) {
-						
+
 						double newMaxAmount = maxAmount;
 						if(!double.TryParse (textFields[maxAmountField], out newMaxAmount))
 							newMaxAmount = maxAmount;
@@ -987,70 +872,70 @@ namespace ModularFuelTanks
 						}
 						if(newMaxAmount != maxAmount) {
 							tank.maxAmount = newMaxAmount;
-							
+
 						}
-						
+
 						if(newAmount != amount || newAmount == 0) { // NK kethane fix?
 							tank.amount = newAmount;
 						}
-						
+
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
-						
-						if(part.symmetryCounterparts.Count > 0) 
+
+						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-						
+
 					}
 					if(GUILayout.Button ("Remove", GUILayout.Width (60))) {
 						tank.maxAmount = 0;
 						textFields[amountField] = "0";
 						textFields[maxAmountField] = "0";
-						if(part.symmetryCounterparts.Count > 0) 
+						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-						
+
 					}
-					
+
 				} else if(availableVolume >= 0.001) {
-					string extraData = "Max: " + ModuleFuelTanks.RoundTo4SigFigs(availableVolume * tank.utilization).ToString () + " (+" + ModuleFuelTanks.RoundTo4SigFigs(availableVolume * tank.utilization * tank.mass) + " tons)" ;
-					
+					string extraData = "Max: " + (availableVolume * tank.utilization).ToString () + " (+" + availableVolume * tank.utilization * tank.mass + " tons)" ;
+
 					GUILayout.Label(extraData, GUILayout.Width (150));
-					
+
 					if(GUILayout.Button("Add", GUILayout.Width (130))) {
 						tank.maxAmount = availableVolume * tank.utilization;
 						if(tank.fillable)
 							tank.amount = tank.maxAmount;
 						else
 							tank.amount = 0;
-						
+
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
-						if(part.symmetryCounterparts.Count > 0) 
+						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-						
+
 					}
 				} else {
 					GUILayout.Label ("  No room for tank.", GUILayout.Width (150));
-					
+
 				}
 				GUILayout.EndHorizontal ();
-				
+
 			}
-			
+
 			GUILayout.BeginHorizontal();
 			if(GUILayout.Button ("Remove All Tanks")) {
 				textFields.Clear ();
 				foreach(ModuleFuelTanks.FuelTank tank in fuelList)
 					tank.maxAmount = 0;
-				if(part.symmetryCounterparts.Count > 0) 
+				if(part.symmetryCounterparts.Count > 0)
 					UpdateSymmetryCounterparts();
-				
-			}	
+
+			}
 			GUILayout.EndHorizontal();
 			if(GetEnginesFedBy(part).Count > 0 && availableVolume >= 0.001)
 			{
                 Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
-				
+
 				GUILayout.BeginHorizontal();
 				GUILayout.Label ("Configure remaining volume for engines:");
 				GUILayout.EndHorizontal();
@@ -1066,7 +951,7 @@ namespace ModularFuelTanks
                     // then final volume per fuel = fuel_ratio / fuel_utilization / efficciency
 
 
-                    foreach (ModuleEngines.Propellant tfuel in thruster.propellants)
+                    foreach (Propellant tfuel in thruster.propellants)
                     {
                         if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null)
                         {
@@ -1096,7 +981,7 @@ namespace ModularFuelTanks
                     if (ratio_factor > 0.0)
                     {
                         string label = "";
-                        foreach (ModuleEngines.Propellant tfuel in thruster.propellants)
+                        foreach (Propellant tfuel in thruster.propellants)
                         {
                             if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                             {
@@ -1135,8 +1020,8 @@ namespace ModularFuelTanks
                         {
                             textFields.Clear();
 
-                            double total_volume = availableVolume; //* (1 - usedBy[label].inefficiency / usedBy[label].ratio_factor);
-                            foreach (ModuleEngines.Propellant tfuel in usedBy[label].thruster.propellants)
+                            double total_volume = availableVolume;
+                            foreach (Propellant tfuel in usedBy[label].thruster.propellants)
                             {
                                 if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                                 {
@@ -1177,22 +1062,17 @@ namespace ModularFuelTanks
             }
             //print("GT: " + GUI.tooltip);
 		}
-		
+
 
 		public static List<Part> GetEnginesFedBy(Part part)
 		{
 			Part ppart = part;
 			while (ppart.parent != null && ppart.parent != ppart)
 				ppart = ppart.parent;
-			
+
 			return new List<Part>(ppart.FindChildParts<Part> (true)).FindAll (p => p.Modules.Contains ("ModuleEngines"));
 		}
 
-        // called by StretchyTanks
-        public void RoundOn(bool on)
-        {
-            roundAmount = false; // on
-        }
         //called by StretchyTanks
         public void ChangeVolume(float newVolume)
         {
@@ -1218,14 +1098,14 @@ namespace ModularFuelTanks
                 double newMax = maxes[i] * volRatio;
                 if (newMax < tank.maxAmount)
                 {
-                    tank.amount = amtratios[i] * newMax; // not rounding!
-                    tank.maxAmount = newMax; // not rounding!
+                    tank.amount = amtratios[i] * newMax;
+                    tank.maxAmount = newMax;
                 }
                 else
                 {
                     //print("Decreasing " + tank.name + " to " + newMax);
-                    tank.maxAmount = newMax; // not rounding!
-                    tank.amount = amtratios[i] * newMax; // not rounding!
+                    tank.maxAmount = newMax;
+                    tank.amount = amtratios[i] * newMax;
                 }
             }
             if(textFields != null)
@@ -1235,6 +1115,9 @@ namespace ModularFuelTanks
 
         public void UpdateMass()
         {
+#if DEBUG
+			print ("=== MFS: UpdateMass: " + basemass.ToString() + " , " + basemassPV.ToString() + " , " + volume.ToString() + " , " + massMult.ToString() + " , " + tank_mass.ToString());
+#endif
             if (basemass >= 0)
             {
                 basemass = basemassPV * volume;
