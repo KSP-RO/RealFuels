@@ -1,3 +1,4 @@
+//#define DEBUG
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -468,7 +469,7 @@ namespace ModularFuelTanks
 				float m = 0.0f;
 				foreach (FuelTank fuel in fuelList)
 				{
-#if DEBUG
+#if DEBUG2
 					print(String.Format("{0} {1} {2} {3}", fuel.maxAmount, fuel.utilization, fuel.mass, massMult));
 #endif
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
@@ -517,35 +518,45 @@ namespace ModularFuelTanks
 		}
 
 		public override void OnInitialize()
-		{
+        {
 #if DEBUG
-			print ("========ModuleFuelTanks.OnInitialize=======");
+            print("========ModuleFuelTanks.OnInitialize=======" + (part.vessel != null ? " for " + part.vessel.name : ""));
 #endif
-			fuelList = new List<FuelTank> ();
+            if (fuelList != null && fuelList.Count > 0)
+                return;
+            else
+            {
+                fuelList = new List<FuelTank>();
 
-			if (stage == null) {	// OnLoad does not get called in the VAB or SPH
-				string part_name = part.name;
-				if (part_name.Contains("_"))
-					part_name = part_name.Remove(part_name.LastIndexOf("_"));
-				if (part_name.Contains("(Clone)"))
-					part_name = part_name.Remove(part_name.LastIndexOf("(Clone)"));
+                if (stage == null)
+                {	// OnLoad does not get called in the VAB or SPH
+#if DEBUG
+                    print("copying from stageDefinitions");
+#endif
+                    string part_name = part.name;
+                    if (part_name.Contains("_"))
+                        part_name = part_name.Remove(part_name.LastIndexOf("_"));
+                    if (part_name.Contains("(Clone)"))
+                        part_name = part_name.Remove(part_name.LastIndexOf("(Clone)"));
 
-				stage = new ConfigNode ();
-				stageDefinitions[part.name].CopyTo (stage);
-			}
-			foreach (ConfigNode tankNode in stage.GetNodes("TANK")) {
+                    stage = new ConfigNode();
+                    stageDefinitions[part.name].CopyTo(stage);
+                }
+                foreach (ConfigNode tankNode in stage.GetNodes("TANK"))
+                {
 #if DEBUG
-				print ("loading FuelTank from node " + tankNode.ToString ());
+                    print("loading FuelTank from node " + tankNode.ToString());
 #endif
-				FuelTank tank = new FuelTank ();
-				tank.module = this;
-				tank.Load (tankNode);
-				fuelList.Add (tank);
-			}
+                    FuelTank tank = new FuelTank();
+                    tank.module = this;
+                    tank.Load(tankNode);
+                    fuelList.Add(tank);
+                }
 #if DEBUG
-			print ("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
+                print("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
 #endif
-		}
+            }
+        }
 
 		public override void OnLoad(ConfigNode node)
 		{
