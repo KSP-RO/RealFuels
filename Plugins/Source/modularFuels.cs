@@ -282,6 +282,9 @@ namespace ModularFuelTanks
                     double newMaxAmount = value;
 
 					if (resource != null && newMaxAmount <= 0.0) {
+                        amount = 0.0;
+                        resource.amount = 0.0;
+                        resource.maxAmount = 0.0;
 						part.Resources.list.Remove (resource);
 					}
                     else if (resource != null)
@@ -465,7 +468,9 @@ namespace ModularFuelTanks
 				float m = 0.0f;
 				foreach (FuelTank fuel in fuelList)
 				{
+#if DEBUG
 					print(String.Format("{0} {1} {2} {3}", fuel.maxAmount, fuel.utilization, fuel.mass, massMult));
+#endif
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						m += (float) fuel.maxAmount * fuel.mass * massMult; // NK for realistic masses
 				}
@@ -480,15 +485,6 @@ namespace ModularFuelTanks
 		public double timestamp = 0.0;
 
 		[KSPField(isPersistant = true)]
-		public float radius = 0.0f;
-
-		[KSPField(isPersistant = true)]
-		public float rscale = 1.0f;
-
-		[KSPField(isPersistant = true)]
-		public float length = 1.0f;
-
-		[KSPField(isPersistant = true)]
 		public float basemass = 0.0f;
 
         [KSPField(isPersistant = true)]
@@ -499,8 +495,6 @@ namespace ModularFuelTanks
 
 		public ConfigNode stage;		// configuration for this part (instance)
 		public List<FuelTank> fuelList;
-		double total_volume;
-		double ratio_factor;
 
 		public static ConfigNode TankDefinition(string name)
 		{
@@ -524,8 +518,9 @@ namespace ModularFuelTanks
 
 		public override void OnInitialize()
 		{
+#if DEBUG
 			print ("========ModuleFuelTanks.OnInitialize=======");
-			ratio_factor = 0;
+#endif
 			fuelList = new List<FuelTank> ();
 
 			if (stage == null) {	// OnLoad does not get called in the VAB or SPH
@@ -589,7 +584,7 @@ namespace ModularFuelTanks
 			// Override tank definitions
 			foreach (var tank in node.GetNodes("TANK")) {
 				string tank_name = tank.GetValue("name");
-				ConfigNode stageTank = stage.GetNodes("TANK").Where(p => p.GetValue("name") == tank_name).First();
+                ConfigNode stageTank = stage.GetNodes("TANK").FirstOrDefault(p => p.GetValue("name") == tank_name);
 				if (stageTank == null) {
 					stageTank = stage.AddNode("TANK");
 				}
@@ -608,7 +603,9 @@ namespace ModularFuelTanks
             if (stage.HasValue("basemass"))
             {
 				string base_mass = stage.GetValue("basemass");
+#if DEBUG
 				print (String.Format("basemass: {0} {1}", basemass, base_mass));
+#endif
                 if (base_mass.Contains("*") && base_mass.Contains("volume"))
                 {
                     float.TryParse(base_mass.Replace("volume", "").Replace("*", "").Trim(), out basemass);
@@ -670,14 +667,6 @@ namespace ModularFuelTanks
 				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
 				OnInitialize ();
 			}
-
-			/*if (radius > 0 && length > 0) {
-				part.transform.localScale = new Vector3(rscale / radius, length, rscale / radius);
-				foreach(AttachNode n in part.attachNodes) {
-					if(n.nodeType == AttachNode.NodeType.Stack)
-						n.offset.y *= length;
-				}
-			}*/
             UpdateMass();
 
 			if(HighLogic.LoadedSceneIsEditor) {
@@ -688,19 +677,19 @@ namespace ModularFuelTanks
 
 		public void CheckSymmetry()
 		{
-			#if DEBUG
+#if DEBUG
 			print ("ModuleFuelTanks.CheckSymmetry for " + part.partInfo.name);
-			#endif
+#endif
 			EditorLogic editor = EditorLogic.fetch;
 			if (editor != null && editor.editorScreen == EditorLogic.EditorScreen.Parts && part.symmetryCounterparts.Count > 0) {
-				#if DEBUG
+#if DEBUG
 				print ("ModuleFuelTanks.CheckSymmetry: updating " + part.symmetryCounterparts.Count + " other parts.");
-				#endif
+#endif
 				UpdateSymmetryCounterparts();
 			}
-			#if DEBUG
+#if DEBUG
 			print ("ModuleFuelTanks checked symmetry");
-			#endif
+#endif
 		}
 		public override void OnUpdate ()
 		{

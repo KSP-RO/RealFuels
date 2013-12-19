@@ -1053,6 +1053,15 @@ namespace ModularFuelTanks
 				subNode.CopyTo (newNode);
 				configs.Add (newNode);
 			}
+
+            // same as OnStart
+            if (configs.Count == 0 && part.partInfo != null
+               && part.partInfo.partPrefab.Modules.Contains("ModuleEngineConfigs"))
+            {
+                ModuleEngineConfigs prefab = (ModuleEngineConfigs)part.partInfo.partPrefab.Modules["ModuleEngineConfigs"];
+                configs = prefab.configs;
+            }
+            SetConfiguration(configuration);
 		}
 		
 		public override void OnSave (ConfigNode node)
@@ -1159,9 +1168,12 @@ namespace ModularFuelTanks
 				#endif
 
 				// clear all FloatCurves
-				foreach(FieldInfo field in part.Modules[type].GetType().GetFields()) { 
-					if(field.FieldType == typeof(FloatCurve))
-						field.SetValue (part.Modules[type], new FloatCurve());
+				foreach(FieldInfo field in part.Modules[type].GetType().GetFields()) {
+                    if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
+                    {
+                        print("*MFS* resetting curve " + field.Name);
+                        field.SetValue(part.Modules[type], new FloatCurve());
+                    }
 				}
 				if(type.Equals ("ModuleRCS")) {
 					ModuleRCS rcs = (ModuleRCS) part.Modules["ModuleRCS"];
@@ -1188,7 +1200,6 @@ namespace ModularFuelTanks
                     }
                     DoConfig(config);
 					part.Modules[type].Load (config);
-					part.Modules[type].OnStart (StartState.None);
 				}
                 /*
                 print("*MFS* part " + part.name + " has effects: ");
@@ -1238,6 +1249,13 @@ namespace ModularFuelTanks
 				configs = prefab.configs;
 			}
 			SetConfiguration (configuration);
+            if (type.Equals("ModuleEngines"))
+            {
+                ModuleEngines mE = (ModuleEngines)part.Modules[type];
+                //mE.OnStart(state);
+                //mE.InitializeFX();
+            }
+
 
 		}
 
