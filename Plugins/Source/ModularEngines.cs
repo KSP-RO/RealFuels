@@ -906,7 +906,7 @@ namespace ModularFuelTanks
 
         private float ThrustTL(float thrust, ConfigNode cfg = null)
         {
-            return (float)Math.Round((double)thrust * ThrustTL(cfg), 3);
+            return (float)Math.Round((double)thrust * ThrustTL(cfg), 6);
         }
 
         private float ThrustTL(string thrust, ConfigNode cfg = null)
@@ -933,7 +933,7 @@ namespace ModularFuelTanks
 
         private float MassTL(float mass)
         {
-            return (float)Math.Round((double)mass * MassTL(), 4);
+            return (float)Math.Round((double)mass * MassTL(), 6);
         }
 
         private string TLTInfo()
@@ -1079,13 +1079,16 @@ namespace ModularFuelTanks
         virtual public void DoConfig(ConfigNode cfg)
         {
             // fix propellant ratios to not be rounded
-            foreach (ConfigNode pNode in cfg.GetNodes("PROPELLANT"))
+            if (cfg.HasNode("PROPELLANT"))
             {
-                if (pNode.HasValue("ratio"))
+                foreach (ConfigNode pNode in cfg.GetNodes("PROPELLANT"))
                 {
-                    double dtmp;
-                    if (double.TryParse(pNode.GetValue("ratio"), out dtmp))
-                        pNode.SetValue("ratio", (dtmp * 100.0).ToString());
+                    if (pNode.HasValue("ratio"))
+                    {
+                        double dtmp;
+                        if (double.TryParse(pNode.GetValue("ratio"), out dtmp))
+                            pNode.SetValue("ratio", (dtmp * 100.0).ToString());
+                    }
                 }
             }
 
@@ -1126,22 +1129,25 @@ namespace ModularFuelTanks
                         configMinThrust = ThrustTL(thr);
                         cfg.SetValue("minThrust", configMinThrust.ToString("0.00"));
                     }
-                    
-                    // mass change
-                    if (origMass > 0)
-                    {
-                        float ftmp;
-                        configMassMult = 1.0f;
-                        if (cfg.HasValue("massMult"))
-                            if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
-                                configMassMult = ftmp;
+                }
+                else if(cfg.HasValue("thrusterPower"))
+                {
+                    cfg.SetValue("thrusterPower", ThrustTL(cfg.GetValue("thrusterPower")).ToString());
+                }
+                // mass change
+                if (origMass > 0)
+                {
+                    float ftmp;
+                    configMassMult = 1.0f;
+                    if (cfg.HasValue("massMult"))
+                        if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
+                            configMassMult = ftmp;
 
-                        part.mass = MassTL(origMass * configMassMult);
-                        /*if (!engineType.Contains("S"))
-                            part.mass = (float)Math.Round(origMass / TLTIsps[engineType][techLevel].Evaluate(0) * TLTIsps[engineType][origTechLevel].Evaluate(0) * massMult, 3);
-                        else
-                            part.mass = (float)Math.Round(origMass * TLTTWRs[engineType][origTechLevel] / TLTTWRs[engineType][techLevel], 3);*/
-                    }
+                    part.mass = MassTL(origMass * configMassMult);
+                    /*if (!engineType.Contains("S"))
+                        part.mass = (float)Math.Round(origMass / TLTIsps[engineType][techLevel].Evaluate(0) * TLTIsps[engineType][origTechLevel].Evaluate(0) * massMult, 3);
+                    else
+                        part.mass = (float)Math.Round(origMass * TLTTWRs[engineType][origTechLevel] / TLTTWRs[engineType][techLevel], 3);*/
                 }
             }
         }
@@ -1171,13 +1177,16 @@ namespace ModularFuelTanks
 				foreach(FieldInfo field in part.Modules[type].GetType().GetFields()) {
                     if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                     {
-                        print("*MFS* resetting curve " + field.Name);
+                        //print("*MFS* resetting curve " + field.Name);
                         field.SetValue(part.Modules[type], new FloatCurve());
                     }
 				}
 				if(type.Equals ("ModuleRCS")) {
 					ModuleRCS rcs = (ModuleRCS) part.Modules["ModuleRCS"];
 					string resource = config.GetValue ("resourceName");
+                    DoConfig(config);
+                    rcs.resourceName = resource;
+                    rcs.SetResource(resource);
 					rcs.Load (config);
 					rcs.SetResource (resource);
 				} else { // is an ENGINE
@@ -1249,14 +1258,6 @@ namespace ModularFuelTanks
 				configs = prefab.configs;
 			}
 			SetConfiguration (configuration);
-            if (type.Equals("ModuleEngines"))
-            {
-                ModuleEngines mE = (ModuleEngines)part.Modules[type];
-                //mE.OnStart(state);
-                //mE.InitializeFX();
-            }
-
-
 		}
 
 		public void FixedUpdate ()
@@ -1270,19 +1271,32 @@ namespace ModularFuelTanks
 
 		public void SetThrust()
 		{
-            if (!type.Equals("ModuleEngines") || !correctThrust || !localCorrectThrust)
+            if (!correctThrust || !localCorrectThrust)
 				return;
-
-			ModuleEngines engine = (ModuleEngines) part.Modules["ModuleEngines"];
-			//ConfigNode config = configs.Find (c => c.GetValue ("name").Equals (configuration));			
-			if (config != null && engine.realIsp > 0)
+            if (type.Equals("ModuleEngines"))
             {
-				/*float maxThrust = 0;
-				float.TryParse (config.GetValue ("maxThrust"), out maxThrust);*/
-                float multiplier = engine.realIsp / engine.atmosphereCurve.Evaluate(0);
-				engine.maxThrust = configMaxThrust * multiplier;
-                engine.minThrust = configMinThrust * multiplier;
-			}
+                ModuleEngines engine = (ModuleEngines)part.Modules["ModuleEngines"];
+                //ConfigNode config = configs.Find (c => c.GetValue ("name").Equals (configuration));			
+                if (config != null && engine.realIsp > 0)
+                {
+                    /*float maxThrust = 0;
+                    float.TryParse (config.GetValue ("maxThrust"), out maxThrust);*/
+                    float multiplier = engine.realIsp / engine.atmosphereCurve.Evaluate(0);
+                    engine.maxThrust = configMaxThrust * multiplier;
+                    engine.minThrust = configMinThrust * multiplier;
+                }
+            }
+            else if (type.Equals("ModuleRCS"))
+            {
+                ModuleRCS engine = (ModuleRCS)part.Modules["ModuleRCS"];
+                if (config != null && engine.realISP > 0)
+                {
+                    /*float maxThrust = 0;
+                    float.TryParse (config.GetValue ("maxThrust"), out maxThrust);*/
+                    float multiplier = engine.realISP / engine.atmosphereCurve.Evaluate(0);
+                    engine.thrusterPower = configMaxThrust * multiplier;
+                }
+            }
 		}
 
 		private void engineManagerGUI(int WindowID)

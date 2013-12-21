@@ -216,8 +216,6 @@ namespace ModularFuelTanks
 			public float temperature = 300.0f;
 			public bool fillable = true;
 
-            public static double ELECTRICCHARGEMULT = 100.0; // NK echarge
-
 			[System.NonSerialized]
 			public ModuleFuelTanks module;
 
@@ -255,15 +253,15 @@ namespace ModularFuelTanks
 					if (resource == null)
 						return 0.0;
 					else
-                        return name.Equals("ElectricCharge") ? resource.amount / ELECTRICCHARGEMULT : resource.amount; // NK echarge
+                        return resource.amount;
 				}
 				set {
 					double newAmount = value;
 					if(newAmount > maxAmount)
 						newAmount = maxAmount;
 
-					if(resource != null)
-                        resource.amount = name.Equals("ElectricCharge") ? ELECTRICCHARGEMULT * newAmount : newAmount; // NK echarge
+					if(resource != null && newAmount > 0)
+                        resource.amount = newAmount;
 
 				}
 			}
@@ -274,7 +272,7 @@ namespace ModularFuelTanks
                         return 0.0f;
                     else
                     {
-						return name.Equals("ElectricCharge") ? resource.maxAmount / ELECTRICCHARGEMULT : resource.maxAmount;
+						return resource.maxAmount;
                     }
 				}
 
@@ -290,7 +288,11 @@ namespace ModularFuelTanks
 					}
                     else if (resource != null)
                     {
-						resource.maxAmount = name.Equals("ElectricCharge") ? ELECTRICCHARGEMULT * newMaxAmount : newMaxAmount; // NK echarge
+                        double maxQty = module.availableVolume * utilization + maxAmount;
+                        if (maxQty < newMaxAmount)
+                            newMaxAmount = maxQty;
+
+						resource.maxAmount = newMaxAmount;
 						if(amount > newMaxAmount)
 							amount = newMaxAmount;
 					}
@@ -298,8 +300,8 @@ namespace ModularFuelTanks
                     {
 						ConfigNode node = new ConfigNode("RESOURCE");
 						node.AddValue ("name", name);
-						node.AddValue ("amount", name.Equals("ElectricCharge") ? ELECTRICCHARGEMULT * newMaxAmount : newMaxAmount); // NK echarge
-						node.AddValue ("maxAmount", name.Equals("ElectricCharge") ? ELECTRICCHARGEMULT * newMaxAmount : newMaxAmount); // NK echarge
+						node.AddValue ("amount", newMaxAmount);
+						node.AddValue ("maxAmount", newMaxAmount);
 #if DEBUG
 						print (node.ToString ());
 #endif
@@ -423,13 +425,6 @@ namespace ModularFuelTanks
 
 		private void InitMFS()
 		{
-            // NK Load ELECTRICCHARGEMULT
-			double dtmp;
-			if (double.TryParse(GetSetting("BatteryMultiplier", "100"), out dtmp))
-				FuelTank.ELECTRICCHARGEMULT = dtmp;
-			else
-				FuelTank.ELECTRICCHARGEMULT = 100;
-
 			bool usereal = false;
 			bool.TryParse(GetSetting("useRealisticMass", "false"), out usereal);
 			if (!usereal)
@@ -772,7 +767,7 @@ namespace ModularFuelTanks
 			GUILayout.BeginVertical ();
 
 			GUILayout.BeginHorizontal();
-			GUILayout.Label ("Current mass: " + part.mass + part.GetResourceMass() + " Ton(s)");
+			GUILayout.Label ("Current mass: " + (part.mass + part.GetResourceMass()) + " Ton(s)");
 			GUILayout.Label ("Dry mass: " + Math.Round(1000 * part.mass) / 1000.0 + " Ton(s)");
 			GUILayout.EndHorizontal ();
 
@@ -818,7 +813,7 @@ namespace ModularFuelTanks
 						if(textFields[amountField].Trim().Equals ("")) // I'm not sure why this happens, but we'll fix it here.
 							textFields[amountField] = tank.amount.ToString();
 
-                        if (textFields[amountField].Equals((amount / (tank.ToString().Equals("ElectricCharge") ? FuelTank.ELECTRICCHARGEMULT : 1.0)).ToString()))
+                        if (textFields[amountField].Equals(amount.ToString()))
                         {
 							color.normal.textColor = Color.white;
 							color.active.textColor = Color.white;
@@ -841,7 +836,7 @@ namespace ModularFuelTanks
 
 
 					color = new GUIStyle(GUI.skin.textField);
-                    if (textFields[maxAmountField].Equals((maxAmount / (tank.ToString().Equals("ElectricCharge") ? FuelTank.ELECTRICCHARGEMULT : 1.0)).ToString()))
+                    if (textFields[maxAmountField].Equals(maxAmount.ToString()))
                     {
 						color.normal.textColor = Color.white;
 						color.active.textColor = Color.white;
@@ -1028,8 +1023,6 @@ namespace ModularFuelTanks
                                     ModuleFuelTanks.FuelTank tank = fuelList.Find(t => t.name.Equals(tfuel.name));
                                     if (tank)
                                     {
-                                        //tank.maxAmount += Math.Floor(1000 * total_volume * tfuel.ratio / usedBy[label].ratio_factor) / 1000.0;
-                                        //tank.amount += Math.Floor(1000 * total_volume * tfuel.ratio / usedBy[label].ratio_factor) / 1000.0;
                                         double amt = total_volume * tfuel.ratio / usedBy[label].efficiency;
                                         tank.maxAmount += amt;
                                         tank.amount += amt;
