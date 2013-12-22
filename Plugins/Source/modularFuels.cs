@@ -732,6 +732,19 @@ namespace ModularFuelTanks
 			return info + "\n";
 		}
 
+        // looks to see if we should ignore this fuel when creating an autofill for an engine
+        public bool IgnoreFuel(string name)
+        {
+            ConfigNode fNode = MFSSettings.GetNode("IgnoreFuelsForFill");
+            if (fNode != null)
+            {
+                foreach (ConfigNode.Value v in fNode.values)
+                    if (v.name.Equals(name))
+                        return true;
+            }
+            return false;
+        }
+
         public static string myToolTip = "";
         int counterTT = 0;
 		public void OnGUI()
@@ -767,8 +780,8 @@ namespace ModularFuelTanks
 			GUILayout.BeginVertical ();
 
 			GUILayout.BeginHorizontal();
-			GUILayout.Label ("Current mass: " + (part.mass + part.GetResourceMass()) + " Ton(s)");
-			GUILayout.Label ("Dry mass: " + Math.Round(1000 * part.mass) / 1000.0 + " Ton(s)");
+			GUILayout.Label ("Current mass: " + Math.Round(part.mass + part.GetResourceMass(),4) + " Ton(s)");
+            GUILayout.Label("Dry mass: " + Math.Round(part.mass,4) + " Ton(s)");
 			GUILayout.EndHorizontal ();
 
 			if (fuelList.Count == 0) {
@@ -891,7 +904,7 @@ namespace ModularFuelTanks
 					}
 
 				} else if(availableVolume >= 0.001) {
-					string extraData = "Max: " + (availableVolume * tank.utilization).ToString () + " (+" + availableVolume * tank.utilization * tank.mass + " tons)" ;
+					string extraData = "Max: " + Math.Round(availableVolume * tank.utilization,2) + " (+" + Math.Round(availableVolume * tank.utilization * tank.mass,4) + " tons)" ;
 
 					GUILayout.Label(extraData, GUILayout.Width (150));
 
@@ -966,7 +979,7 @@ namespace ModularFuelTanks
                                 efficiency += tfuel.ratio / tank.utilization;
                                 ratio_factor += tfuel.ratio;
                             }
-                            else
+                            else if(!IgnoreFuel(tfuel.name))
                             {
                                 ratio_factor = 0.0;
                                 break;
