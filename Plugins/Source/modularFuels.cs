@@ -468,7 +468,7 @@ namespace ModularFuelTanks
 					print(String.Format("{0} {1} {2} {3}", fuel.maxAmount, fuel.utilization, fuel.mass, massMult));
 #endif
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
-						m += (float) fuel.maxAmount * fuel.mass * massMult; // NK for realistic masses
+						m += (float) fuel.maxAmount * fuel.mass / fuel.utilization * massMult; // NK for realistic masses
 				}
                 tank_massPV = m / volume;
 				return m;
@@ -518,7 +518,14 @@ namespace ModularFuelTanks
             print("========ModuleFuelTanks.OnInitialize=======" + (part.vessel != null ? " for " + part.vessel.name : ""));
 #endif
             if (fuelList != null && fuelList.Count > 0)
-                return;
+            {
+                /*foreach (FuelTank t in fuelList)
+                {
+                    t.maxAmount = t.maxAmount;
+                    t.amount = t.amount;
+                }*/
+                // doesn't actually fix the problem :(
+            }
             else
             {
                 fuelList = new List<FuelTank>();

@@ -1184,10 +1184,11 @@ namespace ModularFuelTanks
 				if(type.Equals ("ModuleRCS")) {
 					ModuleRCS rcs = (ModuleRCS) part.Modules["ModuleRCS"];
 					string resource = config.GetValue ("resourceName");
-                    DoConfig(config);
                     rcs.resourceName = resource;
+                    DoConfig(config);
                     rcs.SetResource(resource);
 					rcs.Load (config);
+                    rcs.resourceName = resource;
 					rcs.SetResource (resource);
 				} else { // is an ENGINE
                     if (type.Equals("ModuleEngines"))
@@ -1260,6 +1261,11 @@ namespace ModularFuelTanks
 			SetConfiguration (configuration);
 		}
 
+        public override void OnInitialize()
+        {
+            SetConfiguration(configuration);
+        }
+
 		public void FixedUpdate ()
 		{
 			if (!type.Equals ("ModuleEngines"))
@@ -1293,6 +1299,11 @@ namespace ModularFuelTanks
                 {
                     /*float maxThrust = 0;
                     float.TryParse (config.GetValue ("maxThrust"), out maxThrust);*/
+                    /*if (config.HasValue("resourceName"))
+                    {
+                        engine.resourceName = config.GetValue("resourceName");
+                        engine.SetResource(config.GetValue("resourceName"));
+                    }*/
                     float multiplier = engine.realISP / engine.atmosphereCurve.Evaluate(0);
                     engine.thrusterPower = configMaxThrust * multiplier;
                 }
