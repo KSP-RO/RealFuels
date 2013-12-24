@@ -1105,7 +1105,7 @@ namespace ModularFuelTanks
                 //print("For engine " + part.name + ", config " + configuration + ", max TL: " + TechLevel.MaxTL(cfg, techNodes, engineType));
                 cTL.Load(cfg, techNodes, engineType, techLevel);
                 TechLevel oTL = new TechLevel();
-                cTL.Load(cfg, techNodes, engineType, origTechLevel);
+                oTL.Load(cfg, techNodes, engineType, origTechLevel);
                 if (cfg.HasValue("IspSL") && cfg.HasValue("IspV"))
                 {
                     cfg.RemoveNode("atmosphereCurve");
@@ -1148,7 +1148,7 @@ namespace ModularFuelTanks
                         }
                         if (curThrottle >= 0.0f)
                         {
-                            curThrottle *= (float)cTL.Throttle();
+                            curThrottle = (float)((double)curThrottle * cTL.Throttle());
                             configMinThrust *= curThrottle;
                         }
                         cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"));
