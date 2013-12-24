@@ -674,8 +674,10 @@ namespace ModularFuelTanks
             {
 				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
                 // First check if it's a counterpart.
-                Part prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains ("ModuleFuelTanks") 
-				                                             && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList != null && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count >0);
+                Part prefab = null;
+                if(part != null && part.symmetryCounterparts != null)
+                    prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains("ModuleFuelTanks")
+                                                              && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList != null && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count > 0);
 				if(prefab != null)
                 {
 #if DEBUG
@@ -695,8 +697,10 @@ namespace ModularFuelTanks
 				}
                 else
                 {
-                    foreach (FuelTank tank in fuelList)
-                        tank.module = this;
+                    if(fuelList != null)
+                        foreach (FuelTank tank in fuelList)
+                            tank.module = this;
+
                     OnInitialize();
                 }
 			}
