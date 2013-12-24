@@ -485,6 +485,7 @@ namespace ModularFuelTanks
             public double TWR;
             public double thrustMultiplier;
             public double massMultiplier;
+            public double throttle;
             string techRequired;
 
             // CONSTRUCTORS
@@ -495,6 +496,7 @@ namespace ModularFuelTanks
                 TWR = -1;
                 thrustMultiplier = -1;
                 massMultiplier = -1;
+                throttle = -1;
                 techRequired = "";
             }
             public TechLevel(TechLevel t)
@@ -505,6 +507,7 @@ namespace ModularFuelTanks
                 thrustMultiplier = t.thrustMultiplier;
                 massMultiplier = t.massMultiplier;
                 techRequired = t.techRequired;
+                throttle = t.throttle;
             }
             public TechLevel(ConfigNode node)
             {
@@ -542,6 +545,11 @@ namespace ModularFuelTanks
                     massMultiplier = double.Parse(node.GetValue("massMultiplier"));
                 else
                     massMultiplier = -1;
+
+                if (node.HasValue("throttle"))
+                    throttle = double.Parse(node.GetValue("throttle"));
+                else
+                    throttle = -1;
 
                 if (node.HasValue("techRequired"))
                     techRequired = node.GetValue("techRequired");
@@ -583,6 +591,11 @@ namespace ModularFuelTanks
                     TWR = double.Parse(node.GetValue("TLTWR" + level));
                 else
                     TWR = 60;
+
+                if (node.HasValue("TLTHROTTLE" + level))
+                    throttle = double.Parse(node.GetValue("TLTHROTTLE" + level));
+                else
+                    throttle = 0.0;
 
                 if (node.HasValue("TLTECH"+level))
                     techRequired = node.GetValue("TLTECH"+level);
@@ -663,6 +676,15 @@ namespace ModularFuelTanks
                     return oldTL.TWR / TWR;
                 else
                     return oldTL.atmosphereCurve.Evaluate(0) / atmosphereCurve.Evaluate(0);
+            }
+
+            public double Throttle()
+            {
+                if(throttle < 0)
+                    return 0.0;
+                if (throttle > 1.0)
+                    return 1.0;
+                return throttle;
             }
 
             // looks up in global techlevels
@@ -1016,10 +1038,11 @@ namespace ModularFuelTanks
             }
             else
                 origMass = -1;
-            
 
+            localCorrectThrust = true;
             if (node.HasValue("localCorrectThrust"))
                 bool.TryParse(node.GetValue("localCorrectThrust"), out localCorrectThrust);
+            localCorrectThrust = localCorrectThrust && correctThrust;
 
 			if (configs == null)
 				configs = new List<ConfigNode> ();
@@ -1075,7 +1098,6 @@ namespace ModularFuelTanks
 
             if (techLevel != -1)
             {
-                maxTechLevel = TechLevel.MaxTL(cfg, techNodes, engineType);
                 TechLevel cTL = new TechLevel();
                 //print("For engine " + part.name + ", config " + configuration + ", max TL: " + TechLevel.MaxTL(cfg, techNodes, engineType));
                 cTL.Load(cfg, techNodes, engineType, techLevel);
@@ -1114,8 +1136,18 @@ namespace ModularFuelTanks
                     else
                     {
                         configMinThrust = configMaxThrust;
-                        if(curThrottle < 1.0f)
-                            configMinThrust *= curThrottle * MassTL(1.0f); // HACK: decrease min throttle in lockstep with mass mult
+                        if (curThrottle > 1.0f)
+                        {
+                            if (curThrottle >= techLevel)
+                                curThrottle = 1.0f;
+                            else
+                                curThrottle = -1.0f;
+                        }
+                        if (curThrottle >= 0.0f)
+                        {
+                            curThrottle *= (float)cTL.Throttle();
+                            configMinThrust *= curThrottle;
+                        }
                         cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"));
                     }
                 }
@@ -1252,7 +1284,7 @@ namespace ModularFuelTanks
 
 		public void SetThrust()
 		{
-            if (!correctThrust || !localCorrectThrust)
+            if (!localCorrectThrust)
 				return;
             if (type.Equals("ModuleEngines"))
             {
@@ -1300,42 +1332,46 @@ namespace ModularFuelTanks
 				GUILayout.EndHorizontal ();
 			}
             // NK Tech Level
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Tech Level: ");
-            string minusStr = "X";
-            bool canMinus = false;
-            if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel && techLevel != -1)
+            if (techLevel != -1)
             {
-                minusStr = "-";
-                canMinus = true;
-            }
-            if(GUILayout.Button(minusStr) && canMinus)
-            {
-                //if (techLevel > origTechLevel)
-                //{
+                GUILayout.BeginHorizontal();
+
+                GUILayout.Label("Tech Level: ");
+                string minusStr = "X";
+                bool canMinus = false;
+                if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel)
+                {
+                    minusStr = "-";
+                    canMinus = true;
+                }
+                if (GUILayout.Button(minusStr) && canMinus)
+                {
+                    //if (techLevel > origTechLevel)
+                    //{
                     techLevel--;
                     SetConfiguration(configuration);
                     UpdateSymmetryCounterparts();
-                //}
-            }
-            GUILayout.Label(techLevel.ToString());
-            string plusStr = "X";
-            bool canPlus = false;
-            if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel != -1)
-            {
-                plusStr = "+";
-                canPlus = true;
-            }
-            if(GUILayout.Button(plusStr) && canPlus)
-            {
-                //if (techLevel < TechLevel.MaxTL(config, techNodes, engineType))
-                //{
+                    //}
+                }
+                GUILayout.Label(techLevel.ToString());
+                string plusStr = "X";
+                bool canPlus = false;
+                if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
+                {
+                    plusStr = "+";
+                    canPlus = true;
+                }
+                if (GUILayout.Button(plusStr) && canPlus)
+                {
+                    //if (techLevel < TechLevel.MaxTL(config, techNodes, engineType))
+                    //{
                     techLevel++;
                     SetConfiguration(configuration);
                     UpdateSymmetryCounterparts();
-                //}
+                    //}
+                }
+                GUILayout.EndHorizontal();
             }
-            GUILayout.EndHorizontal();
 
 			GUILayout.BeginHorizontal();
             GUILayout.Label(part.Modules[type].GetInfo() + "\n" + TLTInfo());

@@ -281,10 +281,12 @@ namespace ModularFuelTanks
                     double newMaxAmount = value;
 
 					if (resource != null && newMaxAmount <= 0.0) {
+                        PartResource r = resource;
                         amount = 0.0;
                         resource.amount = 0.0;
                         resource.maxAmount = 0.0;
 						part.Resources.list.Remove (resource);
+                        Destroy(r);
 					}
                     else if (resource != null)
                     {
@@ -666,7 +668,6 @@ namespace ModularFuelTanks
 			}
 		}
 
-
 		public override void OnStart (StartState state)
 		{
 #if DEBUG
@@ -675,11 +676,35 @@ namespace ModularFuelTanks
 
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
-
 			if(fuelList == null || fuelList.Count == 0) {
 				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
-				OnInitialize ();
-			}
+                // First check if it's a counterpart.
+                Part prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains ("ModuleFuelTanks") 
+				                                             && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList != null && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count >0);
+				if(prefab != null)
+                {
+#if DEBUG
+					print ("ModuleFuelTanks.OnStart: copying from a symmetryCounterpart with a ModuleFuelTanks PartModule");
+#endif
+					ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
+					if(pModule == this)
+						print ("ModuleFuelTanks.OnStart: Copying from myself won't do any good.");
+					else {
+						ConfigNode node = new ConfigNode("MODULE");
+						pModule.OnSave (node);
+						#if DEBUG
+						print ("ModuleFuelTanks.OnStart node from prefab:" + node);
+						#endif
+						this.OnLoad (node);
+					}
+				}
+                else
+                {
+                    foreach (FuelTank tank in fuelList)
+                        tank.module = this;
+                    OnInitialize();
+                }
+			} 
             UpdateMass();
 
 			if(HighLogic.LoadedSceneIsEditor) {
