@@ -43,11 +43,7 @@
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
-    <Compile Include="ModularEngines.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="modularFuels.cs" />
-    <Compile Include="modularRCS.cs" />
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>
