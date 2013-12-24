@@ -443,6 +443,7 @@ namespace ModularFuelTanks
 
         public string engineType = "L"; // default = lower stage
         public float throttle = 0.0f; // default min throttle level
+        public float curThrottle = 0.0f;
 
         public ConfigNode techNodes = new ConfigNode();
 
@@ -485,7 +486,7 @@ namespace ModularFuelTanks
             public double TWR;
             public double thrustMultiplier;
             public double massMultiplier;
-            public double throttle;
+            public double throttleMultiplier;
             string techRequired;
 
             // CONSTRUCTORS
@@ -496,7 +497,7 @@ namespace ModularFuelTanks
                 TWR = -1;
                 thrustMultiplier = -1;
                 massMultiplier = -1;
-                throttle = -1;
+                throttleMultiplier = -1;
                 techRequired = "";
             }
             public TechLevel(TechLevel t)
@@ -507,7 +508,7 @@ namespace ModularFuelTanks
                 thrustMultiplier = t.thrustMultiplier;
                 massMultiplier = t.massMultiplier;
                 techRequired = t.techRequired;
-                throttle = t.throttle;
+                throttleMultiplier = t.throttleMultiplier;
             }
             public TechLevel(ConfigNode node)
             {
@@ -547,9 +548,9 @@ namespace ModularFuelTanks
                     massMultiplier = -1;
 
                 if (node.HasValue("throttle"))
-                    throttle = double.Parse(node.GetValue("throttle"));
+                    throttleMultiplier = double.Parse(node.GetValue("throttle"));
                 else
-                    throttle = -1;
+                    throttleMultiplier = -1;
 
                 if (node.HasValue("techRequired"))
                     techRequired = node.GetValue("techRequired");
@@ -593,9 +594,9 @@ namespace ModularFuelTanks
                     TWR = 60;
 
                 if (node.HasValue("TLTHROTTLE" + level))
-                    throttle = double.Parse(node.GetValue("TLTHROTTLE" + level));
+                    throttleMultiplier = double.Parse(node.GetValue("TLTHROTTLE" + level));
                 else
-                    throttle = 0.0;
+                    throttleMultiplier = 0.0;
 
                 if (node.HasValue("TLTECH"+level))
                     techRequired = node.GetValue("TLTECH"+level);
@@ -680,11 +681,11 @@ namespace ModularFuelTanks
 
             public double Throttle()
             {
-                if(throttle < 0)
+                if(throttleMultiplier < 0)
                     return 0.0;
-                if (throttle > 1.0)
+                if (throttleMultiplier > 1.0)
                     return 1.0;
-                return throttle;
+                return throttleMultiplier;
             }
 
             // looks up in global techlevels
@@ -933,6 +934,8 @@ namespace ModularFuelTanks
                 retStr =  "Type: " + engineType + ". Tech Level: " + techLevel + " (" + origTechLevel + "-" + maxTechLevel + ")";
                 if (origMass > 0)
                     retStr += ", Mass: " + part.mass.ToString("N3") + " (was " + (origMass * massMult).ToString("N3") + ")";
+                if (curThrottle >= 0)
+                    retStr += ", MinThr " + (100f * curThrottle).ToString("N0") + "%";
                 return retStr;
             }
             else
@@ -1117,7 +1120,7 @@ namespace ModularFuelTanks
                     aC.Save(curve);
                     cfg.AddNode(curve);
                 }
-                float curThrottle = throttle;
+                curThrottle = throttle;
                 if(cfg.HasValue("throttle"))
                     float.TryParse(cfg.GetValue("throttle"), out curThrottle);
 
@@ -1138,7 +1141,7 @@ namespace ModularFuelTanks
                         configMinThrust = configMaxThrust;
                         if (curThrottle > 1.0f)
                         {
-                            if (curThrottle >= techLevel)
+                            if (techLevel >= curThrottle)
                                 curThrottle = 1.0f;
                             else
                                 curThrottle = -1.0f;
@@ -1150,10 +1153,12 @@ namespace ModularFuelTanks
                         }
                         cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"));
                     }
+                    curThrottle = configMinThrust / configMaxThrust;
                 }
                 else if(cfg.HasValue("thrusterPower"))
                 {
                     cfg.SetValue("thrusterPower", ThrustTL(cfg.GetValue("thrusterPower")).ToString());
+                    curThrottle = 0.5f;
                 }
 
                 // mass change
