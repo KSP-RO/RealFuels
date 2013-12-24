@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using KSP;
 
@@ -243,7 +244,7 @@ namespace ModularFuelTanks
 				get {
 					if (part == null)
 						return null;
-					return part.Resources [name];
+                    return part.Resources[name];
 				}
 			}
 
@@ -279,14 +280,17 @@ namespace ModularFuelTanks
 				set {
 
                     double newMaxAmount = value;
-
 					if (resource != null && newMaxAmount <= 0.0) {
-                        PartResource r = resource;
                         amount = 0.0;
                         resource.amount = 0.0;
                         resource.maxAmount = 0.0;
-						part.Resources.list.Remove (resource);
-                        Destroy(r);
+                        PartResource res = resource;
+                        part.Resources.list.Remove(res);
+                        PartResource[] allR = part.GetComponents<PartResource>();
+                        foreach (PartResource r in allR)
+                            if (r.resourceName.Equals(name))
+                                DestroyImmediate(r);
+                        part.Resources.UpdateList();
 					}
                     else if (resource != null)
                     {
@@ -294,7 +298,7 @@ namespace ModularFuelTanks
                         if (maxQty < newMaxAmount)
                             newMaxAmount = maxQty;
 
-						resource.maxAmount = newMaxAmount;
+                        resource.maxAmount = newMaxAmount;
 						if(amount > newMaxAmount)
 							amount = newMaxAmount;
 					}
@@ -308,7 +312,7 @@ namespace ModularFuelTanks
 						print (node.ToString ());
 #endif
 						part.AddResource (node);
-						resource.enabled = true;
+                        resource.enabled = true;
 					}
 					// update mass here because C# is annoying.
                     if (module.basemass >= 0)
@@ -519,16 +523,7 @@ namespace ModularFuelTanks
 #if DEBUG
             print("========ModuleFuelTanks.OnInitialize=======" + (part.vessel != null ? " for " + part.vessel.name : ""));
 #endif
-            if (fuelList != null && fuelList.Count > 0)
-            {
-                /*foreach (FuelTank t in fuelList)
-                {
-                    t.maxAmount = t.maxAmount;
-                    t.amount = t.amount;
-                }*/
-                // doesn't actually fix the problem :(
-            }
-            else
+            if (fuelList == null || fuelList.Count == 0)
             {
                 fuelList = new List<FuelTank>();
 
@@ -639,7 +634,6 @@ namespace ModularFuelTanks
 				OnInitialize ();
 				UpdateMass ();
 			}
-
 #if DEBUG
 
 			print ("ModuleFuelTanks loaded. ");
@@ -676,7 +670,8 @@ namespace ModularFuelTanks
 
 			if (basemass == 0 && part != null)
 				basemass = part.mass;
-			if(fuelList == null || fuelList.Count == 0) {
+			if(fuelList == null || fuelList.Count == 0)
+            {
 				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
                 // First check if it's a counterpart.
                 Part prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains ("ModuleFuelTanks") 
@@ -704,7 +699,7 @@ namespace ModularFuelTanks
                         tank.module = this;
                     OnInitialize();
                 }
-			} 
+			}
             UpdateMass();
 
 			if(HighLogic.LoadedSceneIsEditor) {
@@ -1193,7 +1188,8 @@ namespace ModularFuelTanks
                                     if (pTank)
                                     {
                                         pTank.maxAmount = tank.maxAmount;
-                                        pTank.amount = tank.amount;
+                                        if(tank.maxAmount > 0)
+                                            pTank.amount = tank.amount;
                                     }
                                 }
                             }

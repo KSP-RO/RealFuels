@@ -47,7 +47,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="modularFuels.cs" />
-    <Compile Include="modularRCS.cs" />
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>
