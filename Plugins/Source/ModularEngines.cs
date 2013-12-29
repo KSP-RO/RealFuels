@@ -1253,12 +1253,13 @@ namespace ModularFuelTanks
         //called by StretchyTanks StretchySRB
         virtual public void ChangeThrust(float newThrust)
         {
-            //print("*MFS* For " + part.GetInstanceID() + ", Setting new max thrust " + newThrust.ToString());
+            //print("*MFS* For " + part.name + ", Setting new max thrust " + newThrust.ToString());
             foreach(ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust.ToString());
             }
             SetConfiguration(configuration);
+            //print("New max thrust: " + ((ModuleEngines)part.Modules["ModuleEngines"]).maxThrust);
         }
 
 		public override void OnStart (StartState state)
@@ -1280,9 +1281,7 @@ namespace ModularFuelTanks
 
 		public void FixedUpdate ()
 		{
-			if (!type.Equals ("ModuleEngines"))
-				return;
-			if (vessel == null || part.Modules["ModuleEngines"] == null)
+			if (vessel == null)
 				return;
 			SetThrust ();
 		}
@@ -1304,7 +1303,7 @@ namespace ModularFuelTanks
                     engine.minThrust = configMinThrust * multiplier;
                 }
                 if(!engine.EngineIgnited)
-                    engine.DeactivateRunningFX(); // fix for SQUAD bug
+                    engine.SetRunningGroupsActive(false); // fix for SQUAD bug
             }
             else if (type.Equals("ModuleRCS"))
             {
