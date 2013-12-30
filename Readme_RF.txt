@@ -1,20 +1,39 @@
 **** RealFuels ****
-by NathanKell and Chestburster
-
+by NathanKell
+Contributors: Chestburster, Starwaster, taniwha
 ialdabaoth (who is awesome) created Modular Fuels, and we're maintaining the Real Fuels fork in his absence.
 
 License remains CC-BY-SA as modified by ialdabaoth.
 
 Also included: Module Manager (by sarbian, based on ialdabaoth's work). See Module Manager thread for details and license and source: http://http://forum.kerbalspaceprogram.com/threads/55219
-Module Manager is required for MFSC to work.
+Module Manager is required for RF to work.
 
-This mod adds a slew of new (real) fuel types, and supports engines that use these fuels (NOTE: Engine patch not included! See below). This REPLACES Modular Fuels System with RealFuels.
-
+DESCRIPTION:
+Real Fuels does the following:
+*It converts resources to use 1 unit = 1 liter at STP, and changes tank capacity to accord with that.
+*It allows any supported tank to be filled with exactly how much or how little fuel you want, of whatever type you want (though different tanks may allow or disallow certain fuels; jet fuel tanks won't take oxidizer for instance). Tank dry masses are set to replicate real-world rocket stages.
+*Real world fuels are added, and engines/RCS can use them, with realistic stats (NOTE: You NEED an engine pack in order for engines/RCS to use the new fuels).
+*Engine/RCS thrust scales with Isp, just like in real life.
+*Engines/RCS can have multiple configurations (for example, an upper stage could support a kerosene + liquid oxygen mode, and a liquid hydrogen + liquid oxygen mode). These modes have different thrust, Isp, etc.
+*Engines/RCS can have varying techlevels: different performance characteristics for the same part, based on the techlevel you select (techlevels can be tied to R&D nodes for career games).
+*Engines can have limited throttling, and (via installation of the Engine Ignitor mod by HoneyFox) can have limited ignitions.
 
 INSTALL INSTRUCTIONS:
 1. Delete any existing ModularFuelTanks folder or RealFuels folder in your KSP/GameData folder. This is VITAL.
 2. Extract this archive to your KSP/GameData folder
-3. Download and install an engine pack. This probably means grabbing RealismOverhaul.
+3. Download and install an engine pack. This probably means grabbing Realism Overhaul, which is HIGHLY recommended for use with RF.
+
+USAGE:
+You can access all RF-related GUIs ingame by going to the Action Group editor in the VAB/SPH and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
+
+For tanks:
+At the top will appear the total tank mass (wet), the tank dry mass, the available, used, and total volume (in liters). Below appears the set of resources that may be added to the tank, and the current amounts and max amounts (if any).
+If there are engines on the vessel, and available volume in the tank, autoconfigure buttons will appear at the bottom of the list, one for each fuel mixture used by the engines on the vessel. When you hover the cursor over an autoconfigure button, a tooltip will appear showing the engines that use that mixture. Click an autoconfigure button to automatically configure remaining volume for that mixture.
+Note that gases and electric charge have multiple "units" per tank liter, since gases are given in liters at STP but stored under pressure, and electric charge is in KJ.
+
+For engines/RCS:
+At the top are buttons for changing the current engine's configuration. Then there are the buttons for changing techlevel. They will have X if a change in that direction is unavailable. Below that are stats for the current config and TL. NOTE that if your RCS uses a fuel that is set to STACK_PRIORITY_SEARCH rather than ALL_VESSEL (anything except MonoPropellant) you need to have fuel feeding your RCS thrusters (i.e. treat them like radial engines).
+
 
 AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
@@ -23,8 +42,13 @@ Changelog:
 v4.0 = \/
 *Rewritten Techlevels system. Supports per-part and per-config techlevel overrides.
 *Techlevels can be keyed to technodes. Stock, TLs are tied to the Rocketry nodes (+ start for TL0)
-*Rewritten .23 compatibility by taniwha for MFT
-*tons of small fixes for .23
+*Rewritten MFT for .23 compatibility by taniwha (very cool!)
+*Tons of small fixes for .23
+*Utilization now works as pressure (in atmospheres) for gases.
+*Added Starwaster's NTR rework
+*Added EngineIgnitor integration
+*Added throttling support
+*Added list of propellants to ignore when autoconfiguring (in MFSSettings)
 
 v3.4 = \/ (unreleased)
 *Fixed basemass issue when using custom basemass (Thanks, RedAV8R!)
