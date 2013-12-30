@@ -8,6 +8,19 @@ License remains CC-BY-SA as modified by ialdabaoth.
 Also included: Module Manager (by sarbian, based on ialdabaoth's work). See Module Manager thread for details and license and source: http://http://forum.kerbalspaceprogram.com/threads/55219
 Module Manager is required for MFSC to work.
 
+DESCRIPTION:
+Modular Fuel Tanks allows any supported tank to be filled with exactly how much or how little fuel you want, of whatever type you want (though different tanks may allow or disallow certain fuels; jet fuel tanks won't take oxidizer for instance).
+
+USAGE:
+You can access all MFS-related GUIs ingame by going to the Action Group editor in the VAB/SPH and clicking on a tank. You will see a list of the resources you can fit in the tank, with their current amounts and max amounts (if any). You will also see the total mass of the tank, and the dry mass of the tank.
+A special note regarding XenonGas: Since it is a gas, 1 unit of xenon takes less volume than other resources. Thus for a regular tank with 12.5 units of volume available, you'll still be able to fit in 700 units of Xenon.
+ElectricCharge works in a similar manner: you can fit 60 units of EC in 1 unit of volume. Note that only tanks of type ServiceModule can hold ElectricCharge
+
+INSTALL INSTRUCTIONS:
+1. Delete any existing ModularFuelTanks or RealFuels folder in your KSP/GameData folder. This is VITAL.
+2. Extract this archive to your KSP/GameData folder
+
+
 Mods Supported, beyond Stock KSP:
 AIES
 B9
@@ -25,12 +38,6 @@ Spherical Tanks
 Taverio's Pizza and Aerospace (TVPP)
 THHS
 Touhou Torpedo's Mk3 and Mk4 mods
-
-INSTALL INSTRUCTIONS:
-1. Delete any existing ModularFuelTanks or RealFuels folder in your KSP/GameData folder. This is VITAL.
-2. Extract this archive to your KSP/GameData folder
-
-AN OVERVIEW OF FUEL TYPES AND TECH LEVELS ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
