@@ -1,6 +1,7 @@
-This update is by NathanKell and Chestburster.
+***Modular Fuel Tanks***
+by taniwha, based on work by NathanKell and ChestBurster for Modular Fuel Systems Continued.
+
 ialdabaoth (who is awesome) created Modular Fuels, and we're maintaining it in his absence.
-This update supercedes any dev release by NathanKell or MFS Configs release by Chestburster.
 
 License remains CC-BY-SA as modified by ialdabaoth.
 
@@ -9,42 +10,35 @@ Module Manager is required for MFSC to work.
 
 Mods Supported, beyond Stock KSP:
 AIES
-B9 (partial--full soon)
-FASA (frizzank's Gemini etc.)
+B9
+FASA (in progress)
 HexCans
 Kethane
 KOSMOS
-KSP Interstellar
 KSPX
 KW Rocketry
 NovaPunch
-RLA Stockalikes (partial--full soon)
-Rocket Power Industruies
-Rocketdyne F-1 in real scale (use in RFRM mode for real mass. Must have space taken out of part name, so it's now F1_RocketMotor)
+RLA Stockalikes
 Space Shuttle Engines
 SDHI Service Module
 Spherical Tanks
-Taverio's Pizzan and Aerospace (TVPP)
+Taverio's Pizza and Aerospace (TVPP)
 THHS
 Touhou Torpedo's Mk3 and Mk4 mods
 
 INSTALL INSTRUCTIONS:
-0. Download the appropriate archive! See thread for details. MFSC now offers three builds (though any build can be made into any other).
-1. Delete any existing ModularFuelTanks folder in your KSP/GameData folder. This is VITAL.
-2. Extract this archive to your KSP/GameData folder (NOTE CHANGE)
-
-To go from ModularFuels, alone, to Modular Fuels + Real Fuels: extract the RealFuels.zip in the ModularFuelTanks folder.
-To go from Real Fuels to Real Fuels + Realistic Masses, go to that RealFuels folder you created and change the line useRealisticMasses = false to useRealisticMasses = true
-(To go back, set it back to false)
-To go from Real Fuels to just ModularFuels, delete that RealFuels folder.
+1. Delete any existing ModularFuelTanks or RealFuels folder in your KSP/GameData folder. This is VITAL.
+2. Extract this archive to your KSP/GameData folder
 
 AN OVERVIEW OF FUEL TYPES AND TECH LEVELS ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
 v4.0 = \/
-*Rewritten Techlevels system. Supports per-part and per-config techlevel overrides.
-*Techlevels can be keyed to technodes. Stock, TLs are tied to the Rocketry nodes.
+*0.23 compatibility rewrite by taniwha
+*Numerous bugfixes
+*Completely separate from RealFuels.
+*Utilization fixed: now it determines under what pressure are the contents of the tank.
 
 v3.4 = \/ (unreleased)
 *Fixed basemass issue when using custom basemass (Thanks, RedAV8R!)
