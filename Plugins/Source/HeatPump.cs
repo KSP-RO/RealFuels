@@ -101,8 +101,7 @@ namespace ModularFuelTanks
 		{
 			base.OnLoad (node);
 			foreach (ConfigNode n in node.GetNodes ("RESOURCE")) {
-				if(n.HasValue ("name") && n.HasValue ("rate"))
-				{
+				if(n.HasValue ("name") && n.HasValue ("rate")) {
 					float rate;
 					float.TryParse (n.GetValue ("rate"), out rate);
 					resources.Add (new ResourceRate(n.GetValue("name"), rate));

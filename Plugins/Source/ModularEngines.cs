@@ -13,13 +13,12 @@ namespace ModularFuelTanks
 
 		public override void OnStart (StartState state)
 		{
-			if(configs.Count == 0 && part.partInfo != null 
+			if(configs.Count == 0 && part.partInfo != null
 			   && part.partInfo.partPrefab.Modules.Contains ("ModuleHybridEngine")) {
 				ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
 				configs = prefab.configs;
 			}
 			SetConfiguration (configuration);
-			
 		}
 
 
@@ -40,8 +39,8 @@ namespace ModularFuelTanks
 		{
             if (newConfiguration == null)
                 newConfiguration = configuration;
-			ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));			
-			if (newConfig == null) 
+			ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
+			if (newConfig == null)
 				return;
 			Fields ["configuration"].guiActive = true;
 			Fields ["configuration"].guiName = "Current Mode";
@@ -54,26 +53,26 @@ namespace ModularFuelTanks
 
 			bool engineActive = ActiveEngine.getIgnitionState;
 			ActiveEngine.EngineIgnited = false;
-			
+
 			//  remove all fuel gauges
-			ClearMeters (); 
+			ClearMeters ();
 			propellants.Clear ();
-			
+
 			//  clear the old engine state
 			ActiveEngine.atmosphereCurve = new FloatCurve();
 			ActiveEngine.velocityCurve = new FloatCurve ();
-            
+
             DoConfig(config); // from MEC
-			
+
             //  load the new engine state
 			ActiveEngine.Load (config);
-			
+
 			if (config.HasValue ("useVelocityCurve") && (config.GetValue ("useVelocityCurve").ToLowerInvariant () == "true")) {
 				ActiveEngine.velocityCurve.Load (config.GetNode ("velocityCurve"));
 			} else {
 				ActiveEngine.useVelocityCurve = false;
 			}
-			
+
 			//  set up propellants
 			foreach (Propellant propellant in ActiveEngine.propellants) {
 				if(propellant.drawStackGauge) { // we need to handle fuel gauges ourselves
@@ -82,19 +81,19 @@ namespace ModularFuelTanks
 				}
 			}
 			ActiveEngine.SetupPropellant ();
-			
+
 			if (engineActive)
 				ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
 		}
 
 		public ModuleEngines ActiveEngine {
-			get { 
+			get {
 				type = "ModuleEngines";
-				return (ModuleEngines)part.Modules ["ModuleEngines"]; 
+				return (ModuleEngines)part.Modules ["ModuleEngines"];
 			}
-			
+
 		}
-		
+
 		new public void FixedUpdate ()
 		{
 			SetThrust ();
@@ -102,25 +101,25 @@ namespace ModularFuelTanks
 				foreach (Propellant propellant in propellants) {
 					if (!meters.ContainsKey (propellant.name)) // how did we miss one?
 						meters.Add (propellant.name, NewMeter (propellant.name));
-					
+
 					double amount = 0d;
 					double maxAmount = 0d;
-					
+
 					List<PartResource> sources = new List<PartResource> ();
 					part.GetConnectedResources (propellant.id, sources);
-					
+
 					foreach (PartResource source in sources) {
 						amount += source.amount;
 						maxAmount += source.maxAmount;
 					}
-					
+
 					if (propellant.name.Equals ("IntakeAir")) {
-						double minimum = (from modules in vessel.Parts 
-						                  from module in modules.Modules.OfType<ModuleEngines> () 
-						                  from p in module.propellants 
+						double minimum = (from modules in vessel.Parts
+						                  from module in modules.Modules.OfType<ModuleEngines> ()
+						                  from p in module.propellants
 						                  where p.name == "IntakeAir"
 						                  select module.ignitionThreshold * p.currentRequirement).Sum ();
-						
+
 						// linear scale
 						meters ["IntakeAir"].SetValue ((float)((amount - minimum) / (maxAmount - minimum)));
 					} else {
@@ -131,9 +130,9 @@ namespace ModularFuelTanks
 				ClearMeters();
 			}
 		}
-		
-		List<Propellant> _props; 
-		List<Propellant> propellants 
+
+		List<Propellant> _props;
+		List<Propellant> propellants
 		{
 			get {
 				if(_props == null)
@@ -150,14 +149,14 @@ namespace ModularFuelTanks
 				return _meters;
 			}
 		}
-		
+
 		public void ClearMeters() {
 			foreach(VInfoBox meter in meters.Values) {
-				part.stackIcon.RemoveInfo (meter);	
+				part.stackIcon.RemoveInfo (meter);
 			}
 			meters.Clear ();
 		}
-		
+
 		VInfoBox NewMeter (string resourceName)
 		{
 			VInfoBox meter = part.stackIcon.DisplayInfo ();
@@ -174,7 +173,7 @@ namespace ModularFuelTanks
 			}
 			meter.SetLength (2f);
 			meter.SetValue (0f);
-			
+
 			return meter;
 		}
 
@@ -201,19 +200,19 @@ namespace ModularFuelTanks
 		[KSPField(isPersistant=false)]
 		public ConfigNode
 			primaryEngine;
-		
+
 		[KSPField(isPersistant=false)]
 		public ConfigNode
 			secondaryEngine;
-		
+
 		[KSPField(isPersistant=false)]
 		public string
 			primaryModeName = "Primary";
-		
+
 		[KSPField(isPersistant=false)]
 		public string
 			secondaryModeName = "Secondary";
-		
+
 		[KSPField(guiActive=true, isPersistant=true, guiName="Current Mode")]
 		public string
 			currentMode;
@@ -222,16 +221,16 @@ namespace ModularFuelTanks
         public bool localCorrectThrust = true;
 
         public FloatCurve t;
-		
+
 		[KSPAction("Switch Engine Mode")]
 		public void SwitchAction (KSPActionParam param)
 		{
 			SwitchEngine ();
 		}
-		
+
 		public override void OnLoad (ConfigNode node)
 		{
-			
+
 			if (node.HasNode ("primaryEngine")) {
 				primaryEngine = node.GetNode ("primaryEngine");
 				secondaryEngine = node.GetNode ("secondaryEngine");
@@ -250,7 +249,7 @@ namespace ModularFuelTanks
 					AddEngine (secondaryEngine);
 			}
 		}
-		
+
 		public override void OnStart (StartState state)
 		{
 			base.OnStart (state);
@@ -258,17 +257,17 @@ namespace ModularFuelTanks
 				return;
 			SwitchEngine();
 			SwitchEngine();
-			
-			
+
+
 		}
-		
+
 		public void SetEngine(ConfigNode config)
 		{
 			bool engineActive = ActiveEngine.getIgnitionState;
 			ActiveEngine.EngineIgnited = false;
-			
+
 			//  remove all fuel gauges
-			ClearMeters (); 
+			ClearMeters ();
 			propellants.Clear ();
 
 			//  clear the old engine state
@@ -292,7 +291,7 @@ namespace ModularFuelTanks
 				}
 			}
 			ActiveEngine.SetupPropellant ();
-			
+
 			if (engineActive)
 				ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
 		}
@@ -304,12 +303,12 @@ namespace ModularFuelTanks
 			SetEngine (config);
 			return true;
 		}
-		
+
 		public ModuleEngines ActiveEngine {
 			get { return (ModuleEngines)part.Modules ["ModuleEngines"]; }
-			
+
 		}
-		
+
 		[KSPEvent(guiActive=true, guiName="Switch Engine Mode")]
 		public void SwitchEngine ()
 		{
@@ -319,9 +318,9 @@ namespace ModularFuelTanks
 			} else {
 				currentMode = primaryModeName;
 				SetEngine(primaryEngine);
-			}        
+			}
 		}
-		
+
 		public void FixedUpdate ()
 		{
 			if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
@@ -329,25 +328,25 @@ namespace ModularFuelTanks
 				foreach (Propellant propellant in propellants) {
 					if (!meters.ContainsKey (propellant.name)) // how did we miss one?
 						meters.Add (propellant.name, NewMeter (propellant.name));
-					
+
 					double amount = 0d;
 					double maxAmount = 0d;
-					
+
 					List<PartResource> sources = new List<PartResource> ();
 					part.GetConnectedResources (propellant.id, sources);
-					
+
 					foreach (PartResource source in sources) {
 						amount += source.amount;
 						maxAmount += source.maxAmount;
 					}
-					
+
 					if (propellant.name.Equals ("IntakeAir")) {
-						double minimum = (from modules in vessel.Parts 
-						                  from module in modules.Modules.OfType<ModuleEngines> () 
-						                  from p in module.propellants 
+						double minimum = (from modules in vessel.Parts
+						                  from module in modules.Modules.OfType<ModuleEngines> ()
+						                  from p in module.propellants
 						                  where p.name == "IntakeAir"
 						                  select module.ignitionThreshold * p.currentRequirement).Sum ();
-						
+
 						// linear scale
 						meters ["IntakeAir"].SetValue ((float)((amount - minimum) / (maxAmount - minimum)));
 					} else {
@@ -358,7 +357,7 @@ namespace ModularFuelTanks
 				ClearMeters();
 			}
 		}
-		
+
 		private void SetThrust(float density)
 		{
 			ConfigNode config;
@@ -366,7 +365,7 @@ namespace ModularFuelTanks
 				config = primaryEngine;
 			} else {
 				config = secondaryEngine;
-			}        
+			}
 
 			float maxThrust = 0;
 			float.TryParse (config.GetValue ("maxThrust"), out maxThrust);
@@ -375,8 +374,8 @@ namespace ModularFuelTanks
 			ActiveEngine.maxThrust = maxThrust;
 		}
 
-		List<Propellant> _props; 
-		List<Propellant> propellants 
+		List<Propellant> _props;
+		List<Propellant> propellants
 		{
 			get {
 				if(_props == null)
@@ -393,14 +392,14 @@ namespace ModularFuelTanks
 				return _meters;
 			}
 		}
-		
+
 		public void ClearMeters() {
 			foreach(VInfoBox meter in meters.Values) {
-				part.stackIcon.RemoveInfo (meter);	
+				part.stackIcon.RemoveInfo (meter);
 			}
 			meters.Clear ();
 		}
-		
+
 		VInfoBox NewMeter (string resourceName)
 		{
 			VInfoBox meter = part.stackIcon.DisplayInfo ();
@@ -417,20 +416,20 @@ namespace ModularFuelTanks
 			}
 			meter.SetLength (2f);
 			meter.SetValue (0f);
-			
+
 			return meter;
 		}
-	
+
 	}
 
 	public class ModuleEngineConfigs : PartModule
 	{
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public string configuration = "";
 
         // Tech Level stuff
-        [KSPField(isPersistant = true)] 
+        [KSPField(isPersistant = true)]
         public int techLevel = -1; // default: disable
 
         public static float massMult = 1.0f;
@@ -448,17 +447,17 @@ namespace ModularFuelTanks
         public ConfigNode techNodes = new ConfigNode();
 
         public static ConfigNode MFSSettings = null;
-        
 
-		[KSPField(isPersistant = true)] 
+
+		[KSPField(isPersistant = true)]
 		public string type = "ModuleEngines";
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public string thrustRating = "maxThrust";
 
-		[KSPField(isPersistant = true)] 
+		[KSPField(isPersistant = true)]
 		public bool modded = false;
-		
+
 		public List<ConfigNode> configs;
 		public ConfigNode config;
 
@@ -466,7 +465,7 @@ namespace ModularFuelTanks
         public static float ispSLMult = 1.0f;
         public static float ispVMult = 1.0f;
         public static bool correctThrust = true;
-        
+
         public static float heatMult = 1.0f;
 
         [KSPField]
@@ -571,7 +570,7 @@ namespace ModularFuelTanks
                             return Load(n);
                     return false;
                 }
-                
+
                 if (node.HasValue("techLevelType"))
                     return Load(node.GetValue("techLevelType"), level);
 
@@ -661,7 +660,7 @@ namespace ModularFuelTanks
             {
                 if (oldTL.thrustMultiplier > 0 && thrustMultiplier > 0)
                     return thrustMultiplier / oldTL.thrustMultiplier;
-                
+
                 if(constantMass)
                     return TWR / oldTL.TWR;
                 else
@@ -672,7 +671,7 @@ namespace ModularFuelTanks
             {
                 if (oldTL.massMultiplier > 0 && massMultiplier > 0)
                     return massMultiplier / oldTL.massMultiplier;
-                
+
                 if (constantThrust)
                     return oldTL.TWR / TWR;
                 else
@@ -815,8 +814,8 @@ namespace ModularFuelTanks
                 return HighLogic.CurrentGame.Mode != Game.Modes.CAREER || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
             }
         }
-        
-        
+
+
 
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
@@ -844,7 +843,7 @@ namespace ModularFuelTanks
         private static void FillSettings()
         {
             print("*MFS* Loading Engine Settings!\n");
-            
+
             if (MFSSettings.HasValue("useRealisticMass"))
             {
                 bool usereal = false;
@@ -864,7 +863,7 @@ namespace ModularFuelTanks
             else
                 heatMult = 1.0f;
         }
-		
+
 		public override void OnAwake ()
 		{
 			if(configs == null)
@@ -941,14 +940,14 @@ namespace ModularFuelTanks
             else
                 return "";
         }
-		
+
 		public override string GetInfo ()
 		{
 			if (configs.Count < 2)
 				return TLTInfo();
 
 			string info = TLTInfo() + "\nAlternate configurations:\n";
-            
+
             TechLevel moduleTLInfo = new TechLevel();
             if (techNodes != null)
                 moduleTLInfo.Load(techNodes, techLevel);
@@ -962,12 +961,12 @@ namespace ModularFuelTanks
 						info += "    (" + ThrustTL(config.GetValue (thrustRating), config).ToString("0.00") + " Thrust";
 					else
 						info += "    (Unknown Thrust";
-					
+
 					FloatCurve isp = new FloatCurve();
 					if(config.HasNode ("atmosphereCurve")) {
 						isp.Load (config.GetNode ("atmosphereCurve"));
 						info  += ", "
-							+ isp.Evaluate (isp.maxTime).ToString() + "-" 
+							+ isp.Evaluate (isp.maxTime).ToString() + "-"
 						  	+ isp.Evaluate (isp.minTime).ToString() + "Isp";
 					}
                     else if (config.HasValue("IspSL") && config.HasValue("IspV"))
@@ -985,25 +984,25 @@ namespace ModularFuelTanks
                     }
 					info += ")\n";
 				}
-				
-				
+
+
 			}
 			return info;
 		}
-		
+
 		public void OnGUI()
 		{
 			EditorLogic editor = EditorLogic.fetch;
 			if (!HighLogic.LoadedSceneIsEditor || !editor || editor.editorScreen != EditorLogic.EditorScreen.Actions) {
 				return;
 			}
-			
+
 			if (EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
 				Rect screenRect = new Rect(part.Modules.Contains("ModuleFuelTanks") ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
 				GUILayout.Window (part.name.GetHashCode ()+1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
 			}
 		}
-		
+
 		public override void OnLoad (ConfigNode node)
 		{
 			base.OnLoad (node);
@@ -1012,7 +1011,7 @@ namespace ModularFuelTanks
             var tLs = node.GetNodes("TECHLEVEL");
             foreach (ConfigNode n in tLs)
                 techNodes.AddNode(n);
-            
+
             if (node.HasValue("engineType"))
                 engineType = node.GetValue("engineType");
 
@@ -1051,7 +1050,7 @@ namespace ModularFuelTanks
 				configs = new List<ConfigNode> ();
 			else
 				configs.Clear ();
-			
+
 			foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
 				ConfigNode newNode = new ConfigNode("CONFIG");
 				subNode.CopyTo (newNode);
@@ -1067,7 +1066,7 @@ namespace ModularFuelTanks
             }
             SetConfiguration(configuration);
 		}
-		
+
 		public override void OnSave (ConfigNode node)
 		{
             /*if (configs == null)
@@ -1179,9 +1178,9 @@ namespace ModularFuelTanks
 		{
             if (newConfiguration == null)
                 newConfiguration = configuration;
-			ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));			
+			ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
 			if (newConfig != null) {
-                
+
                 // for asmi
                 if (useConfigAsTitle)
                     part.partInfo.title = configuration;
@@ -1264,7 +1263,7 @@ namespace ModularFuelTanks
 
 		public override void OnStart (StartState state)
 		{
-			if(configs.Count == 0 && part.partInfo != null 
+			if(configs.Count == 0 && part.partInfo != null
 			   && part.partInfo.partPrefab.Modules.Contains ("ModuleEngineConfigs")) {
 				ModuleEngineConfigs prefab = (ModuleEngineConfigs) part.partInfo.partPrefab.Modules["ModuleEngineConfigs"];
 				configs = prefab.configs;
@@ -1293,7 +1292,7 @@ namespace ModularFuelTanks
             if (type.Equals("ModuleEngines"))
             {
                 ModuleEngines engine = (ModuleEngines)part.Modules["ModuleEngines"];
-                //ConfigNode config = configs.Find (c => c.GetValue ("name").Equals (configuration));			
+                //ConfigNode config = configs.Find (c => c.GetValue ("name").Equals (configuration));
                 if (config != null && engine.realIsp > 0)
                 {
                     /*float maxThrust = 0;
@@ -1381,7 +1380,7 @@ namespace ModularFuelTanks
             GUILayout.Label(part.Modules[type].GetInfo() + "\n" + TLTInfo());
 			GUILayout.EndHorizontal ();
 		}
-		
+
 		virtual public int UpdateSymmetryCounterparts()
 		{
 			int i = 0;
