@@ -879,10 +879,8 @@ namespace ModularFuelTanks
                 amtratios.Add(tank.amount / tank.maxAmount);
                 maxes.Add(tank.maxAmount);
             }
-            float totalVol = newVolume; // - availVol;
             for (int i = 0; i < fuelList.Count; i++) {
                 ModuleFuelTanks.FuelTank tank = fuelList[i];
-                // this screws up re: utilization -- double newMax = (maxes[i] / totalAmt) * totalVol;
                 double newMax = maxes[i] * volRatio;
                 if (newMax < tank.maxAmount) {
                     tank.amount = amtratios[i] * newMax;
