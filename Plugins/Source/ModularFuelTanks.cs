@@ -76,7 +76,7 @@ namespace ModularFuelTanks
 					if(newAmount > maxAmount)
 						newAmount = maxAmount;
 
-					if(resource != null && newAmount > 0)
+					if(resource != null && newAmount >= 0)
                         resource.amount = newAmount;
 				}
 			}
