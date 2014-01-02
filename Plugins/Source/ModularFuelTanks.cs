@@ -583,6 +583,7 @@ namespace ModularFuelTanks
 		static GUIStyle unchanged = null;
 		static GUIStyle changed = null;
 		static GUIStyle greyed = null;
+		static GUIStyle overfull = null;
 
         Vector2 scrollPos;
 		private List<string> textFields;
@@ -610,6 +611,9 @@ namespace ModularFuelTanks
 
 				greyed = new GUIStyle(GUI.skin.textField);
 				greyed.normal.textColor = Color.gray;
+
+				overfull = new GUIStyle(GUI.skin.label);
+				overfull.normal.textColor = Color.red;
 			}
 
 			GUILayout.BeginVertical ();
@@ -628,7 +632,11 @@ namespace ModularFuelTanks
 			}
 
 			GUILayout.BeginHorizontal();
-			GUILayout.Label ("Available volume: " + availableVolume + " / " + volume);
+			if (availableVolume < 0) {
+				GUILayout.Label ("Available volume: " + availableVolume + " / " + volume, overfull);
+			} else {
+				GUILayout.Label ("Available volume: " + availableVolume + " / " + volume);
+			}
 			GUILayout.EndHorizontal ();
 
             scrollPos = GUILayout.BeginScrollView(scrollPos);
