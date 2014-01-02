@@ -580,6 +580,10 @@ namespace ModularFuelTanks
 			}
 		}
 
+		static GUIStyle unchanged = null;
+		static GUIStyle changed = null;
+		static GUIStyle greyed = null;
+
         Vector2 scrollPos;
 		private List<string> textFields;
         struct FuelInfo
@@ -591,6 +595,23 @@ namespace ModularFuelTanks
         }
 		private void fuelManagerGUI(int WindowID)
 		{
+			if (unchanged == null) {
+				unchanged = new GUIStyle(GUI.skin.textField);
+				unchanged.normal.textColor = Color.white;
+				unchanged.active.textColor = Color.white;
+				unchanged.focused.textColor = Color.white;
+				unchanged.hover.textColor = Color.white;
+
+				changed = new GUIStyle(GUI.skin.textField);
+				changed.normal.textColor = Color.yellow;
+				changed.active.textColor = Color.yellow;
+				changed.focused.textColor = Color.yellow;
+				changed.hover.textColor = Color.yellow;
+
+				greyed = new GUIStyle(GUI.skin.textField);
+				greyed.normal.textColor = Color.gray;
+			}
+
 			GUILayout.BeginVertical ();
 
 			GUILayout.BeginHorizontal();
@@ -634,51 +655,33 @@ namespace ModularFuelTanks
 				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {
 					double amount = part.Resources[tank].amount;
 					double maxAmount = part.Resources[tank].maxAmount;
+					GUIStyle style;
 
-					GUIStyle color = new GUIStyle(GUI.skin.textField);
 					if(tank.fillable) {
+						style = unchanged;
 						if(textFields[amountField].Trim().Equals ("")) // I'm not sure why this happens, but we'll fix it here.
 							textFields[amountField] = tank.amount.ToString();
 
-                        if (textFields[amountField].Equals(amount.ToString())) {
-							color.normal.textColor = Color.white;
-							color.active.textColor = Color.white;
-							color.focused.textColor = Color.white;
-							color.hover.textColor = Color.white;
-						} else {
-							color.normal.textColor = Color.yellow;
-							color.active.textColor = Color.yellow;
-							color.focused.textColor = Color.yellow;
-							color.hover.textColor = Color.yellow;
+                        if (!textFields[amountField].Equals(amount.ToString())) {
+							style = changed;
 						}
-
-						textFields[amountField] = GUILayout.TextField(textFields[amountField], color, GUILayout.Width (65));
+						textFields[amountField] = GUILayout.TextField(textFields[amountField], style, GUILayout.Width (65));
 					} else {
-						color.normal.textColor = Color.gray;
-						GUILayout.Label ("None", color, GUILayout.Width (65));
+						GUILayout.Label ("None", greyed, GUILayout.Width (65));
 					}
 					GUILayout.Label("/", GUILayout.Width (5));
 
 
 
-					color = new GUIStyle(GUI.skin.textField);
-                    if (textFields[maxAmountField].Equals(maxAmount.ToString())) {
-						color.normal.textColor = Color.white;
-						color.active.textColor = Color.white;
-						color.focused.textColor = Color.white;
-						color.hover.textColor = Color.white;
-					} else {
-						color.normal.textColor = Color.yellow;
-						color.active.textColor = Color.yellow;
-						color.focused.textColor = Color.yellow;
-						color.hover.textColor = Color.yellow;
+					style = unchanged;
+                    if (!textFields[maxAmountField].Equals(maxAmount.ToString())) {
+						style = changed;
 					}
-					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], color, GUILayout.Width (65));
+					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], style, GUILayout.Width (65));
 
 					GUILayout.Label(" ", GUILayout.Width (5));
 
 					if(GUILayout.Button ("Update", GUILayout.Width (60))) {
-
 						double newMaxAmount = maxAmount;
 						if(!double.TryParse (textFields[maxAmountField], out newMaxAmount))
 							newMaxAmount = maxAmount;
@@ -692,7 +695,6 @@ namespace ModularFuelTanks
 						}
 						if(newMaxAmount != maxAmount) {
 							tank.maxAmount = newMaxAmount;
-
 						}
 
 						if(newAmount != amount || newAmount == 0) { // NK kethane fix?
@@ -712,9 +714,7 @@ namespace ModularFuelTanks
 						textFields[maxAmountField] = "0";
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-
 					}
-
 				} else if(availableVolume >= 0.001) {
 					string extraData = "Max: " + Math.Round(availableVolume * tank.utilization,2) + " (+" + Math.Round(availableVolume * tank.utilization * tank.mass,4) + " tons)" ;
 
