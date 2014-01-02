@@ -24,7 +24,7 @@ INSTALL INSTRUCTIONS:
 3. Download and install an engine pack. This probably means grabbing Realism Overhaul, which is HIGHLY recommended for use with RF.
 
 USAGE:
-You can access all RF-related GUIs ingame by going to the Action Group editor in the VAB/SPH and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
+You can access all RF-related GUIs ingame by going to the Action Group Editor mode in the VAB/SPH (i.e. where you assign things to action groups) and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
 
 For tanks:
 At the top will appear the total tank mass (wet), the tank dry mass, the available, used, and total volume (in liters). Below appears the set of resources that may be added to the tank, and the current amounts and max amounts (if any).
@@ -39,6 +39,9 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v4.1 = \/
+*Lowered aerospike sea-level Isp
+
 v4.0 = \/
 *Rewritten Techlevels system. Supports per-part and per-config techlevel overrides.
 *Techlevels can be keyed to technodes. Stock, TLs are tied to the Rocketry nodes (+ start for TL0)
