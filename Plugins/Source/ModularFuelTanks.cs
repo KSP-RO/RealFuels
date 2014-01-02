@@ -642,27 +642,20 @@ namespace ModularFuelTanks
 				int amountField = text_field;
 				text_field++;
 				if(textFields.Count < text_field) {
-					textFields.Add ("");
-					textFields[amountField] = tank.amount.ToString();
+					textFields.Add (tank.amount.ToString());
 				}
 				int maxAmountField = text_field;
 				text_field++;
 				if(textFields.Count < text_field) {
-					textFields.Add ("");
-					textFields[maxAmountField] = tank.maxAmount.ToString();
+					textFields.Add (tank.maxAmount.ToString());
 				}
 				GUILayout.Label(" " + tank, GUILayout.Width (120));
 				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {
-					double amount = part.Resources[tank].amount;
-					double maxAmount = part.Resources[tank].maxAmount;
 					GUIStyle style;
 
 					if(tank.fillable) {
 						style = unchanged;
-						if(textFields[amountField].Trim().Equals ("")) // I'm not sure why this happens, but we'll fix it here.
-							textFields[amountField] = tank.amount.ToString();
-
-                        if (!textFields[amountField].Equals(amount.ToString())) {
+                        if (textFields[amountField] != tank.amount.ToString()) {
 							style = changed;
 						}
 						textFields[amountField] = GUILayout.TextField(textFields[amountField], style, GUILayout.Width (65));
@@ -671,10 +664,8 @@ namespace ModularFuelTanks
 					}
 					GUILayout.Label("/", GUILayout.Width (5));
 
-
-
 					style = unchanged;
-                    if (!textFields[maxAmountField].Equals(maxAmount.ToString())) {
+                    if (textFields[maxAmountField] != tank.maxAmount.ToString()) {
 						style = changed;
 					}
 					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], style, GUILayout.Width (65));
@@ -682,31 +673,35 @@ namespace ModularFuelTanks
 					GUILayout.Label(" ", GUILayout.Width (5));
 
 					if(GUILayout.Button ("Update", GUILayout.Width (60))) {
-						double newMaxAmount = maxAmount;
-						if(!double.TryParse (textFields[maxAmountField], out newMaxAmount))
-							newMaxAmount = maxAmount;
+						double newMaxAmount = tank.maxAmount;
+						double newAmount = tank.amount;
 
-							double newAmount = amount;
-						if(tank.fillable) {
-							if(!double.TryParse(textFields[amountField], out newAmount))
-								newAmount = amount;
+						if (textFields[maxAmountField].Trim() == "") {
+							newMaxAmount = 0;
 						} else {
-							newAmount = 0;
-						}
-						if(newMaxAmount != maxAmount) {
-							tank.maxAmount = newMaxAmount;
+							double tmp;
+							if(double.TryParse (textFields[maxAmountField], out tmp))
+								newMaxAmount = tmp;
 						}
 
-						if(newAmount != amount || newAmount == 0) { // NK kethane fix?
-							tank.amount = newAmount;
+						if(!tank.fillable || textFields[amountField].Trim() == "") {
+							newAmount = 0;
+							print("empty amount");
+						} else {
+							double tmp;
+							if(double.TryParse(textFields[amountField], out tmp))
+								newAmount = tmp;
+							print("amount " + textFields[amountField] + " " + newAmount.ToString());
 						}
+
+						tank.maxAmount = newMaxAmount;
+						tank.amount = newAmount;
 
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
-
 					}
 					if(GUILayout.Button ("Remove", GUILayout.Width (60))) {
 						tank.maxAmount = 0;
