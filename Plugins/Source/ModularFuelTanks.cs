@@ -476,7 +476,7 @@ namespace ModularFuelTanks
 						#if DEBUG
 						print ("ModuleFuelTanks.OnStart node from prefab:" + node);
 						#endif
-						this.OnLoad (node);
+						OnLoad (node);
 					}
 				} else {
 					if(fuelList != null)
