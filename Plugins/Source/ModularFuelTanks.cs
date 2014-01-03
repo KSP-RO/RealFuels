@@ -448,6 +448,28 @@ namespace ModularFuelTanks
 			}
 		}
 
+		private void UsePrefab()
+		{
+			Part prefab = null;
+			prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains("ModuleFuelTanks")
+														  && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList != null
+														  && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count > 0);
+#if DEBUG
+			print ("ModuleFuelTanks.OnStart: copying from a symmetryCounterpart with a ModuleFuelTanks PartModule");
+#endif
+			ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
+			if(pModule == this) {
+				print ("ModuleFuelTanks.OnStart: Copying from myself won't do any good.");
+			} else {
+				ConfigNode node = new ConfigNode("MODULE");
+				pModule.OnSave (node);
+#if DEBUG
+				print ("ModuleFuelTanks.OnStart node from prefab:" + node);
+#endif
+				OnLoad (node);
+			}
+		}
+
 		public override void OnStart (StartState state)
 		{
 #if DEBUG
@@ -459,25 +481,8 @@ namespace ModularFuelTanks
 			if(fuelList == null || fuelList.Count == 0) {
 				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
 				// First check if it's a counterpart.
-				Part prefab = null;
-				if(part != null && part.symmetryCounterparts != null)
-					prefab = part.symmetryCounterparts.Find(pf => pf.Modules.Contains("ModuleFuelTanks")
-															  && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList != null && ((ModuleFuelTanks)pf.Modules["ModuleFuelTanks"]).fuelList.Count > 0);
-				if(prefab != null) {
-#if DEBUG
-					print ("ModuleFuelTanks.OnStart: copying from a symmetryCounterpart with a ModuleFuelTanks PartModule");
-#endif
-					ModuleFuelTanks pModule = (ModuleFuelTanks) prefab.Modules["ModuleFuelTanks"];
-					if(pModule == this) {
-						print ("ModuleFuelTanks.OnStart: Copying from myself won't do any good.");
-					} else {
-						ConfigNode node = new ConfigNode("MODULE");
-						pModule.OnSave (node);
-						#if DEBUG
-						print ("ModuleFuelTanks.OnStart node from prefab:" + node);
-						#endif
-						OnLoad (node);
-					}
+				if(HighLogic.LoadedSceneIsEditor && part.symmetryCounterparts != null) {
+					UsePrefab();
 				} else {
 					if(fuelList != null)
 						foreach (FuelTank tank in fuelList)
