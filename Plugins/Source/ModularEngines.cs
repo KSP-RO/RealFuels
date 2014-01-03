@@ -566,7 +566,7 @@ namespace ModularFuelTanks
                 if (tLs.Count() > 0)
                 {
                     foreach(ConfigNode n in tLs)
-                        if (n.HasValue("name") && n.GetValue("name").Equals(level.ToString()))
+                        if (n.HasValue("name") && n.GetValue("name").Trim().Equals(level.ToString()))
                             return Load(n);
                     return false;
                 }
@@ -754,7 +754,7 @@ namespace ModularFuelTanks
                     foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
                     {
                         int itmp;
-                        if (int.TryParse(n.name, out itmp))
+                        if (n.HasValue("name") && int.TryParse(n.GetValue("name").Trim(), out itmp))
                             if (itmp > max)
                                 max = itmp;
                     }
@@ -773,7 +773,7 @@ namespace ModularFuelTanks
                     foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
                     {
                         int itmp;
-                        if (int.TryParse(n.name, out itmp))
+                        if (n.HasValue("name") && int.TryParse(n.GetValue("name").Trim(), out itmp))
                             if (itmp < min)
                                 min = itmp;
                     }
@@ -1235,6 +1235,24 @@ namespace ModularFuelTanks
                     if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
                     {
                         ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
+                        if (eiNode.HasValue("ignitionsAvailable"))
+                        {
+                            int ignitions;
+                            if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
+                            {
+                                if (ignitions < 0)
+                                {
+                                    ignitions = techLevel - ignitions;
+                                    if (ignitions < 1)
+                                        ignitions = 1;
+                                }
+                                else if (ignitions == 0)
+                                    ignitions = -1;
+
+                                eiNode.SetValue("ignitionsAvailable", ignitions.ToString());
+                                eiNode.SetValue("ignitionsRemained", ignitions.ToString());
+                            }
+                        }
                         if (!HighLogic.LoadedSceneIsEditor)
                         {
                             int remaining = (int)(part.Modules["ModuleEngineIgnitor"].GetType().GetField("ignitionsRemained").GetValue(part.Modules["ModuleEngineIgnitor"]));
@@ -1292,14 +1310,20 @@ namespace ModularFuelTanks
             if (type.Equals("ModuleEngines"))
             {
                 ModuleEngines engine = (ModuleEngines)part.Modules["ModuleEngines"];
-                //ConfigNode config = configs.Find (c => c.GetValue ("name").Equals (configuration));
-                if (config != null && engine.realIsp > 0)
+                if (config != null)
                 {
-                    /*float maxThrust = 0;
-                    float.TryParse (config.GetValue ("maxThrust"), out maxThrust);*/
-                    float multiplier = (engine.realIsp / Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure)) / (engine.atmosphereCurve.Evaluate(0) / ispVMult);
-                    engine.maxThrust = configMaxThrust * multiplier;
-                    engine.minThrust = configMinThrust * multiplier;
+                    bool throttleCut = vessel != null && vessel.ctrlState.mainThrottle <= 0;
+                    if (engine.realIsp > 0)
+                    {
+                        float multiplier = (engine.realIsp / Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure)) / (engine.atmosphereCurve.Evaluate(0) / ispVMult);
+                        engine.maxThrust = configMaxThrust * multiplier;
+                        if (throttleCut)
+                            engine.minThrust = 0; 
+                        else
+                            engine.minThrust = configMinThrust * multiplier;
+                    }
+                    else if(throttleCut)
+                        engine.minThrust = 0;
                 }
                 if(!engine.EngineIgnited)
                     engine.SetRunningGroupsActive(false); // fix for SQUAD bug
