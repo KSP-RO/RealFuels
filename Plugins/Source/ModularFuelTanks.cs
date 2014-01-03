@@ -912,31 +912,28 @@ namespace ModularFuelTanks
 			if (part.symmetryCounterparts == null)
 				return i;
 			foreach(Part sPart in part.symmetryCounterparts) {
-				try {
-					if (sPart.Modules.Contains("ModuleFuelTanks")) {
-						ModuleFuelTanks fuel = (ModuleFuelTanks)sPart.Modules["ModuleFuelTanks"];
-						if (fuel) {
-							i++;
-							if (fuel.fuelList == null)
-								continue;
-							foreach (ModuleFuelTanks.FuelTank tank in fuel.fuelList) {
-								tank.amount = 0;
-								tank.maxAmount = 0;
-							}
-							foreach (ModuleFuelTanks.FuelTank tank in this.fuelList) {
-								if (tank.maxAmount > 0) {
-									ModuleFuelTanks.FuelTank pTank = fuel.fuelList.Find(t => t.name.Equals(tank.name));
-									if (pTank) {
-										pTank.maxAmount = tank.maxAmount;
-										if(tank.maxAmount > 0)
-											pTank.amount = tank.amount;
-									}
+				if (sPart.Modules.Contains("ModuleFuelTanks")) {
+					ModuleFuelTanks fuel = (ModuleFuelTanks)sPart.Modules["ModuleFuelTanks"];
+					if (fuel) {
+						i++;
+						if (fuel.fuelList == null)
+							continue;
+						foreach (ModuleFuelTanks.FuelTank tank in fuel.fuelList) {
+							tank.amount = 0;
+							tank.maxAmount = 0;
+						}
+						foreach (ModuleFuelTanks.FuelTank tank in this.fuelList) {
+							if (tank.maxAmount > 0) {
+								ModuleFuelTanks.FuelTank pTank = fuel.fuelList.Find(t => t.name.Equals(tank.name));
+								if (pTank) {
+									pTank.maxAmount = tank.maxAmount;
+									if(tank.maxAmount > 0)
+										pTank.amount = tank.amount;
 								}
 							}
-							fuel.UpdateMass();
 						}
+						fuel.UpdateMass();
 					}
-				} catch {
 				}
 			}
 			return i;
