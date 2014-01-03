@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>True</Optimize>
-    <OutputPath>..</OutputPath>
+    <OutputPath>..\..\RealFuels\Plugins\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="HeatPump.cs" />
+    <Compile Include="ModularEngines.cs" />
     <Compile Include="ModularFuelTanks.cs" />
     <Compile Include="RefuelingPump.cs" />
   </ItemGroup>
@@ -52,8 +53,6 @@
     </PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"
-rd /s /q Source\bin
-rd /s /q Source\obj</PostBuildEvent>
+    <PostBuildEvent>del "System.Core.dll"</PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -485,7 +485,7 @@ namespace ModularFuelTanks
             public double TWR;
             public double thrustMultiplier;
             public double massMultiplier;
-            public double throttleMultiplier;
+            public double minThrottleMultiplier;
             string techRequired;
 
             // CONSTRUCTORS
@@ -496,7 +496,7 @@ namespace ModularFuelTanks
                 TWR = -1;
                 thrustMultiplier = -1;
                 massMultiplier = -1;
-                throttleMultiplier = -1;
+                minThrottleMultiplier = -1;
                 techRequired = "";
             }
             public TechLevel(TechLevel t)
@@ -507,7 +507,7 @@ namespace ModularFuelTanks
                 thrustMultiplier = t.thrustMultiplier;
                 massMultiplier = t.massMultiplier;
                 techRequired = t.techRequired;
-                throttleMultiplier = t.throttleMultiplier;
+                minThrottleMultiplier = t.minThrottleMultiplier;
             }
             public TechLevel(ConfigNode node)
             {
@@ -546,10 +546,10 @@ namespace ModularFuelTanks
                 else
                     massMultiplier = -1;
 
-                if (node.HasValue("throttle"))
-                    throttleMultiplier = double.Parse(node.GetValue("throttle"));
+                if (node.HasValue("minThrottleMultiplier"))
+                    minThrottleMultiplier = double.Parse(node.GetValue("minThrottleMultiplier"));
                 else
-                    throttleMultiplier = -1;
+                    minThrottleMultiplier = -1;
 
                 if (node.HasValue("techRequired"))
                     techRequired = node.GetValue("techRequired");
@@ -593,9 +593,9 @@ namespace ModularFuelTanks
                     TWR = 60;
 
                 if (node.HasValue("TLTHROTTLE" + level))
-                    throttleMultiplier = double.Parse(node.GetValue("TLTHROTTLE" + level));
+                    minThrottleMultiplier = double.Parse(node.GetValue("TLTHROTTLE" + level));
                 else
-                    throttleMultiplier = 0.0;
+                    minThrottleMultiplier = 0.0;
 
                 if (node.HasValue("TLTECH"+level))
                     techRequired = node.GetValue("TLTECH"+level);
@@ -680,11 +680,11 @@ namespace ModularFuelTanks
 
             public double Throttle()
             {
-                if(throttleMultiplier < 0)
+                if(minThrottleMultiplier < 0)
                     return 0.0;
-                if (throttleMultiplier > 1.0)
+                if (minThrottleMultiplier > 1.0)
                     return 1.0;
-                return throttleMultiplier;
+                return minThrottleMultiplier;
             }
 
             // looks up in global techlevels
