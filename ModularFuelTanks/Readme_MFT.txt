@@ -5,6 +5,9 @@ ialdabaoth (who is awesome) created Modular Fuels, and we're maintaining it in h
 
 License remains CC-BY-SA as modified by ialdabaoth.
 
+Forum: http://forum.kerbalspaceprogram.com/threads/64117
+Source code: https://github.com/NathanKell/ModularFuelSystem
+
 Also included: Module Manager (by sarbian, based on ialdabaoth's work). See Module Manager thread for details and license and source: http://http://forum.kerbalspaceprogram.com/threads/55219
 Module Manager is required for MFSC to work.
 
@@ -41,6 +44,16 @@ Touhou Torpedo's Mk3 and Mk4 mods
 
 ==========
 Changelog:
+v4.1 = \/
+* Allow tank amounts to be set to 0. This fixes the problem with non-fillable
+  tanks (eg, Kethane).
+* Blank fields no longer reset to the previous amount and are treated as 0 when
+  updating.
+* Overfull tanks now display the available volume in red.
+* Tanks placed using symmetry no longer invite the kraken (no more ship flying
+  apart but still connected via fuel-lines)
+* Source code removed from the distribution zip. See above links for details.
+
 v4.0 = \/
 *0.23 compatibility rewrite by taniwha
 *Numerous bugfixes
