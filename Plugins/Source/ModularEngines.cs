@@ -1039,7 +1039,10 @@ namespace ModularFuelTanks
                 part.mass = origMass * massMult;
             }
             else
+            {
+                //print("*MFS* OnLoad: Missing origMass for " + part.name);
                 origMass = -1;
+            }
 
             localCorrectThrust = true;
             if (node.HasValue("localCorrectThrust"))
@@ -1123,12 +1126,12 @@ namespace ModularFuelTanks
                 if(cfg.HasValue("throttle"))
                     float.TryParse(cfg.GetValue("throttle"), out curThrottle);
 
-                if (cfg.HasValue("maxThrust"))
+                if (cfg.HasValue(thrustRating))
                 {
                     float thr;
-                    float.TryParse(cfg.GetValue("maxThrust"), out thr);
+                    float.TryParse(cfg.GetValue(thrustRating), out thr);
                     configMaxThrust = ThrustTL(thr);
-                    cfg.SetValue("maxThrust", configMaxThrust.ToString("0.0000"));
+                    cfg.SetValue(thrustRating, configMaxThrust.ToString("0.0000"));
                     if (cfg.HasValue("minThrust"))
                     {
                         float.TryParse(cfg.GetValue("minThrust"), out thr);
@@ -1137,27 +1140,29 @@ namespace ModularFuelTanks
                     }
                     else
                     {
-                        configMinThrust = configMaxThrust;
-                        if (curThrottle > 1.0f)
+                        if (thrustRating.Equals("thrusterPower"))
                         {
-                            if (techLevel >= curThrottle)
-                                curThrottle = 1.0f;
-                            else
-                                curThrottle = -1.0f;
+                            configMinThrust = configMaxThrust * 0.5f;
                         }
-                        if (curThrottle >= 0.0f)
+                        else
                         {
-                            curThrottle = (float)((double)curThrottle * cTL.Throttle());
-                            configMinThrust *= curThrottle;
+                            configMinThrust = configMaxThrust;
+                            if (curThrottle > 1.0f)
+                            {
+                                if (techLevel >= curThrottle)
+                                    curThrottle = 1.0f;
+                                else
+                                    curThrottle = -1.0f;
+                            }
+                            if (curThrottle >= 0.0f)
+                            {
+                                curThrottle = (float)((double)curThrottle * cTL.Throttle());
+                                configMinThrust *= curThrottle;
+                            }
+                            cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"));
                         }
-                        cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"));
                     }
                     curThrottle = configMinThrust / configMaxThrust;
-                }
-                else if(cfg.HasValue("thrusterPower"))
-                {
-                    cfg.SetValue("thrusterPower", ThrustTL(cfg.GetValue("thrusterPower")).ToString());
-                    curThrottle = 0.5f;
                 }
 
                 // mass change
@@ -1194,15 +1199,42 @@ namespace ModularFuelTanks
 				print ("replacing " + type + " with:");
 				print (newConfig.ToString ());
 				#endif
+                
+                PartModule pModule = part.Modules[type];
 
 				// clear all FloatCurves
-				foreach(FieldInfo field in part.Modules[type].GetType().GetFields()) {
+                Type mType = pModule.GetType();
+				foreach(FieldInfo field in mType.GetFields()) {
                     if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                     {
                         //print("*MFS* resetting curve " + field.Name);
-                        field.SetValue(part.Modules[type], new FloatCurve());
+                        field.SetValue(pModule, new FloatCurve());
                     }
 				}
+                // clear propellant gauges
+                foreach(FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if(field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
+                    {
+                        Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
+                        if (boxes == null)
+                            continue;
+                        foreach(VInfoBox v in boxes.Values)
+                        {
+                            if (v == null) //just in case...
+                                continue;
+                            try
+                            {
+                                part.stackIcon.RemoveInfo(v);
+                            }
+                            catch(Exception e)
+                            {
+                                print("*MFS* Trying to remove info box: " + e.Message);
+                            }
+                        }
+                        boxes.Clear();
+                    }
+                }
 				if(type.Equals ("ModuleRCS")) {
 					ModuleRCS rcs = (ModuleRCS) part.Modules["ModuleRCS"];
 					string resource = config.GetValue ("resourceName");
@@ -1215,8 +1247,8 @@ namespace ModularFuelTanks
 				} else { // is an ENGINE
                     if (type.Equals("ModuleEngines"))
                     {
-                        configMaxThrust = ((ModuleEngines)part.Modules[type]).maxThrust;
-                        configMinThrust = ((ModuleEngines)part.Modules[type]).minThrust;
+                        configMaxThrust = ((ModuleEngines)pModule).maxThrust;
+                        configMinThrust = ((ModuleEngines)pModule).minThrust;
                         if (config.HasValue("maxThrust"))
                         {
                             float thr;
@@ -1231,7 +1263,7 @@ namespace ModularFuelTanks
                         }
                     }
                     DoConfig(config);
-					part.Modules[type].Load (config);
+					pModule.Load (config);
                     if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
                     {
                         ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
@@ -1253,11 +1285,11 @@ namespace ModularFuelTanks
                                 eiNode.SetValue("ignitionsRemained", ignitions.ToString());
                             }
                         }
-                        if (!HighLogic.LoadedSceneIsEditor)
+                        /*if (!HighLogic.LoadedSceneIsEditor && !(HighLogic.LoadedSceneIsFlight && vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
                         {
                             int remaining = (int)(part.Modules["ModuleEngineIgnitor"].GetType().GetField("ignitionsRemained").GetValue(part.Modules["ModuleEngineIgnitor"]));
                             eiNode.SetValue("ignitionsRemained", remaining.ToString());
-                        }
+                        }*/
                         ConfigNode tNode = new ConfigNode("MODULE");
                         eiNode.CopyTo(tNode);
                         tNode.SetValue("name", "ModuleEngineIgnitor");
