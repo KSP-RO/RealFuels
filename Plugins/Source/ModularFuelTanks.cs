@@ -294,6 +294,8 @@ namespace ModularFuelTanks
 
 		public ConfigNode stage;		// configuration for this part (instance)
 		public List<FuelTank> fuelList;
+        // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
+        public Dictionary<string, bool> pressurizedFuels;
 
 		public static ConfigNode TankDefinition(string name)
 		{
@@ -344,6 +346,10 @@ namespace ModularFuelTanks
 					tank.Load(tankNode);
 					fuelList.Add(tank);
 				}
+                // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
+                pressurizedFuels = new Dictionary<string, bool>();
+                foreach(FuelTank f in fuelList)
+                    pressurizedFuels[f.name] = stage.name.Equals("ServiceModule") || f.note.ToLower().Contains("pressurized");
 #if DEBUG
 				print("ModuleFuelTanks.onLoad loaded " + fuelList.Count + " fuels");
 #endif

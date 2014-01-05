@@ -4,6 +4,7 @@ Contributors: Chestburster, Starwaster, taniwha
 ialdabaoth (who is awesome) created Modular Fuels, and we're maintaining the Real Fuels fork in his absence.
 
 License remains CC-BY-SA as modified by ialdabaoth.
+Source: https://github.com/NathanKell/ModularFuelSystem
 
 Also included: Module Manager (by sarbian, based on ialdabaoth's work). See Module Manager thread for details and license and source: http://http://forum.kerbalspaceprogram.com/threads/55219
 Module Manager is required for RF to work.
@@ -41,6 +42,17 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 Changelog:
 v4.1 = \/
 *Lowered aerospike sea-level Isp
+*Added SNServiceModules
+*Reworked thrust-setting code and fixed RCS thrust issue
+*Fixed duplicating fuel gauges
+*Fixed EI ignitions remaining; added dictionary listing which propellants are pressurized.
+*taniwha's MFT v4.1 fixes:
+*Allow tank amounts to be set to 0. This fixes the problem with non-fillable tanks (eg, Kethane).
+*Blank fields no longer reset to the previous amount and are treated as 0 when updating.
+*Overfull tanks now display the available volume in red.
+*Tanks placed using symmetry no longer invite the kraken (no more ship flying apart but still connected via fuel-lines)
+*Source code removed from the distribution zip. See above links for details.
+
 
 v4.0 = \/
 *Rewritten Techlevels system. Supports per-part and per-config techlevel overrides.
