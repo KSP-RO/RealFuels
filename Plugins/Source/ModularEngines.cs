@@ -1282,14 +1282,20 @@ namespace ModularFuelTanks
                                     ignitions = -1;
 
                                 eiNode.SetValue("ignitionsAvailable", ignitions.ToString());
-                                eiNode.SetValue("ignitionsRemained", ignitions.ToString());
+                                if (eiNode.HasValue("ignitionsRemained"))
+                                    eiNode.SetValue("ignitionsRemained", ignitions.ToString());
+                                else
+                                    eiNode.AddValue("ignitionsRemained", ignitions.ToString());
                             }
                         }
-                        /*if (!HighLogic.LoadedSceneIsEditor && !(HighLogic.LoadedSceneIsFlight && vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
+                        if (!HighLogic.LoadedSceneIsEditor && !(HighLogic.LoadedSceneIsFlight && vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
                         {
                             int remaining = (int)(part.Modules["ModuleEngineIgnitor"].GetType().GetField("ignitionsRemained").GetValue(part.Modules["ModuleEngineIgnitor"]));
-                            eiNode.SetValue("ignitionsRemained", remaining.ToString());
-                        }*/
+                            if(eiNode.HasValue("ignitionsRemained"))
+                                eiNode.SetValue("ignitionsRemained", remaining.ToString());
+                            else
+                                eiNode.AddValue("ignitionsRemained", remaining.ToString());
+                        }
                         ConfigNode tNode = new ConfigNode("MODULE");
                         eiNode.CopyTo(tNode);
                         tNode.SetValue("name", "ModuleEngineIgnitor");
