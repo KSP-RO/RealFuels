@@ -167,6 +167,8 @@ FUEL MIXTURES
 
 *Hydrazine, Nitrous Oxide, and HTP can be used as monopropellants. Hydrazine has by far the highest performance, but is very toxic.
 
+*Solid Fuel is very dense, allows high thrust (since there is no engine per se to feed the fuel through, just a nozzle), but has low specific impulse, only slightly better than Hydrazine monopropellant. However, it took many years to develop larger and larger solid fuel motors, and solid fuel motors don't scale as well as liquid fuel (since the entire casing must resist the pressure of combustion, the casing itself forming the thrust chamber).
+
 ====Nuclear (Liquid Fuel)====
 In general: the less dense the fuel, the higher your specific impulse and the lower your thrust.
 
