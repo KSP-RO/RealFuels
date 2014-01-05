@@ -46,6 +46,7 @@ v4.1 = \/
 *Reworked thrust-setting code and fixed RCS thrust issue
 *Fixed duplicating fuel gauges
 *Fixed EI ignitions remaining; added dictionary listing which propellants are pressurized.
+*Added nitrogen (ArgonGas no longer modified, since this doesn't support the rest of NFPP yet)
 *taniwha's MFT v4.1 fixes:
 *Allow tank amounts to be set to 0. This fixes the problem with non-fillable tanks (eg, Kethane).
 *Blank fields no longer reset to the previous amount and are treated as 0 when updating.
