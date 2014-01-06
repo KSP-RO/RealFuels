@@ -503,6 +503,21 @@ namespace ModularFuelTanks
 			}
 		}
 
+		private void ResourcesModified (Part part)
+		{
+			BaseEventData data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<Part> ("part", part);
+			part.SendEvent ("OnResourcesModified", data, 0);
+		}
+
+		private void MassModified (Part part, float oldmass)
+		{
+			BaseEventData data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<Part> ("part", part);
+			data.Set<float> ("oldmass", oldmass);
+			part.SendEvent ("OnMassModified", data, 0);
+		}
+
 		public override void OnStart (StartState state)
 		{
 #if DEBUG
@@ -526,6 +541,8 @@ namespace ModularFuelTanks
 				}
 			}
 			UpdateMass();
+
+			ResourcesModified (part);
 
 			if(HighLogic.LoadedSceneIsEditor) {
 				UpdateSymmetryCounterparts();
@@ -743,6 +760,7 @@ namespace ModularFuelTanks
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
+						ResourcesModified (part);
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
 					}
@@ -750,6 +768,7 @@ namespace ModularFuelTanks
 						tank.maxAmount = 0;
 						textFields[amountField] = "0";
 						textFields[maxAmountField] = "0";
+						ResourcesModified (part);
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
 					}
@@ -768,6 +787,7 @@ namespace ModularFuelTanks
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
+						ResourcesModified (part);
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
 
@@ -785,6 +805,7 @@ namespace ModularFuelTanks
 				textFields.Clear ();
 				foreach(ModuleFuelTanks.FuelTank tank in fuelList)
 					tank.maxAmount = 0;
+				ResourcesModified (part);
 				if(part.symmetryCounterparts.Count > 0)
 					UpdateSymmetryCounterparts();
 
@@ -868,6 +889,7 @@ namespace ModularFuelTanks
 									}
 								}
 							}
+							ResourcesModified (part);
 							if (part.symmetryCounterparts.Count > 0)
 								UpdateSymmetryCounterparts();
 						}
@@ -938,10 +960,12 @@ namespace ModularFuelTanks
 #if DEBUG
 			print ("=== MFS: UpdateMass: " + basemass.ToString() + " , " + basemassPV.ToString() + " , " + volume.ToString() + " , " + massMult.ToString() + " , " + tank_mass.ToString());
 #endif
+			float oldmass = part.mass;
 			if (basemass >= 0) {
 				basemass = basemassPV * volume;
 				part.mass = basemass * massMult + tank_mass; // NK for realistic mass
 			}
+			MassModified (part, oldmass);
 		}
 
 		public int UpdateSymmetryCounterparts()
@@ -971,6 +995,7 @@ namespace ModularFuelTanks
 								}
 							}
 						}
+						ResourcesModified (fuel.part);
 						fuel.UpdateMass();
 					}
 				}
