@@ -487,7 +487,8 @@ namespace ModularFuelTanks
 			if(fuelList == null || fuelList.Count == 0) {
 				// In the editor, OnInitialize doesn't get called for the root part (KSP bug?)
 				// First check if it's a counterpart.
-				if(HighLogic.LoadedSceneIsEditor && part.symmetryCounterparts != null) {
+				if(HighLogic.LoadedSceneIsEditor
+				   && part.symmetryCounterparts.Count > 0) {
 					UsePrefab();
 				} else {
 					if(fuelList != null)
