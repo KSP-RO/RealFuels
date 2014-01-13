@@ -1179,6 +1179,8 @@ namespace ModularFuelTanks
             }
         }
 
+        public PartModule pModule = null;
+
 		virtual public void SetConfiguration(string newConfiguration = null)
 		{
             if (newConfiguration == null)
@@ -1199,56 +1201,76 @@ namespace ModularFuelTanks
 				print ("replacing " + type + " with:");
 				print (newConfig.ToString ());
 				#endif
-                
-                PartModule pModule = part.Modules[type];
 
-				// clear all FloatCurves
-                Type mType = pModule.GetType();
-				foreach(FieldInfo field in mType.GetFields()) {
-                    if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
-                    {
-                        //print("*MFS* resetting curve " + field.Name);
-                        field.SetValue(pModule, new FloatCurve());
-                    }
-				}
-                // clear propellant gauges
-                foreach(FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                pModule = null;
+                bool rcsSounds = (type.Equals("ModuleRCS") && part.Modules.Contains("RcsSounds"));
+                if (part.Modules.Contains(type) || rcsSounds)
                 {
-                    if(field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
+                    if(rcsSounds)
+                        pModule = part.Modules["RcsSounds"];
+                    else
+                        pModule = part.Modules[type];
+
+                    // clear all FloatCurves
+                    Type mType = pModule.GetType();
+                    foreach (FieldInfo field in mType.GetFields())
                     {
-                        Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
-                        if (boxes == null)
-                            continue;
-                        foreach(VInfoBox v in boxes.Values)
+                        if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                         {
-                            if (v == null) //just in case...
-                                continue;
-                            try
-                            {
-                                part.stackIcon.RemoveInfo(v);
-                            }
-                            catch(Exception e)
-                            {
-                                print("*MFS* Trying to remove info box: " + e.Message);
-                            }
+                            //print("*MFS* resetting curve " + field.Name);
+                            field.SetValue(pModule, new FloatCurve());
                         }
-                        boxes.Clear();
+                    }
+                    // clear propellant gauges
+                    foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                    {
+                        if (field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
+                        {
+                            Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
+                            if (boxes == null)
+                                continue;
+                            foreach (VInfoBox v in boxes.Values)
+                            {
+                                if (v == null) //just in case...
+                                    continue;
+                                try
+                                {
+                                    part.stackIcon.RemoveInfo(v);
+                                }
+                                catch (Exception e)
+                                {
+                                    print("*MFS* Trying to remove info box: " + e.Message);
+                                }
+                            }
+                            boxes.Clear();
+                        }
                     }
                 }
-				if(type.Equals ("ModuleRCS")) {
-					ModuleRCS rcs = (ModuleRCS) part.Modules["ModuleRCS"];
-					string resource = config.GetValue ("resourceName");
-                    rcs.resourceName = resource;
+				if(type.Equals ("ModuleRCS") || type.Equals("RcsSounds")) {
+					ModuleRCS rcs = (ModuleRCS) pModule;
+                    
+                    string resource = config.GetValue("resourceName");
+                    if (rcs != null)
+                    {
+                        rcs.resourceName = resource;
+                    }
                     DoConfig(config);
-                    rcs.SetResource(resource);
-					rcs.Load (config);
-                    rcs.resourceName = resource;
-					rcs.SetResource (resource);
+                    if (rcs != null)
+                    {
+                        rcs.SetResource(resource);
+                        rcs.Load(config);
+                        rcs.resourceName = resource;
+                        rcs.SetResource(resource);
+                    }
 				} else { // is an ENGINE
                     if (type.Equals("ModuleEngines"))
                     {
-                        configMaxThrust = ((ModuleEngines)pModule).maxThrust;
-                        configMinThrust = ((ModuleEngines)pModule).minThrust;
+                        ModuleEngines mE = (ModuleEngines)pModule;
+                        if (mE != null)
+                        {
+                            configMaxThrust = mE.maxThrust;
+                            configMinThrust = mE.minThrust;
+                        }
                         if (config.HasValue("maxThrust"))
                         {
                             float thr;
@@ -1263,7 +1285,8 @@ namespace ModularFuelTanks
                         }
                     }
                     DoConfig(config);
-					pModule.Load (config);
+					if(pModule != null)
+                        pModule.Load (config);
                     if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
                     {
                         ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
@@ -1366,18 +1389,12 @@ namespace ModularFuelTanks
                 if(!engine.EngineIgnited)
                     engine.SetRunningGroupsActive(false); // fix for SQUAD bug
             }
-            else if (type.Equals("ModuleRCS"))
+            else if (type.Equals("ModuleRCS") || type.Equals("RcsSounds"))
             {
-                ModuleRCS engine = (ModuleRCS)part.Modules["ModuleRCS"];
-                if (config != null && engine.realISP > 0)
+                ModuleRCS engine = (ModuleRCS)pModule;
+
+                if (config != null && engine != null && engine.realISP > 0)
                 {
-                    /*float maxThrust = 0;
-                    float.TryParse (config.GetValue ("maxThrust"), out maxThrust);*/
-                    /*if (config.HasValue("resourceName"))
-                    {
-                        engine.resourceName = config.GetValue("resourceName");
-                        engine.SetResource(config.GetValue("resourceName"));
-                    }*/
                     float multiplier = engine.realISP / engine.atmosphereCurve.Evaluate(0);
                     engine.thrusterPower = configMaxThrust * multiplier;
                 }
@@ -1439,7 +1456,7 @@ namespace ModularFuelTanks
             }
 
 			GUILayout.BeginHorizontal();
-            GUILayout.Label(part.Modules[type].GetInfo() + "\n" + TLTInfo());
+            GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo()); //part.Modules[type].GetInfo()
 			GUILayout.EndHorizontal ();
 		}
 

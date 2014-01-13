@@ -40,10 +40,16 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v4.2 = \/
+*Added fix to BobCat Soviet Engines until the original pack is updated.
+*Added fix to prevent exception when RF module loads before the module it's controlling.
+*Added fix to allow RF to work with RCS Sounds mod
+
 v4.1 = \/
 *Lowered aerospike sea-level Isp
 *Added SNServiceModules
 *Reworked thrust-setting code and fixed RCS thrust issue
+*Now when you cut thrust, thrust is actually cut: min thrust goes to 0 for all engines (if the throttle is even 1% above 0, however, then minthrust will remain normal). This is so you can "cut off" engines without disabling them (i.e. by hitting x, or whatever your 0 throttle key is) and for MJ/KER/etc compatibility.
 *Fixed duplicating fuel gauges
 *Fixed EI ignitions remaining; added dictionary listing which propellants are pressurized.
 *Added nitrogen (ArgonGas no longer modified, since this doesn't support the rest of NFPP yet)
