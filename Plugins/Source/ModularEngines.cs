@@ -1258,7 +1258,7 @@ namespace ModularFuelTanks
                     if (rcs != null)
                     {
                         rcs.SetResource(resource);
-                        rcs.Load(config);
+                        pModule.Load(config);
                         rcs.resourceName = resource;
                         rcs.SetResource(resource);
                     }
