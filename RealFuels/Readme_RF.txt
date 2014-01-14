@@ -44,6 +44,8 @@ v4.2 = \/
 *Added fix to BobCat Soviet Engines until the original pack is updated.
 *Added fix to prevent exception when RF module loads before the module it's controlling.
 *Added fix to allow RF to work with RCS Sounds mod
+*taniwha: fixed exception with prefabs; root parts can now be edited.
+*updated to ModuleManager v1.5.6
 
 v4.1 = \/
 *Lowered aerospike sea-level Isp
