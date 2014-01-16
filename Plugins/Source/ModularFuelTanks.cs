@@ -175,12 +175,19 @@ namespace ModularFuelTanks
 							maxAmount = v;
 						}
 						if(node.HasValue ("amount")) {
-							if(node.GetValue ("amount").Trim().ToLower().Equals("full"))
+                            string amt = node.GetValue("amount").Trim().ToLower();
+							if(amt.Equals("full"))
 								amount = maxAmount;
-							else {
-								double.TryParse(node.GetValue ("amount"), out v);
-								amount = v;
-							}
+                            else if (amt.Contains("%"))
+                            {
+                                double.TryParse(amt.Replace("%", "").Trim(), out v);
+                                amount = v * maxAmount * 0.01;
+                            }
+                            else
+                            {
+                                double.TryParse(node.GetValue("amount"), out v);
+                                amount = v;
+                            }
 						} else {
 							amount = 0;
 						}
