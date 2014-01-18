@@ -1038,11 +1038,11 @@ namespace ModularFuelTanks
                 float.TryParse(node.GetValue("origMass"), out origMass);
                 part.mass = origMass * massMult;
             }
-            else
+            /*else -- already defaults to -1 anyway. And this was breaking stuff.
             {
                 //print("*MFS* OnLoad: Missing origMass for " + part.name);
                 origMass = -1;
-            }
+            }*/
 
             localCorrectThrust = true;
             if (node.HasValue("localCorrectThrust"))
@@ -1097,17 +1097,24 @@ namespace ModularFuelTanks
                     }
                 }
             }
-
+            float heat = -1;
             if (cfg.HasValue("heatProduction")) // ohai amsi: allow heat production to be changed by multiplier
-                cfg.SetValue("heatProduction", ((float)Math.Round(float.Parse(cfg.GetValue("heatProduction")) * heatMult, 0)).ToString());
+            {
+                heat = (float)Math.Round(float.Parse(cfg.GetValue("heatProduction")) * heatMult, 0);
+                cfg.SetValue("heatProduction", heat.ToString());
+            }
 
             if (techLevel != -1)
             {
+                // load techlevels
                 TechLevel cTL = new TechLevel();
                 //print("For engine " + part.name + ", config " + configuration + ", max TL: " + TechLevel.MaxTL(cfg, techNodes, engineType));
                 cTL.Load(cfg, techNodes, engineType, techLevel);
                 TechLevel oTL = new TechLevel();
                 oTL.Load(cfg, techNodes, engineType, origTechLevel);
+
+
+                // set atmosphereCurve
                 if (cfg.HasValue("IspSL") && cfg.HasValue("IspV"))
                 {
                     cfg.RemoveNode("atmosphereCurve");
@@ -1122,10 +1129,20 @@ namespace ModularFuelTanks
                     aC.Save(curve);
                     cfg.AddNode(curve);
                 }
+
+                // set heatProduction and dissipation
+                if (heat > 0)
+                {
+                    cfg.SetValue("heatProduction", MassTL(heat).ToString("0"));
+                    part.heatDissipation = 0.12f / MassTL(1.0f);
+                }
+
+                // load throttle (for later)
                 curThrottle = throttle;
                 if(cfg.HasValue("throttle"))
                     float.TryParse(cfg.GetValue("throttle"), out curThrottle);
 
+                // set thrust and throttle
                 if (cfg.HasValue(thrustRating))
                 {
                     float thr;

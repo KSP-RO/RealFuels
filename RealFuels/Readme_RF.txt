@@ -40,6 +40,9 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v4.3 = \/
+*Now engine heat dissipation and engine heat production are proportional to techlevel (in particular, heatProduction *= TLMassMultiplier and part.heatDissipation /= TLMassMultiplier
+
 v4.2 = \/
 *Added fix to BobCat Soviet Engines until the original pack is updated.
 *Added fix to prevent exception when RF module loads before the module it's controlling.
