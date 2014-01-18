@@ -304,11 +304,26 @@ namespace ModularFuelTanks
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
         public Dictionary<string, bool> pressurizedFuels;
 
+		public static bool ResourceExists (string name)
+		{
+			return PartResourceLibrary.Instance.GetDefinition (name) != null;
+		}
+
+		public static ConfigNode CheckTankResources (ConfigNode tankdef)
+		{
+			foreach (var tank in tankdef.GetNodes ("TANK")) {
+				if (!ResourceExists (tank.GetValue ("name"))) {
+					tankdef.nodes.Remove (tank);
+				}
+			}
+			return tankdef;
+		}
+
 		public static ConfigNode TankDefinition(string name)
 		{
 			foreach (ConfigNode tank in GameDatabase.Instance.GetConfigNodes ("TANK_DEFINITION")) {
 				if(tank.HasValue ("name") && tank.GetValue ("name").Equals (name))
-					return tank;
+					return CheckTankResources (tank);
 			}
 			return null;
 		}
@@ -400,6 +415,11 @@ namespace ModularFuelTanks
 			// Override tank definitions
 			foreach (var tank in node.GetNodes("TANK")) {
 				string tank_name = tank.GetValue("name");
+				// don't allow tanks for resources that don't exist, unless this is from a saved game.
+				if (needInitialize && !ResourceExists (tank_name)) {
+					print (String.Format("dropping {0}", tank_name));
+					continue;
+				}
 				ConfigNode stageTank = stage.GetNodes("TANK").FirstOrDefault(p => p.GetValue("name") == tank_name);
 				if (stageTank == null) {
 					stageTank = stage.AddNode("TANK");
