@@ -304,11 +304,26 @@ namespace ModularFuelTanks
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
         public Dictionary<string, bool> pressurizedFuels;
 
+		public static bool ResourceExists (string name)
+		{
+			return PartResourceLibrary.Instance.GetDefinition (name) != null;
+		}
+
+		public static ConfigNode CheckTankResources (ConfigNode tankdef)
+		{
+			foreach (var tank in tankdef.GetNodes ("TANK")) {
+				if (!ResourceExists (tank.GetValue ("name"))) {
+					tankdef.nodes.Remove (tank);
+				}
+			}
+			return tankdef;
+		}
+
 		public static ConfigNode TankDefinition(string name)
 		{
 			foreach (ConfigNode tank in GameDatabase.Instance.GetConfigNodes ("TANK_DEFINITION")) {
 				if(tank.HasValue ("name") && tank.GetValue ("name").Equals (name))
-					return tank;
+					return CheckTankResources (tank);
 			}
 			return null;
 		}
@@ -400,6 +415,11 @@ namespace ModularFuelTanks
 			// Override tank definitions
 			foreach (var tank in node.GetNodes("TANK")) {
 				string tank_name = tank.GetValue("name");
+				// don't allow tanks for resources that don't exist, unless this is from a saved game.
+				if (needInitialize && !ResourceExists (tank_name)) {
+					print (String.Format("dropping {0}", tank_name));
+					continue;
+				}
 				ConfigNode stageTank = stage.GetNodes("TANK").FirstOrDefault(p => p.GetValue("name") == tank_name);
 				if (stageTank == null) {
 					stageTank = stage.AddNode("TANK");
@@ -483,6 +503,21 @@ namespace ModularFuelTanks
 			}
 		}
 
+		private void ResourcesModified (Part part)
+		{
+			BaseEventData data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<Part> ("part", part);
+			part.SendEvent ("OnResourcesModified", data, 0);
+		}
+
+		private void MassModified (Part part, float oldmass)
+		{
+			BaseEventData data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<Part> ("part", part);
+			data.Set<float> ("oldmass", oldmass);
+			part.SendEvent ("OnMassModified", data, 0);
+		}
+
 		public override void OnStart (StartState state)
 		{
 #if DEBUG
@@ -506,6 +541,8 @@ namespace ModularFuelTanks
 				}
 			}
 			UpdateMass();
+
+			ResourcesModified (part);
 
 			if(HighLogic.LoadedSceneIsEditor) {
 				UpdateSymmetryCounterparts();
@@ -723,6 +760,7 @@ namespace ModularFuelTanks
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
+						ResourcesModified (part);
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
 					}
@@ -730,6 +768,7 @@ namespace ModularFuelTanks
 						tank.maxAmount = 0;
 						textFields[amountField] = "0";
 						textFields[maxAmountField] = "0";
+						ResourcesModified (part);
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
 					}
@@ -748,6 +787,7 @@ namespace ModularFuelTanks
 						textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
+						ResourcesModified (part);
 						if(part.symmetryCounterparts.Count > 0)
 							UpdateSymmetryCounterparts();
 
@@ -765,6 +805,7 @@ namespace ModularFuelTanks
 				textFields.Clear ();
 				foreach(ModuleFuelTanks.FuelTank tank in fuelList)
 					tank.maxAmount = 0;
+				ResourcesModified (part);
 				if(part.symmetryCounterparts.Count > 0)
 					UpdateSymmetryCounterparts();
 
@@ -848,6 +889,7 @@ namespace ModularFuelTanks
 									}
 								}
 							}
+							ResourcesModified (part);
 							if (part.symmetryCounterparts.Count > 0)
 								UpdateSymmetryCounterparts();
 						}
@@ -918,10 +960,12 @@ namespace ModularFuelTanks
 #if DEBUG
 			print ("=== MFS: UpdateMass: " + basemass.ToString() + " , " + basemassPV.ToString() + " , " + volume.ToString() + " , " + massMult.ToString() + " , " + tank_mass.ToString());
 #endif
+			float oldmass = part.mass;
 			if (basemass >= 0) {
 				basemass = basemassPV * volume;
 				part.mass = basemass * massMult + tank_mass; // NK for realistic mass
 			}
+			MassModified (part, oldmass);
 		}
 
 		public int UpdateSymmetryCounterparts()
@@ -951,6 +995,7 @@ namespace ModularFuelTanks
 								}
 							}
 						}
+						ResourcesModified (fuel.part);
 						fuel.UpdateMass();
 					}
 				}
