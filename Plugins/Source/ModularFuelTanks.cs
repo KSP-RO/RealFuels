@@ -922,38 +922,43 @@ namespace ModularFuelTanks
 			return new List<Part>(ppart.FindChildParts<Part> (true)).FindAll (p => p.Modules.Contains ("ModuleEngines"));
 		}
 
-		//called by StretchyTanks
-		public void ChangeVolume(float newVolume)
-		{
-			//print("*MFS* Setting new volume " + newVolume);
-			double volRatio = (double)newVolume / (double)volume;
-			//float availVol = availableVolume * volRatio;
-			volume = newVolume;
-			List<double> amtratios = new List<double>();
-			List<double> maxes = new List<double>();
-			double totalAmt = 0;
-			for (int i = 0; i < fuelList.Count; i++) {
-				ModuleFuelTanks.FuelTank tank = fuelList[i];
-				totalAmt += tank.maxAmount;
-				amtratios.Add(tank.amount / tank.maxAmount);
-				maxes.Add(tank.maxAmount);
-			}
-			for (int i = 0; i < fuelList.Count; i++) {
-				ModuleFuelTanks.FuelTank tank = fuelList[i];
-				double newMax = maxes[i] * volRatio;
-				if (newMax < tank.maxAmount) {
-					tank.amount = amtratios[i] * newMax;
-					tank.maxAmount = newMax;
-				} else {
-					//print("Decreasing " + tank.name + " to " + newMax);
-					tank.maxAmount = newMax;
-					tank.amount = amtratios[i] * newMax;
-				}
-			}
-			if(textFields != null)
-				textFields.Clear();
-			UpdateMass();
-		}
+        //called by StretchyTanks
+        public void ChangeVolume(float newVolume)
+        {
+            //print("*MFS* Setting new volume " + newVolume);
+            double volRatio = (double)newVolume / (double)volume;
+            double availVol = availableVolume * volRatio;
+            if (availVol < 0.0001)
+                availVol = 0;
+            volume = newVolume;
+            List<double> amtratios = new List<double>();
+            List<double> maxes = new List<double>();
+            double totalAmt = 0;
+            double newVol = ((double)newVolume - availVol);
+            for (int i = 0; i < fuelList.Count; i++)
+            {
+                ModuleFuelTanks.FuelTank tank = fuelList[i];
+                totalAmt += tank.maxAmount;
+                double amtRatio = tank.amount / tank.maxAmount;
+                if (amtRatio > 0.9999)
+                    amtRatio = 1.0;
+                else if (amtRatio < 0.0001)
+                    amtRatio = 0.0;
+                amtratios.Add(amtRatio);
+                maxes.Add(tank.maxAmount);
+            }
+            double ratio = newVol / totalAmt;
+            for (int i = 0; i < fuelList.Count; i++)
+            {
+                ModuleFuelTanks.FuelTank tank = fuelList[i];
+                double newMax = maxes[i] * ratio;
+                tank.maxAmount = newMax;
+                tank.amount = amtratios[i] * newMax;
+            }
+            if (textFields != null)
+                textFields.Clear();
+            UpdateMass();
+        }
 
 		public void UpdateMass()
 		{
