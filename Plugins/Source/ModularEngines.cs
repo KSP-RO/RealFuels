@@ -18,7 +18,9 @@ namespace ModularFuelTanks
 				ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
 				configs = prefab.configs;
 			}
-			SetConfiguration (configuration);
+            SetConfiguration(configuration);
+            if (part.Modules.Contains("ModuleEngineIgnitor"))
+                part.Modules["ModuleEngineIgnitor"].OnStart(state);
 		}
 
 
@@ -438,7 +440,7 @@ namespace ModularFuelTanks
         public float origMass = -1;
 
         public int maxTechLevel = -1;
-        public int minTechLevel = 1;
+        public int minTechLevel = -1;
 
         public string engineType = "L"; // default = lower stage
         public float throttle = 0.0f; // default min throttle level
@@ -1023,14 +1025,14 @@ namespace ModularFuelTanks
             if (node.HasValue("maxTechLevel"))
                 int.TryParse(node.GetValue("maxTechLevel"), out maxTechLevel);
             else
-                { if (techLevel != -1) { maxTechLevel = TechLevel.MaxTL(node, engineType); } }
+                { if (techLevel != -1 && maxTechLevel < 0) { maxTechLevel = TechLevel.MaxTL(node, engineType); } }
 
             if (node.HasValue("minTechLevel"))
             {
                 if (!int.TryParse(node.GetValue("minTechLevel"), out minTechLevel))
                     minTechLevel = origTechLevel;
             }
-            else
+            else if(minTechLevel < 0)
                 minTechLevel = origTechLevel;
 
             if (node.HasValue("origMass"))
@@ -1038,16 +1040,9 @@ namespace ModularFuelTanks
                 float.TryParse(node.GetValue("origMass"), out origMass);
                 part.mass = origMass * massMult;
             }
-            /*else -- already defaults to -1 anyway. And this was breaking stuff.
-            {
-                //print("*MFS* OnLoad: Missing origMass for " + part.name);
-                origMass = -1;
-            }*/
 
-            localCorrectThrust = true;
             if (node.HasValue("localCorrectThrust"))
                 bool.TryParse(node.GetValue("localCorrectThrust"), out localCorrectThrust);
-            localCorrectThrust = localCorrectThrust && correctThrust;
 
 			if (configs == null)
 				configs = new List<ConfigNode> ();
@@ -1191,7 +1186,7 @@ namespace ModularFuelTanks
                         if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
                             configMassMult = ftmp;
 
-                    part.mass = MassTL(origMass * configMassMult);
+                    part.mass = MassTL(origMass * configMassMult * massMult);
                 }
             }
         }
@@ -1314,7 +1309,7 @@ namespace ModularFuelTanks
                             {
                                 if (ignitions < 0)
                                 {
-                                    ignitions = techLevel - ignitions;
+                                    ignitions = techLevel + ignitions;
                                     if (ignitions < 1)
                                         ignitions = 1;
                                 }
@@ -1383,7 +1378,7 @@ namespace ModularFuelTanks
 
 		public void SetThrust()
 		{
-            if (!localCorrectThrust)
+            if (!localCorrectThrust || !correctThrust)
 				return;
             if (type.Equals("ModuleEngines"))
             {
@@ -1445,12 +1440,9 @@ namespace ModularFuelTanks
                 }
                 if (GUILayout.Button(minusStr) && canMinus)
                 {
-                    //if (techLevel > origTechLevel)
-                    //{
                     techLevel--;
                     SetConfiguration(configuration);
                     UpdateSymmetryCounterparts();
-                    //}
                 }
                 GUILayout.Label(techLevel.ToString());
                 string plusStr = "X";
@@ -1462,12 +1454,9 @@ namespace ModularFuelTanks
                 }
                 if (GUILayout.Button(plusStr) && canPlus)
                 {
-                    //if (techLevel < TechLevel.MaxTL(config, techNodes, engineType))
-                    //{
                     techLevel++;
                     SetConfiguration(configuration);
                     UpdateSymmetryCounterparts();
-                    //}
                 }
                 GUILayout.EndHorizontal();
             }
