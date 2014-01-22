@@ -41,7 +41,15 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 ==========
 Changelog:
 v4.3 = \/
-*Now engine heat dissipation and engine heat production are proportional to techlevel (in particular, heatProduction *= TLMassMultiplier and part.heatDissipation /= TLMassMultiplier
+*Now engine heat dissipation and engine heat production are proportional to techlevel (in particular, heatProduction *= TLMassMultiplier and part.heatDissipation /= TLMassMultiplier.
+*Fixed issues in loading code (when instantiating an engine).
+*StretchyTanks will rescale upwards slightly better. Making them smaller still provokes rounding errors, however.
+*Fixed big bug with useRealisticMass (mass multiplier was never used!).
+*Non-SM, Non-RCS tanks can no longer hold monopropellant.
+*Pressurized tanks (i.e. SM) now properly note they are pressurized.
+*Fixed issue with TL0 Isp. It was too low (due to my having created techlevels before I added alcohol, and stupidly used alcohol/LOx Isp for TL0 kerolox Isp). This means, however, that upgrading TL0 engines no longer delivers quite the increase in thrust it used to.
+*Lowered U+ TWR slightly to better accord with real turbopump-fed vacuum engines.
+*Fixed sign error in ignitionsAvailable
 
 v4.2 = \/
 *Added fix to BobCat Soviet Engines until the original pack is updated.
