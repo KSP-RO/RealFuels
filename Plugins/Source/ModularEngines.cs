@@ -456,11 +456,13 @@ namespace ModularFuelTanks
 
         public ModuleType fastType = ModuleType.MODULEENGINES;
         public ModuleEngines fastEngines = null;
+        public ModuleEnginesFX fastEnginesFX = null;
         public ModuleRCS fastRCS = null;
 
         public enum ModuleType
         {
             MODULEENGINES,
+            MODULEENGINESFX,
             MODULERCS
         }
 
@@ -1309,6 +1311,29 @@ namespace ModularFuelTanks
                                 configMinThrust = thr;
                         }
                     }
+                    else if (type.Equals("ModuleEnginesFX"))
+                    {
+                        ModuleEnginesFX mE = (ModuleEnginesFX)pModule;
+                        if (mE != null)
+                        {
+                            configMaxThrust = mE.maxThrust;
+                            configMinThrust = mE.minThrust;
+                            fastEnginesFX = mE;
+                            fastType = ModuleType.MODULEENGINESFX;
+                        }
+                        if (config.HasValue("maxThrust"))
+                        {
+                            float thr;
+                            if (float.TryParse(config.GetValue("maxThrust"), out thr))
+                                configMaxThrust = thr;
+                        }
+                        if (config.HasValue("minThrust"))
+                        {
+                            float thr;
+                            if (float.TryParse(config.GetValue("minThrust"), out thr))
+                                configMinThrust = thr;
+                        }
+                    }
                     DoConfig(config);
 					if(pModule != null)
                         pModule.Load (config);
@@ -1401,20 +1426,39 @@ namespace ModularFuelTanks
                     bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
-                        //float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
-                        //multiplier = engine.realIsp * ispVMult / multiplier; 
-
-                        engine.maxThrust = configMaxThrust;// *multiplier;
+                        float multiplier = engine.atmosphereCurve.Evaluate(0);
+                        multiplier = engine.realIsp / multiplier; 
+                        engine.maxThrust = configMaxThrust * multiplier;
                         if (throttleCut)
                             engine.minThrust = 0;
                         else
-                            engine.minThrust = configMinThrust;// *multiplier;
+                            engine.minThrust = configMinThrust * multiplier;
                     }
                     else if(throttleCut)
                         engine.minThrust = 0;
                 }
                 if(!engine.EngineIgnited)
                     engine.SetRunningGroupsActive(false); // fix for SQUAD bug
+            }
+            else if (fastType == ModuleType.MODULEENGINESFX)
+            {
+                ModuleEnginesFX engine = fastEnginesFX;
+                if ((object)config != null)
+                {
+                    bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
+                    if (engine.realIsp > 0)
+                    {
+                        float multiplier = engine.atmosphereCurve.Evaluate(0);
+                        multiplier = engine.realIsp / multiplier; 
+                        engine.maxThrust = configMaxThrust * multiplier;
+                        if (throttleCut)
+                            engine.minThrust = 0;
+                        else
+                            engine.minThrust = configMinThrust * multiplier;
+                    }
+                    else if (throttleCut)
+                        engine.minThrust = 0;
+                }
             }
             else if (fastType == ModuleType.MODULERCS)
             {

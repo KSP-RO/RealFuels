@@ -45,6 +45,7 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="HeatPump.cs" />
     <Compile Include="ModularEngines.cs" />
+    <Compile Include="ModularFuelPartModule.cs" />
     <Compile Include="ModularFuelTanks.cs" />
     <Compile Include="RefuelingPump.cs" />
   </ItemGroup>

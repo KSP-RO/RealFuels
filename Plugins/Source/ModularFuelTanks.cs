@@ -375,6 +375,28 @@ namespace ModularFuelTanks
 			}
 		}
 
+        public void ClearFuels()
+        {
+            if (fuelList == null)
+                return;
+            foreach (FuelTank t in fuelList)
+            {
+                t.amount = 0;
+                t.maxAmount = 0;
+            }
+        }
+
+        public void SwitchTankType(string newtype)
+        {
+            ConfigNode node = new ConfigNode("MODULE");
+            node.SetValue("name", "ModuleFuelTanks");
+            node.SetValue("type", newtype);
+            node.SetValue("volume", volume.ToString("N4"));
+            ClearFuels();
+            fuelList = null;
+            OnLoad(node);
+        }
+
 		public override void OnLoad(ConfigNode node)
 		{
 #if DEBUG
@@ -653,9 +675,10 @@ namespace ModularFuelTanks
 		struct FuelInfo
 		{
 			public string names;
-			public ModuleEngines thruster;
+			public List<Propellant> propellants;
 			public double efficiency;
 			public double ratio_factor;
+
 		}
 		private void fuelManagerGUI(int WindowID)
 		{
@@ -822,24 +845,39 @@ namespace ModularFuelTanks
 
 			}
 			GUILayout.EndHorizontal();
-			if(GetEnginesFedBy(part).Count > 0 && availableVolume >= 0.001) {
+            List<Part> engines = GetEnginesFedBy(part);
+
+            if (engines.Count > 0 && availableVolume >= 0.001)
+            {
 				Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
 
 				GUILayout.BeginHorizontal();
 				GUILayout.Label ("Configure remaining volume for engines:");
 				GUILayout.EndHorizontal();
 
-				foreach (Part engine in GetEnginesFedBy(part)) {
+                foreach (Part engine in engines)
+                {
 					double ratio_factor = 0.0;
 					double efficiency = 0.0;
-					ModuleEngines thruster = (ModuleEngines)engine.Modules["ModuleEngines"];
-
+                    List<Propellant> propellants = new List<Propellant>();
+                    if (part.Modules.Contains("ModuleEnginesFX"))
+                    {
+                        ModuleEnginesFX e = (ModuleEnginesFX)part.Modules["ModuleEnginesFX"];
+                        foreach (Propellant p in e.propellants)
+                            propellants.Add(p);
+                    }
+                    else if (part.Modules.Contains("ModuleEngines"))
+                    {
+                        ModuleEngines e = (ModuleEngines)part.Modules["ModuleEnginesFX"];
+                        foreach (Propellant p in e.propellants)
+                            propellants.Add(p);
+                    }
 					// tank math:
 					// efficiency = sum[utilization * ratio]
 					// then final volume per fuel = fuel_ratio / fuel_utilization / efficciency
 
 
-					foreach (Propellant tfuel in thruster.propellants) {
+					foreach (Propellant tfuel in propellants) {
 						if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null) {
 							print("Unknown RESOURCE {" + tfuel.name + "}");
 							ratio_factor = 0.0;
@@ -859,7 +897,7 @@ namespace ModularFuelTanks
 					}
 					if (ratio_factor > 0.0) {
 						string label = "";
-						foreach (Propellant tfuel in thruster.propellants) {
+						foreach (Propellant tfuel in propellants) {
 							if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
 								if (label.Length > 0)
 									label += " / ";
@@ -869,15 +907,15 @@ namespace ModularFuelTanks
 						}
 						if (!usedBy.ContainsKey(label)) {
 							FuelInfo f = new FuelInfo();
-							f.names = "Used by: " + thruster.part.partInfo.title;
+							f.names = "Used by: " + engine.partInfo.title;
 							f.efficiency = efficiency;
 							f.ratio_factor = ratio_factor;
-							f.thruster = thruster;
+							f.propellants = propellants;
 							usedBy.Add(label, f);
 						} else {
-							if (!usedBy[label].names.Contains(thruster.part.partInfo.title)) {
+							if (!usedBy[label].names.Contains(engine.partInfo.title)) {
 								FuelInfo f = usedBy[label];
-								f.names += ", " + thruster.part.partInfo.title;
+								f.names += ", " + engine.partInfo.title;
 								usedBy[label] = f;
 							}
 						}
@@ -890,7 +928,7 @@ namespace ModularFuelTanks
 							textFields.Clear();
 
 							double total_volume = availableVolume;
-							foreach (Propellant tfuel in usedBy[label].thruster.propellants) {
+							foreach (Propellant tfuel in usedBy[label].propellants) {
 								if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
 									ModuleFuelTanks.FuelTank tank = fuelList.Find(t => t.name.Equals(tfuel.name));
 									if (tank) {
@@ -930,7 +968,7 @@ namespace ModularFuelTanks
 			while (ppart.parent != null && ppart.parent != ppart)
 				ppart = ppart.parent;
 
-			return new List<Part>(ppart.FindChildParts<Part> (true)).FindAll (p => p.Modules.Contains ("ModuleEngines"));
+            return new List<Part>(ppart.FindChildParts<Part>(true)).FindAll(p => p.Modules.Contains("ModuleEngines") || p.Modules.Contains("ModuleEnginesFX"));
 		}
 
         //called by StretchyTanks
