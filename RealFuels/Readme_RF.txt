@@ -40,6 +40,13 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v4.4 = \/
+*Moved RF-related Stretchy parts to RF.
+*Add back missing HTP, N2O entries
+*Speed improvements from Ferram (thanks!)
+*ModuleEnginesFX support
+*Firespitter tanks don't change basemass now.
+
 v4.3 = \/
 *Now engine heat dissipation and engine heat production are proportional to techlevel (in particular, heatProduction *= TLMassMultiplier and part.heatDissipation /= TLMassMultiplier.
 *Fixed issues in loading code (when instantiating an engine).
