@@ -1426,8 +1426,8 @@ namespace ModularFuelTanks
                     bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
-                        float multiplier = engine.atmosphereCurve.Evaluate(0);
-                        multiplier = engine.realIsp / multiplier; 
+                        float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                        multiplier = engine.realIsp * ispVMult / multiplier;
                         engine.maxThrust = configMaxThrust * multiplier;
                         if (throttleCut)
                             engine.minThrust = 0;
@@ -1448,8 +1448,9 @@ namespace ModularFuelTanks
                     bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
-                        float multiplier = engine.atmosphereCurve.Evaluate(0);
-                        multiplier = engine.realIsp / multiplier; 
+                        float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                        multiplier = engine.realIsp * ispVMult / multiplier;
+
                         engine.maxThrust = configMaxThrust * multiplier;
                         if (throttleCut)
                             engine.minThrust = 0;
