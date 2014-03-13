@@ -8,7 +8,7 @@ using KSP;
 
 namespace ModularFuelTanks
 {
-	public class ModuleFuelTanks : PartModule
+	public class ModuleFuelTanks : ModularFuelPartModule
 	{
 		public static float massMult = 1.0f;
 		public static ConfigNode MFSSettings = null;
@@ -288,9 +288,6 @@ namespace ModularFuelTanks
 		//------------------- this is all KSP stuff
 
 		[KSPField(isPersistant = true)]
-		public double timestamp = 0.0;
-
-		[KSPField(isPersistant = true)]
 		public float basemass = 0.0f;
 
 		[KSPField(isPersistant = true)]
@@ -463,6 +460,8 @@ namespace ModularFuelTanks
 
 		public override void OnSave (ConfigNode node)
 		{
+            base.OnSave(node);
+
 #if DEBUG
 			print ("========ModuleFuelTanks.OnSave called. Node is:=======");
 			print (node.ToString ());
@@ -520,6 +519,7 @@ namespace ModularFuelTanks
 
 		public override void OnStart (StartState state)
 		{
+            base.OnStart(state);
 #if DEBUG
 			print ("========ModuleFuelTanks.OnStart( State == " + state.ToString () + ")=======");
 #endif
@@ -572,20 +572,31 @@ namespace ModularFuelTanks
 			if (HighLogic.LoadedSceneIsEditor) {
 				return;
 			}
-			if (timestamp > 0) {
-				double delta_t = Planetarium.GetUniversalTime () - timestamp;
-				foreach (FuelTank tank in fuelList) {
-					if (tank.amount > 0 && tank.loss_rate > 0 && part.temperature > tank.temperature) {
-						double loss = tank.maxAmount * tank.loss_rate * (part.temperature - tank.temperature) * delta_t; // loss_rate is calibrated to 300 degrees.
-						if (loss > tank.amount)
-							tank.amount = 0;
-						else
-							tank.amount -= loss;
-					}
-				}
-			}
-			timestamp = Planetarium.GetUniversalTime ();
-		}
+			if (timestamp > 0) 
+                CalculateTankLossFunction(precisionDeltaTime);
+
+            base.OnUpdate();            //Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
+        }
+
+        private void CalculateTankLossFunction(double deltaTime)
+        {
+            foreach (FuelTank tank in fuelList)
+            {
+                if (tank.loss_rate > 0 && tank.amount > 0)
+                {
+                    double deltaTemp = part.temperature - tank.temperature;
+                    if (deltaTemp > 0)
+                    {
+                        double loss = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime; // loss_rate is calibrated to 300 degrees.
+                        if (loss > tank.amount)
+                            tank.amount = 0;
+                        else
+                            tank.amount -= loss;
+                    }
+                }
+            }
+
+        }
 
 		public override string GetInfo ()
 		{

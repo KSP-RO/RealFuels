@@ -454,6 +454,16 @@ namespace ModularFuelTanks
 		[KSPField(isPersistant = true)]
 		public string type = "ModuleEngines";
 
+        public ModuleType fastType = ModuleType.MODULEENGINES;
+        public ModuleEngines fastEngines = null;
+        public ModuleRCS fastRCS = null;
+
+        public enum ModuleType
+        {
+            MODULEENGINES,
+            MODULERCS
+        }
+
 		[KSPField(isPersistant = true)]
 		public string thrustRating = "maxThrust";
 
@@ -1260,7 +1270,6 @@ namespace ModularFuelTanks
                 }
 				if(type.Equals ("ModuleRCS") || type.Equals("RcsSounds")) {
 					ModuleRCS rcs = (ModuleRCS) pModule;
-                    
                     string resource = config.GetValue("resourceName");
                     if (rcs != null)
                     {
@@ -1273,6 +1282,8 @@ namespace ModularFuelTanks
                         pModule.Load(config);
                         rcs.resourceName = resource;
                         rcs.SetResource(resource);
+                        fastRCS = rcs;
+                        fastType = ModuleType.MODULERCS;
                     }
 				} else { // is an ENGINE
                     if (type.Equals("ModuleEngines"))
@@ -1282,6 +1293,8 @@ namespace ModularFuelTanks
                         {
                             configMaxThrust = mE.maxThrust;
                             configMinThrust = mE.minThrust;
+                            fastEngines = mE;
+                            fastType = ModuleType.MODULEENGINES;
                         }
                         if (config.HasValue("maxThrust"))
                         {
@@ -1380,20 +1393,22 @@ namespace ModularFuelTanks
 		{
             if (!localCorrectThrust || !correctThrust)
 				return;
-            if (type.Equals("ModuleEngines"))
+            if (fastType == ModuleType.MODULEENGINES)
             {
-                ModuleEngines engine = (ModuleEngines)part.Modules["ModuleEngines"];
-                if (config != null)
+                ModuleEngines engine = fastEngines;
+                if ((object)config != null)
                 {
-                    bool throttleCut = vessel != null && vessel.ctrlState.mainThrottle <= 0;
+                    bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
-                        float multiplier = (engine.realIsp / Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure)) / (engine.atmosphereCurve.Evaluate(0) / ispVMult);
-                        engine.maxThrust = configMaxThrust * multiplier;
+                        //float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                        //multiplier = engine.realIsp * ispVMult / multiplier; 
+
+                        engine.maxThrust = configMaxThrust;// *multiplier;
                         if (throttleCut)
-                            engine.minThrust = 0; 
+                            engine.minThrust = 0;
                         else
-                            engine.minThrust = configMinThrust * multiplier;
+                            engine.minThrust = configMinThrust;// *multiplier;
                     }
                     else if(throttleCut)
                         engine.minThrust = 0;
@@ -1401,11 +1416,11 @@ namespace ModularFuelTanks
                 if(!engine.EngineIgnited)
                     engine.SetRunningGroupsActive(false); // fix for SQUAD bug
             }
-            else if (type.Equals("ModuleRCS") || type.Equals("RcsSounds"))
+            else if (fastType == ModuleType.MODULERCS)
             {
-                ModuleRCS engine = (ModuleRCS)pModule;
+                ModuleRCS engine = fastRCS;
 
-                if (config != null && engine != null && engine.realISP > 0)
+                if ((object)config != null && (object)engine != null && engine.realISP > 0)
                 {
                     float multiplier = engine.realISP / engine.atmosphereCurve.Evaluate(0);
                     engine.thrusterPower = configMaxThrust * multiplier;
