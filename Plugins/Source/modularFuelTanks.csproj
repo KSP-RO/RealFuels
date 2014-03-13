@@ -30,22 +30,21 @@
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>../../../KSP_linux/KSP_Data/Managed\Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>../../../KSP_linux/KSP_Data/Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="HeatPump.cs" />
+    <Compile Include="ModularFuelPartModule.cs" />
     <Compile Include="ModularFuelTanks.cs" />
     <Compile Include="RefuelingPump.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\..\..\..\Games\KSP 0.23 Real Life\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>..\..\..\..\..\Games\KSP 0.23 Real Life\KSP_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>
