@@ -845,33 +845,34 @@ namespace ModularFuelTanks
 
 			}
 			GUILayout.EndHorizontal();
-            List<Part> engines = GetEnginesFedBy(part);
+            List<Part> enginesList = GetEnginesFedBy(part);
 
-            if (engines.Count > 0 && availableVolume >= 0.001)
+            if (enginesList.Count > 0 && availableVolume >= 0.001)
             {
 				Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
 
 				GUILayout.BeginHorizontal();
-				GUILayout.Label ("Configure remaining volume for engines:");
+				GUILayout.Label ("Configure remaining volume for " + enginesList.Count + " engines:");
 				GUILayout.EndHorizontal();
 
-                foreach (Part engine in engines)
+                foreach (Part engine in enginesList)
                 {
 					double ratio_factor = 0.0;
 					double efficiency = 0.0;
                     List<Propellant> propellants = new List<Propellant>();
-                    if (part.Modules.Contains("ModuleEnginesFX"))
+                    if (engine.Modules.Contains("ModuleEnginesFX"))
                     {
-                        ModuleEnginesFX e = (ModuleEnginesFX)part.Modules["ModuleEnginesFX"];
+                        ModuleEnginesFX e = (ModuleEnginesFX)engine.Modules["ModuleEnginesFX"];
                         foreach (Propellant p in e.propellants)
                             propellants.Add(p);
                     }
-                    else if (part.Modules.Contains("ModuleEngines"))
+                    else if (engine.Modules.Contains("ModuleEngines"))
                     {
-                        ModuleEngines e = (ModuleEngines)part.Modules["ModuleEnginesFX"];
+                        ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
                         foreach (Propellant p in e.propellants)
                             propellants.Add(p);
                     }
+
 					// tank math:
 					// efficiency = sum[utilization * ratio]
 					// then final volume per fuel = fuel_ratio / fuel_utilization / efficciency
@@ -968,7 +969,7 @@ namespace ModularFuelTanks
 			while (ppart.parent != null && ppart.parent != ppart)
 				ppart = ppart.parent;
 
-            return new List<Part>(ppart.FindChildParts<Part>(true)).FindAll(p => p.Modules.Contains("ModuleEngines") || p.Modules.Contains("ModuleEnginesFX"));
+            return new List<Part>(ppart.FindChildParts<Part>(true)).FindAll(p => (p.Modules.Contains("ModuleEngines") || p.Modules.Contains("ModuleEnginesFX")));
 		}
 
         //called by StretchyTanks
