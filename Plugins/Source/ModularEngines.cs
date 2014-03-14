@@ -451,7 +451,8 @@ namespace ModularFuelTanks
         public static ConfigNode MFSSettings = null;
 
 
-		[KSPField(isPersistant = true)]
+		// - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
+        [KSPField]
 		public string type = "ModuleEngines";
 
         public ModuleType fastType = ModuleType.MODULEENGINES;
@@ -1066,6 +1067,9 @@ namespace ModularFuelTanks
 				subNode.CopyTo (newNode);
 				configs.Add (newNode);
 			}
+            // fix for HotRockets etc.
+            if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
+                type = "ModuleEnginesFX";
 
             // same as OnStart
             if (configs.Count == 0 && part.partInfo != null
