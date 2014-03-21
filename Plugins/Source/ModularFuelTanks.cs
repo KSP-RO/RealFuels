@@ -600,7 +600,7 @@ namespace ModularFuelTanks
 			if (HighLogic.LoadedSceneIsEditor) {
 				return;
 			}
-			if (timestamp > 0) 
+			if (timestamp > 0)
                 CalculateTankLossFunction(precisionDeltaTime);
 
             base.OnUpdate();            //Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
@@ -982,7 +982,7 @@ namespace ModularFuelTanks
         public void ChangeVolume(double newVolume)
         {
             //print("*MFS* Setting new volume " + newVolume);
-            
+
             double oldUsedVolume = volume;
             if (availableVolume > 0.0001)
                 oldUsedVolume = volume - availableVolume;
@@ -995,7 +995,7 @@ namespace ModularFuelTanks
 
             if(volume < newVolume)
                 volume = newVolume; // do it now only if we're resizing up, else we'll fail to resize tanks.
-            
+
             double ratio = newUsedVolume / oldUsedVolume;
             for (int i = 0; i < fuelList.Count; i++)
             {
@@ -1005,7 +1005,7 @@ namespace ModularFuelTanks
                 tank.maxAmount = oldMax * ratio;
                 tank.amount = tank.maxAmount * ratio;
             }
-            
+
             volume = newVolume; // update volume after tank resizes to avoid case where tank resizing clips new volume
 
             if (textFields != null)
