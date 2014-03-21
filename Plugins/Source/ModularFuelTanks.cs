@@ -122,7 +122,7 @@ namespace ModularFuelTanks
 					}
 					// update mass here because C# is annoying.
 					if (module.basemass >= 0) {
-						module.basemass = module.basemassPV * module.volume;
+						module.basemass = module.basemassPV * (float)module.volume;
 						part.mass = module.basemass * massMult + module.tank_mass; // NK for realistic mass
 					}
 				}
@@ -252,18 +252,18 @@ namespace ModularFuelTanks
 
 		//------------- this is all my non-KSP stuff
 
-		public float usedVolume {
+		public double usedVolume {
 			get {
 				double v = 0;
 				foreach (FuelTank fuel in fuelList) {
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						v += fuel.maxAmount / fuel.utilization;
 				}
-				return (float) v;
+				return v;
 			}
 		}
 
-		public float availableVolume {
+		public double availableVolume {
 			get {
 				return volume - usedVolume;
 			}
@@ -280,7 +280,7 @@ namespace ModularFuelTanks
 					if(fuel.maxAmount > 0 && fuel.utilization > 0)
 						m += (float) fuel.maxAmount * fuel.mass / fuel.utilization * massMult; // NK for realistic masses
 				}
-				tank_massPV = m / volume;
+				tank_massPV = m / (float)volume;
 				return m;
 			}
 		}
@@ -293,8 +293,8 @@ namespace ModularFuelTanks
 		[KSPField(isPersistant = true)]
 		public float basemassPV = 0.0f;
 
-		[KSPField(isPersistant = true)]
-		public float volume = 0.0f;
+		// no double support for KSPFields - [KSPField(isPersistant = true)]
+		public double volume = 0.0f;
 
 		public ConfigNode stage;		// configuration for this part (instance)
 		public List<FuelTank> fuelList;
@@ -406,6 +406,10 @@ namespace ModularFuelTanks
 			if (!initialized)
 				InitMFS ();
 
+            // no KSPField support for doubles
+            if (node.HasValue("volume"))
+                double.TryParse(node.GetValue("volume"), out volume);
+
 			string part_name = part.name;
 			if (part_name.Contains("_"))
 				part_name = part_name.Remove(part_name.LastIndexOf("_"));
@@ -463,11 +467,11 @@ namespace ModularFuelTanks
 				if (base_mass.Contains("*") && base_mass.Contains("volume")) {
 					float.TryParse(base_mass.Replace("volume", "").Replace("*", "").Trim(), out basemass);
 					basemassPV = basemass;
-					basemass = basemass * volume;
+					basemass = basemass * (float)volume;
 				} else {
 					// NK allow static basemass
 					float.TryParse(base_mass.Trim(), out basemass);
-					basemassPV = basemass / volume;
+					basemassPV = basemass / (float)volume;
 				}
 			}
 
@@ -483,6 +487,8 @@ namespace ModularFuelTanks
 		public override void OnSave (ConfigNode node)
 		{
             base.OnSave(node);
+
+            node.AddValue("volume", volume.ToString()); // no KSPField support for doubles
 
 #if DEBUG
 			print ("========ModuleFuelTanks.OnSave called. Node is:=======");
@@ -680,7 +686,7 @@ namespace ModularFuelTanks
 			public double ratio_factor;
 
 		}
-		private void fuelManagerGUI(int WindowID)
+		public void fuelManagerGUI(int WindowID)
 		{
 			if (unchanged == null) {
 				unchanged = new GUIStyle(GUI.skin.textField);
@@ -973,18 +979,25 @@ namespace ModularFuelTanks
 		}
 
         //called by StretchyTanks
-        public void ChangeVolume(float newVolume)
+        public void ChangeVolume(double newVolume)
         {
             //print("*MFS* Setting new volume " + newVolume);
-            double volRatio = (double)newVolume / (double)volume;
+            
+            double oldUsedVolume = volume;
+            if (availableVolume > 0.0001)
+                oldUsedVolume = volume - availableVolume;
+
+            double volRatio = newVolume / volume;
             double availVol = availableVolume * volRatio;
             if (availVol < 0.0001)
                 availVol = 0;
+            double newUsedVolume = newVolume - availVol;
+
             volume = newVolume;
-            List<double> amtratios = new List<double>();
+            
+            /*List<double> amtratios = new List<double>();
             List<double> maxes = new List<double>();
             double totalAmt = 0;
-            double newVol = ((double)newVolume - availVol);
             for (int i = 0; i < fuelList.Count; i++)
             {
                 ModuleFuelTanks.FuelTank tank = fuelList[i];
@@ -1004,6 +1017,18 @@ namespace ModularFuelTanks
                 double newMax = maxes[i] * ratio;
                 tank.maxAmount = newMax;
                 tank.amount = amtratios[i] * newMax;
+            }*/
+            double ratio = newUsedVolume / oldUsedVolume;
+            for (int i = 0; i < fuelList.Count; i++)
+            {
+                ModuleFuelTanks.FuelTank tank = fuelList[i];
+                double amtRatio = tank.amount / tank.maxAmount;
+                if (amtRatio > 0.9999)
+                    amtRatio = 1.0;
+                else if (amtRatio < 0.0001)
+                    amtRatio = 0.0;
+                tank.maxAmount = tank.maxAmount * ratio;
+                tank.amount = tank.maxAmount * amtRatio;
             }
             if (textFields != null)
                 textFields.Clear();
@@ -1017,7 +1042,7 @@ namespace ModularFuelTanks
 #endif
 			float oldmass = part.mass;
 			if (basemass >= 0) {
-				basemass = basemassPV * volume;
+				basemass = basemassPV * (float)volume;
 				part.mass = basemass * massMult + tank_mass; // NK for realistic mass
 			}
 			MassModified (part, oldmass);

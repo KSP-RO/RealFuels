@@ -7,10 +7,177 @@ using KSP;
 
 namespace ModularFuelTanks
 {
+    public enum ModuleType
+    {
+        MODULEENGINES,
+        MODULEENGINESFX,
+        MODULERCS
+    }
+
+    public class EngineWrapper
+    {
+        public PartModule engine;
+        public ModuleType type;
+        public ModuleEngines mE;
+        public ModuleEnginesFX mEFX;
+
+        public EngineWrapper(ModuleEngines mod)
+        {
+            engine = (PartModule)mod;
+            mE = mod;
+            type = ModuleType.MODULEENGINES;
+        }
+
+        public EngineWrapper(ModuleEnginesFX mod)
+        {
+            engine = (PartModule)mod;
+            mEFX = mod;
+            type = ModuleType.MODULEENGINESFX;
+        }
+
+        public List<Propellant> propellants
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.propellants;
+                else
+                    return mEFX.propellants;
+            }
+        }
+        public void SetupPropellant()
+        {
+            if (type == ModuleType.MODULEENGINES)
+                mE.SetupPropellant();
+            else
+                mEFX.SetupPropellant();
+        }
+        public BaseActionList Actions
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.Actions;
+                else
+                    return mEFX.Actions;
+            }
+        }
+        public bool getIgnitionState
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.getIgnitionState;
+                else
+                    return mEFX.getIgnitionState;
+            }
+        }
+        public bool EngineIgnited
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.EngineIgnited;
+                else
+                    return mEFX.EngineIgnited;
+            }
+            set
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    mE.EngineIgnited = value;
+                else
+                    mEFX.EngineIgnited = value;
+            }
+        }
+        public FloatCurve atmosphereCurve
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.atmosphereCurve;
+                else
+                    return mEFX.atmosphereCurve;
+            }
+            set
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    mE.atmosphereCurve = value;
+                else
+                    mEFX.atmosphereCurve = value;
+            }
+        }
+        public FloatCurve velocityCurve
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.velocityCurve;
+                else
+                    return mEFX.velocityCurve;
+            }
+            set
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    mE.velocityCurve = value;
+                else
+                    mEFX.velocityCurve = value;
+            }
+        }
+        public bool useVelocityCurve
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.useVelocityCurve;
+                else
+                    return mEFX.useVelocityCurve;
+            }
+            set
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    mE.useVelocityCurve = value;
+                else
+                    mEFX.useVelocityCurve = value;
+            }
+        }
+        public float maxThrust
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.maxThrust;
+                else
+                    return mEFX.maxThrust;
+            }
+            set
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    mE.maxThrust = value;
+                else
+                    mEFX.maxThrust = value;
+            }
+        }
+        public float minThrust
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.minThrust;
+                else
+                    return mEFX.minThrust;
+            }
+            set
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    mE.minThrust = value;
+                else
+                    mEFX.minThrust = value;
+            }
+        }
+    }
 
 	public class ModuleHybridEngine : ModuleEngineConfigs
 	{
-
 		public override void OnStart (StartState state)
 		{
 			if(configs.Count == 0 && part.partInfo != null
@@ -18,11 +185,28 @@ namespace ModularFuelTanks
 				ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
 				configs = prefab.configs;
 			}
+            if (type.Equals("ModuleEnginesFX"))
+                ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
+            else if (type.Equals("ModuleEngines"))
+                ActiveEngine = new EngineWrapper((ModuleEngines)part.Modules[type]);
+            else
+                print("*RF* trying to start " + part.name + " but is neither ME nor MEFX! (type = " + type + ")");
+
             SetConfiguration(configuration);
             if (part.Modules.Contains("ModuleEngineIgnitor"))
                 part.Modules["ModuleEngineIgnitor"].OnStart(state);
 		}
 
+        public override void OnInitialize()
+        {
+            if (type.Equals("ModuleEnginesFX"))
+                ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
+            else if (type.Equals("ModuleEngines"))
+                ActiveEngine = new EngineWrapper((ModuleEngines)part.Modules[type]);
+            else
+                print("*RF* trying to start " + part.name + " but is neither ME nor MEFX! (type = " + type + ")");
+            SetConfiguration(configuration);
+        }
 
 		[KSPAction("Switch Engine Mode")]
 		public void SwitchAction (KSPActionParam param)
@@ -36,14 +220,24 @@ namespace ModularFuelTanks
 			ConfigNode currentConfig = configs.Find (c => c.GetValue ("name").Equals (configuration));
 			string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
 			SetConfiguration(nextConfiguration);
+            // TODO: Does Engine Ignitor get switched here?
 		}
 		override public void SetConfiguration(string newConfiguration = null)
 		{
             if (newConfiguration == null)
                 newConfiguration = configuration;
 			ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
-			if (newConfig == null)
+            pModule = part.Modules[type];
+			if (newConfig == null || pModule == null)
 				return;
+
+            if (type.Equals("ModuleEnginesFX"))
+                ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
+            else if (type.Equals("ModuleEngines"))
+                ActiveEngine = new EngineWrapper((ModuleEngines)part.Modules[type]);
+            else
+                print("*RF* trying to start " + part.name + " but is neither ME nor MEFX! (type = " + type + ")");
+
 			Fields ["configuration"].guiActive = true;
 			Fields ["configuration"].guiName = "Current Mode";
 
@@ -51,24 +245,104 @@ namespace ModularFuelTanks
 			config = new ConfigNode ("MODULE");
 			newConfig.CopyTo (config);
 			config.name = "MODULE";
-			config.SetValue ("name", "ModuleEngines");
+			config.SetValue ("name", type);
+
+            // clear all relevant FloatCurves
+            Type mType = pModule.GetType();
+            foreach (FieldInfo field in mType.GetFields())
+            {
+                if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
+                {
+                    //print("*MFS* resetting curve " + field.Name);
+                    field.SetValue(pModule, new FloatCurve());
+                }
+            }
+            // clear propellant gauges Squad made
+            foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
+                {
+                    Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
+                    if (boxes == null)
+                        continue;
+                    foreach (VInfoBox v in boxes.Values)
+                    {
+                        if (v == null) //just in case...
+                            continue;
+                        try
+                        {
+                            part.stackIcon.RemoveInfo(v);
+                        }
+                        catch (Exception e)
+                        {
+                            print("*MFS* Trying to remove info box: " + e.Message);
+                        }
+                    }
+                    boxes.Clear();
+                }
+            }
+            
 
 			bool engineActive = ActiveEngine.getIgnitionState;
 			ActiveEngine.EngineIgnited = false;
 
-			//  remove all fuel gauges
+			//  remove all fuel gauges we made
 			ClearMeters ();
 			propellants.Clear ();
 
-			//  clear the old engine state
-			ActiveEngine.atmosphereCurve = new FloatCurve();
-			ActiveEngine.velocityCurve = new FloatCurve ();
+            if (type.Equals("ModuleEngines"))
+            {
+                ModuleEngines mE = (ModuleEngines)pModule;
+                if (mE != null)
+                {
+                    configMaxThrust = mE.maxThrust;
+                    configMinThrust = mE.minThrust;
+                    fastEngines = mE;
+                    fastType = ModuleType.MODULEENGINES;
+                }
+                if (config.HasValue("maxThrust"))
+                {
+                    float thr;
+                    if (float.TryParse(config.GetValue("maxThrust"), out thr))
+                        configMaxThrust = thr;
+                }
+                if (config.HasValue("minThrust"))
+                {
+                    float thr;
+                    if (float.TryParse(config.GetValue("minThrust"), out thr))
+                        configMinThrust = thr;
+                }
+            }
+            else if (type.Equals("ModuleEnginesFX"))
+            {
+                ModuleEnginesFX mE = (ModuleEnginesFX)pModule;
+                if (mE != null)
+                {
+                    configMaxThrust = mE.maxThrust;
+                    configMinThrust = mE.minThrust;
+                    fastEnginesFX = mE;
+                    fastType = ModuleType.MODULEENGINESFX;
+                }
+                if (config.HasValue("maxThrust"))
+                {
+                    float thr;
+                    if (float.TryParse(config.GetValue("maxThrust"), out thr))
+                        configMaxThrust = thr;
+                }
+                if (config.HasValue("minThrust"))
+                {
+                    float thr;
+                    if (float.TryParse(config.GetValue("minThrust"), out thr))
+                        configMinThrust = thr;
+                }
+            }
 
             DoConfig(config); // from MEC
 
             //  load the new engine state
-			ActiveEngine.Load (config);
+            pModule.Load(config);
 
+            // I'd think the load, above, would do this already. So maybe unnecessary?
 			if (config.HasValue ("useVelocityCurve") && (config.GetValue ("useVelocityCurve").ToLowerInvariant () == "true")) {
 				ActiveEngine.velocityCurve.Load (config.GetNode ("velocityCurve"));
 			} else {
@@ -88,13 +362,7 @@ namespace ModularFuelTanks
 				ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
 		}
 
-		public ModuleEngines ActiveEngine {
-			get {
-				type = "ModuleEngines";
-				return (ModuleEngines)part.Modules ["ModuleEngines"];
-			}
-
-		}
+        public EngineWrapper ActiveEngine = null;
 
 		new public void FixedUpdate ()
 		{
@@ -459,13 +727,6 @@ namespace ModularFuelTanks
         public ModuleEngines fastEngines = null;
         public ModuleEnginesFX fastEnginesFX = null;
         public ModuleRCS fastRCS = null;
-
-        public enum ModuleType
-        {
-            MODULEENGINES,
-            MODULEENGINESFX,
-            MODULERCS
-        }
 
 		[KSPField(isPersistant = true)]
 		public string thrustRating = "maxThrust";
