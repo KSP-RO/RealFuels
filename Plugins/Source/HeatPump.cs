@@ -56,7 +56,7 @@ namespace ModularFuelTanks
 			base.Events ["Activate"].active = false;
 		}
 
-		[KSPEvent(guiName = "Shutdown Heat Pump", guiActive = true)]
+		[KSPEvent(guiName = "Shutdown Heat Pump", guiActive = false)]
 		public void Shutdown ()
 		{
 			isActive = false;
@@ -67,11 +67,17 @@ namespace ModularFuelTanks
 		[KSPField(isPersistant = true)]
 		public bool isActive = false;
 
-		[KSPField(isPersistant = true)]
-		public float heatDissipation = 0.0f;
+        [KSPField(isPersistant = false)]
+        public float heatDissipation = 0.12f;
 
-		[KSPField(isPersistant = true)]
-		public float heatTransfer = 0.0f;
+        [KSPField(isPersistant = false)]
+        public float heatConductivity = 0.12f;
+
+        [KSPField(isPersistant = false)]
+        public float heatTransfer = 1.0f;
+
+        [KSPField(isPersistant = false)]
+        public float heatGain = 0.0f;
 
 		public List<ResourceRate> resources;
 
@@ -95,7 +101,9 @@ namespace ModularFuelTanks
 		{
 			base.OnAwake ();
 			resources = new List<ResourceRate> ();
-		}
+            part.heatConductivity = heatConductivity;
+            part.heatDissipation = heatDissipation;
+        }
 
 		public override void OnLoad (ConfigNode node)
 		{
@@ -140,7 +148,7 @@ namespace ModularFuelTanks
 			}
 			// this really should be linear, but KSP's current heat model is weird.
 			part.parent.temperature -= efficiency * heatTransfer * Time.deltaTime / part.parent.mass;
-			part.temperature += efficiency * heatTransfer * Time.deltaTime;
+			part.temperature += efficiency * heatTransfer * heatGain * Time.deltaTime;
 		}
 	}
 }
