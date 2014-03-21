@@ -209,7 +209,7 @@ namespace ModularFuelTanks
 					node.AddValue ("fillable", fillable);
 					node.AddValue ("note", note);
 
-					// You would think we only want to do this in the editor, but
+					// You would think we want to do this only in the editor, but
 					// as it turns out, KSP is terrible about consistently setting
 					// up resources between the editor and the launchpad.
 					node.AddValue ("amount", amount.ToString("G17"));
@@ -994,7 +994,7 @@ namespace ModularFuelTanks
             double newUsedVolume = newVolume - availVol;
 
             if(volume < newVolume)
-                volume = newVolume; // only do it now if we're resizing up, else we'll fail to resize tanks.
+                volume = newVolume; // do it now only if we're resizing up, else we'll fail to resize tanks.
             
             double ratio = newUsedVolume / oldUsedVolume;
             for (int i = 0; i < fuelList.Count; i++)
