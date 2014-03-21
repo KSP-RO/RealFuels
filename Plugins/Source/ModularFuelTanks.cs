@@ -212,8 +212,8 @@ namespace ModularFuelTanks
 					// You would think we only want to do this in the editor, but
 					// as it turns out, KSP is terrible about consistently setting
 					// up resources between the editor and the launchpad.
-					node.AddValue ("amount", amount);
-					node.AddValue ("maxAmount", maxAmount);
+					node.AddValue ("amount", amount.ToString("G17"));
+					node.AddValue ("maxAmount", maxAmount.ToString("G17"));
 				}
 			}
 
@@ -488,7 +488,7 @@ namespace ModularFuelTanks
 		{
             base.OnSave(node);
 
-            node.AddValue("volume", volume.ToString()); // no KSPField support for doubles
+            node.AddValue("volume", volume.ToString("G17")); // no KSPField support for doubles
 
 #if DEBUG
 			print ("========ModuleFuelTanks.OnSave called. Node is:=======");
@@ -724,10 +724,10 @@ namespace ModularFuelTanks
 			}
 
 			GUILayout.BeginHorizontal();
-			if (availableVolume < 0) {
-				GUILayout.Label ("Available volume: " + availableVolume + " / " + volume, overfull);
+			if (Math.Round(availableVolume, 4) < 0) {
+                GUILayout.Label("Available volume: " + availableVolume.ToString("N3") + " / " + volume.ToString("N3"), overfull);
 			} else {
-				GUILayout.Label ("Available volume: " + availableVolume + " / " + volume);
+                GUILayout.Label("Available volume: " + availableVolume.ToString("N3") + " / " + volume.ToString("N3"));
 			}
 			GUILayout.EndHorizontal ();
 
@@ -813,7 +813,7 @@ namespace ModularFuelTanks
 							UpdateSymmetryCounterparts();
 					}
 				} else if(availableVolume >= 0.001) {
-					string extraData = "Max: " + Math.Round(availableVolume * tank.utilization,2) + " (+" + Math.Round(availableVolume * tank.utilization * tank.mass,4) + " tons)" ;
+                    string extraData = "Max: " + Math.Round(availableVolume * tank.utilization, 2).ToString("N2") + " (+" + Math.Round(availableVolume * tank.mass, 4).ToString("N4") + " tons)";
 
 					GUILayout.Label(extraData, GUILayout.Width (150));
 
@@ -993,43 +993,21 @@ namespace ModularFuelTanks
                 availVol = 0;
             double newUsedVolume = newVolume - availVol;
 
-            volume = newVolume;
+            if(volume < newVolume)
+                volume = newVolume; // only do it now if we're resizing up, else we'll fail to resize tanks.
             
-            /*List<double> amtratios = new List<double>();
-            List<double> maxes = new List<double>();
-            double totalAmt = 0;
-            for (int i = 0; i < fuelList.Count; i++)
-            {
-                ModuleFuelTanks.FuelTank tank = fuelList[i];
-                totalAmt += tank.maxAmount;
-                double amtRatio = tank.amount / tank.maxAmount;
-                if (amtRatio > 0.9999)
-                    amtRatio = 1.0;
-                else if (amtRatio < 0.0001)
-                    amtRatio = 0.0;
-                amtratios.Add(amtRatio);
-                maxes.Add(tank.maxAmount);
-            }
-            double ratio = newVol / totalAmt;
-            for (int i = 0; i < fuelList.Count; i++)
-            {
-                ModuleFuelTanks.FuelTank tank = fuelList[i];
-                double newMax = maxes[i] * ratio;
-                tank.maxAmount = newMax;
-                tank.amount = amtratios[i] * newMax;
-            }*/
             double ratio = newUsedVolume / oldUsedVolume;
             for (int i = 0; i < fuelList.Count; i++)
             {
                 ModuleFuelTanks.FuelTank tank = fuelList[i];
-                double amtRatio = tank.amount / tank.maxAmount;
-                if (amtRatio > 0.9999)
-                    amtRatio = 1.0;
-                else if (amtRatio < 0.0001)
-                    amtRatio = 0.0;
-                tank.maxAmount = tank.maxAmount * ratio;
-                tank.amount = tank.maxAmount * amtRatio;
+                double oldMax = tank.maxAmount;
+                double oldAmt = tank.amount;
+                tank.maxAmount = oldMax * ratio;
+                tank.amount = tank.maxAmount * ratio;
             }
+            
+            volume = newVolume; // update volume after tank resizes to avoid case where tank resizing clips new volume
+
             if (textFields != null)
                 textFields.Clear();
             UpdateMass();
