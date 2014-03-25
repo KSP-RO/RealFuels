@@ -174,6 +174,24 @@ namespace ModularFuelTanks
                     mEFX.minThrust = value;
             }
         }
+
+        public float g
+        {
+            get
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    return mE.g;
+                else
+                    return mEFX.g;
+            }
+            set
+            {
+                if (type == ModuleType.MODULEENGINES)
+                    mE.g = value;
+                else
+                    mEFX.g = value;
+            }
+        }
     }
 
 	public class ModuleHybridEngine : ModuleEngineConfigs
@@ -231,12 +249,18 @@ namespace ModularFuelTanks
 			if (newConfig == null || pModule == null)
 				return;
 
+            // fix for HotRockets etc.
+            if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
+                type = "ModuleEnginesFX";
+
             if (type.Equals("ModuleEnginesFX"))
                 ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
             else if (type.Equals("ModuleEngines"))
                 ActiveEngine = new EngineWrapper((ModuleEngines)part.Modules[type]);
             else
                 print("*RF* trying to start " + part.name + " but is neither ME nor MEFX! (type = " + type + ")");
+
+            ActiveEngine.g = 9.80665f;
 
 			Fields ["configuration"].guiActive = true;
 			Fields ["configuration"].guiName = "Current Mode";
@@ -1328,9 +1352,6 @@ namespace ModularFuelTanks
 				subNode.CopyTo (newNode);
 				configs.Add (newNode);
 			}
-            // fix for HotRockets etc.
-            if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
-                type = "ModuleEnginesFX";
 
             // same as OnStart
             if (configs.Count == 0 && part.partInfo != null
@@ -1486,18 +1507,20 @@ namespace ModularFuelTanks
 				newConfig.CopyTo (config);
 				config.name = "MODULE";
 				config.SetValue ("name", type);
+
+                // fix for HotRockets etc.
+                if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
+                    type = "ModuleEnginesFX";
+
+
 				#if DEBUG
 				print ("replacing " + type + " with:");
 				print (newConfig.ToString ());
 				#endif
 
                 pModule = null;
-                bool rcsSounds = (type.Equals("ModuleRCS") && part.Modules.Contains("RcsSounds"));
-                if (part.Modules.Contains(type) || rcsSounds)
+                if (part.Modules.Contains(type))
                 {
-                    if(rcsSounds)
-                        pModule = part.Modules["RcsSounds"];
-                    else
                         pModule = part.Modules[type];
 
                     // clear all FloatCurves
@@ -1535,13 +1558,14 @@ namespace ModularFuelTanks
                         }
                     }
                 }
-				if(type.Equals ("ModuleRCS") || type.Equals("RcsSounds")) {
+				if(type.Equals ("ModuleRCS")) {
 					ModuleRCS rcs = (ModuleRCS) pModule;
                     string resource = config.GetValue("resourceName");
                     if (rcs != null)
                     {
                         rcs.resourceName = resource;
                     }
+                    rcs.G = 9.80665f;
                     DoConfig(config);
                     if (rcs != null)
                     {
@@ -1562,6 +1586,7 @@ namespace ModularFuelTanks
                             configMinThrust = mE.minThrust;
                             fastEngines = mE;
                             fastType = ModuleType.MODULEENGINES;
+                            mE.g = 9.80665f;
                         }
                         if (config.HasValue("maxThrust"))
                         {
@@ -1585,6 +1610,7 @@ namespace ModularFuelTanks
                             configMinThrust = mE.minThrust;
                             fastEnginesFX = mE;
                             fastType = ModuleType.MODULEENGINESFX;
+                            mE.g = 9.80665f;
                         }
                         if (config.HasValue("maxThrust"))
                         {

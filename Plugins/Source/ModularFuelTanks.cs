@@ -391,7 +391,7 @@ namespace ModularFuelTanks
             ConfigNode node = new ConfigNode("MODULE");
             node.SetValue("name", "ModuleFuelTanks");
             node.SetValue("type", newtype);
-            node.SetValue("volume", volume.ToString("N4"));
+            node.SetValue("volume", volume.ToString("G17"));
             ClearFuels();
             fuelList = null;
             OnLoad(node);

@@ -40,12 +40,22 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
-v4.4 = \/
+v5.1 \/
+*Fixed RCS Sounds compatibility
+*Fixed g0 constant in all RF-compatible engines to be the real 9.80665m/s rather than KSP's 9.82m/s (even though elsewhere they use 9.81, for engines they use 9.82).
+*Fixed semi-automatic ModuleEnginesFX support to actually work.
+
+v5 = \/
 *Moved RF-related Stretchy parts to RF.
 *Add back missing HTP, N2O entries
 *Speed improvements from Ferram (thanks!)
 *ModuleEnginesFX support
 *Firespitter tanks don't change basemass now.
+*Fixed volume problems when rescaling StretchyTanks
+*Fixed ModuleHybridEngine (used for, e.g. the bi/trimodal NTRs).
+*Added Version Checker (Majiir, Ferram): RF will now warn you when run on a different version of KSP.
+*Added Starwaster's fixes to NTRs and to the HeatPump
+*taniwha: add support for resource/mass updates
 
 v4.3 = \/
 *Now engine heat dissipation and engine heat production are proportional to techlevel (in particular, heatProduction *= TLMassMultiplier and part.heatDissipation /= TLMassMultiplier.
