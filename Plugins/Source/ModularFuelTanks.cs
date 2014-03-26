@@ -101,6 +101,7 @@ namespace ModularFuelTanks
 							if (r.resourceName.Equals(name))
 								DestroyImmediate(r);
 						part.Resources.UpdateList();
+                        module.ResourcesModified(part);
 					} else if (resource != null) {
 						double maxQty = module.availableVolume * utilization + maxAmount;
 						if (maxQty < newMaxAmount)
@@ -109,6 +110,7 @@ namespace ModularFuelTanks
 						resource.maxAmount = newMaxAmount;
 						if(amount > newMaxAmount)
 							amount = newMaxAmount;
+                        module.ResourcesModified(part);
 					} else if(newMaxAmount > 0.0) {
 						ConfigNode node = new ConfigNode("RESOURCE");
 						node.AddValue ("name", name);
@@ -119,12 +121,15 @@ namespace ModularFuelTanks
 #endif
 						part.AddResource (node);
 						resource.enabled = true;
+                        module.ResourcesModified(part);
 					}
 					// update mass here because C# is annoying.
 					if (module.basemass >= 0) {
+                        float oldMass = part.mass;
 						module.basemass = module.basemassPV * (float)module.volume;
 						part.mass = module.basemass * massMult + module.tank_mass; // NK for realistic mass
-					}
+                        module.MassModified(part, oldMass);
+                    }
 				}
 			}
 
@@ -413,6 +418,8 @@ namespace ModularFuelTanks
 			string part_name = part.name;
 			if (part_name.Contains("_"))
 				part_name = part_name.Remove(part_name.LastIndexOf("_"));
+            if (part_name.Contains("(Clone)"))
+                part_name = part_name.Remove(part_name.LastIndexOf("(Clone)"));
 
 			stage = new ConfigNode ();
 
@@ -689,22 +696,33 @@ namespace ModularFuelTanks
 		public void fuelManagerGUI(int WindowID)
 		{
 			if (unchanged == null) {
-				unchanged = new GUIStyle(GUI.skin.textField);
+                if(GUI.skin == null)
+                {
+                    unchanged = new GUIStyle();
+                    changed = new GUIStyle();
+                    greyed = new GUIStyle();
+                    overfull = new GUIStyle();
+                }
+                else
+                {
+                    unchanged = new GUIStyle(GUI.skin.textField);
+                    changed = new GUIStyle(GUI.skin.textField);
+                    greyed = new GUIStyle(GUI.skin.textField);
+                    overfull = new GUIStyle(GUI.skin.label);
+                }
+
 				unchanged.normal.textColor = Color.white;
 				unchanged.active.textColor = Color.white;
 				unchanged.focused.textColor = Color.white;
 				unchanged.hover.textColor = Color.white;
 
-				changed = new GUIStyle(GUI.skin.textField);
 				changed.normal.textColor = Color.yellow;
 				changed.active.textColor = Color.yellow;
 				changed.focused.textColor = Color.yellow;
 				changed.hover.textColor = Color.yellow;
 
-				greyed = new GUIStyle(GUI.skin.textField);
 				greyed.normal.textColor = Color.gray;
 
-				overfull = new GUIStyle(GUI.skin.label);
 				overfull.normal.textColor = Color.red;
 			}
 
