@@ -1,6 +1,6 @@
 **** RealFuels ****
 by NathanKell
-Contributors: Chestburster, Starwaster, taniwha
+Contributors: Chestburster, Starwaster, taniwha, swamp_ig
 ialdabaoth (who is awesome) created Modular Fuels, and we're maintaining the Real Fuels fork in his absence.
 
 License remains CC-BY-SA as modified by ialdabaoth.
@@ -44,6 +44,10 @@ v5.1 \/
 *Fixed RCS Sounds compatibility
 *Fixed g0 constant in all RF-compatible engines to be the real 9.80665m/s rather than KSP's 9.82m/s (even though elsewhere they use 9.81, for engines they use 9.82).
 *Fixed semi-automatic ModuleEnginesFX support to actually work.
+*Preliminary tweakables support from swamp_ig
+*Support new ARM tanks (taniwha)
+*Support TurboNiso tanks (Spanier)
+*Recompiled for .23.5
 
 v5 = \/
 *Moved RF-related Stretchy parts to RF.

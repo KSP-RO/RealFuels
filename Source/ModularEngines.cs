@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEngine;
 using KSP;
 
-namespace ModularFuelTanks
+namespace RealFuels
 {
     public enum ModuleType
     {

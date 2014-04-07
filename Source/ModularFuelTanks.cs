@@ -6,7 +6,7 @@ using System.Reflection;
 using UnityEngine;
 using KSP;
 
-namespace ModularFuelTanks
+namespace RealFuels
 {
 	public class ModuleFuelTanks : ModularFuelPartModule
 	{

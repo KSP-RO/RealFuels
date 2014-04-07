@@ -33,7 +33,7 @@ using UnityEngine;
 /*-----------------------------------------*\
 | SUBSTITUTE YOUR MOD'S NAMESPACE HERE. |
 \*-----------------------------------------*/
-namespace ModularFuelTanks
+namespace RealFuels
 {
 
     /**

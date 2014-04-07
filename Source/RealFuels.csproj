@@ -7,8 +7,8 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{0041813D-DCD1-4AC7-8327-85765BF924A3}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>modularFuelTanks</RootNamespace>
-    <AssemblyName>modularFuelTanks</AssemblyName>
+    <RootNamespace>RealFuels</RootNamespace>
+    <AssemblyName>RealFuels</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
   </PropertyGroup>
