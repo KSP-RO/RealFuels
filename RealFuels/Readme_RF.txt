@@ -48,6 +48,7 @@ v5.1 \/
 *Support new ARM tanks (taniwha)
 *Support TurboNiso tanks (Spanier)
 *Recompiled for .23.5
+*Changed DLL name. YOU MUST DELETE OLD RF FOLDER BEFORE INSTALLING v5.1!
 
 v5 = \/
 *Moved RF-related Stretchy parts to RF.
