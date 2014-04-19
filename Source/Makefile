@@ -12,6 +12,7 @@ MFT_FILES := \
     ModularFuelTanks.cs			\
     ModularFuelPartModule.cs	\
     RefuelingPump.cs			\
+	Settings.cs					\
 	$e
 
 RESGEN2	:= resgen2
