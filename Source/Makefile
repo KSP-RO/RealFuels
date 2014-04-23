@@ -12,6 +12,7 @@ MFT_FILES := \
     ModularFuelTanks.cs			\
     ModularFuelPartModule.cs	\
     RefuelingPump.cs			\
+	Settings.cs					\
 	$e
 
 RESGEN2	:= resgen2
@@ -20,7 +21,11 @@ GIT		:= git
 TAR		:= tar
 ZIP		:= zip
 
-all: ${TARGETS}
+all: version ${TARGETS}
+
+.PHONY: version
+version:
+	@./git-version.sh
 
 info:
 	@echo "Modular Fuel Tanks Build Information"
@@ -38,7 +43,7 @@ modularFuelTanks.dll: ${MFT_FILES}
 		-out:$@ $^
 
 clean:
-	rm -f ${TARGETS}
+	rm -f ${TARGETS} AssemblyInfo.cs
 
 install: all
 	mkdir -p ${PLUGINDIR}
