@@ -194,7 +194,7 @@ namespace RealFuels
         }
     }
 
-	public class ModuleHybridEngine : ModuleEngineConfigs
+    public class ModuleHybridEngine : ModuleEngineConfigs
 	{
 		public override void OnStart (StartState state)
 		{
@@ -384,6 +384,9 @@ namespace RealFuels
 
 			if (engineActive)
 				ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
+
+            UpdateTweakableMenu();
+
 		}
 
         public EngineWrapper ActiveEngine = null;
@@ -1290,20 +1293,60 @@ namespace RealFuels
 			return info;
 		}
 
-		public void OnGUI()
-		{
-			EditorLogic editor = EditorLogic.fetch;
-			if (!HighLogic.LoadedSceneIsEditor || !editor || editor.editorScreen != EditorLogic.EditorScreen.Actions) {
-				return;
-			}
 
-			if (EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
-				Rect screenRect = new Rect(part.Modules.Contains("ModuleFuelTanks") ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
-				GUILayout.Window (part.name.GetHashCode ()+1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
-			}
-		}
+        [KSPEvent(guiActive=false,guiActiveEditor=true, name = "NextEngine", guiName = "Current Configuration")]
+        public void NextEngine()
+        {
+            bool nextEngine = false;
+            foreach (ConfigNode node in configs)
+            {
+                if (node.GetValue("name").Equals(configuration))
+                    nextEngine = true; // flag to use the next config
+                else if (nextEngine == true) // flag set
+                {
+                    SetConfiguration(configuration = node.GetValue("name"));
+                    UpdateSymmetryCounterparts();
+                    return;
+                }
+            }
+            SetConfiguration(configs[0].GetValue("name"));
+            UpdateSymmetryCounterparts();
+        }
 
-		public override void OnLoad (ConfigNode node)
+        [KSPEvent(guiActive = false, guiActiveEditor = true, name = "NextTech", guiName = "Tech Level")]
+        public void NextTech()
+        {
+            if(techLevel == -1)
+                return;
+            else if(TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
+            {
+                techLevel++;
+            }
+            else while (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel)
+            {
+                techLevel--;
+            }
+            SetConfiguration(configuration);
+            UpdateSymmetryCounterparts();
+            
+        }
+
+        public void OnGUI()
+        {
+            EditorLogic editor = EditorLogic.fetch;
+            if (!HighLogic.LoadedSceneIsEditor || !editor || editor.editorScreen != EditorLogic.EditorScreen.Actions)
+            {
+                return;
+            }
+
+            if (EditorActionGroups.Instance.GetSelectedParts().Contains(part))
+            {
+                Rect screenRect = new Rect(part.Modules.Contains("ModuleFuelTanks") ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
+                GUILayout.Window(part.name.GetHashCode() + 1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
+            }
+        }
+
+        public override void OnLoad(ConfigNode node)
 		{
 			base.OnLoad (node);
 
@@ -1628,6 +1671,15 @@ namespace RealFuels
                     DoConfig(config);
 					if(pModule != null)
                         pModule.Load (config);
+                    if (HighLogic.LoadedSceneIsEditor && part.Modules.Contains("ModuleFuelTanks"))
+                    {
+                        ModuleFuelTanks mft = (ModuleFuelTanks)part.Modules["ModuleFuelTanks"];
+                        if (mft.dedicated)
+                        {
+                            mft.Empty();
+                            mft.ConfigureFor(part);
+                        }
+                    }
                     if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
                     {
                         ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
@@ -1666,8 +1718,33 @@ namespace RealFuels
                         part.Modules["ModuleEngineIgnitor"].Load(tNode);
                     }
 				}
+                if (part.Resources.Contains("ElectricCharge") && part.Resources["ElectricCharge"].maxAmount < 0.1)
+                { // hacking around a KSP bug here
+                    part.Resources["ElectricCharge"].amount = 0;
+                    part.Resources["ElectricCharge"].maxAmount = 0.1;
+                }
+                UpdateTweakableMenu();
 			}
-		}
+            
+        }
+
+        public void UpdateTweakableMenu()
+        {
+            if (!HighLogic.LoadedSceneIsEditor)
+                return;
+
+            if (configs.Count < 2)
+                Events["NextEngine"].guiActiveEditor = false;
+            else
+                Events["NextEngine"].guiName = configuration;
+
+            if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
+                Events["NextTech"].guiName = "Tech Level: " + techLevel.ToString() + "            +";
+            else if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel)
+                Events["NextTech"].guiName = "Tech Level: " + techLevel.ToString() + "            -";
+            else
+                Events["NextTech"].guiActiveEditor = false;
+        }
 
         //called by StretchyTanks StretchySRB
         virtual public void ChangeThrust(float newThrust)
@@ -1764,18 +1841,20 @@ namespace RealFuels
             }
 		}
 
-		private void engineManagerGUI(int WindowID)
-		{
-			foreach (ConfigNode node in configs) {
-				GUILayout.BeginHorizontal();
-				if(node.GetValue ("name").Equals (configuration))
-					GUILayout.Label ("Current configuration: " + configuration);
-				else if(GUILayout.Button ("Configure to " + node.GetValue ("name"))) {
-					SetConfiguration(node.GetValue ("name"));
-					UpdateSymmetryCounterparts();
-				}
-				GUILayout.EndHorizontal ();
-			}
+        private void engineManagerGUI(int WindowID)
+        {
+            foreach (ConfigNode node in configs)
+            {
+                GUILayout.BeginHorizontal();
+                if (node.GetValue("name").Equals(configuration))
+                    GUILayout.Label("Current configuration: " + configuration);
+                else if (GUILayout.Button("Configure to " + node.GetValue("name")))
+                {
+                    SetConfiguration(node.GetValue("name"));
+                    UpdateSymmetryCounterparts();
+                }
+                GUILayout.EndHorizontal();
+            }
             // NK Tech Level
             if (techLevel != -1)
             {
@@ -1812,10 +1891,10 @@ namespace RealFuels
                 GUILayout.EndHorizontal();
             }
 
-			GUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal();
             GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo()); //part.Modules[type].GetInfo()
-			GUILayout.EndHorizontal ();
-		}
+            GUILayout.EndHorizontal();
+        }
 
 		virtual public int UpdateSymmetryCounterparts()
 		{

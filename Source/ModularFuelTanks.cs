@@ -267,7 +267,7 @@ namespace RealFuels
 				return v;
 			}
 		}
-
+        
 		public double availableVolume {
 			get {
 				return volume - usedVolume;
@@ -298,7 +298,10 @@ namespace RealFuels
 		[KSPField(isPersistant = true)]
 		public float basemassPV = 0.0f;
 
-		// no double support for KSPFields - [KSPField(isPersistant = true)]
+        [KSPField(isPersistant = true)]
+        public bool dedicated = false;
+
+        // no double support for KSPFields - [KSPField(isPersistant = true)]
 		public double volume = 0.0f;
 
 		public ConfigNode stage;		// configuration for this part (instance)
@@ -537,8 +540,10 @@ namespace RealFuels
 			}
 		}
 
-		private void ResourcesModified (Part part)
+		
+        private void ResourcesModified (Part part)
 		{
+            UpdateTweakableMenu();
 			BaseEventData data = new BaseEventData (BaseEventData.Sender.USER);
 			data.Set<Part> ("part", part);
 			part.SendEvent ("OnResourcesModified", data, 0);
@@ -579,10 +584,12 @@ namespace RealFuels
 
 			ResourcesModified (part);
 
-			if(HighLogic.LoadedSceneIsEditor) {
+            if (state == StartState.Editor)
+            {
 				UpdateSymmetryCounterparts();
+                UpdateTweakableMenu();
 					// if we detach and then re-attach a configured tank with symmetry on, make sure the copies are configured.
-			}
+            }
 		}
 
 		public void CheckSymmetry()
@@ -645,7 +652,7 @@ namespace RealFuels
 		}
 
 		// looks to see if we should ignore this fuel when creating an autofill for an engine
-		public bool IgnoreFuel(string name)
+		public static bool IgnoreFuel(string name)
 		{
 			ConfigNode fNode = MFSSettings.GetNode("IgnoreFuelsForFill");
 			if (fNode != null) {
@@ -656,14 +663,41 @@ namespace RealFuels
 			return false;
 		}
 
-		public static string myToolTip = "";
+        private List<string> mixtures = new List<string>();
+
+        public static string myToolTip = "";
 		int counterTT = 0;
 		public void OnGUI()
 		{
 			EditorLogic editor = EditorLogic.fetch;
-			if (!HighLogic.LoadedSceneIsEditor || !editor || editor.editorScreen != EditorLogic.EditorScreen.Actions) {
+            if (!HighLogic.LoadedSceneIsEditor || !editor) {
+                return;
+            }
+            bool dirty = false;
+            List<string> new_mixtures = new List<string>();
+            foreach (Part engine in GetEnginesFedBy(part))
+            {
+                FuelInfo fi = new FuelInfo(engine, this);
+                if (fi.ratio_factor > 0 && !new_mixtures.Contains(fi.label))
+                {
+                    new_mixtures.Add(fi.label);
+                    if (!mixtures.Contains(fi.label))
+                        dirty = true;
+                }
+            }
+            foreach (string label in mixtures)
+            {
+                if (!new_mixtures.Contains(label))
+                    dirty = true;
+            }
+            if (dirty)
+            {
+                UpdateTweakableMenu();
+                mixtures = new_mixtures;
+            }
+
+            if(editor.editorScreen != EditorLogic.EditorScreen.Actions)
 				return;
-			}
 
 			if (EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
 				//Rect screenRect = new Rect(0, 365, 430, (Screen.height - 365));
@@ -685,14 +719,156 @@ namespace RealFuels
 
 		Vector2 scrollPos;
 		private List<string> textFields;
-		struct FuelInfo
+		
+        public class FuelInfo
 		{
 			public string names;
 			public List<Propellant> propellants;
 			public double efficiency;
 			public double ratio_factor;
 
+            public string label
+            {
+                get
+                {
+                    string label = "";
+                    foreach (Propellant tfuel in propellants)
+                    {
+                        if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
+                        {
+                            if (label.Length > 0)
+                                label += " / ";
+                            label += Math.Round(100 * tfuel.ratio / ratio_factor, 0).ToString() + "% " + tfuel.name;
+                        }
+                    }
+                    return label;
+                }
+            }
+
+            public FuelInfo(Part engine, ModuleFuelTanks tank)
+            {
+                // tank math:
+                // efficiency = sum[utilization * ratio]
+                // then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
+
+                ratio_factor = 0.0;
+                efficiency = 0.0;
+
+                propellants = new List<Propellant>();
+                if (engine.Modules.Contains("ModuleEnginesFX"))
+                {
+                    ModuleEnginesFX e = (ModuleEnginesFX)engine.Modules["ModuleEnginesFX"];
+                    foreach (Propellant p in e.propellants)
+                        propellants.Add(p);
+                }
+                else if (engine.Modules.Contains("ModuleEngines"))
+                {
+                    ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
+                    foreach (Propellant p in e.propellants)
+                        propellants.Add(p);
+                }
+
+                foreach (Propellant tfuel in propellants)
+                {
+                    if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null)
+                    {
+                        print("Unknown RESOURCE {" + tfuel.name + "}");
+                        ratio_factor = 0.0;
+                        break;
+                    }
+                    else if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE)
+                    {
+                        //ignore this propellant, since it isn't serviced by fuel tanks
+                    }
+                    else
+                    {
+                        FuelTank t = tank.fuelList.Find(f => f.ToString().Equals(tfuel.name));
+                        if (t)
+                        {
+                            efficiency += tfuel.ratio / t.utilization;
+                            ratio_factor += tfuel.ratio;
+                        }
+                        else if (!IgnoreFuel(tfuel.name))
+                        {
+                            ratio_factor = 0.0;
+                            break;
+                        }
+                    }
+                }
+                this.names = "Used by: " + engine.partInfo.title;
+            }
 		}
+
+        UIPartActionWindow _myWindow = null;
+        UIPartActionWindow myWindow
+        {
+            get
+            {
+                if (_myWindow == null)
+                {
+                    foreach (UIPartActionWindow window in FindObjectsOfType(typeof(UIPartActionWindow)))
+                    {
+                        if (window.part == part) _myWindow = window;
+                    }
+                }
+                return _myWindow;
+            }
+        }
+
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Available Volume: ", guiUnits = "L", guiFormat = "F4")]
+        public double available_volume;
+
+
+        public void UpdateTweakableMenu()
+        {
+            if (HighLogic.LoadedSceneIsEditor && !dedicated)
+            {
+                available_volume = availableVolume;
+                Fields["available_volume"].guiActiveEditor = true;
+                
+                Events["Empty"].guiActiveEditor = (usedVolume != 0);
+                List<BaseEvent> removeList = new List<BaseEvent>();
+                foreach (BaseEvent button in Events)
+                {
+                    if (button.name.Contains("MFT"))
+                        removeList.Add(button);
+                }
+                foreach (BaseEvent button in removeList)
+                    Events.Remove(button);
+                
+
+                if (availableVolume >= 0.001)
+                {
+                    List<string> labels = new List<string>();
+                    foreach(Part engine in GetEnginesFedBy(part))
+                    {
+                        FuelInfo f = new FuelInfo(engine, this);
+                        int i = 0;
+                        if (f.ratio_factor > 0.0)
+                        {
+                            if (!labels.Contains(f.label))
+                            {
+                                labels.Add(f.label);
+                                KSPEvent kspEvent = new KSPEvent();
+                                kspEvent.name = "MFT" + (++i).ToString();
+                                kspEvent.guiActive = false;
+                                kspEvent.guiActiveEditor = true;
+                                kspEvent.guiName = f.label;
+                                BaseEvent button = new BaseEvent(Events, kspEvent.name, () =>
+                                {
+                                    ConfigureFor(engine);
+                                }, kspEvent);
+                                button.guiActiveEditor = true;
+                                Events.Add(button);
+                            }
+                        }
+                    }
+                }
+                if (myWindow != null)
+                    myWindow.displayDirty = true;
+
+            }
+        }
 		public void fuelManagerGUI(int WindowID)
 		{
 			if (unchanged == null) {
@@ -735,10 +911,24 @@ namespace RealFuels
 
 			if (fuelList.Count == 0) {
 
-				GUILayout.BeginHorizontal();
-				GUILayout.Label ("This fuel tank cannot hold resources.");
-				GUILayout.EndHorizontal ();
-				return;
+                foreach (Part sPart in part.symmetryCounterparts)
+                {
+                    if (sPart.Modules.Contains("ModuleFuelTanks"))
+                    {
+                        ModuleFuelTanks fuel = (ModuleFuelTanks)sPart.Modules["ModuleFuelTanks"];
+                        if (fuel && fuel.fuelList != null && fuel.fuelList.Count > 0)
+                        {
+                            fuelList = fuel.fuelList;
+                            break;
+                        }
+                    }
+                }
+				if (fuelList.Count == 0) {
+                    GUILayout.BeginHorizontal();
+				    GUILayout.Label ("This fuel tank cannot hold resources.");
+				    GUILayout.EndHorizontal ();
+				    return;
+                }
 			}
 
 			GUILayout.BeginHorizontal();
@@ -757,11 +947,12 @@ namespace RealFuels
 
 			foreach (ModuleFuelTanks.FuelTank tank in fuelList) {
 				GUILayout.BeginHorizontal();
-				int amountField = text_field;
+				/*
+                int amountField = text_field;
 				text_field++;
 				if(textFields.Count < text_field) {
 					textFields.Add (tank.amount.ToString());
-				}
+				}*/
 				int maxAmountField = text_field;
 				text_field++;
 				if(textFields.Count < text_field) {
@@ -770,7 +961,7 @@ namespace RealFuels
 				GUILayout.Label(" " + tank, GUILayout.Width (120));
 				if(part.Resources.Contains(tank) && part.Resources[tank].maxAmount > 0) {
 					GUIStyle style;
-
+                    /*
 					if(tank.fillable) {
 						style = unchanged;
 						if (textFields[amountField] != tank.amount.ToString()) {
@@ -781,12 +972,12 @@ namespace RealFuels
 						GUILayout.Label ("None", greyed, GUILayout.Width (65));
 					}
 					GUILayout.Label("/", GUILayout.Width (5));
-
+                    */
 					style = unchanged;
 					if (textFields[maxAmountField] != tank.maxAmount.ToString()) {
 						style = changed;
 					}
-					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], style, GUILayout.Width (65));
+					textFields[maxAmountField] = GUILayout.TextField(textFields[maxAmountField], style, GUILayout.Width (140));
 
 					GUILayout.Label(" ", GUILayout.Width (5));
 
@@ -802,20 +993,20 @@ namespace RealFuels
 								newMaxAmount = tmp;
 						}
 
-						if(!tank.fillable || textFields[amountField].Trim() == "") {
+						if(!tank.fillable) {// || textFields[amountField].Trim() == "") {
 							newAmount = 0;
-							print("empty amount");
+							//print("empty amount");
 						} else {
-							double tmp;
-							if(double.TryParse(textFields[amountField], out tmp))
-								newAmount = tmp;
-							print("amount " + textFields[amountField] + " " + newAmount.ToString());
+							//double tmp;
+							//if(double.TryParse(textFields[amountField], out tmp))
+                            newAmount = newMaxAmount;//tmp;
+							//print("amount " + textFields[amountField] + " " + newAmount.ToString());
 						}
 
 						tank.maxAmount = newMaxAmount;
 						tank.amount = newAmount;
 
-						textFields[amountField] = tank.amount.ToString();
+						//textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
 						ResourcesModified (part);
@@ -824,7 +1015,7 @@ namespace RealFuels
 					}
 					if(GUILayout.Button ("Remove", GUILayout.Width (60))) {
 						tank.maxAmount = 0;
-						textFields[amountField] = "0";
+						//textFields[amountField] = "0";
 						textFields[maxAmountField] = "0";
 						ResourcesModified (part);
 						if(part.symmetryCounterparts.Count > 0)
@@ -842,7 +1033,7 @@ namespace RealFuels
 						else
 							tank.amount = 0;
 
-						textFields[amountField] = tank.amount.ToString();
+						//textFields[amountField] = tank.amount.ToString();
 						textFields[maxAmountField] = tank.maxAmount.ToString();
 
 						ResourcesModified (part);
@@ -860,14 +1051,8 @@ namespace RealFuels
 
 			GUILayout.BeginHorizontal();
 			if(GUILayout.Button ("Remove All Tanks")) {
-				textFields.Clear ();
-				foreach(ModuleFuelTanks.FuelTank tank in fuelList)
-					tank.maxAmount = 0;
-				ResourcesModified (part);
-				if(part.symmetryCounterparts.Count > 0)
-					UpdateSymmetryCounterparts();
-
-			}
+                Empty();
+            }
 			GUILayout.EndHorizontal();
             List<Part> enginesList = GetEnginesFedBy(part);
 
@@ -881,67 +1066,13 @@ namespace RealFuels
 
                 foreach (Part engine in enginesList)
                 {
-					double ratio_factor = 0.0;
-					double efficiency = 0.0;
-                    List<Propellant> propellants = new List<Propellant>();
-                    if (engine.Modules.Contains("ModuleEnginesFX"))
-                    {
-                        ModuleEnginesFX e = (ModuleEnginesFX)engine.Modules["ModuleEnginesFX"];
-                        foreach (Propellant p in e.propellants)
-                            propellants.Add(p);
-                    }
-                    else if (engine.Modules.Contains("ModuleEngines"))
-                    {
-                        ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
-                        foreach (Propellant p in e.propellants)
-                            propellants.Add(p);
-                    }
-
-					// tank math:
-					// efficiency = sum[utilization * ratio]
-					// then final volume per fuel = fuel_ratio / fuel_utilization / efficciency
-
-
-					foreach (Propellant tfuel in propellants) {
-						if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null) {
-							print("Unknown RESOURCE {" + tfuel.name + "}");
-							ratio_factor = 0.0;
-							break;
-						} else if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE) {
-							//ignore this propellant, since it isn't serviced by fuel tanks
+                    FuelInfo f = new FuelInfo(engine, this);
+                    if (f.ratio_factor > 0.0) {
+						if (!usedBy.ContainsKey(f.label)) {
+							usedBy.Add(f.label, f);
 						} else {
-							ModuleFuelTanks.FuelTank tank = fuelList.Find(f => f.ToString().Equals(tfuel.name));
-							if (tank) {
-								efficiency += tfuel.ratio / tank.utilization;
-								ratio_factor += tfuel.ratio;
-							} else if(!IgnoreFuel(tfuel.name)) {
-								ratio_factor = 0.0;
-								break;
-							}
-						}
-					}
-					if (ratio_factor > 0.0) {
-						string label = "";
-						foreach (Propellant tfuel in propellants) {
-							if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
-								if (label.Length > 0)
-									label += " / ";
-								label += Math.Round(100 * tfuel.ratio / ratio_factor,1).ToString() + "% " + tfuel.name;
-							}
-
-						}
-						if (!usedBy.ContainsKey(label)) {
-							FuelInfo f = new FuelInfo();
-							f.names = "Used by: " + engine.partInfo.title;
-							f.efficiency = efficiency;
-							f.ratio_factor = ratio_factor;
-							f.propellants = propellants;
-							usedBy.Add(label, f);
-						} else {
-							if (!usedBy[label].names.Contains(engine.partInfo.title)) {
-								FuelInfo f = usedBy[label];
-								f.names += ", " + engine.partInfo.title;
-								usedBy[label] = f;
+							if (!usedBy[f.label].names.Contains(engine.partInfo.title)) {
+                                usedBy[f.label].names += ", " + engine.partInfo.title;
 							}
 						}
 					}
@@ -951,21 +1082,7 @@ namespace RealFuels
 						GUILayout.BeginHorizontal();
 						if (GUILayout.Button(new GUIContent(label, usedBy[label].names))) {
 							textFields.Clear();
-
-							double total_volume = availableVolume;
-							foreach (Propellant tfuel in usedBy[label].propellants) {
-								if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
-									ModuleFuelTanks.FuelTank tank = fuelList.Find(t => t.name.Equals(tfuel.name));
-									if (tank) {
-										double amt = total_volume * tfuel.ratio / usedBy[label].efficiency;
-										tank.maxAmount += amt;
-										tank.amount += amt;
-									}
-								}
-							}
-							ResourcesModified (part);
-							if (part.symmetryCounterparts.Count > 0)
-								UpdateSymmetryCounterparts();
+                            ConfigureFor(usedBy[label]);
 						}
 						GUILayout.EndHorizontal();
 					}
@@ -986,6 +1103,55 @@ namespace RealFuels
 			}
 			//print("GT: " + GUI.tooltip);
 		}
+
+        [KSPEvent(guiName = "Remove All Tanks", guiActive = false, guiActiveEditor = true, name="Empty")]
+        public void Empty()
+        {
+            foreach (ModuleFuelTanks.FuelTank tank in fuelList)
+            {
+                tank.amount = 0;
+                tank.maxAmount = 0;
+            }
+            ResourcesModified(part);
+            if (part.symmetryCounterparts.Count > 0)
+                UpdateSymmetryCounterparts();
+            if (textFields != null)
+                textFields.Clear();
+            Events["Empty"].guiActiveEditor = false;
+        }
+
+
+
+        public void ConfigureFor(Part engine)
+        {
+            ConfigureFor(new FuelInfo(engine, this));
+        }
+
+        public void ConfigureFor(FuelInfo fi)
+        {
+            if (fi.ratio_factor == 0.0 || fi.efficiency == 0) // can't configure for this engine
+                return;
+
+            double total_volume = availableVolume;
+            foreach (Propellant tfuel in fi.propellants)
+            {
+                if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
+                {
+                    ModuleFuelTanks.FuelTank tank = fuelList.Find(t => t.name.Equals(tfuel.name));
+                    if (tank)
+                    {
+                        double amt = total_volume * tfuel.ratio / fi.efficiency;
+                        tank.maxAmount += amt;
+                        tank.amount += amt;
+                    }
+                }
+            }
+            ResourcesModified(part);
+            if (part.symmetryCounterparts.Count > 0)
+                UpdateSymmetryCounterparts();
+            if (textFields != null)
+                textFields.Clear();
+        }
 
 		public static List<Part> GetEnginesFedBy(Part part)
 		{
