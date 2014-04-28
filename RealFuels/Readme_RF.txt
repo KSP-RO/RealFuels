@@ -46,6 +46,7 @@ v5.2 \/
 *ialdabaoth: add support for RF adjustments via tweakables.
 *Fix RCS tank basemass
 *Support ModuleRCSFX
+*Fix some engine patches to play nicer with HotRockets
 
 v5.1 \/
 *Fixed RCS Sounds compatibility
