@@ -1630,7 +1630,11 @@ namespace RealFuels
                     fastType = ModuleType.MODULERCSFX;
                     DoConfig(config);
                     if (pModule != null)
+                    {
                         pModule.Load(config);
+                        MethodInfo loadProp = pModule.GetType().GetMethod("LoadPropellants", BindingFlags.Public | BindingFlags.Instance);
+                        loadProp.Invoke(pModule, new object[] { config });
+                    }
                 }
                 else
                 { // is an ENGINE
