@@ -1,7 +1,7 @@
 **** RealFuels ****
 by NathanKell
 Contributors: Chestburster, Starwaster, taniwha, swamp_ig
-ialdabaoth (who is awesome) created Modular Fuels, and we're maintaining the Real Fuels fork in his absence.
+ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the RealFuels branch.
 
 License remains CC-BY-SA as modified by ialdabaoth.
 Source: https://github.com/NathanKell/ModularFuelSystem
@@ -25,7 +25,7 @@ INSTALL INSTRUCTIONS:
 3. Download and install an engine pack. This probably means grabbing Realism Overhaul, which is HIGHLY recommended for use with RF.
 
 USAGE:
-You can access all RF-related GUIs ingame by going to the Action Group Editor mode in the VAB/SPH (i.e. where you assign things to action groups) and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
+You can access all RF-related GUIs ingame by tweakables, or by going to the Action Group Editor mode in the VAB/SPH (i.e. where you assign things to action groups) and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
 
 For tanks:
 At the top will appear the total tank mass (wet), the tank dry mass, the available, used, and total volume (in liters). Below appears the set of resources that may be added to the tank, and the current amounts and max amounts (if any).
@@ -40,6 +40,13 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v5.2 \/
+*Add support for Nazari's Mk3 expansion, add ECLSS fix, fix ARM patches.
+*Fix launch clamps so they pump to all parts.
+*ialdabaoth: add support for RF adjustments via tweakables.
+*Fix RCS tank basemass
+*Support ModuleRCSFX
+
 v5.1 \/
 *Fixed RCS Sounds compatibility
 *Fixed g0 constant in all RF-compatible engines to be the real 9.80665m/s rather than KSP's 9.82m/s (even though elsewhere they use 9.81, for engines they use 9.82).
