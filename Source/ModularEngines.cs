@@ -11,7 +11,8 @@ namespace RealFuels
     {
         MODULEENGINES,
         MODULEENGINESFX,
-        MODULERCS
+        MODULERCS,
+        MODULERCSFX
     }
 
     public class EngineWrapper
@@ -1601,8 +1602,9 @@ namespace RealFuels
                         }
                     }
                 }
-				if(type.Equals ("ModuleRCS")) {
-					ModuleRCS rcs = (ModuleRCS) pModule;
+                if (type.Equals("ModuleRCS"))
+                {
+                    ModuleRCS rcs = (ModuleRCS)pModule;
                     string resource = config.GetValue("resourceName");
                     if (rcs != null)
                     {
@@ -1619,7 +1621,19 @@ namespace RealFuels
                         fastRCS = rcs;
                         fastType = ModuleType.MODULERCS;
                     }
-				} else { // is an ENGINE
+                }
+                if (type.Equals("ModuleRCSFX"))
+                {
+                    ModuleRCS rcs = (ModuleRCS)pModule;
+                    rcs.G = 9.80665f;
+                    fastRCS = rcs;
+                    fastType = ModuleType.MODULERCSFX;
+                    DoConfig(config);
+                    if (pModule != null)
+                        pModule.Load(config);
+                }
+                else
+                { // is an ENGINE
                     if (type.Equals("ModuleEngines"))
                     {
                         ModuleEngines mE = (ModuleEngines)pModule;
@@ -1829,7 +1843,7 @@ namespace RealFuels
                         engine.minThrust = 0;
                 }
             }
-            else if (fastType == ModuleType.MODULERCS)
+            else if (fastType == ModuleType.MODULERCS || fastType == ModuleType.MODULERCSFX) // cast either to ModuleRCS
             {
                 ModuleRCS engine = fastRCS;
 
