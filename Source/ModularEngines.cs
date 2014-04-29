@@ -1609,11 +1609,8 @@ namespace RealFuels
                     if (rcs != null)
                     {
                         rcs.resourceName = resource;
-                    }
-                    rcs.G = 9.80665f;
-                    DoConfig(config);
-                    if (rcs != null)
-                    {
+                        rcs.G = 9.80665f;
+                        DoConfig(config);
                         rcs.SetResource(resource);
                         pModule.Load(config);
                         rcs.resourceName = resource;
@@ -1625,15 +1622,20 @@ namespace RealFuels
                 if (type.Equals("ModuleRCSFX"))
                 {
                     ModuleRCS rcs = (ModuleRCS)pModule;
-                    rcs.G = 9.80665f;
-                    fastRCS = rcs;
-                    fastType = ModuleType.MODULERCSFX;
-                    DoConfig(config);
-                    if (pModule != null)
+                    if (rcs != null)
                     {
+                        rcs.G = 9.80665f;
+                        fastRCS = rcs;
+                        fastType = ModuleType.MODULERCSFX;
+                        DoConfig(config);
                         pModule.Load(config);
-                        MethodInfo loadProp = pModule.GetType().GetMethod("LoadPropellants", BindingFlags.Public | BindingFlags.Instance);
-                        loadProp.Invoke(pModule, new object[] { config });
+                        Type rType = pModule.GetType();
+                        if (rType != null)
+                        {
+                            MethodInfo loadProp = rType.GetMethod("LoadPropellants", BindingFlags.Public | BindingFlags.Instance);
+                            if (loadProp != null)
+                                loadProp.Invoke(pModule, new object[] { config });
+                        }
                     }
                 }
                 else
