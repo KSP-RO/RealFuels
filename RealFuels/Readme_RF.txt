@@ -1,12 +1,12 @@
 **** RealFuels ****
 by NathanKell
-Contributors: Chestburster, Starwaster, taniwha, swamp_ig
+Contributors: Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!)
 ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the RealFuels branch.
 
 License remains CC-BY-SA as modified by ialdabaoth.
-Source: https://github.com/NathanKell/ModularFuelSystem
+Source: https://github.com/NathanKell/ModularFuelSystem (shared repository between RF and Modular Fuel Tanks).
 
-Also included: Module Manager (by sarbian, based on ialdabaoth's work). See Module Manager thread for details and license and source: http://http://forum.kerbalspaceprogram.com/threads/55219
+Also included: Module Manager (by sarbian and ialdabaoth). See the Module Manager thread for details and license and source: http://http://forum.kerbalspaceprogram.com/threads/55219
 Module Manager is required for RF to work.
 
 DESCRIPTION:
@@ -22,10 +22,10 @@ Real Fuels does the following:
 INSTALL INSTRUCTIONS:
 1. Delete any existing ModularFuelTanks folder or RealFuels folder in your KSP/GameData folder. This is VITAL.
 2. Extract this archive to your KSP/GameData folder
-3. Download and install an engine pack. This probably means grabbing Realism Overhaul, which is HIGHLY recommended for use with RF.
+3. Download and install an engine pack. This probably means grabbing Realism Overhaul, which is HIGHLY recommended for use with RF. Also, now that most RCS fuels do not flow everywhere but instead flow like LF/Ox, you might want CrossFeedEnabler for radial RCS tanks.
 
 USAGE:
-You can access all RF-related GUIs ingame by tweakables, or by going to the Action Group Editor mode in the VAB/SPH (i.e. where you assign things to action groups) and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
+You can access RF-related GUIs ingame by tweakables, or by going to the Action Group Editor mode in the VAB/SPH (i.e. where you assign things to action groups) and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
 
 For tanks:
 At the top will appear the total tank mass (wet), the tank dry mass, the available, used, and total volume (in liters). Below appears the set of resources that may be added to the tank, and the current amounts and max amounts (if any).
@@ -218,6 +218,8 @@ FUEL MIXTURES
 *Hydrazine, Nitrous Oxide, and HTP can be used as monopropellants. Hydrazine has by far the highest performance, but is very toxic.
 
 *Solid Fuel is very dense, allows high thrust (since there is no engine per se to feed the fuel through, just a nozzle), but has low specific impulse, only slightly better than Hydrazine monopropellant. However, it took many years to develop larger and larger solid fuel motors, and solid fuel motors don't scale as well as liquid fuel (since the entire casing must resist the pressure of combustion, the casing itself forming the thrust chamber).
+
+*RCS: Bipropellant RCS is the best, followed by Hydrazine, HTP, Nitrous Oxide, and Nitrogen gas. Bipropellant NTO/MMH is highly toxic, however, as is Hydrazine (from which MMH is derived). HTP is non-toxic and reasonably stable, as is Nitrous Oxide; Nitrogen gas has the worst performance (it is not catalyzed and decomposed, merely pressurized and shot through a nozzle).
 
 ====Nuclear (Liquid Fuel)====
 In general: the less dense the fuel, the higher your specific impulse and the lower your thrust.
