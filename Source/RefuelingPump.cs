@@ -40,7 +40,7 @@ namespace RealFuels
             {
                 if (p.Modules.Contains("ModuleFuelTanks"))
                 {
-                    ModuleFuelTanks m = (ModuleFuelTanks)part.parent.Modules["ModuleFuelTanks"];
+                    ModuleFuelTanks m = (ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
                     // look through all tanks inside this part
                     foreach (ModuleFuelTanks.FuelTank tank in m.fuelList)
                     {
