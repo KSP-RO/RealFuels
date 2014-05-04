@@ -1555,7 +1555,13 @@ namespace RealFuels
                 // fix for HotRockets etc.
                 if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
                     type = "ModuleEnginesFX";
-
+                if (type.Equals("ModuleEnginesFX") && part.Modules.Contains("ModuleEngines") && !part.Modules.Contains("ModuleEnginesFX"))
+                    type = "ModuleEngines";
+                // fix for ModuleRCSFX etc
+                if (type.Equals("ModuleRCS") && part.Modules.Contains("ModuleRCSFX") && !part.Modules.Contains("ModuleRCS"))
+                    type = "ModuleRCSFX";
+                if (type.Equals("ModuleRCSFX") && part.Modules.Contains("ModuleRCS") && !part.Modules.Contains("ModuleRCSFX"))
+                    type = "ModuleRCS";
 
 				#if DEBUG
 				print ("replacing " + type + " with:");
