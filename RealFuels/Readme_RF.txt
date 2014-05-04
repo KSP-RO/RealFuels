@@ -47,6 +47,7 @@ v5.2 \/
 *Fix RCS tank basemass
 *Support ModuleRCSFX
 *Fix some engine patches to play nicer with HotRockets
+*Upgrade Kethane converter config to eadrom's.
 
 v5.1 \/
 *Fixed RCS Sounds compatibility
