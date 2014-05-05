@@ -48,16 +48,24 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="Checkers.cs" />
     <Compile Include="HeatPump.cs" />
+    <Compile Include="MFSSettings.cs" />
     <Compile Include="ModularEngines.cs" />
     <Compile Include="ModularFuelPartModule.cs" />
     <Compile Include="ModularFuelTanks.cs" />
     <Compile Include="RefuelingPump.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Kerbal Space Program\KSP Debug\GameData\KSPAPIExtensions\Source\KSPAPIExtensions.csproj">
+      <Project>{4282b0da-c314-4524-9c32-edab2c9666a9}</Project>
+      <Name>KSPAPIExtensions</Name>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>
     </PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"</PostBuildEvent>
+    <PostBuildEvent>del "System.Core.dll"
+copy $(TargetPath) "C:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\KSP Debug\GameData\RealFuels\Plugins\"</PostBuildEvent>
   </PropertyGroup>
 </Project>
