@@ -40,6 +40,13 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v5.3 \/
+*Fix DLL
+*Upgrade Kethane converter config to eadrom's.
+*Fix ModuleRCSFX compatibility to be non-destructive
+*Fix fixed launch clamp pumps (taniwha)
+*Upgrade to ModuleManager v2.1.0
+
 v5.2 \/
 *Add support for Nazari's Mk3 expansion, add ECLSS fix, fix ARM patches.
 *Fix launch clamps so they pump to all parts.
