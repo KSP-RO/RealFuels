@@ -61,11 +61,12 @@
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
+    <PreBuildEvent>cd $(ProjectDir)
+sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>del "System.Core.dll"
-copy $(TargetPath) "C:\Program Files (x86)\Steam\steamapps\common\Kerbal Space Program\KSP Debug\GameData\RealFuels\Plugins\"</PostBuildEvent>
+copy /y "$(TargetPath)" "%25KSP_DIR%25\GameData\RealFuels\Plugins\"
+if exist "$(SolutionDir)\KSPAPIExtensions.dll" move "$(SolutionDir)\KSPAPIExtensions.dll"  "%25KSP_DIR%25\GameData\RealFuels\Plugins\"</PostBuildEvent>
   </PropertyGroup>
 </Project>
