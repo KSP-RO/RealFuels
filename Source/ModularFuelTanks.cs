@@ -415,6 +415,8 @@ namespace RealFuels
                     LoadTankListOverridesInLoading(node);
 
                     ParseBasemass(node);
+
+                    typesAvailable = node.GetValues("typeAvailable");
                 }
                 else if (GameSceneFilter.Flight.IsLoaded())
                 {
@@ -468,7 +470,7 @@ namespace RealFuels
         {
             // This won't do anything if it's already been done in OnLoad (stored vessel/assem)
             if (GameSceneFilter.AnyEditor.IsLoaded())
-                UpdateTankType();
+                InitializeTankType();
 
             CalculateMass();
         }
@@ -738,9 +740,11 @@ namespace RealFuels
 
         // TODO: make this switchable
 
-        [KSPField(isPersistant=true)]
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type"), UI_ChooseOption(scene = UI_Scene.Editor)]
         public string type = null;
         private string oldType = null;
+
+        public string[] typesAvailable;
 
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
         public Dictionary<string, bool> pressurizedFuels;
@@ -774,9 +778,26 @@ namespace RealFuels
             tankList = new FuelTankList(this, node);
         }
 
-        private void UpdateTankType(bool force = false)
+        private void InitializeTankType()
         {
-            if ((!force && oldType == type) || type == null)
+            if(typesAvailable == null || typesAvailable.Length <= 1) 
+            {
+                Fields["type"].guiActiveEditor = false;
+            }
+            else
+            {
+                UI_ChooseOption typeOptions = (UI_ChooseOption)Fields["type"].uiControlEditor;
+                typeOptions.options = typesAvailable;
+            }
+
+            Debug.LogWarning("TankTypes: " + string.Join(", ", typesAvailable));
+
+            UpdateTankType();
+        }
+
+        private void UpdateTankType()
+        {
+            if (oldType == type || type == null)
                 return;
             oldType = type;
 
@@ -960,153 +981,7 @@ namespace RealFuels
             GUI.Label(new Rect(440, Screen.height - Input.mousePosition.y, 300, 20), myToolTip);
 		}
 
-        private void UpdateMixtures()
-        {
-            bool dirty = false;
-            List<string> new_mixtures = new List<string>();
-            foreach (Part engine in GetEnginesFedBy(part))
-            {
-                FuelInfo fi = new FuelInfo(engine, this);
-                if (fi.ratio_factor > 0 && !new_mixtures.Contains(fi.label))
-                {
-                    new_mixtures.Add(fi.label);
-                    if (!mixtures.Contains(fi.label))
-                        dirty = true;
-                }
-            }
-            foreach (string label in mixtures)
-            {
-                if (!new_mixtures.Contains(label))
-                    dirty = true;
-            }
-            if (dirty)
-            {
-                UpdateTweakableMenu();
-                mixtures = new_mixtures;
-            }
-        }
-
-        public class FuelInfo
-		{
-			public string names;
-			public List<Propellant> propellants;
-			public double efficiency;
-			public double ratio_factor;
-
-            public string label
-            {
-                get
-                {
-                    string label = "";
-                    foreach (Propellant tfuel in propellants)
-                    {
-                        if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
-                        {
-                            if (label.Length > 0)
-                                label += " / ";
-                            label += Math.Round(100 * tfuel.ratio / ratio_factor, 0).ToString() + "% " + tfuel.name;
-                        }
-                    }
-                    return label;
-                }
-            }
-
-            public FuelInfo(Part engine, ModuleFuelTanks tank)
-            {
-                // tank math:
-                // efficiency = sum[utilization * ratio]
-                // then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
-
-                ratio_factor = 0.0;
-                efficiency = 0.0;
-
-                propellants = new List<Propellant>();
-                if (engine.Modules.Contains("ModuleEnginesFX"))
-                {
-                    ModuleEnginesFX e = (ModuleEnginesFX)engine.Modules["ModuleEnginesFX"];
-                    foreach (Propellant p in e.propellants)
-                        propellants.Add(p);
-                }
-                else if (engine.Modules.Contains("ModuleEngines"))
-                {
-                    ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
-                    foreach (Propellant p in e.propellants)
-                        propellants.Add(p);
-                }
-
-                foreach (Propellant tfuel in propellants)
-                {
-                    if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null)
-                    {
-                        print("Unknown RESOURCE {" + tfuel.name + "}");
-                        ratio_factor = 0.0;
-                        break;
-                    }
-                    else if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE)
-                    {
-                        //ignore this propellant, since it isn't serviced by fuel tanks
-                    }
-                    else
-                    {
-                        FuelTank t;
-                        if (tank.tankList.TryGet(tfuel.name, out t))
-                        {
-                            efficiency += tfuel.ratio / t.utilization;
-                            ratio_factor += tfuel.ratio;
-                        }
-                        else if (!IgnoreFuel(tfuel.name))
-                        {
-                            ratio_factor = 0.0;
-                            break;
-                        }
-                    }
-                }
-                this.names = "Used by: " + engine.partInfo.title;
-            }
-		}
-
-        private void UpdateTweakableMenu()
-        {
-            Events["Empty"].guiActiveEditor = (usedVolume != 0);
-
-            if (HighLogic.LoadedSceneIsEditor && !dedicated)
-            {
-                Events.RemoveAll(button => button.name.StartsWith("MFT"));                
-
-                if (availableVolume >= 0.001)
-                {
-                    List<string> labels = new List<string>();
-                    foreach(Part engine in GetEnginesFedBy(part))
-                    {
-                        FuelInfo f = new FuelInfo(engine, this);
-                        int i = 0;
-                        if (f.ratio_factor > 0.0)
-                        {
-                            if (!labels.Contains(f.label))
-                            {
-                                labels.Add(f.label);
-                                KSPEvent kspEvent = new KSPEvent();
-                                kspEvent.name = "MFT" + (++i).ToString();
-                                kspEvent.guiActive = false;
-                                kspEvent.guiActiveEditor = true;
-                                kspEvent.guiName = f.label;
-                                BaseEvent button = new BaseEvent(Events, kspEvent.name, () =>
-                                {
-                                    ConfigureFor(engine);
-                                }, kspEvent);
-                                button.guiActiveEditor = true;
-                                Events.Add(button);
-                            }
-                        }
-                    }
-                }
-                MarkWindowDirty();
-            }
-        }
-
-
-
-		public void GUIWindow(int WindowID)
+        public void GUIWindow(int WindowID)
         {
             InitializeStyles();
 
@@ -1263,7 +1138,7 @@ namespace RealFuels
                             tank.maxAmount = 0;
                             Debug.LogWarning("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                         }
-                        else 
+                        else
                         {
                             if (MathUtils.TryParseExt(trimmed, out tmp))
                             {
@@ -1361,6 +1236,151 @@ namespace RealFuels
                         GUILayout.EndHorizontal();
                     }
                 }
+            }
+        }
+
+
+        private void UpdateMixtures()
+        {
+            bool dirty = false;
+            List<string> new_mixtures = new List<string>();
+            foreach (Part engine in GetEnginesFedBy(part))
+            {
+                FuelInfo fi = new FuelInfo(engine, this);
+                if (fi.ratio_factor > 0 && !new_mixtures.Contains(fi.label))
+                {
+                    new_mixtures.Add(fi.label);
+                    if (!mixtures.Contains(fi.label))
+                        dirty = true;
+                }
+            }
+            foreach (string label in mixtures)
+            {
+                if (!new_mixtures.Contains(label))
+                    dirty = true;
+            }
+            if (dirty)
+            {
+                UpdateTweakableMenu();
+                mixtures = new_mixtures;
+            }
+        }
+
+        public class FuelInfo
+		{
+			public string names;
+			public List<Propellant> propellants;
+			public double efficiency;
+			public double ratio_factor;
+
+            public string label
+            {
+                get
+                {
+                    string label = "";
+                    foreach (Propellant tfuel in propellants)
+                    {
+                        if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
+                        {
+                            if (label.Length > 0)
+                                label += " / ";
+                            label += Math.Round(100 * tfuel.ratio / ratio_factor, 0).ToString() + "% " + tfuel.name;
+                        }
+                    }
+                    return label;
+                }
+            }
+
+            public FuelInfo(Part engine, ModuleFuelTanks tank)
+            {
+                // tank math:
+                // efficiency = sum[utilization * ratio]
+                // then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
+
+                ratio_factor = 0.0;
+                efficiency = 0.0;
+
+                propellants = new List<Propellant>();
+                if (engine.Modules.Contains("ModuleEnginesFX"))
+                {
+                    ModuleEnginesFX e = (ModuleEnginesFX)engine.Modules["ModuleEnginesFX"];
+                    foreach (Propellant p in e.propellants)
+                        propellants.Add(p);
+                }
+                else if (engine.Modules.Contains("ModuleEngines"))
+                {
+                    ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
+                    foreach (Propellant p in e.propellants)
+                        propellants.Add(p);
+                }
+
+                foreach (Propellant tfuel in propellants)
+                {
+                    if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null)
+                    {
+                        print("Unknown RESOURCE {" + tfuel.name + "}");
+                        ratio_factor = 0.0;
+                        break;
+                    }
+                    else if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE)
+                    {
+                        //ignore this propellant, since it isn't serviced by fuel tanks
+                    }
+                    else
+                    {
+                        FuelTank t;
+                        if (tank.tankList.TryGet(tfuel.name, out t))
+                        {
+                            efficiency += tfuel.ratio / t.utilization;
+                            ratio_factor += tfuel.ratio;
+                        }
+                        else if (!IgnoreFuel(tfuel.name))
+                        {
+                            ratio_factor = 0.0;
+                            break;
+                        }
+                    }
+                }
+                this.names = "Used by: " + engine.partInfo.title;
+            }
+		}
+
+        private void UpdateTweakableMenu()
+        {
+            Events["Empty"].guiActiveEditor = (usedVolume != 0);
+
+            if (HighLogic.LoadedSceneIsEditor && !dedicated)
+            {
+                Events.RemoveAll(button => button.name.StartsWith("MFT"));                
+
+                if (availableVolume >= 0.001)
+                {
+                    List<string> labels = new List<string>();
+                    foreach(Part engine in GetEnginesFedBy(part))
+                    {
+                        FuelInfo f = new FuelInfo(engine, this);
+                        int i = 0;
+                        if (f.ratio_factor > 0.0)
+                        {
+                            if (!labels.Contains(f.label))
+                            {
+                                labels.Add(f.label);
+                                KSPEvent kspEvent = new KSPEvent();
+                                kspEvent.name = "MFT" + (++i).ToString();
+                                kspEvent.guiActive = false;
+                                kspEvent.guiActiveEditor = true;
+                                kspEvent.guiName = f.label;
+                                BaseEvent button = new BaseEvent(Events, kspEvent.name, () =>
+                                {
+                                    ConfigureFor(engine);
+                                }, kspEvent);
+                                button.guiActiveEditor = true;
+                                Events.Add(button);
+                            }
+                        }
+                    }
+                }
+                MarkWindowDirty();
             }
         }
 

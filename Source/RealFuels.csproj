@@ -58,6 +58,7 @@
     <ProjectReference Include="..\..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Kerbal Space Program\KSP Debug\GameData\KSPAPIExtensions\Source\KSPAPIExtensions.csproj">
       <Project>{4282b0da-c314-4524-9c32-edab2c9666a9}</Project>
       <Name>KSPAPIExtensions</Name>
+      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
