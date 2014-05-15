@@ -42,7 +42,7 @@ namespace RealFuels
                 {
                     ModuleFuelTanks m = (ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
                     // look through all tanks inside this part
-                    foreach (ModuleFuelTanks.FuelTank tank in m.fuelList)
+                    foreach (ModuleFuelTanks.FuelTank tank in m.tankList)
                     {
                         // if a tank isn't full, start filling it.
                         if (tank.amount < tank.maxAmount && tank.fillable)
