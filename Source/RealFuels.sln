@@ -1,7 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual C# Express 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RealFuels", "RealFuels.csproj", "{0041813D-DCD1-4AC7-8327-85765BF924A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KSPAPIExtensions", "..\..\KSPAPIExtensions\Source\KSPAPIExtensions.csproj", "{4282B0DA-C314-4524-9C32-EDAB2C9666A9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,6 +17,10 @@ Global
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4282B0DA-C314-4524-9C32-EDAB2C9666A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4282B0DA-C314-4524-9C32-EDAB2C9666A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4282B0DA-C314-4524-9C32-EDAB2C9666A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4282B0DA-C314-4524-9C32-EDAB2C9666A9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

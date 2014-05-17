@@ -16,7 +16,8 @@
     <DebugSymbols>True</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>False</Optimize>
-    <OutputPath>..</OutputPath>
+    <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
+    <OutputPath>..\..\Build\RealFuels\Debug\</OutputPath>
     <DefineConstants>DEBUG;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -25,7 +26,8 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>True</Optimize>
-    <OutputPath>..\RealFuels\Plugins\</OutputPath>
+    <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
+    <OutputPath>..\..\Build\RealFuels\Release\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
@@ -48,16 +50,26 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="Checkers.cs" />
     <Compile Include="HeatPump.cs" />
+    <Compile Include="MFSSettings.cs" />
     <Compile Include="ModularEngines.cs" />
     <Compile Include="ModularFuelPartModule.cs" />
     <Compile Include="ModularFuelTanks.cs" />
     <Compile Include="RefuelingPump.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\KSPAPIExtensions\Source\KSPAPIExtensions.csproj">
+      <Project>{4282b0da-c314-4524-9c32-edab2c9666a9}</Project>
+      <Name>KSPAPIExtensions</Name>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
+    <PreBuildEvent>cd $(ProjectDir)
+sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"</PostBuildEvent>
+    <PostBuildEvent>del "System.Core.dll"
+copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
+if exist "$(SolutionDir)\KSPAPIExtensions.dll" move "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"</PostBuildEvent>
   </PropertyGroup>
 </Project>
