@@ -748,13 +748,18 @@ namespace RealFuels
             }
         }
 
+        // Conversion between tank volume in kL, and whatever units this tank uses.
+        // Default to 1000 for RF. Varies for MFT. Needed to interface with PP.
+        [KSPField]
+        public float tankVolumeConversion = 1000;
+
         [PartMessageListener(typeof(PartVolumeChanged), scenes: GameSceneFilter.AnyEditor)]
         private void PartVolumeChanged(string name, float volume)
         {
             if (name != PartVolumes.Tankage.ToString())
                 return;
 
-            double newTotalVolue = volume * 1000;
+            double newTotalVolue = volume * tankVolumeConversion;
 
             if (newTotalVolue == totalVolume)
                 return;
