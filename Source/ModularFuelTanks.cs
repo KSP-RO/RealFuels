@@ -437,6 +437,9 @@ namespace RealFuels
 
             // Initialize utilization from the settings file
             utilization = Settings.partUtilizationDefault;
+
+            // This will be removed soon.
+            oldmass = part.mass;
         }
 
         public override void OnActive()
@@ -941,29 +944,40 @@ namespace RealFuels
 
         #endregion
 
-        #region Stuff I Haven't got to yet
+        #region Message passing for EPL
 
-        [KSPField(isPersistant = true)]
-        public bool dedicated = false;
+        // Extraplanetary launchpads needs these messages sent.
+        // Note that this will be pushed into KSPAPIExtensions with the next release of EPL
+        // Code is already committed to do this.
 
-        private void ResourcesModified (Part part)
+
+        [PartMessageListener(typeof(PartResourcesChanged))]
+        private void ResourcesModified()
 		{
 			BaseEventData data = new BaseEventData (BaseEventData.Sender.USER);
 			data.Set<Part> ("part", part);
 			part.SendEvent ("OnResourcesModified", data, 0);
 		}
 
-		private void MassModified (Part part, float oldmass)
+        private float oldmass = 0;
+
+        [PartMessageListener(typeof(PartMassChanged))]
+        private void MassModified(float mass)
 		{
 			BaseEventData data = new BaseEventData (BaseEventData.Sender.USER);
 			data.Set<Part> ("part", part);
 			data.Set<float> ("oldmass", oldmass);
 			part.SendEvent ("OnMassModified", data, 0);
+
+            oldmass = mass;
 		}
 
         #endregion
 
         #region GUI Display
+
+        [KSPField(isPersistant = true)]
+        public bool dedicated = false;
 
         [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Real Fuels"),
          UI_Toggle(enabledText = "GUI", disabledText = "GUI")]
