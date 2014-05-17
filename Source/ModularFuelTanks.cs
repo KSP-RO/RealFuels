@@ -303,6 +303,7 @@ namespace RealFuels
                     double.TryParse(maxAmountExpression, out v);
                     maxAmount = v;
                 }
+                maxAmountExpression = null;
 
                 if (amountExpression == null) 
                 {
@@ -322,6 +323,7 @@ namespace RealFuels
                     double.TryParse(amountExpression, out v);
                     amount = v;
                 }
+                amountExpression = null;
             }
 
 			public void Save(ConfigNode node)
@@ -454,10 +456,6 @@ namespace RealFuels
 
         public override void OnLoad(ConfigNode node)
         {
-#if DEBUG
-			print ("========ModuleFuelTanks.OnLoad called. Node is:=======");
-			print (part.name);
-#endif
             // Load the volume. If totalVolume is specified, use that to calc the volume
             // otherwise scale up the provided volume. No KSPField support for doubles
             if (node.HasValue("totalVolume") && double.TryParse(node.GetValue("totalVolume"), out totalVolume))
@@ -676,6 +674,12 @@ namespace RealFuels
                 return;
             oldType = type;
 
+            // Clear the resource list
+            foreach (PartResource res in part.Resources)
+                Destroy(res);
+            part.Resources.list.Clear();
+            RaiseResourceListChanged();
+
             // Copy the tank list from the tank definitiion
             MFSSettings.TankDefinition def;
             try
@@ -701,12 +705,6 @@ namespace RealFuels
 
             if (GameSceneFilter.Loading.IsLoaded())
                 return;
-
-            // Clear the resource list
-            foreach (PartResource res in part.Resources)
-                Destroy(res);
-            part.Resources.list.Clear();
-            RaiseResourceListChanged();
 
             // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
             pressurizedFuels = new Dictionary<string, bool>();
