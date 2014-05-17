@@ -29,6 +29,11 @@ namespace RealFuels
             return MFSSettings.Instance.ignoreFuelsForFill.Contains(name);
         }
 
+        private static MFSSettings Settings
+        {
+	        get { return MFSSettings.Instance; }
+        }
+
         #endregion
 
         #region FuelTank
@@ -400,6 +405,8 @@ namespace RealFuels
 
             public void Load(ConfigNode node)
             {
+                if (node == null)
+                    return;
                 foreach (ConfigNode tankNode in node.GetNodes("TANK"))
                 {
                     string resourceName = tankNode.GetValue("name");
@@ -427,6 +434,9 @@ namespace RealFuels
         {
             base.OnAwake();
             PartMessageService.Register(this);
+
+            // Initialize utilization from the settings file
+            utilization = Settings.partUtilizationDefault;
         }
 
         public override void OnActive()
@@ -710,16 +720,9 @@ namespace RealFuels
         // The total tank volume. This is prior to utilization
         public double totalVolume;
 
-        internal const float UTILIZATION_DEFAULT = 87;
-
-        [KSPField]
-        public float utilizationMin = UTILIZATION_DEFAULT;
-        [KSPField]
-        public float utilizationMax = UTILIZATION_DEFAULT;
-
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0"),
          UI_FloatEdit(minValue = 0, maxValue = 100, incrementSlide = 1, scene = UI_Scene.Editor)]
-        public float utilization = UTILIZATION_DEFAULT;
+        public float utilization = -1;
         private float oldUtilization = -1;
 
 
@@ -783,7 +786,6 @@ namespace RealFuels
             if (oldUtilization == utilization)
                 return;
 
-            utilization = Mathf.Clamp(utilization, utilizationMin, utilizationMax);
             oldUtilization = utilization;
 
             ChangeTotalVolume(totalVolume);            
@@ -791,7 +793,7 @@ namespace RealFuels
 
         private void InitializeUtilization() 
         {
-            Fields["utilization"].guiActiveEditor = utilizationMax != utilizationMin;
+            Fields["utilization"].guiActiveEditor = Settings.partUtilizationTweakable;
         }
 
         #endregion

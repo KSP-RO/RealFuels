@@ -19,6 +19,12 @@ namespace RealFuels
         [Persistent]
         public float heatMultiplier = 1;
 
+        [Persistent]
+        public float partUtilizationDefault = 86;
+        [Persistent]
+        public bool partUtilizationTweakable = false;
+
+
         public HashSet<string> ignoreFuelsForFill = new HashSet<string>();
 
         public TankDefinitionList tankDefinitions = new TankDefinitionList();
