@@ -16,7 +16,8 @@
     <DebugSymbols>True</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>False</Optimize>
-    <OutputPath>..</OutputPath>
+    <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
+    <OutputPath>..\..\Build\RealFuels\Debug\</OutputPath>
     <DefineConstants>DEBUG;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -25,7 +26,8 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>True</Optimize>
-    <OutputPath>..\RealFuels\Plugins\</OutputPath>
+    <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
+    <OutputPath>..\..\Build\RealFuels\Release\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
@@ -55,7 +57,7 @@
     <Compile Include="RefuelingPump.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Kerbal Space Program\KSP Debug\GameData\KSPAPIExtensions\Source\KSPAPIExtensions.csproj">
+    <ProjectReference Include="..\..\KSPAPIExtensions\Source\KSPAPIExtensions.csproj">
       <Project>{4282b0da-c314-4524-9c32-edab2c9666a9}</Project>
       <Name>KSPAPIExtensions</Name>
       <Private>False</Private>
@@ -67,7 +69,7 @@ sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>del "System.Core.dll"
-copy /y "$(TargetPath)" "%25KSP_DIR%25\GameData\RealFuels\Plugins\"
-if exist "$(SolutionDir)\KSPAPIExtensions.dll" move "$(SolutionDir)\KSPAPIExtensions.dll"  "%25KSP_DIR%25\GameData\RealFuels\Plugins\"</PostBuildEvent>
+copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
+if exist "$(SolutionDir)\KSPAPIExtensions.dll" move "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"</PostBuildEvent>
   </PropertyGroup>
 </Project>
