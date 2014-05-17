@@ -147,7 +147,7 @@ namespace RealFuels
 					if (resource != null && value <= 0.0) 
                     {
                         // Delete it
-                        Debug.LogWarning("[MFT] Deleting tank from API " + name);
+                        //Debug.LogWarning("[MFT] Deleting tank from API " + name);
                         maxAmountExpression = null;
 
                         Destroy(resource);
@@ -178,7 +178,7 @@ namespace RealFuels
                         if (value == resource.maxAmount)
                             return;
 
-                        Debug.LogWarning("[MFT] Updating tank from API " + name + " amount: " + value);
+                        //Debug.LogWarning("[MFT] Updating tank from API " + name + " amount: " + value);
                         maxAmountExpression = null;
 
                         // Keep the same fill fraction
@@ -211,7 +211,7 @@ namespace RealFuels
 					} 
                     else if(value > 0.0) 
                     {
-                        Debug.LogWarning("[MFT] Adding tank from API " + name + " amount: " + value);
+                        //Debug.LogWarning("[MFT] Adding tank from API " + name + " amount: " + value);
                         maxAmountExpression = null;
 
                         ConfigNode node = new ConfigNode("RESOURCE");
@@ -1162,7 +1162,7 @@ namespace RealFuels
                     if (tank.maxAmountExpression == null)
                     {
                         tank.maxAmountExpression = tank.maxAmount.ToStringExt("S4");
-                        Debug.LogWarning("[MFT] Adding tank from API " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                        //Debug.LogWarning("[MFT] Adding tank from API " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                     }
                     else if (tank.maxAmountExpression.Length > 0 && tank.maxAmountExpression != tank.maxAmount.ToStringExt("S4"))
                     {
@@ -1204,7 +1204,7 @@ namespace RealFuels
                         if (trimmed == "")
                         {
                             tank.maxAmount = 0;
-                            Debug.LogWarning("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                            //Debug.LogWarning("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                         }
                         else
                         {
@@ -1220,7 +1220,7 @@ namespace RealFuels
 
                                     // Need to round-trip the value
                                     tank.maxAmountExpression = tank.maxAmount.ToStringExt("S4");
-                                    Debug.LogWarning("[MFT] Updating maxAmount " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                                    //Debug.LogWarning("[MFT] Updating maxAmount " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                                 }
                             }
                         }
@@ -1228,7 +1228,7 @@ namespace RealFuels
                     if (GUILayout.Button("Remove", GUILayout.Width(60)))
                     {
                         tank.maxAmount = 0;
-                        Debug.LogWarning("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                        //Debug.LogWarning("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                     }
                 }
                 else if (availableVolume >= 0.001)
@@ -1246,7 +1246,7 @@ namespace RealFuels
                             tank.amount = 0;
 
                         tank.maxAmountExpression = tank.maxAmount.ToStringExt("S4");
-                        Debug.LogWarning("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
+                        //Debug.LogWarning("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
                     }
                 }
                 else
@@ -1352,8 +1352,6 @@ namespace RealFuels
                 return;
 
             bool active = (availableVolume >= 0.001);
-
-            Debug.LogWarning("Running events: " + active);
 
             bool activeChanged = false;
             for (int i = 0; i < Events.Count; ++i)

@@ -42,7 +42,7 @@ namespace RealFuels
                 if (_instance != null && (bool)_instance)
                     return _instance;
 
-                Debug.Log("*MFS* Loading settings");
+                //Debug.Log("*MFS* Loading settings");
 
                 GameObject gameObject = new GameObject(typeof(MFSSettings).FullName);
                 _instance = gameObject.AddComponent<MFSSettings>();
@@ -100,7 +100,7 @@ namespace RealFuels
                     var tank = tankList[i];
                     if (!tank.resourceAvailable)
                     {
-                        Debug.LogWarning("[MFT] Unable to initialize tank definition for resource \"" + tank.name + "\" in tank definition \"" + name + "\" as this resource is not defined.");
+                        //Debug.LogWarning("[MFT] Unable to initialize tank definition for resource \"" + tank.name + "\" in tank definition \"" + name + "\" as this resource is not defined.");
                         tankList.RemoveAt(i);
                     }
                 }
