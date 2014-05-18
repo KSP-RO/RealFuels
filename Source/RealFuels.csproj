@@ -68,8 +68,9 @@
 sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"
-copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
-if exist "$(SolutionDir)\KSPAPIExtensions.dll" move "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"</PostBuildEvent>
+    <PostBuildEvent>copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
+copy /y "$(TargetPath)" "$(SolutionDir)\..\ModularFuelTanks\Plugins\"
+if exist "$(SolutionDir)\KSPAPIExtensions.dll" copy /Y "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"
+if exist "$(SolutionDir)\KSPAPIExtensions.dll" move "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\ModularFuelTanks\Plugins\"</PostBuildEvent>
   </PropertyGroup>
 </Project>
