@@ -1,8 +1,9 @@
 KSPDIR		:= ${HOME}/ksp/KSP_linux
 MANAGED		:= ${KSPDIR}/KSP_Data/Managed
 GAMEDATA	:= ${KSPDIR}/GameData
-MODGAMEDATA  := ${GAMEDATA}/ModularFuelTanks
+MODGAMEDATA	:= ${GAMEDATA}/ModularFuelTanks
 PLUGINDIR	:= ${MODGAMEDATA}/Plugins
+APIEXTDATA	:= ${PLUGINDIR}
 
 TARGETS		:= modularFuelTanks.dll
 
@@ -12,7 +13,7 @@ MFT_FILES := \
     ModularFuelTanks.cs			\
     ModularFuelPartModule.cs	\
     RefuelingPump.cs			\
-	Settings.cs					\
+	MFSSettings.cs				\
 	$e
 
 RESGEN2	:= resgen2
@@ -38,8 +39,9 @@ info:
 	@echo "    Plugin:   ${PLUGINDIR}"
 
 modularFuelTanks.dll: ${MFT_FILES}
-	${GMCS} -t:library -lib:${MANAGED} \
+	${GMCS} -t:library -lib:${APIEXTDATA},${MANAGED} \
 		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
+		-r:KSPAPIExtensions \
 		-out:$@ $^
 
 clean:
