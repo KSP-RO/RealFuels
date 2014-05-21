@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using System.Linq;
 using KSPAPIExtensions.PartMessage;
 using UnityEngine;
 using KSP;
 using KSPAPIExtensions.Utils;
+using Debug = UnityEngine.Debug;
 
 namespace RealFuels
 {
@@ -1151,9 +1153,6 @@ namespace RealFuels
             }
             SetConfiguration(configuration);
             UpdateSymmetryCounterparts();
-
-            // Send the part message to let PP know the ISPs have changed.
-            PartMessageService.Send<PartEngineConfigChanged>(this, part);            
         }
 
         public void OnGUI()
@@ -1166,7 +1165,9 @@ namespace RealFuels
 
             if (EditorActionGroups.Instance.GetSelectedParts().Contains(part))
             {
-                Rect screenRect = new Rect(part.Modules.Contains("ModuleFuelTanks") ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
+                bool mft = part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks) part.Modules["ModuleFuelTanks"]).dedicated;
+                
+                Rect screenRect = new Rect(mft ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
                 GUILayout.Window(part.name.GetHashCode() + 1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
             }
         }
@@ -1565,9 +1566,12 @@ namespace RealFuels
                     part.Resources["ElectricCharge"].maxAmount = 0.1;
                 }
                 UpdateTweakableMenu();
-			}
+            }
             
         }
+
+        private int oldTechLevel = -1;
+        private string oldConfiguration;
 
         public void UpdateTweakableMenu()
         {
@@ -1586,6 +1590,19 @@ namespace RealFuels
             else
                 Events["NextTech"].guiActiveEditor = false;
 
+            // Sorry about this dirty hack. Otherwise we end up with loops. Will try to get something tidier 
+            // some time in the future.
+            if (oldConfiguration != null && (techLevel != oldTechLevel || oldConfiguration != configuration))
+            {
+                oldConfiguration = configuration;
+                oldTechLevel = techLevel;
+                PartMessageService.Send<PartEngineConfigChanged>(this, part);
+            }
+            else
+            {
+                oldConfiguration = configuration;
+                oldTechLevel = techLevel;                
+            }
         }
 
         //called by StretchyTanks StretchySRB and ProcedrualParts

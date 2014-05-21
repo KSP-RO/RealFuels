@@ -1,10 +1,7 @@
 //#define DEBUG
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using UnityEngine;
-using KSP;
 using System.Collections.ObjectModel;
 using KSPAPIExtensions;
 using KSPAPIExtensions.PartMessage;
@@ -15,7 +12,7 @@ namespace RealFuels
 	{
         #region loading stuff from config files
 
-        public static float massMult
+	    private static float MassMult
         {
             get
             {
@@ -24,7 +21,7 @@ namespace RealFuels
         }
 
         // looks to see if we should ignore this fuel when creating an autofill for an engine
-        public static bool IgnoreFuel(string name)
+	    private static bool IgnoreFuel(string name)
         {
             return MFSSettings.Instance.ignoreFuelsForFill.Contains(name);
         }
@@ -62,12 +59,12 @@ namespace RealFuels
             [Persistent]
             public bool fillable = true;
 
-            public bool resourceAvailable = false;
+            public bool resourceAvailable;
 
             internal string amountExpression;
             internal string maxAmountExpression;
 
-            [System.NonSerialized]
+            [NonSerialized]
 			private ModuleFuelTanks module;
 
 			//------------------- virtual properties
@@ -516,7 +513,7 @@ namespace RealFuels
             UpdateTankType();
 
             string info = "Modular Fuel Tank: \n"
-                + "  Max Volume: " + volume.ToString() + "\n"
+                + "  Max Volume: " + volume.ToStringExt("S3") + "L\n"
                     + "  Tank can hold:";
             foreach (FuelTank tank in tankList)
             {
@@ -532,6 +529,12 @@ namespace RealFuels
             {
                 InitializeTankType();
                 InitializeUtilization();
+
+                if (dedicated)
+                {
+                    Events["Empty"].guiActiveEditor = false;
+                    Fields["showRFGUI"].guiActiveEditor = false;
+                }
             }
 
             CalculateMass();
@@ -870,9 +873,9 @@ namespace RealFuels
             if (basemass >= 0)
                 foreach (FuelTank fuel in tankList)
                     if (fuel.maxAmount > 0 && fuel.utilization > 0)
-                        tankDryMass += (float)fuel.maxAmount * fuel.mass / fuel.utilization * massMult; // NK for realistic masses
+                        tankDryMass += (float)fuel.maxAmount * fuel.mass / fuel.utilization * MassMult; // NK for realistic masses
 
-            mass = (float)(basemass + tankDryMass) * massMult;
+            mass = (float)(basemass + tankDryMass) * MassMult;
             if (part.mass != mass)
             {
                 part.mass = mass;
@@ -950,9 +953,7 @@ namespace RealFuels
         #region Message passing for EPL
 
         // Extraplanetary launchpads needs these messages sent.
-        // Note that this will be pushed into KSPAPIExtensions with the next release of EPL
-        // Code is already committed to do this.
-
+        // From the next update of EPL, this won't be required.
 
         [PartMessageListener(typeof(PartResourcesChanged))]
         private void ResourcesModified()
@@ -1016,15 +1017,21 @@ namespace RealFuels
 
         [PartMessageListener(typeof(PartChildAttached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
         [PartMessageListener(typeof(PartChildDetached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
-        private void VesselAttachmentsChanged(Part part)
+        public void VesselAttachmentsChanged(Part part)
         {
             UpdateUsedBy();
         }
 
-        public void OnGUI()
+        [PartMessageListener(typeof (PartEngineConfigChanged), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
+        public void EngineConfigsChanged()
+        {
+            UpdateUsedBy();
+        }
+
+	    public void OnGUI()
 		{
 			EditorLogic editor = EditorLogic.fetch;
-            if (!HighLogic.LoadedSceneIsEditor || !editor) {
+            if (!HighLogic.LoadedSceneIsEditor || !editor || dedicated) {
                 return;
             }
 
@@ -1347,12 +1354,12 @@ namespace RealFuels
 
         private void UpdateTweakableMenu()
         {
+            if (dedicated)
+                return;
+
             BaseEvent empty = Events["Empty"];
             if (empty != null)
                 empty.guiActiveEditor = (usedVolume != 0);
-
-            if (dedicated)
-                return;
 
             bool active = (availableVolume >= 0.001);
 
