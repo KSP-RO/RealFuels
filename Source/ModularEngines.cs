@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
+using KSPAPIExtensions.PartMessage;
 using UnityEngine;
 using KSP;
 using KSPAPIExtensions.Utils;
@@ -209,7 +210,6 @@ namespace RealFuels
 				ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
 
             UpdateTweakableMenu();
-
 		}
 
         public EngineWrapper ActiveEngine = null;
@@ -1151,7 +1151,9 @@ namespace RealFuels
             }
             SetConfiguration(configuration);
             UpdateSymmetryCounterparts();
-            
+
+            // Send the part message to let PP know the ISPs have changed.
+            PartMessageService.Send<PartEngineConfigChanged>(this, part);            
         }
 
         public void OnGUI()
@@ -1519,15 +1521,6 @@ namespace RealFuels
                     DoConfig(config);
 					if(pModule != null)
                         pModule.Load (config);
-                    if (HighLogic.LoadedSceneIsEditor && part.Modules.Contains("ModuleFuelTanks"))
-                    {
-                        ModuleFuelTanks mft = (ModuleFuelTanks)part.Modules["ModuleFuelTanks"];
-                        if (mft.dedicated)
-                        {
-                            mft.Empty();
-                            mft.ConfigureFor(part);
-                        }
-                    }
                     if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
                     {
                         ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
@@ -1592,9 +1585,10 @@ namespace RealFuels
                 Events["NextTech"].guiName = "Tech Level: " + techLevel.ToString() + "            -";
             else
                 Events["NextTech"].guiActiveEditor = false;
+
         }
 
-        //called by StretchyTanks StretchySRB
+        //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
             //print("*MFS* For " + part.name + ", Setting new max thrust " + newThrust.ToString());
@@ -1605,6 +1599,13 @@ namespace RealFuels
             SetConfiguration(configuration);
             //print("New max thrust: " + ((ModuleEngines)part.Modules["ModuleEngines"]).maxThrust);
         }
+
+        // Used by ProceduralParts
+	    public void ChangeEngineType(string newEngineType)
+	    {
+	        engineType = newEngineType;
+            SetConfiguration(configuration);
+	    }
 
 		public override void OnStart (StartState state)
 		{
@@ -1643,7 +1644,8 @@ namespace RealFuels
                     if (engine.realIsp > 0)
                     {
                         float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
-                        multiplier = engine.realIsp * ispVMult / multiplier;
+                        float realIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
+                        multiplier = realIsp * ispVMult / multiplier;
                         engine.maxThrust = configMaxThrust * multiplier;
                         if (throttleCut)
                             engine.minThrust = 0;
@@ -1665,7 +1667,8 @@ namespace RealFuels
                     if (engine.realIsp > 0)
                     {
                         float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
-                        multiplier = engine.realIsp * ispVMult / multiplier;
+                        float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
+                        multiplier = frameIsp * ispVMult / multiplier;
 
                         engine.maxThrust = configMaxThrust * multiplier;
                         if (throttleCut)
@@ -1680,10 +1683,10 @@ namespace RealFuels
             else if (fastType == ModuleType.MODULERCS || fastType == ModuleType.MODULERCSFX) // cast either to ModuleRCS
             {
                 ModuleRCS engine = fastRCS;
-
                 if ((object)config != null && (object)engine != null && engine.realISP > 0)
                 {
-                    float multiplier = engine.realISP / engine.atmosphereCurve.Evaluate(0);
+                    float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
+                    float multiplier = frameIsp / engine.atmosphereCurve.Evaluate(0);
                     engine.thrusterPower = configMaxThrust * multiplier;
                 }
             }
