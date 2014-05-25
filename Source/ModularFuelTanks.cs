@@ -1,11 +1,14 @@
 //#define DEBUG
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Collections.ObjectModel;
 using KSPAPIExtensions;
 using KSPAPIExtensions.PartMessage;
+
+// ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
 namespace RealFuels
 {
@@ -53,7 +56,6 @@ namespace RealFuels
             public float utilization = 1.0f;
             [Persistent]
             public float mass = 0.0f;
-            // ReSharper disable once InconsistentNaming
             [Persistent]
             public double loss_rate = 0.0;
             [Persistent]
@@ -102,19 +104,19 @@ namespace RealFuels
                     if (module == null)
                         throw new InvalidOperationException("Amount is not defined until instantiated in a tank");
 
-                    PartResource resource = this.resource;
-                    if (resource == null)
+                    PartResource partResource = resource;
+                    if (partResource == null)
                         return;
 
-                    if (value > resource.maxAmount)
-                        value = resource.maxAmount;
+                    if (value > partResource.maxAmount)
+                        value = partResource.maxAmount;
 
-                    if (value == resource.amount)
+                    if (value == partResource.amount)
                         return;
 
                     amountExpression = null;
-                    resource.amount = amount;
-                    module.RaiseResourceInitialChanged(resource, amount);
+                    partResource.amount = amount;
+                    module.RaiseResourceInitialChanged(partResource, amount);
                     if (HighLogic.LoadedSceneIsEditor)
                         foreach (Part sym in part.symmetryCounterparts)
                         {
@@ -141,15 +143,15 @@ namespace RealFuels
                     if (module == null)
                         throw new InvalidOperationException("Maxamount is not defined until instantiated in a tank");
 
-                    PartResource resource = this.resource;
-					if (resource != null && value <= 0.0) 
+                    PartResource partResource = resource;
+					if (partResource != null && value <= 0.0) 
                     {
                         // Delete it
                         //Debug.LogWarning("[MFT] Deleting tank from API " + name);
                         maxAmountExpression = null;
 
-                        Destroy(resource);
-                        part.Resources.list.Remove(resource);
+                        Destroy(partResource);
+                        part.Resources.list.Remove(partResource);
                         module.RaiseResourceListChanged();
 
                         // Update symmetry counterparts.
@@ -162,18 +164,18 @@ namespace RealFuels
                                 PartMessageService.Send<PartResourceListChanged>(this, sym);
                             }
 					} 
-                    else if (resource != null) 
+                    else if (partResource != null) 
                     {
-                        if (value > resource.maxAmount)
+                        if (value > partResource.maxAmount)
                         {
                             // If expanding, modify it to be less than overfull
-                            double maxQty = module.availableVolume * utilization + resource.maxAmount;
+                            double maxQty = module.AvailableVolume * utilization + partResource.maxAmount;
                             if (maxQty < value)
                                 value = maxQty;
                         }
 
                         // Do nothing if unchanged
-                        if (value == resource.maxAmount)
+                        if (value == partResource.maxAmount)
                             return;
 
                         //Debug.LogWarning("[MFT] Updating tank from API " + name + " amount: " + value);
@@ -182,13 +184,13 @@ namespace RealFuels
                         // Keep the same fill fraction
                         double newAmount = value * fillFraction;
 
-                        resource.maxAmount = value;
-                        module.RaiseResourceMaxChanged(resource, value);
+                        partResource.maxAmount = value;
+                        module.RaiseResourceMaxChanged(partResource, value);
 
-                        if (newAmount != resource.amount)
+                        if (newAmount != partResource.amount)
                         {
-                            resource.amount = newAmount;
-                            module.RaiseResourceInitialChanged(resource, newAmount);
+                            partResource.amount = newAmount;
+                            module.RaiseResourceInitialChanged(partResource, newAmount);
                         }
 
                         // Update symmetry counterparts.
@@ -219,8 +221,8 @@ namespace RealFuels
 #if DEBUG
 						print (node.ToString ());
 #endif
-						resource = part.AddResource (node);
-						resource.enabled = true;
+						partResource = part.AddResource (node);
+						partResource.enabled = true;
 
                         module.RaiseResourceListChanged();
 
@@ -359,19 +361,19 @@ namespace RealFuels
                 Load(node);
 			}
 
-            public FuelTank CreateConcreteCopy(ModuleFuelTanks module)
+            public FuelTank CreateConcreteCopy(ModuleFuelTanks toModule)
             {
                 FuelTank clone = (FuelTank)MemberwiseClone();
-                clone.module = module;
+                clone.module = toModule;
                 clone.InitializeAmounts();
 
                 return clone;
             }
 
-            internal FuelTank CreateCopy(ModuleFuelTanks module)
+            internal FuelTank CreateCopy(ModuleFuelTanks toModule)
             {
                 FuelTank clone = (FuelTank)MemberwiseClone();
-                clone.module = module;
+                clone.module = toModule;
                 return clone;
             }
         }
@@ -752,16 +754,16 @@ namespace RealFuels
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
         public string volumeDisplay;
 
-        public double usedVolume
+        public double UsedVolume
         {
             get; private set;
         }
 
-        public double availableVolume
+        public double AvailableVolume
         {
             get
             {
-                return volume - usedVolume;
+                return volume - UsedVolume;
             }
         }
 
@@ -847,33 +849,32 @@ namespace RealFuels
             return mass.ToStringSI(4, unit:"t");
         }
 
-	    private bool ParseBasemass(ConfigNode node)
+	    private void ParseBasemass(ConfigNode node)
         {
             if (!node.HasValue("basemass"))
-                return false;
+                return;
 
-            string base_mass = node.GetValue("basemass");
-            return ParseBasemass(base_mass);
+	        string baseMass = node.GetValue("basemass");
+	        ParseBasemass(baseMass);
         }
 
-        private bool ParseBasemass(string base_mass)
+        private void ParseBasemass(string baseMass)
         {
-            if (base_mass.Contains("*") && base_mass.Contains("volume"))
+            if (baseMass.Contains("*") && baseMass.Contains("volume"))
             {
-                if (float.TryParse(base_mass.Replace("volume", "").Replace("*", "").Trim(), out basemassPV))
+                if (float.TryParse(baseMass.Replace("volume", "").Replace("*", "").Trim(), out basemassPV))
                 {
                     basemassConst = 0;
-                    return true;
+                    return;
                 }
             }
-            else if (float.TryParse(base_mass.Trim(), out basemassPV))
+            else if (float.TryParse(baseMass.Trim(), out basemassPV))
             {
                 basemassPV = (float)(basemassPV / volume);
                 basemassConst = 0;
-                return true;
+                return;
             }
-            Debug.LogWarning("[MFT] Unable to parse basemass \"" + base_mass + "\"");
-            return false;
+            Debug.LogWarning("[MFT] Unable to parse basemass \"" + baseMass + "\"");
         }
 
         public void CalculateMass()
@@ -884,13 +885,15 @@ namespace RealFuels
 
             double basemass = basemassConst + basemassPV * volume;
 
-            double tankDryMass = 0;
             if (basemass >= 0)
-                foreach (FuelTank fuel in tankList)
-                    if (fuel.maxAmount > 0 && fuel.utilization > 0)
-                        tankDryMass += (float)fuel.maxAmount * fuel.mass / fuel.utilization * MassMult; // NK for realistic masses
+            {
+                double tankDryMass = tankList
+                    .Where(fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
+                    .Sum(fuel => (float)fuel.maxAmount * fuel.mass / fuel.utilization);
 
-            mass = (float)(basemass + tankDryMass) * MassMult;
+                mass = (float)(basemass + tankDryMass) * MassMult;
+            }
+
             if (part.mass != mass)
             {
                 part.mass = mass;
@@ -899,21 +902,15 @@ namespace RealFuels
 
             if (GameSceneFilter.AnyEditor.IsLoaded())
             {
-                double v = 0;
-                foreach (FuelTank fuel in tankList)
-                {
-                    if (fuel.maxAmount > 0 && fuel.utilization > 0)
-                        v += fuel.maxAmount / fuel.utilization;
-                }
-                usedVolume = v;
+                UsedVolume = tankList
+                    .Where(fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
+                    .Sum(fuel => fuel.maxAmount/fuel.utilization);
 
                 SIPrefix pfx = volume.GetSIPrefix();
-                Func<double, string> Formatter = pfx.GetFormatter(volume);
-                volumeDisplay = "Avail: " + Formatter(availableVolume) + pfx.PrefixString() + "L / Tot: " + Formatter(volume) + pfx.PrefixString() + "L";
+                Func<double, string> formatter = pfx.GetFormatter(volume);
+                volumeDisplay = "Avail: " + formatter(AvailableVolume) + pfx.PrefixString() + "L / Tot: " + formatter(volume) + pfx.PrefixString() + "L";
 
-                double resourceMass = 0;
-                foreach (PartResource r in part.Resources)
-                    resourceMass += r.maxAmount * r.info.density;
+                double resourceMass = part.Resources.Cast<PartResource>().Sum(r => r.maxAmount*r.info.density);
 
                 double wetMass = mass + resourceMass;
                 massDisplay = "Dry: " + FormatMass(mass) + " / Wet: " + FormatMass((float)wetMass);
@@ -1009,9 +1006,7 @@ namespace RealFuels
         private static GUIStyle overfull;
         public static string myToolTip = "";
 
-        private List<string> mixtures = new List<string>();
-
-		private int counterTT;
+	    private int counterTT;
         private Vector2 scrollPos;
 
         private void OnPartActionGuiDismiss(Part p)
@@ -1100,7 +1095,7 @@ namespace RealFuels
                 }
 
                 GUILayout.BeginHorizontal();
-                if (Math.Round(availableVolume, 4) < 0)
+                if (Math.Round(AvailableVolume, 4) < 0)
                     GUILayout.Label("Volume: " + volumeDisplay, overfull);
                 else
                     GUILayout.Label("Volume: " + volumeDisplay);
@@ -1243,6 +1238,7 @@ namespace RealFuels
                             if (MathUtils.TryParseExt(trimmed, out tmp))
                             {
                                 tank.maxAmount = tmp;
+                                
                                 if (tmp != 0)
                                 {
                                     tank.amount = tank.fillable ? tank.maxAmount : 0;
@@ -1260,15 +1256,15 @@ namespace RealFuels
                         //Debug.LogWarning("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                     }
                 }
-                else if (availableVolume >= 0.001)
+                else if (AvailableVolume >= 0.001)
                 {
-                    string extraData = "Max: " + (availableVolume * tank.utilization).ToStringExt("S3") + "L (+" + FormatMass((float)(availableVolume * tank.mass)) + " )";
+                    string extraData = "Max: " + (AvailableVolume * tank.utilization).ToStringExt("S3") + "L (+" + FormatMass((float)(AvailableVolume * tank.mass)) + " )";
 
                     GUILayout.Label(extraData, GUILayout.Width(150));
 
                     if (GUILayout.Button("Add", GUILayout.Width(130)))
                     {
-                        tank.maxAmount = availableVolume * tank.utilization;
+                        tank.maxAmount = AvailableVolume * tank.utilization;
                         tank.amount = tank.fillable ? tank.maxAmount : 0;
 
                         tank.maxAmountExpression = tank.maxAmount.ToStringExt("S4");
@@ -1293,7 +1289,7 @@ namespace RealFuels
 
         private void GUIEngines()
         {
-            if (usedBy.Count > 0 && availableVolume >= 0.001)
+            if (usedBy.Count > 0 && AvailableVolume >= 0.001)
             {
                 GUILayout.BeginHorizontal();
                 GUILayout.Label("Configure remaining volume for " + engineCount + " engines:");
@@ -1302,7 +1298,7 @@ namespace RealFuels
                 foreach (FuelInfo info in usedBy.Values)
                 {
                     GUILayout.BeginHorizontal();
-                    if (GUILayout.Button(new GUIContent(info.label, info.names)))
+                    if (GUILayout.Button(new GUIContent(info.Label, info.names)))
                     {
                         ConfigureFor(info);
                     }
@@ -1315,7 +1311,7 @@ namespace RealFuels
 
         #region Engine bits
 
-        private Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
+        private readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
         private int engineCount;
 
 	    private void UpdateUsedBy()
@@ -1328,12 +1324,12 @@ namespace RealFuels
             foreach (Part engine in enginesList)
             {
                 FuelInfo f = new FuelInfo(engine, this);
-                if (f.ratio_factor > 0.0)
+                if (f.ratioFactor > 0.0)
                 {
                     FuelInfo found;
-                    if (!usedBy.TryGetValue(f.label, out found))
+                    if (!usedBy.TryGetValue(f.Label, out found))
                     {
-                        usedBy.Add(f.label, f);
+                        usedBy.Add(f.Label, f);
                     }
                     else if (!found.names.Contains(engine.partInfo.title))
                     {
@@ -1347,7 +1343,7 @@ namespace RealFuels
             {
                 Events.RemoveAll(button => button.name.StartsWith("MFT"));
 
-                bool activeEditor = (availableVolume >= 0.001);
+                bool activeEditor = (AvailableVolume >= 0.001);
 
                 int idx = 0;
                 foreach (FuelInfo info in usedBy.Values)
@@ -1357,12 +1353,10 @@ namespace RealFuels
                         name = "MFT" + idx++,
                         guiActive = false,
                         guiActiveEditor = activeEditor,
-                        guiName = info.label
+                        guiName = info.Label
                     };
-                    BaseEvent button = new BaseEvent(Events, kspEvent.name, () =>
-                    {
-                        ConfigureFor(info);
-                    }, kspEvent)
+                    FuelInfo info1 = info;
+                    BaseEvent button = new BaseEvent(Events, kspEvent.name, () => ConfigureFor(info1), kspEvent)
                     {
                         guiActiveEditor = activeEditor
                     };
@@ -1379,9 +1373,9 @@ namespace RealFuels
 
             BaseEvent empty = Events["Empty"];
             if (empty != null)
-                empty.guiActiveEditor = (usedVolume != 0);
+                empty.guiActiveEditor = (UsedVolume != 0);
 
-            bool activeEditor = (availableVolume >= 0.001);
+            bool activeEditor = (AvailableVolume >= 0.001);
 
             bool activeChanged = false;
             for (int i = 0; i < Events.Count; ++i)
@@ -1397,14 +1391,14 @@ namespace RealFuels
                 MarkWindowDirty();
         }
 
-        public class FuelInfo
+        private class FuelInfo
 		{
 			public string names;
-			public List<Propellant> propellants;
-			public double efficiency;
-			public double ratio_factor;
+			public readonly List<Propellant> propellants;
+			public readonly double efficiency;
+			public readonly double ratioFactor;
 
-            public string label
+            public string Label
             {
                 get
                 {
@@ -1415,7 +1409,7 @@ namespace RealFuels
                         {
                             if (label.Length > 0)
                                 label += " / ";
-                            label += Math.Round(100 * tfuel.ratio / ratio_factor, 0) + "% " + tfuel.name;
+                            label += Math.Round(100 * tfuel.ratio / ratioFactor, 0) + "% " + tfuel.name;
                         }
                     }
                     return label;
@@ -1428,7 +1422,7 @@ namespace RealFuels
                 // efficiency = sum[utilization * ratio]
                 // then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
 
-                ratio_factor = 0.0;
+                ratioFactor = 0.0;
                 efficiency = 0.0;
 
                 propellants = new List<Propellant>();
@@ -1450,7 +1444,7 @@ namespace RealFuels
                     if (PartResourceLibrary.Instance.GetDefinition(tfuel.name) == null)
                     {
                         print("Unknown RESOURCE {" + tfuel.name + "}");
-                        ratio_factor = 0.0;
+                        ratioFactor = 0.0;
                         break;
                     }
                     if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE)
@@ -1463,11 +1457,11 @@ namespace RealFuels
                         if (tank.tankList.TryGet(tfuel.name, out t))
                         {
                             efficiency += tfuel.ratio / t.utilization;
-                            ratio_factor += tfuel.ratio;
+                            ratioFactor += tfuel.ratio;
                         }
                         else if (!IgnoreFuel(tfuel.name))
                         {
-                            ratio_factor = 0.0;
+                            ratioFactor = 0.0;
                             break;
                         }
                     }
@@ -1481,12 +1475,12 @@ namespace RealFuels
             ConfigureFor(new FuelInfo(engine, this));
         }
 
-        public void ConfigureFor(FuelInfo fi)
+	    private void ConfigureFor(FuelInfo fi)
         {
-            if (fi.ratio_factor == 0.0 || fi.efficiency == 0) // can't configure for this engine
+            if (fi.ratioFactor == 0.0 || fi.efficiency == 0) // can't configure for this engine
                 return;
 
-            double total_volume = availableVolume;
+            double availableVolume = AvailableVolume;
             foreach (Propellant tfuel in fi.propellants)
             {
                 if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
@@ -1494,7 +1488,7 @@ namespace RealFuels
                     FuelTank tank;
                     if (tankList.TryGet(tfuel.name, out tank))
                     {
-                        double amt = total_volume * tfuel.ratio / fi.efficiency;
+                        double amt = availableVolume * tfuel.ratio / fi.efficiency;
                         tank.maxAmount += amt;
                         tank.amount += amt;
                     }
