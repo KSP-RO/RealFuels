@@ -8,7 +8,7 @@ APIEXTDATA	:= ${PLUGINDIR}
 TARGETS		:= modularFuelTanks.dll
 
 MFT_FILES := \
-    AssemblyInfo.cs				\
+    AssemblyInfoMFT.cs			\
     HeatPump.cs					\
     ModularFuelTanks.cs			\
     ModularFuelPartModule.cs	\
