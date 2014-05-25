@@ -1,6 +1,7 @@
 //#define DEBUG
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using System.Collections.ObjectModel;
 using KSPAPIExtensions;
@@ -366,6 +367,13 @@ namespace RealFuels
 
                 return clone;
             }
+
+            internal FuelTank CreateCopy(ModuleFuelTanks module)
+            {
+                FuelTank clone = (FuelTank)MemberwiseClone();
+                clone.module = module;
+                return clone;
+            }
         }
 
         public class FuelTankList : KeyedCollection<string, FuelTank>, IConfigNode
@@ -431,6 +439,7 @@ namespace RealFuels
         {
             base.OnAwake();
             PartMessageService.Register(this);
+            this.RegisterOnUpdateEditor(OnUpdateEditor);
 
             // Initialize utilization from the settings file
             utilization = Settings.partUtilizationDefault;
@@ -510,14 +519,13 @@ namespace RealFuels
         {
             UpdateTankType();
 
-            string info = "Modular Fuel Tank: \n"
-                + "  Max Volume: " + volume.ToStringExt("S3") + "L\n"
-                    + "  Tank can hold:";
+            StringBuilder info = new StringBuilder();
+            info.AppendLine("Modular Fuel Tank:");
+            info.Append("  Max Volume: ").Append(volume.ToStringSI(unit:"L"));
+            info.AppendLine("  Tank can hold:");
             foreach (FuelTank tank in tankList)
-            {
-                info += "\n   " + tank + " " + tank.note;
-            }
-            return info + "\n";
+                info.Append("   ").Append(tank).Append(" ").AppendLine(tank.note);
+            return info.ToString();
         }
 
         public override void OnStart(StartState state)
@@ -525,6 +533,22 @@ namespace RealFuels
             // This won't do anything if it's already been done in OnLoad (stored vessel/assem)
             if (GameSceneFilter.AnyEditor.IsLoaded())
             {
+                Part original = part.GetSymmetryCloneOriginal();
+                if (original != part)
+                {
+                    // Basically do the guts of what UpdateTankType would do
+                    // only copying everything from the source.
+                    ModuleFuelTanks origTanks = original.GetComponent<ModuleFuelTanks>();
+                    foreach (FuelTank origTank in origTanks.tankList)
+                    {
+                        tankList.Add(origTank.CreateCopy(this));
+                    }
+                    pressurizedFuels = new Dictionary<string, bool>(origTanks.pressurizedFuels);
+
+                    massDirty = true;
+                    oldType = type;
+                }
+
                 InitializeTankType();
                 InitializeUtilization();
 
@@ -562,11 +586,8 @@ namespace RealFuels
 
         #region Update
 
-        public void Update()
+        public void OnUpdateEditor()
         {
-            if (!GameSceneFilter.AnyEditor.IsLoaded())
-                return;
-
             UpdateTankType();
             UpdateUtilization();
             CalculateMass();
@@ -574,13 +595,11 @@ namespace RealFuels
 
         public override void OnUpdate()
         {
-            if (GameSceneFilter.AnyEditor.IsLoaded()) // I don't think this actually gets called in editor mode
-                return;
-
             if (timestamp > 0)
                 CalculateTankLossFunction(precisionDeltaTime);
-
-            base.OnUpdate();            //Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
+            // Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; 
+            // this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
+            base.OnUpdate();            
         }
 
         private void CalculateTankLossFunction(double deltaTime)
@@ -606,10 +625,10 @@ namespace RealFuels
         #region Tank Type and Tank List management
 
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
-        public FuelTankList tankList = new FuelTankList();
+        internal FuelTankList tankList = new FuelTankList();
 
         // List of tanks overriden in the part file (ie: not comming from the tank definition)
-        public FuelTankList overrideList;
+        internal FuelTankList overrideList;
 
         // List of override nodes as defined in the part file. This is here so that it can get reconstituted after a clone
         public ConfigNode overrideListNodes;
@@ -621,6 +640,7 @@ namespace RealFuels
         public string[] typesAvailable;
 
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
+        [NonSerialized]
         public Dictionary<string, bool> pressurizedFuels;
 
         // Load the list of TANK overrides from the part file
@@ -751,12 +771,12 @@ namespace RealFuels
         public float tankVolumeConversion = 1000;
 
         [PartMessageListener(typeof(PartVolumeChanged), scenes: GameSceneFilter.AnyEditor)]
-        public void PartVolumeChanged(string volName, float volume)
+        public void PartVolumeChanged(string volName, float newTotalVolume)
         {
             if (volName != PartVolumes.Tankage.ToString())
                 return;
 
-            double newTotalVolue = volume * tankVolumeConversion;
+            double newTotalVolue = newTotalVolume * tankVolumeConversion;
 
             if (newTotalVolue == totalVolume)
                 return;
@@ -980,6 +1000,7 @@ namespace RealFuels
 
         [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Real Fuels"),
          UI_Toggle(enabledText = "GUI", disabledText = "GUI")]
+        [NonSerialized]
         public bool showRFGUI;
 
         private static GUIStyle unchanged;
@@ -999,7 +1020,13 @@ namespace RealFuels
                 showRFGUI = false;
         }
 
-        [PartMessageListener(typeof(PartResourceListChanged))]
+	    [PartMessageListener(typeof (PartParentChanged))]
+	    public void ParentChanged(Part childPart)
+	    {
+            showRFGUI = false;
+	    }
+
+	    [PartMessageListener(typeof(PartResourceListChanged))]
         private void MarkWindowDirty()
         {
             if (_myWindow == null)
@@ -1012,7 +1039,7 @@ namespace RealFuels
 
         [PartMessageListener(typeof(PartChildAttached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
         [PartMessageListener(typeof(PartChildDetached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
-        public void VesselAttachmentsChanged(Part parentChildPart)
+        public void VesselAttachmentsChanged(Part childPart)
         {
             UpdateUsedBy();
         }
@@ -1290,11 +1317,6 @@ namespace RealFuels
 
         private Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
         private int engineCount;
-
-	    public ModuleFuelTanks(List<string> mixtures)
-	    {
-	        this.mixtures = mixtures;
-	    }
 
 	    private void UpdateUsedBy()
         {
