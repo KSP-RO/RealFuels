@@ -47,7 +47,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="AssemblyInfoRF.cs" />
     <Compile Include="Checkers.cs" />
     <Compile Include="HeatPump.cs" />
     <Compile Include="MFSSettings.cs" />
@@ -69,8 +69,6 @@ sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
-copy /y "$(TargetPath)" "$(SolutionDir)\..\ModularFuelTanks\Plugins\"
-if exist "$(SolutionDir)\KSPAPIExtensions.dll" copy /Y "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"
-if exist "$(SolutionDir)\KSPAPIExtensions.dll" move "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\ModularFuelTanks\Plugins\"</PostBuildEvent>
+if exist "$(SolutionDir)\KSPAPIExtensions.dll" copy /Y "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"</PostBuildEvent>
   </PropertyGroup>
 </Project>
