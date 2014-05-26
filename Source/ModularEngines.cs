@@ -994,6 +994,10 @@ namespace RealFuels
 
 		public override void OnAwake ()
 		{
+            PartMessageService.Register(this);
+            if(HighLogic.LoadedSceneIsEditor)
+                GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
+
 			if(configs == null)
 				configs = new List<ConfigNode>();
             if (MFSSettings == null)
@@ -1155,21 +1159,49 @@ namespace RealFuels
             UpdateSymmetryCounterparts();
         }
 
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Show  Engin"),
+         UI_Toggle(enabledText = "e GUI", disabledText = "e GUI")]
+        [NonSerialized]
+        public bool showRFGUI;
+
+        private void OnPartActionGuiDismiss(Part p)
+        {
+            if (p == part)
+                showRFGUI = false;
+        }
+
+        public override void OnInactive()
+        {
+            if(HighLogic.LoadedSceneIsEditor)
+                GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
+        }
+
         public void OnGUI()
         {
             EditorLogic editor = EditorLogic.fetch;
-            if (!HighLogic.LoadedSceneIsEditor || !editor || editor.editorScreen != EditorLogic.EditorScreen.Actions)
+            if (!HighLogic.LoadedSceneIsEditor || !editor)
             {
                 return;
             }
 
-            if (EditorActionGroups.Instance.GetSelectedParts().Contains(part))
+            Rect screenRect;
+            if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
             {
-                bool mft = part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks) part.Modules["ModuleFuelTanks"]).dedicated;
-                
-                Rect screenRect = new Rect(mft ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
-                GUILayout.Window(part.name.GetHashCode() + 1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
+                bool mft = part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated;
+
+                screenRect = new Rect(mft ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
             }
+            else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
+            {
+                screenRect = new Rect(256, 365, 430, (Screen.height - 365));
+            }
+            else
+            {
+                showRFGUI = false;
+                return;
+            }
+
+            GUILayout.Window(part.name.GetHashCode() + 1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
         }
 
         public override void OnLoad(ConfigNode node)
@@ -1573,6 +1605,9 @@ namespace RealFuels
         private int oldTechLevel = -1;
         private string oldConfiguration;
 
+	    [PartMessageEvent]
+	    public event PartEngineConfigChanged EngineConfigChanged;
+
         public void UpdateTweakableMenu()
         {
             if (!HighLogic.LoadedSceneIsEditor)
@@ -1596,7 +1631,7 @@ namespace RealFuels
             {
                 oldConfiguration = configuration;
                 oldTechLevel = techLevel;
-                PartMessageService.Send<PartEngineConfigChanged>(this, part);
+                EngineConfigChanged();
             }
             else
             {
