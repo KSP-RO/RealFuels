@@ -441,6 +441,8 @@ namespace RealFuels
             base.OnAwake();
             PartMessageService.Register(this);
             this.RegisterOnUpdateEditor(OnUpdateEditor);
+            if(HighLogic.LoadedSceneIsEditor)
+                GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
             // Initialize utilization from the settings file
             utilization = Settings.partUtilizationDefault;
@@ -449,14 +451,10 @@ namespace RealFuels
             oldmass = part.mass;
         }
 
-        public override void OnActive()
-        {
-            GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
-        }
-
         public override void OnInactive()
         {
-            GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
+            if (HighLogic.LoadedSceneIsEditor)
+                GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
         }
 
         public override void OnLoad(ConfigNode node)
@@ -519,6 +517,8 @@ namespace RealFuels
         public override string GetInfo()
         {
             UpdateTankType();
+            if (dedicated)
+                return string.Empty;
 
             StringBuilder info = new StringBuilder();
             info.AppendLine("Modular Fuel Tank:");
@@ -855,6 +855,7 @@ namespace RealFuels
 
 	        string baseMass = node.GetValue("basemass");
 	        ParseBasemass(baseMass);
+	        basemassOverride = true;
         }
 
         private void ParseBasemass(string baseMass)
@@ -891,12 +892,12 @@ namespace RealFuels
                     .Sum(fuel => (float)fuel.maxAmount * fuel.mass / fuel.utilization);
 
                 mass = (float)(basemass + tankDryMass) * MassMult;
-            }
 
-            if (part.mass != mass)
-            {
-                part.mass = mass;
-                MassChanged(mass);
+                if (part.mass != mass)
+                {
+                    part.mass = mass;
+                    MassChanged(mass);
+                }
             }
 
             if (GameSceneFilter.AnyEditor.IsLoaded())
@@ -994,8 +995,8 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         public bool dedicated = false;
 
-        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Real Fuels"),
-         UI_Toggle(enabledText = "GUI", disabledText = "GUI")]
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Show Tank"),
+         UI_Toggle(enabledText = "Tank GUI", disabledText = "GUI")]
         [NonSerialized]
         public bool showRFGUI;
 
@@ -1013,12 +1014,6 @@ namespace RealFuels
             if (p == part)
                 showRFGUI = false;
         }
-
-	    [PartMessageListener(typeof (PartParentChanged))]
-	    public void ParentChanged(Part childPart)
-	    {
-            showRFGUI = false;
-	    }
 
 	    [PartMessageListener(typeof(PartResourceListChanged))]
         private void MarkWindowDirty()
@@ -1315,6 +1310,16 @@ namespace RealFuels
 
 	    private void UpdateUsedBy()
         {
+            if (dedicated)
+            {
+                Empty();
+                UsedVolume = 0;
+                ConfigureFor(part);
+                MarkWindowDirty();
+                return;
+            }
+
+
             usedBy.Clear();
 
             List<Part> enginesList = GetEnginesFedBy(part);
@@ -1338,7 +1343,7 @@ namespace RealFuels
             }
 
             // Need to update the tweakable menu too
-            if (HighLogic.LoadedSceneIsEditor && !dedicated)
+            if (HighLogic.LoadedSceneIsEditor)
             {
                 Events.RemoveAll(button => button.name.StartsWith("MFT"));
 
