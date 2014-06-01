@@ -1155,6 +1155,7 @@ namespace RealFuels
                 GUIEngines();
 
                 GUILayout.EndScrollView();
+				GUILayout.Label(MFSSettings.GetVersion ());
             }
             GUILayout.EndVertical();
 

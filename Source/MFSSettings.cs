@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Reflection;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using KSPAPIExtensions;
 
 namespace RealFuels
 {
@@ -49,6 +51,20 @@ namespace RealFuels
                 return _instance;
             }
         }
+
+		static string version = null;
+		public static string GetVersion ()
+		{
+			if (version != null) {
+				return version;
+			}
+
+			var asm = Assembly.GetCallingAssembly ();
+			var title = (asm.GetCustomAttributes(typeof(AssemblyTitleAttribute), false)[0] as AssemblyTitleAttribute).Title;
+			version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
+
+			return version;
+		}
 
         private void Awake()
         {
