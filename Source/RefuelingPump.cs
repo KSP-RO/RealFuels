@@ -47,11 +47,7 @@ namespace RealFuels
                         // if a tank isn't full, start filling it.
                         if (tank.amount < tank.maxAmount && tank.fillable)
                         {
-                            double top_off = deltaTime * pump_rate;
-                            if (tank.amount + top_off < tank.maxAmount)
-                                tank.amount += top_off;
-                            else
-                                tank.amount = tank.maxAmount;
+                            tank.amount = tank.amount + deltaTime * pump_rate;
                         }
                     }
                 }

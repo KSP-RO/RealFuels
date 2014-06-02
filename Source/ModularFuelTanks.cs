@@ -114,16 +114,19 @@ namespace RealFuels
                         return;
 
                     amountExpression = null;
-                    partResource.amount = amount;
-                    module.RaiseResourceInitialChanged(partResource, amount);
+                    partResource.amount = value;
                     if (HighLogic.LoadedSceneIsEditor)
+                    {
+                        module.RaiseResourceInitialChanged(partResource, amount);
                         foreach (Part sym in part.symmetryCounterparts)
                         {
                             PartResource symResc = sym.Resources[name];
                             symResc.amount = value;
                             PartMessageService.Send<PartResourceInitialAmountChanged>(this, sym, symResc, amount);
                         }
-                }
+                        
+                    }
+				}
 			}
 
 			public double maxAmount {
