@@ -747,11 +747,6 @@ namespace RealFuels
                 return;
             oldType = type;
 
-            // Clear the resource list
-            foreach (PartResource res in part.Resources)
-                Destroy(res);
-            part.Resources.list.Clear();
-            RaiseResourceListChanged();
 
             // Copy the tank list from the tank definitiion
             MFSSettings.TankDefinition def;
@@ -766,11 +761,27 @@ namespace RealFuels
                 return;
             }
 
+            FuelTankList oldList = tankList;
+
             tankList = new FuelTankList();
             def.tankList.CreateConcreteCopy(this, tankList);
 
             LoadTankListOverridesInEditor();
             overrideList.CreateConcreteCopy(this, tankList);
+
+            // Destroy resources that are in either the new or the old type.
+            bool needsMesage = false;
+            for (int i = part.Resources.Count - 1; i >= 0; --i)
+            {
+                PartResource partResource = part.Resources[i];
+                if (!tankList.Contains(partResource.name) || oldList == null || !oldList.Contains(partResource.name))
+                    continue;
+                Destroy(partResource);
+                part.Resources.list.RemoveAt(i);
+                needsMesage = true;
+            }
+            if(needsMesage)
+                RaiseResourceListChanged();
 
             // Update the basemass
             if (!basemassOverride)
