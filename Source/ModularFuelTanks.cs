@@ -963,6 +963,8 @@ namespace RealFuels
                     MassChanged(mass);
                 }
             }
+            else
+                mass = part.mass; // display dry mass even in this case.
 
             if (GameSceneFilter.AnyEditor.IsLoaded())
             {
