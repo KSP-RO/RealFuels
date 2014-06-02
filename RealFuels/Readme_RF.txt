@@ -40,6 +40,19 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v6   \/
+*Updated plane parts (C7, Firespitter) to have B9-esque levels of resources. No more magic volume-disapppearing tricks when fuel tanks become fuselages.
+*Massive improvements from swamp_ig, for integration with Procedural Parts and other mods, and UI improvements.
++Switchable tanks
++fixed symmetry bug
++(optional) tweakable utilization
++message passing
++loading fixes
++Display GUI from tweakables
++SI units
+*taniwha: show version on GUI
+*support more Firespitter parts
+
 v5.3 \/
 *Fix DLL
 *Upgrade Kethane converter config to eadrom's.
