@@ -45,7 +45,7 @@ modularFuelTanks.dll: ${MFT_FILES}
 		-out:$@ $^
 
 clean:
-	rm -f ${TARGETS} AssemblyInfo.cs
+	rm -f ${TARGETS} AssemblyInfoMFT.cs
 
 install: all
 	mkdir -p ${PLUGINDIR}

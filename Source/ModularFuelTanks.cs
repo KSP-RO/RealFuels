@@ -19,7 +19,7 @@ namespace RealFuels
         {
             get
             {
-                return MFSSettings.Instance.useRealisticMass ? MFSSettings.Instance.tankMassMultiplier : 1.0f;
+                return MFSSettings.Instance.useRealisticMass ? 1.0f : MFSSettings.Instance.tankMassMultiplier;
             }
         }
 
@@ -438,95 +438,125 @@ namespace RealFuels
         #region KSP Callbacks
         public override void OnAwake()
         {
-            base.OnAwake();
-            PartMessageService.Register(this);
-            this.RegisterOnUpdateEditor(OnUpdateEditor);
-            if(HighLogic.LoadedSceneIsEditor)
-                GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
+            try
+            {
+                base.OnAwake();
+                PartMessageService.Register(this);
+                this.RegisterOnUpdateEditor(OnUpdateEditor);
+                if(HighLogic.LoadedSceneIsEditor)
+                    GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
-            // Initialize utilization from the settings file
-            utilization = Settings.partUtilizationDefault;
+                // Initialize utilization from the settings file
+                utilization = Settings.partUtilizationDefault;
 
-            // This will be removed soon.
-            oldmass = part.mass;
+                // This will be removed soon.
+                oldmass = part.mass;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
         }
 
         public override void OnInactive()
         {
-            if (HighLogic.LoadedSceneIsEditor)
-                GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
+            try
+            {
+                if (HighLogic.LoadedSceneIsEditor)
+                    GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
         }
 
         public override void OnLoad(ConfigNode node)
         {
-            // Load the volume. If totalVolume is specified, use that to calc the volume
-            // otherwise scale up the provided volume. No KSPField support for doubles
-            if (node.HasValue("totalVolume") && double.TryParse(node.GetValue("totalVolume"), out totalVolume))
+            try
             {
-                ChangeTotalVolume(totalVolume);
-            } 
-            else if (node.HasValue("volume") && double.TryParse(node.GetValue("volume"), out volume))
-            {
-                totalVolume = volume * 100 / utilization;
-            }
-
-            using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged)))
-            {
-                if (GameSceneFilter.Loading.IsLoaded())
+                // Load the volume. If totalVolume is specified, use that to calc the volume
+                // otherwise scale up the provided volume. No KSPField support for doubles
+                if (node.HasValue("totalVolume") && double.TryParse(node.GetValue("totalVolume"), out totalVolume))
                 {
-                    LoadTankListOverridesInLoading(node);
-
-                    ParseBasemass(node);
-
-                    typesAvailable = node.GetValues("typeAvailable");
+                    ChangeTotalVolume(totalVolume);
+                } 
+                else if (node.HasValue("volume") && double.TryParse(node.GetValue("volume"), out volume))
+                {
+                    totalVolume = volume * 100 / utilization;
                 }
-                else if (GameSceneFilter.Flight.IsLoaded())
+
+                using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged)))
                 {
-                    // We're in flight, load the concrete tanks directly
-                    LoadConcreteTankList(node);
-
-                    // Ensure the old type matches so what's set up doesn't get clobbered.
-                    oldType = type;
-
-                    // Setup the mass
-                    part.mass = mass;
-                    MassChanged(mass);
-                }
-                else if (GameSceneFilter.AnyEditor.IsLoaded())
-                {
-                    // We've loaded a stored vessel / assembly in the editor. 
-                    // Initialize as per normal editor mode, but copy the fill fraction
-                    // from the old data.
-                    LoadConcreteTankList(node);
-
-                    if (type != null)
+                    if (GameSceneFilter.Loading.IsLoaded())
                     {
-                        FuelTankList loadedTanks = tankList;
+                        LoadTankListOverridesInLoading(node);
 
-                        UpdateTankType();
+                        ParseBasemass(node);
 
-                        FuelTank newTank;
-                        foreach (FuelTank oldTank in loadedTanks)
-                            if(tankList.TryGet(oldTank.name, out newTank))
-                                newTank.fillFraction = oldTank.fillFraction;
+                        typesAvailable = node.GetValues("typeAvailable");
+                    }
+                    else if (GameSceneFilter.Flight.IsLoaded())
+                    {
+                        // We're in flight, load the concrete tanks directly
+                        LoadConcreteTankList(node);
+
+                        // Ensure the old type matches so what's set up doesn't get clobbered.
+                        oldType = type;
+
+                        // Setup the mass
+                        part.mass = mass;
+                        MassChanged(mass);
+                    }
+                    else if (GameSceneFilter.AnyEditor.IsLoaded())
+                    {
+                        // We've loaded a stored vessel / assembly in the editor. 
+                        // Initialize as per normal editor mode, but copy the fill fraction
+                        // from the old data.
+                        LoadConcreteTankList(node);
+
+                        if (type != null)
+                        {
+                            FuelTankList loadedTanks = tankList;
+
+                            UpdateTankType();
+
+                            FuelTank newTank;
+                            foreach (FuelTank oldTank in loadedTanks)
+                                if(tankList.TryGet(oldTank.name, out newTank))
+                                    newTank.fillFraction = oldTank.fillFraction;
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
             }
         }
 
         public override string GetInfo()
         {
-            UpdateTankType();
-            if (dedicated)
-                return string.Empty;
+            try
+            {
+                UpdateTankType();
+                if (dedicated)
+                    return string.Empty;
 
-            StringBuilder info = new StringBuilder();
-            info.AppendLine("Modular Fuel Tank:");
-            info.Append("  Max Volume: ").Append(volume.ToStringSI(unit:"L"));
-            info.AppendLine("  Tank can hold:");
-            foreach (FuelTank tank in tankList)
-                info.Append("   ").Append(tank).Append(" ").AppendLine(tank.note);
-            return info.ToString();
+                StringBuilder info = new StringBuilder();
+                info.AppendLine("Modular Fuel Tank:");
+                info.Append("  Max Volume: ").Append(volume.ToStringSI(unit: "L"));
+                info.AppendLine("  Tank can hold:");
+                foreach (FuelTank tank in tankList)
+                    info.Append("   ").Append(tank).Append(" ").AppendLine(tank.note);
+                return info.ToString();
+
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                return string.Empty;
+            }
         }
 
         public override void OnStart(StartState state)
@@ -565,42 +595,65 @@ namespace RealFuels
 
 		public override void OnSave (ConfigNode node)
 		{
-            base.OnSave(node);
+		    try
+		    {
+		        base.OnSave(node);
 
-            node.AddValue("volume", volume.ToString("G17")); // no KSPField support for doubles
+		        node.AddValue("volume", volume.ToString("G17")); // no KSPField support for doubles
 
 #if DEBUG
 			print ("========ModuleFuelTanks.OnSave called. Node is:=======");
 			print (node.ToString ());
 #endif
-			foreach (FuelTank tank in tankList) {
-				ConfigNode subNode = new ConfigNode("TANK");
-				tank.Save (subNode);
+		        foreach (FuelTank tank in tankList) {
+		            ConfigNode subNode = new ConfigNode("TANK");
+		            tank.Save (subNode);
 #if DEBUG
 				print ("========ModuleFuelTanks.OnSave adding subNode:========");
 				print (subNode.ToString());
 #endif
-				node.AddNode (subNode);
-			}
-		}
+		            node.AddNode (subNode);
+		        }
+		    }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
         #endregion
 
         #region Update
 
         public void OnUpdateEditor()
         {
-            UpdateTankType();
-            UpdateUtilization();
-            CalculateMass();
+            try
+            {
+                UpdateTankType();
+                UpdateUtilization();
+                CalculateMass();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                isEnabled = enabled = false;
+            }
         }
 
         public override void OnUpdate()
         {
-            if (timestamp > 0)
-                CalculateTankLossFunction(precisionDeltaTime);
-            // Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; 
-            // this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
-            base.OnUpdate();            
+            try
+            {
+                if (timestamp > 0)
+                    CalculateTankLossFunction(precisionDeltaTime);
+                // Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; 
+                // this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
+                base.OnUpdate();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                isEnabled = enabled = false;
+            }
         }
 
         private void CalculateTankLossFunction(double deltaTime)
@@ -834,7 +887,7 @@ namespace RealFuels
         public string massDisplay;
 
         // public so they copy
-        public bool basemassOverride = false;
+        public bool basemassOverride;
         public float basemassPV;
         public float basemassConst;
 
@@ -1102,6 +1155,7 @@ namespace RealFuels
                 GUIEngines();
 
                 GUILayout.EndScrollView();
+				GUILayout.Label(MFSSettings.GetVersion ());
             }
             GUILayout.EndVertical();
 
