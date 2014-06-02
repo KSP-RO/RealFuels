@@ -21,14 +21,14 @@ namespace RealFuels
     }
 
     public class ModuleHybridEngine : ModuleEngineConfigs
-	{
-		public override void OnStart (StartState state)
-		{
-			if(configs.Count == 0 && part.partInfo != null
-			   && part.partInfo.partPrefab.Modules.Contains ("ModuleHybridEngine")) {
-				ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
-				configs = prefab.configs;
-			}
+    {
+        public override void OnStart (StartState state)
+        {
+            if(configs.Count == 0 && part.partInfo != null
+               && part.partInfo.partPrefab.Modules.Contains ("ModuleHybridEngine")) {
+                ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
+                configs = prefab.configs;
+            }
             if (type.Equals("ModuleEnginesFX"))
                 ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
             else if (type.Equals("ModuleEngines"))
@@ -39,7 +39,7 @@ namespace RealFuels
             SetConfiguration(configuration);
             if (part.Modules.Contains("ModuleEngineIgnitor"))
                 part.Modules["ModuleEngineIgnitor"].OnStart(state);
-		}
+        }
 
         public override void OnInitialize()
         {
@@ -52,28 +52,28 @@ namespace RealFuels
             SetConfiguration(configuration);
         }
 
-		[KSPAction("Switch Engine Mode")]
-		public void SwitchAction (KSPActionParam param)
-		{
-			SwitchEngine ();
-		}
+        [KSPAction("Switch Engine Mode")]
+        public void SwitchAction (KSPActionParam param)
+        {
+            SwitchEngine ();
+        }
 
-		[KSPEvent(guiActive=true, guiName="Switch Engine Mode")]
-		public void SwitchEngine ()
-		{
-			ConfigNode currentConfig = configs.Find (c => c.GetValue ("name").Equals (configuration));
-			string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
-			SetConfiguration(nextConfiguration);
+        [KSPEvent(guiActive=true, guiName="Switch Engine Mode")]
+        public void SwitchEngine ()
+        {
+            ConfigNode currentConfig = configs.Find (c => c.GetValue ("name").Equals (configuration));
+            string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
+            SetConfiguration(nextConfiguration);
             // TODO: Does Engine Ignitor get switched here?
-		}
-		override public void SetConfiguration(string newConfiguration = null)
-		{
+        }
+        override public void SetConfiguration(string newConfiguration = null)
+        {
             if (newConfiguration == null)
                 newConfiguration = configuration;
-			ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
+            ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
             pModule = part.Modules[type];
-			if (newConfig == null || pModule == null)
-				return;
+            if (newConfig == null || pModule == null)
+                return;
 
             // fix for HotRockets etc.
             if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
@@ -88,14 +88,14 @@ namespace RealFuels
 
             ActiveEngine.g = 9.80665f;
 
-			Fields ["configuration"].guiActive = true;
-			Fields ["configuration"].guiName = "Current Mode";
+            Fields ["configuration"].guiActive = true;
+            Fields ["configuration"].guiName = "Current Mode";
 
-			configuration = newConfiguration;
-			config = new ConfigNode ("MODULE");
-			newConfig.CopyTo (config);
-			config.name = "MODULE";
-			config.SetValue ("name", type);
+            configuration = newConfiguration;
+            config = new ConfigNode ("MODULE");
+            newConfig.CopyTo (config);
+            config.name = "MODULE";
+            config.SetValue ("name", type);
 
             // clear all relevant FloatCurves
             Type mType = pModule.GetType();
@@ -133,12 +133,12 @@ namespace RealFuels
             }
             
 
-			bool engineActive = ActiveEngine.getIgnitionState;
-			ActiveEngine.EngineIgnited = false;
+            bool engineActive = ActiveEngine.getIgnitionState;
+            ActiveEngine.EngineIgnited = false;
 
-			//  remove all fuel gauges we made
-			ClearMeters ();
-			propellants.Clear ();
+            //  remove all fuel gauges we made
+            ClearMeters ();
+            propellants.Clear ();
 
             if (type.Equals("ModuleEngines"))
             {
@@ -193,362 +193,362 @@ namespace RealFuels
             pModule.Load(config);
 
             // I'd think the load, above, would do this already. So maybe unnecessary?
-			if (config.HasValue ("useVelocityCurve") && (config.GetValue ("useVelocityCurve").ToLowerInvariant () == "true")) {
-				ActiveEngine.velocityCurve.Load (config.GetNode ("velocityCurve"));
-			} else {
-				ActiveEngine.useVelocityCurve = false;
-			}
+            if (config.HasValue ("useVelocityCurve") && (config.GetValue ("useVelocityCurve").ToLowerInvariant () == "true")) {
+                ActiveEngine.velocityCurve.Load (config.GetNode ("velocityCurve"));
+            } else {
+                ActiveEngine.useVelocityCurve = false;
+            }
 
-			//  set up propellants
-			foreach (Propellant propellant in ActiveEngine.propellants) {
-				if(propellant.drawStackGauge) { // we need to handle fuel gauges ourselves
-					propellant.drawStackGauge = false;
-					propellants.Add (propellant);
-				}
-			}
-			ActiveEngine.SetupPropellant ();
+            //  set up propellants
+            foreach (Propellant propellant in ActiveEngine.propellants) {
+                if(propellant.drawStackGauge) { // we need to handle fuel gauges ourselves
+                    propellant.drawStackGauge = false;
+                    propellants.Add (propellant);
+                }
+            }
+            ActiveEngine.SetupPropellant ();
 
-			if (engineActive)
-				ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
+            if (engineActive)
+                ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
 
             UpdateTweakableMenu();
-		}
+        }
 
         public EngineWrapper ActiveEngine = null;
 
-		new public void FixedUpdate ()
-		{
-			SetThrust ();
-			if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
-				foreach (Propellant propellant in propellants) {
-					if (!meters.ContainsKey (propellant.name)) // how did we miss one?
-						meters.Add (propellant.name, NewMeter (propellant.name));
+        new public void FixedUpdate ()
+        {
+            SetThrust ();
+            if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
+                foreach (Propellant propellant in propellants) {
+                    if (!meters.ContainsKey (propellant.name)) // how did we miss one?
+                        meters.Add (propellant.name, NewMeter (propellant.name));
 
-					double amount = 0d;
-					double maxAmount = 0d;
+                    double amount = 0d;
+                    double maxAmount = 0d;
 
-					List<PartResource> sources = new List<PartResource> ();
-					part.GetConnectedResources (propellant.id, sources);
+                    List<PartResource> sources = new List<PartResource> ();
+                    part.GetConnectedResources (propellant.id, sources);
 
-					foreach (PartResource source in sources) {
-						amount += source.amount;
-						maxAmount += source.maxAmount;
-					}
+                    foreach (PartResource source in sources) {
+                        amount += source.amount;
+                        maxAmount += source.maxAmount;
+                    }
 
-					if (propellant.name.Equals ("IntakeAir")) {
-						double minimum = (from modules in vessel.Parts
-						                  from module in modules.Modules.OfType<ModuleEngines> ()
-						                  from p in module.propellants
-						                  where p.name == "IntakeAir"
-						                  select module.ignitionThreshold * p.currentRequirement).Sum ();
+                    if (propellant.name.Equals ("IntakeAir")) {
+                        double minimum = (from modules in vessel.Parts
+                                          from module in modules.Modules.OfType<ModuleEngines> ()
+                                          from p in module.propellants
+                                          where p.name == "IntakeAir"
+                                          select module.ignitionThreshold * p.currentRequirement).Sum ();
 
-						// linear scale
-						meters ["IntakeAir"].SetValue ((float)((amount - minimum) / (maxAmount - minimum)));
-					} else {
-						meters [propellant.name].SetValue ((float)(amount / maxAmount));
-					}
-				}
-			} else if(meters.Count > 0) { // engine is shut down, remove all fuel gauges
-				ClearMeters();
-			}
-		}
+                        // linear scale
+                        meters ["IntakeAir"].SetValue ((float)((amount - minimum) / (maxAmount - minimum)));
+                    } else {
+                        meters [propellant.name].SetValue ((float)(amount / maxAmount));
+                    }
+                }
+            } else if(meters.Count > 0) { // engine is shut down, remove all fuel gauges
+                ClearMeters();
+            }
+        }
 
-		List<Propellant> _props;
-		List<Propellant> propellants
-		{
-			get {
-				if(_props == null)
-					_props = new List<Propellant>();
-				return _props;
-			}
-		}
-		private Dictionary<string, VInfoBox> _meters;
-		public Dictionary<string, VInfoBox> meters
-		{
-			get {
-				if(_meters == null)
-					_meters = new Dictionary<string, VInfoBox>();
-				return _meters;
-			}
-		}
+        List<Propellant> _props;
+        List<Propellant> propellants
+        {
+            get {
+                if(_props == null)
+                    _props = new List<Propellant>();
+                return _props;
+            }
+        }
+        private Dictionary<string, VInfoBox> _meters;
+        public Dictionary<string, VInfoBox> meters
+        {
+            get {
+                if(_meters == null)
+                    _meters = new Dictionary<string, VInfoBox>();
+                return _meters;
+            }
+        }
 
-		public void ClearMeters() {
-			foreach(VInfoBox meter in meters.Values) {
-				part.stackIcon.RemoveInfo (meter);
-			}
-			meters.Clear ();
-		}
+        public void ClearMeters() {
+            foreach(VInfoBox meter in meters.Values) {
+                part.stackIcon.RemoveInfo (meter);
+            }
+            meters.Clear ();
+        }
 
-		VInfoBox NewMeter (string resourceName)
-		{
-			VInfoBox meter = part.stackIcon.DisplayInfo ();
-			if (resourceName == "IntakeAir") {
-				meter.SetMessage ("Air");
-				meter.SetProgressBarColor (XKCDColors.White);
-				meter.SetProgressBarBgColor (XKCDColors.Grey);
-			} else {
-				meter.SetMessage (resourceName);
-				meter.SetMsgBgColor (XKCDColors.DarkLime);
-				meter.SetMsgTextColor (XKCDColors.ElectricLime);
-				meter.SetProgressBarColor (XKCDColors.Yellow);
-				meter.SetProgressBarBgColor (XKCDColors.DarkLime);
-			}
-			meter.SetLength (2f);
-			meter.SetValue (0f);
+        VInfoBox NewMeter (string resourceName)
+        {
+            VInfoBox meter = part.stackIcon.DisplayInfo ();
+            if (resourceName == "IntakeAir") {
+                meter.SetMessage ("Air");
+                meter.SetProgressBarColor (XKCDColors.White);
+                meter.SetProgressBarBgColor (XKCDColors.Grey);
+            } else {
+                meter.SetMessage (resourceName);
+                meter.SetMsgBgColor (XKCDColors.DarkLime);
+                meter.SetMsgTextColor (XKCDColors.ElectricLime);
+                meter.SetProgressBarColor (XKCDColors.Yellow);
+                meter.SetProgressBarBgColor (XKCDColors.DarkLime);
+            }
+            meter.SetLength (2f);
+            meter.SetValue (0f);
 
-			return meter;
-		}
+            return meter;
+        }
 
-		override public int UpdateSymmetryCounterparts()
-		{
-			int i = 0;
-			foreach (Part sPart in part.symmetryCounterparts) {
-				ModuleHybridEngine engine = (ModuleHybridEngine)sPart.Modules ["ModuleHybridEngine"];
-				if (engine) {
-					i++;
+        override public int UpdateSymmetryCounterparts()
+        {
+            int i = 0;
+            foreach (Part sPart in part.symmetryCounterparts) {
+                ModuleHybridEngine engine = (ModuleHybridEngine)sPart.Modules ["ModuleHybridEngine"];
+                if (engine) {
+                    i++;
                     engine.techLevel = techLevel;
-					engine.SetConfiguration (configuration);
-				}
-			}
-			return i;
-		}
+                    engine.SetConfiguration (configuration);
+                }
+            }
+            return i;
+        }
 
 
-	}
+    }
 
-	public class ModuleHybridEngines : PartModule
-	{ // originally developed from HybridEngineController from careo / ExsurgentEngineering.
+    public class ModuleHybridEngines : PartModule
+    { // originally developed from HybridEngineController from careo / ExsurgentEngineering.
 
-		[KSPField(isPersistant=false)]
-		public ConfigNode
-			primaryEngine;
+        [KSPField(isPersistant=false)]
+        public ConfigNode
+            primaryEngine;
 
-		[KSPField(isPersistant=false)]
-		public ConfigNode
-			secondaryEngine;
+        [KSPField(isPersistant=false)]
+        public ConfigNode
+            secondaryEngine;
 
-		[KSPField(isPersistant=false)]
-		public string
-			primaryModeName = "Primary";
+        [KSPField(isPersistant=false)]
+        public string
+            primaryModeName = "Primary";
 
-		[KSPField(isPersistant=false)]
-		public string
-			secondaryModeName = "Secondary";
+        [KSPField(isPersistant=false)]
+        public string
+            secondaryModeName = "Secondary";
 
-		[KSPField(guiActive=true, isPersistant=true, guiName="Current Mode")]
-		public string
-			currentMode;
+        [KSPField(guiActive=true, isPersistant=true, guiName="Current Mode")]
+        public string
+            currentMode;
 
         [KSPField]
         public bool localCorrectThrust = true;
 
         public FloatCurve t;
 
-		[KSPAction("Switch Engine Mode")]
-		public void SwitchAction (KSPActionParam param)
-		{
-			SwitchEngine ();
-		}
+        [KSPAction("Switch Engine Mode")]
+        public void SwitchAction (KSPActionParam param)
+        {
+            SwitchEngine ();
+        }
 
-		public override void OnLoad (ConfigNode node)
-		{
+        public override void OnLoad (ConfigNode node)
+        {
 
-			if (node.HasNode ("primaryEngine")) {
-				primaryEngine = node.GetNode ("primaryEngine");
-				secondaryEngine = node.GetNode ("secondaryEngine");
-			} else {
-				var prefab = (ModuleHybridEngines)part.partInfo.partPrefab.Modules ["ModuleHybridEngines"];
-				primaryEngine = prefab.primaryEngine;
-				secondaryEngine = prefab.secondaryEngine;
-			}
-			if (currentMode == null) {
-				currentMode = primaryModeName;
-			}
-			if (ActiveEngine == null) {
-				if (currentMode == primaryModeName)
-					AddEngine (primaryEngine);
-				else
-					AddEngine (secondaryEngine);
-			}
-		}
+            if (node.HasNode ("primaryEngine")) {
+                primaryEngine = node.GetNode ("primaryEngine");
+                secondaryEngine = node.GetNode ("secondaryEngine");
+            } else {
+                var prefab = (ModuleHybridEngines)part.partInfo.partPrefab.Modules ["ModuleHybridEngines"];
+                primaryEngine = prefab.primaryEngine;
+                secondaryEngine = prefab.secondaryEngine;
+            }
+            if (currentMode == null) {
+                currentMode = primaryModeName;
+            }
+            if (ActiveEngine == null) {
+                if (currentMode == primaryModeName)
+                    AddEngine (primaryEngine);
+                else
+                    AddEngine (secondaryEngine);
+            }
+        }
 
-		public override void OnStart (StartState state)
-		{
-			base.OnStart (state);
-			if (state == StartState.Editor)
-				return;
-			SwitchEngine();
-			SwitchEngine();
+        public override void OnStart (StartState state)
+        {
+            base.OnStart (state);
+            if (state == StartState.Editor)
+                return;
+            SwitchEngine();
+            SwitchEngine();
 
 
-		}
+        }
 
-		public void SetEngine(ConfigNode config)
-		{
-			bool engineActive = ActiveEngine.getIgnitionState;
-			ActiveEngine.EngineIgnited = false;
+        public void SetEngine(ConfigNode config)
+        {
+            bool engineActive = ActiveEngine.getIgnitionState;
+            ActiveEngine.EngineIgnited = false;
 
-			//  remove all fuel gauges
-			ClearMeters ();
-			propellants.Clear ();
+            //  remove all fuel gauges
+            ClearMeters ();
+            propellants.Clear ();
 
-			//  clear the old engine state
-			ActiveEngine.atmosphereCurve = new FloatCurve();
-			ActiveEngine.velocityCurve = new FloatCurve ();
+            //  clear the old engine state
+            ActiveEngine.atmosphereCurve = new FloatCurve();
+            ActiveEngine.velocityCurve = new FloatCurve ();
 
-			//  load the new engine state
-			ActiveEngine.Load (config);
+            //  load the new engine state
+            ActiveEngine.Load (config);
 
-			if (config.HasValue ("useVelocityCurve") && (config.GetValue ("useVelocityCurve").ToLowerInvariant () == "true")) {
-				ActiveEngine.velocityCurve.Load (config.GetNode ("velocityCurve"));
-			} else {
-				ActiveEngine.useVelocityCurve = false;
-			}
+            if (config.HasValue ("useVelocityCurve") && (config.GetValue ("useVelocityCurve").ToLowerInvariant () == "true")) {
+                ActiveEngine.velocityCurve.Load (config.GetNode ("velocityCurve"));
+            } else {
+                ActiveEngine.useVelocityCurve = false;
+            }
 
-			//  set up propellants
-			foreach (Propellant propellant in ActiveEngine.propellants) {
-				if(propellant.drawStackGauge) { // we need to handle fuel gauges ourselves
-					propellant.drawStackGauge = false;
-					propellants.Add (propellant);
-				}
-			}
-			ActiveEngine.SetupPropellant ();
+            //  set up propellants
+            foreach (Propellant propellant in ActiveEngine.propellants) {
+                if(propellant.drawStackGauge) { // we need to handle fuel gauges ourselves
+                    propellant.drawStackGauge = false;
+                    propellants.Add (propellant);
+                }
+            }
+            ActiveEngine.SetupPropellant ();
 
-			if (engineActive)
-				ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
-		}
-		bool AddEngine (ConfigNode config)
-		{
-			part.AddModule ("ModuleEngines");
-			if (!ActiveEngine)
-				return false;
-			SetEngine (config);
-			return true;
-		}
+            if (engineActive)
+                ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
+        }
+        bool AddEngine (ConfigNode config)
+        {
+            part.AddModule ("ModuleEngines");
+            if (!ActiveEngine)
+                return false;
+            SetEngine (config);
+            return true;
+        }
 
-		public ModuleEngines ActiveEngine {
-			get { return (ModuleEngines)part.Modules ["ModuleEngines"]; }
+        public ModuleEngines ActiveEngine {
+            get { return (ModuleEngines)part.Modules ["ModuleEngines"]; }
 
-		}
+        }
 
-		[KSPEvent(guiActive=true, guiName="Switch Engine Mode")]
-		public void SwitchEngine ()
-		{
-			if (currentMode == primaryModeName) {
-				currentMode = secondaryModeName;
-				SetEngine(secondaryEngine);
-			} else {
-				currentMode = primaryModeName;
-				SetEngine(primaryEngine);
-			}
-		}
+        [KSPEvent(guiActive=true, guiName="Switch Engine Mode")]
+        public void SwitchEngine ()
+        {
+            if (currentMode == primaryModeName) {
+                currentMode = secondaryModeName;
+                SetEngine(secondaryEngine);
+            } else {
+                currentMode = primaryModeName;
+                SetEngine(primaryEngine);
+            }
+        }
 
-		public void FixedUpdate ()
-		{
-			if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
-				SetThrust ((float) vessel.atmDensity);
-				foreach (Propellant propellant in propellants) {
-					if (!meters.ContainsKey (propellant.name)) // how did we miss one?
-						meters.Add (propellant.name, NewMeter (propellant.name));
+        public void FixedUpdate ()
+        {
+            if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
+                SetThrust ((float) vessel.atmDensity);
+                foreach (Propellant propellant in propellants) {
+                    if (!meters.ContainsKey (propellant.name)) // how did we miss one?
+                        meters.Add (propellant.name, NewMeter (propellant.name));
 
-					double amount = 0d;
-					double maxAmount = 0d;
+                    double amount = 0d;
+                    double maxAmount = 0d;
 
-					List<PartResource> sources = new List<PartResource> ();
-					part.GetConnectedResources (propellant.id, sources);
+                    List<PartResource> sources = new List<PartResource> ();
+                    part.GetConnectedResources (propellant.id, sources);
 
-					foreach (PartResource source in sources) {
-						amount += source.amount;
-						maxAmount += source.maxAmount;
-					}
+                    foreach (PartResource source in sources) {
+                        amount += source.amount;
+                        maxAmount += source.maxAmount;
+                    }
 
-					if (propellant.name.Equals ("IntakeAir")) {
-						double minimum = (from modules in vessel.Parts
-						                  from module in modules.Modules.OfType<ModuleEngines> ()
-						                  from p in module.propellants
-						                  where p.name == "IntakeAir"
-						                  select module.ignitionThreshold * p.currentRequirement).Sum ();
+                    if (propellant.name.Equals ("IntakeAir")) {
+                        double minimum = (from modules in vessel.Parts
+                                          from module in modules.Modules.OfType<ModuleEngines> ()
+                                          from p in module.propellants
+                                          where p.name == "IntakeAir"
+                                          select module.ignitionThreshold * p.currentRequirement).Sum ();
 
-						// linear scale
-						meters ["IntakeAir"].SetValue ((float)((amount - minimum) / (maxAmount - minimum)));
-					} else {
-						meters [propellant.name].SetValue ((float)(amount / maxAmount));
-					}
-				}
-			} else if(meters.Count > 0) { // engine is shut down, remove all fuel gauges
-				ClearMeters();
-			}
-		}
+                        // linear scale
+                        meters ["IntakeAir"].SetValue ((float)((amount - minimum) / (maxAmount - minimum)));
+                    } else {
+                        meters [propellant.name].SetValue ((float)(amount / maxAmount));
+                    }
+                }
+            } else if(meters.Count > 0) { // engine is shut down, remove all fuel gauges
+                ClearMeters();
+            }
+        }
 
-		private void SetThrust(float density)
-		{
-			ConfigNode config;
-			if (currentMode == primaryModeName) {
-				config = primaryEngine;
-			} else {
-				config = secondaryEngine;
-			}
+        private void SetThrust(float density)
+        {
+            ConfigNode config;
+            if (currentMode == primaryModeName) {
+                config = primaryEngine;
+            } else {
+                config = secondaryEngine;
+            }
 
-			float maxThrust = 0;
-			float.TryParse (config.GetValue ("maxThrust"), out maxThrust);
-			if(localCorrectThrust)
+            float maxThrust = 0;
+            float.TryParse (config.GetValue ("maxThrust"), out maxThrust);
+            if(localCorrectThrust)
                 maxThrust *= ActiveEngine.atmosphereCurve.Evaluate (density) / ActiveEngine.atmosphereCurve.Evaluate (0); // NK scale from max, not min, thrust.
-			ActiveEngine.maxThrust = maxThrust;
-		}
+            ActiveEngine.maxThrust = maxThrust;
+        }
 
-		List<Propellant> _props;
-		List<Propellant> propellants
-		{
-			get {
-				if(_props == null)
-					_props = new List<Propellant>();
-				return _props;
-			}
-		}
-		private Dictionary<string, VInfoBox> _meters;
-		public Dictionary<string, VInfoBox> meters
-		{
-			get {
-				if(_meters == null)
-					_meters = new Dictionary<string, VInfoBox>();
-				return _meters;
-			}
-		}
+        List<Propellant> _props;
+        List<Propellant> propellants
+        {
+            get {
+                if(_props == null)
+                    _props = new List<Propellant>();
+                return _props;
+            }
+        }
+        private Dictionary<string, VInfoBox> _meters;
+        public Dictionary<string, VInfoBox> meters
+        {
+            get {
+                if(_meters == null)
+                    _meters = new Dictionary<string, VInfoBox>();
+                return _meters;
+            }
+        }
 
-		public void ClearMeters() {
-			foreach(VInfoBox meter in meters.Values) {
-				part.stackIcon.RemoveInfo (meter);
-			}
-			meters.Clear ();
-		}
+        public void ClearMeters() {
+            foreach(VInfoBox meter in meters.Values) {
+                part.stackIcon.RemoveInfo (meter);
+            }
+            meters.Clear ();
+        }
 
-		VInfoBox NewMeter (string resourceName)
-		{
-			VInfoBox meter = part.stackIcon.DisplayInfo ();
-			if (resourceName == "IntakeAir") {
-				meter.SetMessage ("Air");
-				meter.SetProgressBarColor (XKCDColors.White);
-				meter.SetProgressBarBgColor (XKCDColors.Grey);
-			} else {
-				meter.SetMessage (resourceName);
-				meter.SetMsgBgColor (XKCDColors.DarkLime);
-				meter.SetMsgTextColor (XKCDColors.ElectricLime);
-				meter.SetProgressBarColor (XKCDColors.Yellow);
-				meter.SetProgressBarBgColor (XKCDColors.DarkLime);
-			}
-			meter.SetLength (2f);
-			meter.SetValue (0f);
+        VInfoBox NewMeter (string resourceName)
+        {
+            VInfoBox meter = part.stackIcon.DisplayInfo ();
+            if (resourceName == "IntakeAir") {
+                meter.SetMessage ("Air");
+                meter.SetProgressBarColor (XKCDColors.White);
+                meter.SetProgressBarBgColor (XKCDColors.Grey);
+            } else {
+                meter.SetMessage (resourceName);
+                meter.SetMsgBgColor (XKCDColors.DarkLime);
+                meter.SetMsgTextColor (XKCDColors.ElectricLime);
+                meter.SetProgressBarColor (XKCDColors.Yellow);
+                meter.SetProgressBarBgColor (XKCDColors.DarkLime);
+            }
+            meter.SetLength (2f);
+            meter.SetValue (0f);
 
-			return meter;
-		}
+            return meter;
+        }
 
-	}
+    }
 
-	public class ModuleEngineConfigs : PartModule
-	{
+    public class ModuleEngineConfigs : PartModule
+    {
 
-		[KSPField(isPersistant = true)]
-		public string configuration = "";
+        [KSPField(isPersistant = true)]
+        public string configuration = "";
 
         // Tech Level stuff
         [KSPField(isPersistant = true)]
@@ -571,23 +571,23 @@ namespace RealFuels
         public static ConfigNode MFSSettings = null;
 
 
-		// - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
+        // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
         [KSPField]
-		public string type = "ModuleEngines";
+        public string type = "ModuleEngines";
 
         public ModuleType fastType = ModuleType.MODULEENGINES;
         public ModuleEngines fastEngines = null;
         public ModuleEnginesFX fastEnginesFX = null;
         public ModuleRCS fastRCS = null;
 
-		[KSPField(isPersistant = true)]
-		public string thrustRating = "maxThrust";
+        [KSPField(isPersistant = true)]
+        public string thrustRating = "maxThrust";
 
-		[KSPField(isPersistant = true)]
-		public bool modded = false;
+        [KSPField(isPersistant = true)]
+        public bool modded = false;
 
-		public List<ConfigNode> configs;
-		public ConfigNode config;
+        public List<ConfigNode> configs;
+        public ConfigNode config;
 
         // KIDS integration
         public static float ispSLMult = 1.0f;
@@ -992,14 +992,14 @@ namespace RealFuels
                 heatMult = 1.0f;
         }
 
-		public override void OnAwake ()
-		{
+        public override void OnAwake ()
+        {
             PartMessageService.Register(this);
             if(HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
-			if(configs == null)
-				configs = new List<ConfigNode>();
+            if(configs == null)
+                configs = new List<ConfigNode>();
             if (MFSSettings == null)
             {
                 foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
@@ -1008,7 +1008,7 @@ namespace RealFuels
                     throw new UnityException("*MFS* MFSSettings not found!");
                 FillSettings();
             }
-		}
+        }
 
         private double ThrustTL(ConfigNode cfg = null)
         {
@@ -1073,12 +1073,12 @@ namespace RealFuels
                 return "";
         }
 
-		public override string GetInfo ()
-		{
-			if (configs.Count < 2)
-				return TLTInfo();
+        public override string GetInfo ()
+        {
+            if (configs.Count < 2)
+                return TLTInfo();
 
-			string info = TLTInfo() + "\nAlternate configurations:\n";
+            string info = TLTInfo() + "\nAlternate configurations:\n";
 
             TechLevel moduleTLInfo = new TechLevel();
             if (techNodes != null)
@@ -1086,21 +1086,21 @@ namespace RealFuels
             else
                 moduleTLInfo = null;
 
-			foreach (ConfigNode config in configs) {
-				if(!config.GetValue ("name").Equals (configuration)) {
-					info += "   " + config.GetValue ("name") + "\n";
-					if(config.HasValue (thrustRating))
-						info += "    (" + ThrustTL(config.GetValue (thrustRating), config).ToString("0.00") + " Thrust";
-					else
-						info += "    (Unknown Thrust";
+            foreach (ConfigNode config in configs) {
+                if(!config.GetValue ("name").Equals (configuration)) {
+                    info += "   " + config.GetValue ("name") + "\n";
+                    if(config.HasValue (thrustRating))
+                        info += "    (" + ThrustTL(config.GetValue (thrustRating), config).ToString("0.00") + " Thrust";
+                    else
+                        info += "    (Unknown Thrust";
 
-					FloatCurve isp = new FloatCurve();
-					if(config.HasNode ("atmosphereCurve")) {
-						isp.Load (config.GetNode ("atmosphereCurve"));
-						info  += ", "
-							+ isp.Evaluate (isp.maxTime).ToString() + "-"
-						  	+ isp.Evaluate (isp.minTime).ToString() + "Isp";
-					}
+                    FloatCurve isp = new FloatCurve();
+                    if(config.HasNode ("atmosphereCurve")) {
+                        isp.Load (config.GetNode ("atmosphereCurve"));
+                        info  += ", "
+                            + isp.Evaluate (isp.maxTime).ToString() + "-"
+                              + isp.Evaluate (isp.minTime).ToString() + "Isp";
+                    }
                     else if (config.HasValue("IspSL") && config.HasValue("IspV"))
                     {
                         float ispSL = 1.0f, ispV = 1.0f;
@@ -1114,13 +1114,13 @@ namespace RealFuels
                             info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
                         }
                     }
-					info += ")\n";
-				}
+                    info += ")\n";
+                }
 
 
-			}
-			return info;
-		}
+            }
+            return info;
+        }
 
 
         [KSPEvent(guiActive=false,guiActiveEditor=true, name = "NextEngine", guiName = "Current Configuration")]
@@ -1205,8 +1205,8 @@ namespace RealFuels
         }
 
         public override void OnLoad(ConfigNode node)
-		{
-			base.OnLoad (node);
+        {
+            base.OnLoad (node);
 
             techNodes = new ConfigNode();
             var tLs = node.GetNodes("TECHLEVEL");
@@ -1243,16 +1243,16 @@ namespace RealFuels
             if (node.HasValue("localCorrectThrust"))
                 bool.TryParse(node.GetValue("localCorrectThrust"), out localCorrectThrust);
 
-			if (configs == null)
-				configs = new List<ConfigNode> ();
-			else
-				configs.Clear ();
+            if (configs == null)
+                configs = new List<ConfigNode> ();
+            else
+                configs.Clear ();
 
-			foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
-				ConfigNode newNode = new ConfigNode("CONFIG");
-				subNode.CopyTo (newNode);
-				configs.Add (newNode);
-			}
+            foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
+                ConfigNode newNode = new ConfigNode("CONFIG");
+                subNode.CopyTo (newNode);
+                configs.Add (newNode);
+            }
 
             // same as OnStart
             if (configs.Count == 0 && part.partInfo != null
@@ -1262,19 +1262,19 @@ namespace RealFuels
                 configs = prefab.configs;
             }
             SetConfiguration(configuration);
-		}
+        }
 
-		public override void OnSave (ConfigNode node)
-		{
+        public override void OnSave (ConfigNode node)
+        {
             /*if (configs == null)
-				configs = new List<ConfigNode> ();
+                configs = new List<ConfigNode> ();
             foreach (ConfigNode c in configs)
             {
                 ConfigNode subNode = new ConfigNode("CONFIG");
                 c.CopyTo(subNode);
                 node.AddNode(subNode);
             }*/
-		}
+        }
 
         virtual public void DoConfig(ConfigNode cfg)
         {
@@ -1392,22 +1392,22 @@ namespace RealFuels
 
         public PartModule pModule = null;
 
-		virtual public void SetConfiguration(string newConfiguration = null)
-		{
+        virtual public void SetConfiguration(string newConfiguration = null)
+        {
             if (newConfiguration == null)
                 newConfiguration = configuration;
-			ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
-			if (newConfig != null) {
+            ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
+            if (newConfig != null) {
 
                 // for asmi
                 if (useConfigAsTitle)
                     part.partInfo.title = configuration;
 
-				configuration = newConfiguration;
-				config = new ConfigNode ("MODULE");
-				newConfig.CopyTo (config);
-				config.name = "MODULE";
-				config.SetValue ("name", type);
+                configuration = newConfiguration;
+                config = new ConfigNode ("MODULE");
+                newConfig.CopyTo (config);
+                config.name = "MODULE";
+                config.SetValue ("name", type);
 
                 // fix for HotRockets etc.
                 if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
@@ -1420,10 +1420,10 @@ namespace RealFuels
                 if (type.Equals("ModuleRCSFX") && part.Modules.Contains("ModuleRCS") && !part.Modules.Contains("ModuleRCSFX"))
                     type = "ModuleRCS";
 
-				#if DEBUG
-				print ("replacing " + type + " with:");
-				print (newConfig.ToString ());
-				#endif
+                #if DEBUG
+                print ("replacing " + type + " with:");
+                print (newConfig.ToString ());
+                #endif
 
                 pModule = null;
                 if (part.Modules.Contains(type))
@@ -1552,7 +1552,7 @@ namespace RealFuels
                         }
                     }
                     DoConfig(config);
-					if(pModule != null)
+                    if(pModule != null)
                         pModule.Load (config);
                     if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
                     {
@@ -1591,7 +1591,7 @@ namespace RealFuels
                         tNode.SetValue("name", "ModuleEngineIgnitor");
                         part.Modules["ModuleEngineIgnitor"].Load(tNode);
                     }
-				}
+                }
                 if (part.Resources.Contains("ElectricCharge") && part.Resources["ElectricCharge"].maxAmount < 0.1)
                 { // hacking around a KSP bug here
                     part.Resources["ElectricCharge"].amount = 0;
@@ -1605,8 +1605,8 @@ namespace RealFuels
         private int oldTechLevel = -1;
         private string oldConfiguration;
 
-	    [PartMessageEvent]
-	    public event PartEngineConfigChanged EngineConfigChanged;
+        [PartMessageEvent]
+        public event PartEngineConfigChanged EngineConfigChanged;
 
         public void UpdateTweakableMenu()
         {
@@ -1653,40 +1653,40 @@ namespace RealFuels
         }
 
         // Used by ProceduralParts
-	    public void ChangeEngineType(string newEngineType)
-	    {
-	        engineType = newEngineType;
+        public void ChangeEngineType(string newEngineType)
+        {
+            engineType = newEngineType;
             SetConfiguration(configuration);
-	    }
+        }
 
-		public override void OnStart (StartState state)
-		{
-			if(configs.Count == 0 && part.partInfo != null
-			   && part.partInfo.partPrefab.Modules.Contains ("ModuleEngineConfigs")) {
-				ModuleEngineConfigs prefab = (ModuleEngineConfigs) part.partInfo.partPrefab.Modules["ModuleEngineConfigs"];
-				configs = prefab.configs;
-			}
-			SetConfiguration (configuration);
+        public override void OnStart (StartState state)
+        {
+            if(configs.Count == 0 && part.partInfo != null
+               && part.partInfo.partPrefab.Modules.Contains ("ModuleEngineConfigs")) {
+                ModuleEngineConfigs prefab = (ModuleEngineConfigs) part.partInfo.partPrefab.Modules["ModuleEngineConfigs"];
+                configs = prefab.configs;
+            }
+            SetConfiguration (configuration);
             if (part.Modules.Contains("ModuleEngineIgnitor"))
                 part.Modules["ModuleEngineIgnitor"].OnStart(state);
-		}
+        }
 
         public override void OnInitialize()
         {
             SetConfiguration(configuration);
         }
 
-		public void FixedUpdate ()
-		{
-			if (vessel == null)
-				return;
-			SetThrust ();
-		}
+        public void FixedUpdate ()
+        {
+            if (vessel == null)
+                return;
+            SetThrust ();
+        }
 
-		public void SetThrust()
-		{
+        public void SetThrust()
+        {
             if (!localCorrectThrust || !correctThrust)
-				return;
+                return;
             if (fastType == ModuleType.MODULEENGINES)
             {
                 ModuleEngines engine = fastEngines;
@@ -1742,7 +1742,7 @@ namespace RealFuels
                     engine.thrusterPower = configMaxThrust * multiplier;
                 }
             }
-		}
+        }
 
         private void engineManagerGUI(int WindowID)
         {
@@ -1799,12 +1799,12 @@ namespace RealFuels
             GUILayout.EndHorizontal();
         }
 
-		virtual public int UpdateSymmetryCounterparts()
-		{
-			int i = 0;
+        virtual public int UpdateSymmetryCounterparts()
+        {
+            int i = 0;
             if (part.symmetryCounterparts == null)
                 return i;
-			foreach (Part sPart in part.symmetryCounterparts) {
+            foreach (Part sPart in part.symmetryCounterparts) {
                 try
                 {
                     ModuleEngineConfigs engine = (ModuleEngineConfigs)sPart.Modules["ModuleEngineConfigs"];
@@ -1818,9 +1818,9 @@ namespace RealFuels
                 catch
                 {
                 }
-			}
-			return i;
-		}
-	}
+            }
+            return i;
+        }
+    }
 }
 

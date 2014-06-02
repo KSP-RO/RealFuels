@@ -8,19 +8,19 @@ using KSP;
 
 namespace RealFuels
 {
-	public class RefuelingPump : ModularFuelPartModule
-	{
+    public class RefuelingPump : ModularFuelPartModule
+    {
 
-		[KSPField(isPersistant = true)]
-		double pump_rate = 100.0;
+        [KSPField(isPersistant = true)]
+        double pump_rate = 100.0;
 
-		public override string GetInfo ()
-		{
-			return "\nPump rate: " + pump_rate + "/s";
-		}
+        public override string GetInfo ()
+        {
+            return "\nPump rate: " + pump_rate + "/s";
+        }
 
-		public override void OnUpdate ()
-		{
+        public override void OnUpdate ()
+        {
             if (HighLogic.LoadedSceneIsEditor)
             {
 
@@ -53,5 +53,5 @@ namespace RealFuels
                 }
             }
         }
-	}
+    }
 }

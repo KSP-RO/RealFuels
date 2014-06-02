@@ -52,19 +52,19 @@ namespace RealFuels
             }
         }
 
-		static string version = null;
-		public static string GetVersion ()
-		{
-			if (version != null) {
-				return version;
-			}
+        static string version = null;
+        public static string GetVersion ()
+        {
+            if (version != null) {
+                return version;
+            }
 
-			var asm = Assembly.GetCallingAssembly ();
-			var title = (asm.GetCustomAttributes(typeof(AssemblyTitleAttribute), false)[0] as AssemblyTitleAttribute).Title;
-			version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
+            var asm = Assembly.GetCallingAssembly ();
+            var title = (asm.GetCustomAttributes(typeof(AssemblyTitleAttribute), false)[0] as AssemblyTitleAttribute).Title;
+            version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
 
-			return version;
-		}
+            return version;
+        }
 
         private void Awake()
         {
