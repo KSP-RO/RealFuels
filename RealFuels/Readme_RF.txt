@@ -46,7 +46,7 @@ v6   \/
 +Switchable tanks
 +fixed symmetry bug
 +(optional) tweakable utilization
-+message passing
++Better integration support
 +loading fixes
 +Display GUI from tweakables
 +SI units
