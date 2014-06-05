@@ -52,6 +52,7 @@ v6   \/
 +SI units
 *taniwha: show version on GUI
 *support more Firespitter parts
+*Update to ModuleManager v2.1.5
 
 v5.3 \/
 *Fix DLL
