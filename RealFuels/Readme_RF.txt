@@ -53,6 +53,7 @@ v6   \/
 *taniwha: show version on GUI
 *support more Firespitter parts
 *Update to ModuleManager v2.1.5
+*Sandworm: support HGR tanks
 
 v5.3 \/
 *Fix DLL
