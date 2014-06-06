@@ -1499,18 +1499,15 @@ namespace RealFuels
                 ratioFactor = 0.0;
                 efficiency = 0.0;
 
-                propellants = new List<Propellant>();
                 if (engine.Modules.Contains("ModuleEnginesFX"))
                 {
                     ModuleEnginesFX e = (ModuleEnginesFX)engine.Modules["ModuleEnginesFX"];
-                    foreach (Propellant p in e.propellants)
-                        propellants.Add(p);
+                    propellants = e.propellants;
                 }
                 else if (engine.Modules.Contains("ModuleEngines"))
                 {
                     ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
-                    foreach (Propellant p in e.propellants)
-                        propellants.Add(p);
+                    propellants = e.propellants;
                 }
 
                 foreach (Propellant tfuel in propellants)
@@ -1521,16 +1518,12 @@ namespace RealFuels
                         ratioFactor = 0.0;
                         break;
                     }
-                    if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode == ResourceTransferMode.NONE)
-                    {
-                        //ignore this propellant, since it isn't serviced by fuel tanks
-                    }
-                    else
+                    if (tank.dedicated || PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                     {
                         FuelTank t;
                         if (tank.tankList.TryGet(tfuel.name, out t))
                         {
-                            efficiency += tfuel.ratio / t.utilization;
+                            efficiency += tfuel.ratio/t.utilization;
                             ratioFactor += tfuel.ratio;
                         }
                         else if (!IgnoreFuel(tfuel.name))
@@ -1557,7 +1550,7 @@ namespace RealFuels
             double availableVolume = AvailableVolume;
             foreach (Propellant tfuel in fi.propellants)
             {
-                if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
+                if (dedicated || PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                 {
                     FuelTank tank;
                     if (tankList.TryGet(tfuel.name, out tank))
