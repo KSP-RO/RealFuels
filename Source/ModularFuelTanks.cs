@@ -339,16 +339,6 @@ namespace RealFuels
                     node.AddValue("amount", amountExpression);
                     node.AddValue("maxAmount", maxAmountExpression);
                 }
-                else
-                {
-                    // TODO: I don't think this is necicary anymore.
-
-                    // You would think we want to do this only in the editor, but
-                    // as it turns out, KSP is terrible about consistently setting
-                    // up resources between the editor and the launchpad.
-                    node.AddValue("amount", amount.ToString("G17"));
-                    node.AddValue("maxAmount", maxAmount.ToString("G17"));
-                }
             }
 
             //------------------- Constructor
@@ -357,25 +347,15 @@ namespace RealFuels
                 Load(node);
             }
 
-            public FuelTank(ModuleFuelTanks module, ConfigNode node)
-            {
-                this.module = module;
-                Load(node);
-            }
-
-            public FuelTank CreateConcreteCopy(ModuleFuelTanks toModule)
+            public FuelTank CreateCopy(ModuleFuelTanks toModule, bool initializeAmounts)
             {
                 FuelTank clone = (FuelTank)MemberwiseClone();
                 clone.module = toModule;
-                clone.InitializeAmounts();
+                if(initializeAmounts)
+                    clone.InitializeAmounts();
+                else
+                    clone.amountExpression = clone.maxAmountExpression = null;
 
-                return clone;
-            }
-
-            internal FuelTank CreateCopy(ModuleFuelTanks toModule)
-            {
-                FuelTank clone = (FuelTank)MemberwiseClone();
-                clone.module = toModule;
                 return clone;
             }
         }
@@ -391,25 +371,17 @@ namespace RealFuels
                 Load(node);
             }
 
-            public FuelTankList(ModuleFuelTanks module, ConfigNode node)
-            {
-                foreach (ConfigNode tankNode in node.GetNodes("TANK"))
-                {
-                    Add(new FuelTank(module, tankNode));
-                }
-            }
-
             protected override string GetKeyForItem(FuelTank item)
             {
                 return item.name;
             }
 
-            public void CreateConcreteCopy(ModuleFuelTanks module, FuelTankList copyInto)
+            public void CreateCopy(ModuleFuelTanks module, FuelTankList copyInto, bool initializeAmounts)
             {
                 foreach (FuelTank tank in this)
                 {
                     copyInto.Remove(tank.name);
-                    copyInto.Add(tank.CreateConcreteCopy(module));
+                    copyInto.Add(tank.CreateCopy(module, initializeAmounts));
                 }
             }
 
@@ -499,36 +471,26 @@ namespace RealFuels
 
                         typesAvailable = node.GetValues("typeAvailable");
                     }
-                    else if (GameSceneFilter.Flight.IsLoaded())
+                    else if (GameSceneFilter.AnyEditorOrFlight.IsLoaded())
                     {
-                        // We're in flight, load the concrete tanks directly
-                        LoadConcreteTankList(node);
-
-                        // Ensure the old type matches so what's set up doesn't get clobbered.
-                        oldType = type;
+                        // The amounts initialized flag is there so that the tank type loading doesn't
+                        // try to set up any resources. They'll get loaded directly from the save.
+                        UpdateTankType(false);
+                        
+                        // Destroy any resources still hanging around from the LOADING phase
+                        for (int i = part.Resources.Count - 1; i >= 0; --i)
+                        {
+                            PartResource partResource = part.Resources[i];
+                            if (!tankList.Contains(partResource.resourceName))
+                                continue;
+                            DestroyImmediate(partResource);
+                            part.Resources.list.RemoveAt(i);
+                        }
+                        RaiseResourceListChanged();
 
                         // Setup the mass
                         part.mass = mass;
                         MassChanged(mass);
-                    }
-                    else if (GameSceneFilter.AnyEditor.IsLoaded())
-                    {
-                        // We've loaded a stored vessel / assembly in the editor. 
-                        // Initialize as per normal editor mode, but copy the fill fraction
-                        // from the old data.
-                        LoadConcreteTankList(node);
-
-                        if (type != null)
-                        {
-                            FuelTankList loadedTanks = tankList;
-
-                            UpdateTankType();
-
-                            FuelTank newTank;
-                            foreach (FuelTank oldTank in loadedTanks)
-                                if(tankList.TryGet(oldTank.name, out newTank))
-                                    newTank.fillFraction = oldTank.fillFraction;
-                        }
                     }
                 }
             }
@@ -543,6 +505,8 @@ namespace RealFuels
             try
             {
                 UpdateTankType();
+
+
                 if (dedicated)
                     return string.Empty;
 
@@ -573,10 +537,7 @@ namespace RealFuels
                     // Basically do the guts of what UpdateTankType would do
                     // only copying everything from the source.
                     ModuleFuelTanks origTanks = original.GetComponent<ModuleFuelTanks>();
-                    foreach (FuelTank origTank in origTanks.tankList)
-                    {
-                        tankList.Add(origTank.CreateCopy(this));
-                    }
+                    origTanks.tankList.CreateCopy(this, tankList, false);
                     pressurizedFuels = new Dictionary<string, bool>(origTanks.pressurizedFuels);
 
                     massDirty = true;
@@ -603,20 +564,6 @@ namespace RealFuels
                 base.OnSave(node);
 
                 node.AddValue("volume", volume.ToString("G17")); // no KSPField support for doubles
-
-#if DEBUG
-            print ("========ModuleFuelTanks.OnSave called. Node is:=======");
-            print (node.ToString ());
-#endif
-                foreach (FuelTank tank in tankList) {
-                    ConfigNode subNode = new ConfigNode("TANK");
-                    tank.Save (subNode);
-#if DEBUG
-                print ("========ModuleFuelTanks.OnSave adding subNode:========");
-                print (subNode.ToString());
-#endif
-                    node.AddNode (subNode);
-                }
             }
             catch (Exception ex)
             {
@@ -724,11 +671,6 @@ namespace RealFuels
             overrideList = new FuelTankList(overrideListNodes);
         }
 
-        private void LoadConcreteTankList(ConfigNode node)
-        {
-            tankList = new FuelTankList(this, node);
-        }
-
         private void InitializeTankType()
         {
             if (typesAvailable == null || typesAvailable.Length <= 1)
@@ -744,7 +686,7 @@ namespace RealFuels
             UpdateTankType();
         }
 
-        private void UpdateTankType()
+        private void UpdateTankType(bool initializeAmounts = true)
         {
             if (oldType == type || type == null)
                 return;
@@ -767,10 +709,10 @@ namespace RealFuels
             FuelTankList oldList = tankList;
 
             tankList = new FuelTankList();
-            def.tankList.CreateConcreteCopy(this, tankList);
+            def.tankList.CreateCopy(this, tankList, initializeAmounts);
 
             LoadTankListOverridesInEditor();
-            overrideList.CreateConcreteCopy(this, tankList);
+            overrideList.CreateCopy(this, tankList, initializeAmounts);
 
             // Destroy resources that are in either the new or the old type.
             bool needsMesage = false;
