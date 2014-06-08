@@ -411,6 +411,7 @@ namespace RealFuels
         #endregion
 
         #region KSP Callbacks
+
         public override void OnAwake()
         {
             try
@@ -526,22 +527,16 @@ namespace RealFuels
             }
         }
 
+        // This flag lets us know if this is a symmetry copy or clone in the vab.
         public override void OnStart(StartState state)
         {
             // This won't do anything if it's already been done in OnLoad (stored vessel/assem)
             if (GameSceneFilter.AnyEditor.IsLoaded())
             {
-                Part original = part.GetSymmetryCloneOriginal();
-                if (original != part)
+                if (part.isClone)
                 {
-                    // Basically do the guts of what UpdateTankType would do
-                    // only copying everything from the source.
-                    ModuleFuelTanks origTanks = original.GetComponent<ModuleFuelTanks>();
-                    origTanks.tankList.CreateCopy(this, tankList, false);
-                    pressurizedFuels = new Dictionary<string, bool>(origTanks.pressurizedFuels);
-
+                    UpdateTankType(false);
                     massDirty = true;
-                    oldType = type;
                 }
 
                 InitializeTankType();
