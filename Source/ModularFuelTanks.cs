@@ -354,11 +354,7 @@ namespace RealFuels
                 clone.module = toModule;
 
                 if (overNode != null)
-                {
-                    Debug.LogWarning(overNode);
-                    Debug.LogWarning(clone.maxAmountExpression);
                     clone.Load(overNode);
-                }
 
                 if(initializeAmounts)
                     clone.InitializeAmounts();
@@ -643,7 +639,6 @@ namespace RealFuels
         private void LoadTankListOverridesInLoading(ConfigNode node)
         {
             overrideListNodes = node.GetNodes("TANK");
-            Array.Sort(overrideListNodes, (a, b) => string.Compare(a.GetValue("name"), b.GetValue("name"), StringComparison.OrdinalIgnoreCase));
         }
 
         private void InitializeTankType()
@@ -689,9 +684,6 @@ namespace RealFuels
             {
                 // Pull the override from the list of overrides
                 ConfigNode overNode = overrideListNodes.FirstOrDefault(n => n.GetValue("name") == tank.name);
-
-                if(overNode != null)
-                    Debug.LogWarning("Override for fuel: " + tank.name);
 
                 tankList.Add(tank.CreateCopy(this, overNode, initializeAmounts));
             }
