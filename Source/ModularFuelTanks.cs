@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
+using LibNoise.Unity.Operator;
 using UnityEngine;
 using System.Collections.ObjectModel;
 using KSPAPIExtensions;
@@ -274,19 +276,18 @@ namespace RealFuels
                 if(node.HasValue ("efficiency") && !node.HasValue("utilization"))
                     float.TryParse (node.GetValue("efficiency"), out utilization);
 
-                amountExpression = node.GetValue("amount");
-                maxAmountExpression = node.GetValue("maxAmount");
-
-                InitializeAmounts();
+                amountExpression = node.GetValue("amount") ?? amountExpression;
+                maxAmountExpression = node.GetValue("maxAmount") ?? maxAmountExpression;
 
                 resourceAvailable = PartResourceLibrary.Instance.GetDefinition(name) != null;
             }
 
-            private void InitializeAmounts()
+            internal void InitializeAmounts()
             {
                 if (module == null)
                     return;
 
+                double v;
                 if (maxAmountExpression == null)
                 {
                     maxAmount = 0;
@@ -294,16 +295,17 @@ namespace RealFuels
                     return;
                 }
 
-                double v;
-                if (maxAmountExpression.Contains("%"))
-                {
-                    double.TryParse(maxAmountExpression.Replace("%", "").Trim(), out v);
+                if (maxAmountExpression.Contains("%") && double.TryParse(maxAmountExpression.Replace("%", "").Trim(), out v))
                     maxAmount = v * utilization * module.volume * 0.01; // NK
-                }
+                else if (double.TryParse(maxAmountExpression, out v))
+                    maxAmount = v;
                 else
                 {
-                    double.TryParse(maxAmountExpression, out v);
-                    maxAmount = v;
+                    Debug.LogError("Unable to parse max amount expression: " + maxAmountExpression + " for tank " + name);
+                    maxAmount = 0;
+                    amount = 0;
+                    maxAmountExpression = null;
+                    return;
                 }
                 maxAmountExpression = null;
 
@@ -315,15 +317,14 @@ namespace RealFuels
 
                 if (amountExpression.Equals("full"))
                     amount = maxAmount;
-                else if (amountExpression.Contains("%"))
-                {
-                    double.TryParse(amountExpression.Replace("%", "").Trim(), out v);
+                else if (amountExpression.Contains("%") && double.TryParse(amountExpression.Replace("%", "").Trim(), out v))
                     amount = v * maxAmount * 0.01;
-                }
+                else if (double.TryParse(amountExpression, out v))
+                    amount = v;
                 else
                 {
-                    double.TryParse(amountExpression, out v);
-                    amount = v;
+                    amount = maxAmount;
+                    Debug.LogError("Unable to parse amount expression: " + amountExpression + " for tank " + name);
                 }
                 amountExpression = null;
             }
@@ -347,10 +348,18 @@ namespace RealFuels
                 Load(node);
             }
 
-            public FuelTank CreateCopy(ModuleFuelTanks toModule, bool initializeAmounts)
+            internal FuelTank CreateCopy(ModuleFuelTanks toModule, ConfigNode overNode, bool initializeAmounts)
             {
                 FuelTank clone = (FuelTank)MemberwiseClone();
                 clone.module = toModule;
+
+                if (overNode != null)
+                {
+                    Debug.LogWarning(overNode);
+                    Debug.LogWarning(clone.maxAmountExpression);
+                    clone.Load(overNode);
+                }
+
                 if(initializeAmounts)
                     clone.InitializeAmounts();
                 else
@@ -374,15 +383,6 @@ namespace RealFuels
             protected override string GetKeyForItem(FuelTank item)
             {
                 return item.name;
-            }
-
-            public void CreateCopy(ModuleFuelTanks module, FuelTankList copyInto, bool initializeAmounts)
-            {
-                foreach (FuelTank tank in this)
-                {
-                    copyInto.Remove(tank.name);
-                    copyInto.Add(tank.CreateCopy(module, initializeAmounts));
-                }
             }
 
             public void Load(ConfigNode node)
@@ -626,11 +626,8 @@ namespace RealFuels
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
         internal FuelTankList tankList = new FuelTankList();
 
-        // List of tanks overriden in the part file (ie: not comming from the tank definition)
-        internal FuelTankList overrideList;
-
         // List of override nodes as defined in the part file. This is here so that it can get reconstituted after a clone
-        public ConfigNode overrideListNodes;
+        public ConfigNode [] overrideListNodes;
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type"), UI_ChooseOption(scene = UI_Scene.Editor)]
         public string type;
@@ -645,25 +642,8 @@ namespace RealFuels
         // Load the list of TANK overrides from the part file
         private void LoadTankListOverridesInLoading(ConfigNode node)
         {
-            overrideList = new FuelTankList();
-            overrideListNodes = new ConfigNode();
-
-            foreach (ConfigNode tankNode in node.GetNodes("TANK"))
-            {
-                // we don't give it the back-ref to the module, because it's still an abstract tank
-                FuelTank tank = new FuelTank(tankNode);
-                overrideList.Add(tank);
-                overrideListNodes.AddNode(tankNode);
-            }
-        }
-
-        // Load the list of overrides as defined in the part file, in the editor.
-        private void LoadTankListOverridesInEditor()
-        {
-            if (overrideList != null)
-                return;
-            // we don't give it the back-ref to the module, because it's still an abstract tank
-            overrideList = new FuelTankList(overrideListNodes);
+            overrideListNodes = node.GetNodes("TANK");
+            Array.Sort(overrideListNodes, (a, b) => string.Compare(a.GetValue("name"), b.GetValue("name"), StringComparison.OrdinalIgnoreCase));
         }
 
         private void InitializeTankType()
@@ -703,11 +683,18 @@ namespace RealFuels
 
             FuelTankList oldList = tankList;
 
+            // Build the new tank list.
             tankList = new FuelTankList();
-            def.tankList.CreateCopy(this, tankList, initializeAmounts);
+            foreach (FuelTank tank in def.tankList)
+            {
+                // Pull the override from the list of overrides
+                ConfigNode overNode = overrideListNodes.FirstOrDefault(n => n.GetValue("name") == tank.name);
 
-            LoadTankListOverridesInEditor();
-            overrideList.CreateCopy(this, tankList, initializeAmounts);
+                if(overNode != null)
+                    Debug.LogWarning("Override for fuel: " + tank.name);
+
+                tankList.Add(tank.CreateCopy(this, overNode, initializeAmounts));
+            }
 
             // Destroy resources that are in either the new or the old type.
             bool needsMesage = false;

@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
-using System.Text;
 using UnityEngine;
 using KSPAPIExtensions;
 
 namespace RealFuels
 {
+    // ReSharper disable once InconsistentNaming
     public class MFSSettings : MonoBehaviour
     {
         [Persistent]
@@ -41,7 +40,7 @@ namespace RealFuels
             {
                 // Will get destroyed on scene load, which is what we want 
                 // because this means the DB will get reloaded.
-                if (_instance != null && (bool)_instance)
+                if (_instance != null && _instance)
                     return _instance;
 
                 //Debug.Log("*MFS* Loading settings");
@@ -52,21 +51,22 @@ namespace RealFuels
             }
         }
 
-        static string version = null;
-        public static string GetVersion ()
+        static string version;
+        public static string GetVersion()
         {
             if (version != null) {
                 return version;
             }
 
             var asm = Assembly.GetCallingAssembly ();
+            // ReSharper disable once PossibleNullReferenceException
             var title = (asm.GetCustomAttributes(typeof(AssemblyTitleAttribute), false)[0] as AssemblyTitleAttribute).Title;
             version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
 
             return version;
         }
 
-        private void Awake()
+        internal void Awake()
         {
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("MFSSETTINGS").Last();
             Debug.Log("*MFS* Loading global settings");
@@ -79,7 +79,12 @@ namespace RealFuels
                     ignoreFuelsForFill.Add(v.name);
 
             foreach (ConfigNode defNode in GameDatabase.Instance.GetConfigNodes("TANK_DEFINITION"))
-                tankDefinitions.Add(new TankDefinition(defNode));
+            {
+                if(tankDefinitions.Contains(defNode.GetValue("name")))
+                    Debug.LogWarning("[MFS] Ignored duplicate definition of tank type " + defNode.GetValue("name"));
+                else
+                    tankDefinitions.Add(new TankDefinition(defNode));
+            }
         }
 
         #endregion
