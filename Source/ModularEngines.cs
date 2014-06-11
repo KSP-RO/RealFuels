@@ -27,7 +27,13 @@ namespace RealFuels
             if(configs.Count == 0 && part.partInfo != null
                && part.partInfo.partPrefab.Modules.Contains ("ModuleHybridEngine")) {
                 ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
-                configs = prefab.configs;
+                configs = new List<ConfigNode>();
+                foreach (ConfigNode subNode in prefab.configs)
+                {
+                    ConfigNode newNode = new ConfigNode("CONFIG");
+                    subNode.CopyTo(newNode);
+                    configs.Add(newNode);
+                }
             }
             if (type.Equals("ModuleEnginesFX"))
                 ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
@@ -1259,7 +1265,13 @@ namespace RealFuels
                && part.partInfo.partPrefab.Modules.Contains("ModuleEngineConfigs"))
             {
                 ModuleEngineConfigs prefab = (ModuleEngineConfigs)part.partInfo.partPrefab.Modules["ModuleEngineConfigs"];
-                configs = prefab.configs;
+                configs = new List<ConfigNode>();
+                foreach (ConfigNode subNode in prefab.configs)
+                {
+                    ConfigNode newNode = new ConfigNode("CONFIG");
+                    subNode.CopyTo(newNode);
+                    configs.Add(newNode);                    
+                }
             }
             SetConfiguration(configuration);
         }
@@ -1643,7 +1655,7 @@ namespace RealFuels
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
-            //print("*MFS* For " + part.name + ", Setting new max thrust " + newThrust.ToString());
+            //print("*MFS* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
             foreach(ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust.ToString());
@@ -1664,7 +1676,14 @@ namespace RealFuels
             if(configs.Count == 0 && part.partInfo != null
                && part.partInfo.partPrefab.Modules.Contains ("ModuleEngineConfigs")) {
                 ModuleEngineConfigs prefab = (ModuleEngineConfigs) part.partInfo.partPrefab.Modules["ModuleEngineConfigs"];
-                configs = prefab.configs;
+
+                configs = new List<ConfigNode>();
+                foreach (ConfigNode subNode in prefab.configs)
+                {
+                    ConfigNode newNode = new ConfigNode("CONFIG");
+                    subNode.CopyTo(newNode);
+                    configs.Add(newNode);
+                }
             }
             SetConfiguration (configuration);
             if (part.Modules.Contains("ModuleEngineIgnitor"))
