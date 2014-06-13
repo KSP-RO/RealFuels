@@ -154,3 +154,5 @@ $RECYCLE.BIN/
 .DS_Store
 Source/AssemblyInfoMFT.cs
 Source/AssemblyInfoRF.cs
+Source/RealFuels.sln
+Source/RealFuels.csproj
