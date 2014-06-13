@@ -629,9 +629,9 @@ namespace RealFuels
 
         public string[] typesAvailable;
 
-        // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
+        // for EngineIgnitor integration: store a public list of the fuel tanks
         [NonSerialized]
-        public Dictionary<string, bool> pressurizedFuels;
+        public List<FuelTank> fuelList = new List<FuelTank>(); 
 
         // Load the list of TANK overrides from the part file
         private void LoadTankListOverridesInLoading(ConfigNode node)
@@ -707,10 +707,10 @@ namespace RealFuels
             if (GameSceneFilter.Loading.IsLoaded())
                 return;
 
-            // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
-            pressurizedFuels = new Dictionary<string, bool>();
-            foreach (FuelTank f in tankList)
-                pressurizedFuels[f.name] = def.name == "ServiceModule" || f.note.ToLower().Contains("pressurized");
+            // for EngineIgnitor integration: store a public list of all pressurized propellants
+            // Dirty hack until engine ignitor is fixed
+            fuelList.Clear();
+            fuelList.AddRange(tankList);
 
             massDirty = true;
         }
