@@ -33,6 +33,9 @@
     <ConsolePause>False</ConsolePause>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="KSPAPIExtensions">
+      <HintPath>..\..\..\..\..\..\Games\KSP_win\GameData\RealFuels\Plugins\KSPAPIExtensions.dll</HintPath>
+    </Reference>
     <Reference Include="System, Version=2.0.5.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e, processorArchitecture=MSIL">
       <Private>False</Private>
     </Reference>
@@ -56,16 +59,9 @@
     <Compile Include="ModularFuelTanks.cs" />
     <Compile Include="RefuelingPump.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\KSPAPIExtensions\Source\KSPAPIExtensions.csproj">
-      <Project>{4282b0da-c314-4524-9c32-edab2c9666a9}</Project>
-      <Name>KSPAPIExtensions</Name>
-      <Private>False</Private>
-    </ProjectReference>
-  </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>cd $(ProjectDir)
-sh git-version.sh</PreBuildEvent>
+rem c:\cygwin\bin\sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
