@@ -58,6 +58,7 @@
     <Compile Include="ModularFuelPartModule.cs" />
     <Compile Include="ModularFuelTanks.cs" />
     <Compile Include="RefuelingPump.cs" />
+    <Compile Include="VersionReport.cs" />
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>cd $(ProjectDir)
