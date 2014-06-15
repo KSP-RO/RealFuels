@@ -7,7 +7,7 @@ using KSP.IO;
 namespace RealFuels {
 
 	[KSPAddon(KSPAddon.Startup.Instantly, true)]
-	public class ExSettingsCreatorSpawn : MonoBehaviour
+	public class MFSVersionReport : MonoBehaviour
 	{
 
 		void Start ()
