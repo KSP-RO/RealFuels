@@ -40,6 +40,22 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v6.2 \/
+*Added new fuels from RedAV8R
+*Updated HGR patch from Sandworm
+*Tweaked some Firespitter part volumes, added support for more fuselage parts
+*swamp_ig:
++Fixed cloning
++Fixed default amounts not loading
++Fixed ProcParts interoperability issues
++Fixed compatibility with Engine Ignitor
+
+v6.1 \/
+The "NathanKell is away so swamp_ig is holding down the fort" release
+*Fixed SRB issue
+*Fixed phantom tanks
+*Trimmed down the amount of guff being saved to the persistence files
+
 v6   \/
 *Updated plane parts (C7, Firespitter) to have B9-esque levels of resources. No more magic volume-disapppearing tricks when fuel tanks become fuselages.
 *Massive improvements from swamp_ig, for integration with Procedural Parts and other mods, and UI improvements.
