@@ -45,6 +45,7 @@ v6.3 \/
 *Fix HGR so engines are not modified (done via engine config sets instead)
 *Add RedAV8R's Kethane volume fixes
 *Update ECLSS config; add TACLS config. Both should work correctly when their respective mods are present and not do anything when they're not.
+*Made the refueling pump toggleable (in VAB/SPH and in flight)
 
 v6.2 \/
 *Added new fuels from RedAV8R

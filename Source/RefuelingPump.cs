@@ -10,9 +10,17 @@ namespace RealFuels
 {
     public class RefuelingPump : ModularFuelPartModule
     {
+        [KSPField(isPersistant = true)]
+        bool enablePump = true;
 
         [KSPField(isPersistant = true)]
         double pump_rate = 100.0;
+
+        [KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "Toggle Pump")]
+        public void TogglePump()
+        {
+            enablePump = !enablePump;
+        }
 
         public override string GetInfo ()
         {
@@ -21,11 +29,7 @@ namespace RealFuels
 
         public override void OnUpdate ()
         {
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-
-            }
-            else if (timestamp > 0 && part.parent != null && part.vessel != null)
+            if (!HighLogic.LoadedSceneIsEditor && timestamp > 0 && part.parent != null && part.vessel != null && enablePump)
             {
                 FillAttachedTanks(precisionDeltaTime);
             }
