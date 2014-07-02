@@ -10,11 +10,11 @@ namespace RealFuels
 {
     public class RefuelingPump : ModularFuelPartModule
     {
-        [KSPField(isPersistant = true)]
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Pump Enabled")]
         bool enablePump = true;
 
         [KSPField(isPersistant = true)]
-        double pump_rate = 100.0;
+        double pump_rate = 100.0; // 100L/sec per resource
 
         [KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "Toggle Pump")]
         public void TogglePump()
@@ -39,6 +39,10 @@ namespace RealFuels
 
         private void FillAttachedTanks(double deltaTime)
         {
+            // sanity check
+            if(deltaTime <= 0)
+                return;
+
             // now, let's look at what we're connected to.
             foreach (Part p in vessel.Parts) // look through all parts
             {
