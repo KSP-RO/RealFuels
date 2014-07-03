@@ -1763,6 +1763,11 @@ namespace RealFuels
             }
         }
 
+        private bool CanConfig(ConfigNode config)
+        {
+            return (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode != Game.Modes.CAREER || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available);
+        }
+
         private void engineManagerGUI(int WindowID)
         {
             foreach (ConfigNode node in configs)
@@ -1770,10 +1775,13 @@ namespace RealFuels
                 GUILayout.BeginHorizontal();
                 if (node.GetValue("name").Equals(configuration))
                     GUILayout.Label("Current configuration: " + configuration);
-                else if (GUILayout.Button("Configure to " + node.GetValue("name")))
+                else if (CanConfig(node))
                 {
-                    SetConfiguration(node.GetValue("name"));
-                    UpdateSymmetryCounterparts();
+                    if(GUILayout.Button("Configure to " + node.GetValue("name")))
+                    {
+                        SetConfiguration(node.GetValue("name"));
+                        UpdateSymmetryCounterparts();
+                    }
                 }
                 GUILayout.EndHorizontal();
             }
