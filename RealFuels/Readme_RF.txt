@@ -40,6 +40,10 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v6.5 \/
+*Add tanks to more FS parts
+*Disable TweakScale on any part with a ModuleEngineConfigs / ModuleHybridEngine*
+
 v6.4 \/
 *Allow fuselages to hold life support resources
 *Allow CONFIGs to have techRequired items (can limit available Engine Configs based on R&D nodes researched)
