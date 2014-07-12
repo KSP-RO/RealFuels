@@ -6,7 +6,7 @@ ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the Rea
 License remains CC-BY-SA as modified by ialdabaoth.
 Source: https://github.com/NathanKell/ModularFuelSystem (shared repository between RF and Modular Fuel Tanks).
 
-Also included: Module Manager (by sarbian and ialdabaoth). See the Module Manager thread for details and license and source: http://http://forum.kerbalspaceprogram.com/threads/55219
+Also included: Module Manager (by sarbian, swamp_ig, and ialdabaoth). See the Module Manager thread for details and license and source: http://forum.kerbalspaceprogram.com/threads/55219
 Module Manager is required for RF to work.
 
 DESCRIPTION:
@@ -43,6 +43,7 @@ Changelog:
 v6.5 \/
 *Add tanks to more FS parts
 *Disable TweakScale on any part with a ModuleEngineConfigs / ModuleHybridEngine*
+*TACLS now supports RF/MFT natively, so removed TACLS interaction cfg.
 
 v6.4 \/
 *Allow fuselages to hold life support resources
