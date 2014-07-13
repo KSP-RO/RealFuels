@@ -44,6 +44,8 @@ v6.5 \/
 *Add tanks to more FS parts
 *Disable TweakScale on any part with a ModuleEngineConfigs / ModuleHybridEngine*
 *TACLS now supports RF/MFT natively, so removed TACLS interaction cfg.
+*Enable ElectricCharge in fuselages
+*Update ElectricCharge utilization to be 500 rather than 100 (mass per EC unchanged). Now it quite closely matches Silver Zinc Oxide batteries in volume as well as mass.
 
 v6.4 \/
 *Allow fuselages to hold life support resources
