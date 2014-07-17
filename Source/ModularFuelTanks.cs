@@ -1173,10 +1173,10 @@ namespace RealFuels
                     GUIStyle style = unchanged;
                     if (tank.maxAmountExpression == null)
                     {
-                        tank.maxAmountExpression = tank.maxAmount.ToStringExt("S4");
+                        tank.maxAmountExpression = tank.maxAmount.ToString();
                         //Debug.LogWarning("[MFT] Adding tank from API " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                     }
-                    else if (tank.maxAmountExpression.Length > 0 && tank.maxAmountExpression != tank.maxAmount.ToStringExt("S4"))
+                    else if (tank.maxAmountExpression.Length > 0 && tank.maxAmountExpression != tank.maxAmount.ToString())
                     {
                         style = changed;
                     }
@@ -1229,7 +1229,7 @@ namespace RealFuels
                                     tank.amount = tank.fillable ? tank.maxAmount : 0;
 
                                     // Need to round-trip the value
-                                    tank.maxAmountExpression = tank.maxAmount.ToStringExt("S4");
+                                    tank.maxAmountExpression = tank.maxAmount.ToString();
                                     //Debug.LogWarning("[MFT] Updating maxAmount " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                                 }
                             }
@@ -1252,7 +1252,7 @@ namespace RealFuels
                         tank.maxAmount = AvailableVolume * tank.utilization;
                         tank.amount = tank.fillable ? tank.maxAmount : 0;
 
-                        tank.maxAmountExpression = tank.maxAmount.ToStringExt("S4");
+                        tank.maxAmountExpression = tank.maxAmount.ToString();
                         //Debug.LogWarning("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
                     }
                 }
