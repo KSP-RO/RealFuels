@@ -33,8 +33,9 @@
     <ConsolePause>False</ConsolePause>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="KSPAPIExtensions">
-      <HintPath>..\..\..\..\..\..\Games\KSP_win\GameData\RealFuels\Plugins\KSPAPIExtensions.dll</HintPath>
+    <Reference Include="KSPAPIExtensions, Version=1.5.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\KSPAPIExtensions\KSPAPIExtensions.dll</HintPath>
     </Reference>
     <Reference Include="System, Version=2.0.5.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e, processorArchitecture=MSIL">
       <Private>False</Private>
@@ -62,7 +63,7 @@
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>cd $(ProjectDir)
-rem c:\cygwin\bin\sh git-version.sh</PreBuildEvent>
+rem sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
