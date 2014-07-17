@@ -46,6 +46,9 @@ v6.5 \/
 *TACLS now supports RF/MFT natively, so removed TACLS interaction cfg.
 *Enable ElectricCharge in fuselages
 *Update ElectricCharge utilization to be 500 rather than 100 (mass per EC unchanged). Now it quite closely matches Silver Zinc Oxide batteries in volume as well as mass.
+*Spanier: add KSPX Short 2.5m RCS config.
+*Revert to showing the full precision volume of tanks.
+*Update to 0.24
 
 v6.4 \/
 *Allow fuselages to hold life support resources
