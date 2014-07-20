@@ -48,6 +48,7 @@ v6.5 \/
 *Update ElectricCharge utilization to be 500 rather than 100 (mass per EC unchanged). Now it quite closely matches Silver Zinc Oxide batteries in volume as well as mass.
 *Spanier: add KSPX Short 2.5m RCS config.
 *Revert to showing the full precision volume of tanks.
+*Remove configs for B9 jets; use AJE.
 *Update to 0.24
 
 v6.4 \/
