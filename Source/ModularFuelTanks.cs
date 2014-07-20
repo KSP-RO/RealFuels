@@ -144,6 +144,7 @@ namespace RealFuels
                 {
                     if (module == null)
                         throw new InvalidOperationException("Maxamount is not defined until instantiated in a tank");
+                    //print("*RK* Setting maxAmount of tank " + name + " of part " + part.name + " to " + value);
 
                     PartResource partResource = resource;
                     if (partResource != null && value <= 0.0) 
@@ -152,9 +153,10 @@ namespace RealFuels
                         //Debug.LogWarning("[MFT] Deleting tank from API " + name);
                         maxAmountExpression = null;
 
-                        Destroy(partResource);
                         part.Resources.list.Remove(partResource);
+                        Destroy(partResource);
                         module.RaiseResourceListChanged();
+                        //print("Removed.");
 
                         // Update symmetry counterparts.
                         if (HighLogic.LoadedSceneIsEditor)
@@ -165,6 +167,7 @@ namespace RealFuels
                                 sym.Resources.list.Remove(symResc);
                                 PartMessageService.Send<PartResourceListChanged>(this, sym);
                             }
+                        //print("Sym removed");
                     } 
                     else if (partResource != null) 
                     {
@@ -188,6 +191,7 @@ namespace RealFuels
 
                         partResource.maxAmount = value;
                         module.RaiseResourceMaxChanged(partResource, value);
+                        //print("Set new maxAmount");
 
                         if (newAmount != partResource.amount)
                         {
@@ -209,6 +213,8 @@ namespace RealFuels
                                     PartMessageService.Send<PartResourceInitialAmountChanged>(this, sym, symResc, newAmount);
                                 }
                             }
+
+                        //print("Symmetry set");
 
                     } 
                     else if(value > 0.0) 
@@ -1301,6 +1307,7 @@ namespace RealFuels
 
         private void UpdateUsedBy()
         {
+            //print("*RK* Updating UsedBy");
             if (dedicated)
             {
                 Empty();
