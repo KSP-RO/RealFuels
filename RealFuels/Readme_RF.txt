@@ -50,6 +50,7 @@ v6.5 \/
 *Revert to showing the full precision volume of tanks.
 *Removed configs for B9 jets and rockets; use AJE.
 *Removed last remaining engine configs (Starwaster's NTRs, TT Vector engine)--use an engine pack!
+*By default bring back up the mass of solid fuel in a part to where it was pre-RF. Later configs will override.
 *Update to 0.24.1
 
 v6.4 \/
