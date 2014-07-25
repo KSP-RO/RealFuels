@@ -63,7 +63,8 @@
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>rem cd $(ProjectDir)
-rem sh git-version.sh</PreBuildEvent>
+rem sh git-version.sh
+del KSPAPIExtensions.dll</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>rem copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
