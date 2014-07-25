@@ -40,6 +40,9 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v7.1 \/
+*Update to KSP 0.24.2
+
 v7.0 \/
 *Add tanks to more FS parts
 *Disable TweakScale on any part with a ModuleEngineConfigs / ModuleHybridEngine*
