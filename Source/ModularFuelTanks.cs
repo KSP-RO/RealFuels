@@ -163,8 +163,8 @@ namespace RealFuels
                             foreach (Part sym in part.symmetryCounterparts)
                             {
                                 PartResource symResc = sym.Resources[name];
-                                Destroy(symResc);
                                 sym.Resources.list.Remove(symResc);
+                                Destroy(symResc);
                                 PartMessageService.Send<PartResourceListChanged>(this, sym);
                             }
                         //print("Sym removed");
@@ -484,8 +484,8 @@ namespace RealFuels
                             PartResource partResource = part.Resources[i];
                             if (!tankList.Contains(partResource.resourceName))
                                 continue;
-                            DestroyImmediate(partResource);
                             part.Resources.list.RemoveAt(i);
+                            DestroyImmediate(partResource);
                         }
                         RaiseResourceListChanged();
 
@@ -702,8 +702,8 @@ namespace RealFuels
                 PartResource partResource = part.Resources[i];
                 if (!tankList.Contains(partResource.name) || oldList == null || !oldList.Contains(partResource.name))
                     continue;
-                Destroy(partResource);
                 part.Resources.list.RemoveAt(i);
+                Destroy(partResource);
                 needsMesage = true;
             }
             if(needsMesage)
@@ -1026,6 +1026,7 @@ namespace RealFuels
         [PartMessageListener(typeof(PartChildDetached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
         public void VesselAttachmentsChanged(Part childPart)
         {
+            print("*RFKAE* vessel attachments changed.");
             UpdateUsedBy();
         }
 

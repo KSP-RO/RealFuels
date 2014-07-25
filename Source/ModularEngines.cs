@@ -234,7 +234,7 @@ namespace RealFuels
                     double maxAmount = 0d;
 
                     List<PartResource> sources = new List<PartResource> ();
-                    part.GetConnectedResources (propellant.id, sources);
+                    part.GetConnectedResources (propellant.id, propellant.GetFlowMode(), sources);
 
                     foreach (PartResource source in sources) {
                         amount += source.amount;
@@ -461,7 +461,7 @@ namespace RealFuels
                     double maxAmount = 0d;
 
                     List<PartResource> sources = new List<PartResource> ();
-                    part.GetConnectedResources (propellant.id, sources);
+                    part.GetConnectedResources (propellant.id, propellant.GetFlowMode(), sources);
 
                     foreach (PartResource source in sources) {
                         amount += source.amount;
@@ -1419,7 +1419,6 @@ namespace RealFuels
                 config = new ConfigNode ("MODULE");
                 newConfig.CopyTo (config);
                 config.name = "MODULE";
-                config.SetValue ("name", type);
 
                 // fix for HotRockets etc.
                 if (type.Equals("ModuleEngines") && part.Modules.Contains("ModuleEnginesFX") && !part.Modules.Contains("ModuleEngines"))
@@ -1431,6 +1430,8 @@ namespace RealFuels
                     type = "ModuleRCSFX";
                 if (type.Equals("ModuleRCSFX") && part.Modules.Contains("ModuleRCS") && !part.Modules.Contains("ModuleRCSFX"))
                     type = "ModuleRCS";
+
+                config.SetValue("name", type);
 
                 #if DEBUG
                 print ("replacing " + type + " with:");
@@ -1480,21 +1481,30 @@ namespace RealFuels
                 if (type.Equals("ModuleRCS"))
                 {
                     ModuleRCS rcs = (ModuleRCS)pModule;
-                    string resource = config.GetValue("resourceName");
                     if (rcs != null)
                     {
-                        rcs.resourceName = resource;
                         rcs.G = 9.80665f;
+                        bool oldRes = config.HasValue("resourceName");
+                        string resource = "";
+                        if (oldRes)
+                        {
+                            resource = config.GetValue("resourceName");
+                            rcs.resourceName = resource;
+                        }
                         DoConfig(config);
-                        rcs.SetResource(resource);
                         pModule.Load(config);
-                        rcs.resourceName = resource;
-                        rcs.SetResource(resource);
+                        if (oldRes)
+                        {
+                            rcs.resourceName = resource;
+                            rcs.SetResource(resource);
+                        }
+                        // PROPELLANT handling is automatic.
                         fastRCS = rcs;
                         fastType = ModuleType.MODULERCS;
                     }
                 }
-                if (type.Equals("ModuleRCSFX"))
+                    // obsolete in 0.24.1
+                /*if (type.Equals("ModuleRCSFX"))
                 {
                     ModuleRCS rcs = (ModuleRCS)pModule;
                     if (rcs != null)
@@ -1512,7 +1522,7 @@ namespace RealFuels
                                 loadProp.Invoke(pModule, new object[] { config });
                         }
                     }
-                }
+                }*/
                 else
                 { // is an ENGINE
                     if (type.Equals("ModuleEngines"))

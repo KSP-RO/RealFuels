@@ -27,7 +27,7 @@
     <DebugType>none</DebugType>
     <Optimize>True</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
-    <OutputPath>..\..\Build\RealFuels\Release\</OutputPath>
+    <OutputPath>..\RealFuels\Plugins\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
@@ -62,11 +62,12 @@
     <Compile Include="VersionReport.cs" />
   </ItemGroup>
   <PropertyGroup>
-    <PreBuildEvent>cd $(ProjectDir)
+    <PreBuildEvent>rem cd $(ProjectDir)
 rem sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
-if exist "$(SolutionDir)\KSPAPIExtensions.dll" copy /Y "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"</PostBuildEvent>
+    <PostBuildEvent>rem copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
+rem if exist "$(SolutionDir)\KSPAPIExtensions.dll" copy /Y "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"
+del "System.Core.dll"</PostBuildEvent>
   </PropertyGroup>
 </Project>
