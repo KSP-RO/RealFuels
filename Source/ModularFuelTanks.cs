@@ -988,7 +988,7 @@ namespace RealFuels
 
         #region GUI Display
 
-        [KSPField(isPersistant = true)]
+        //[KSPField(isPersistant = true)]
         public bool dedicated = false;
 
         [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Show Tank"),
