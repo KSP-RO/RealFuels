@@ -40,7 +40,7 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
-v6.5 \/
+v7.0 \/
 *Add tanks to more FS parts
 *Disable TweakScale on any part with a ModuleEngineConfigs / ModuleHybridEngine*
 *TACLS now supports RF/MFT natively, so removed TACLS interaction cfg.
