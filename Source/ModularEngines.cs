@@ -1170,8 +1170,8 @@ namespace RealFuels
             UpdateSymmetryCounterparts();
         }
 
-        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Show  Engin"),
-         UI_Toggle(enabledText = "e GUI", disabledText = "e GUI")]
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Show Engine "),
+         UI_Toggle(enabledText = "GUI", disabledText = "GUI")]
         [NonSerialized]
         public bool showRFGUI;
 
@@ -1488,20 +1488,20 @@ namespace RealFuels
                     if (rcs != null)
                     {
                         rcs.G = 9.80665f;
-                        bool oldRes = config.HasValue("resourceName");
+                        /*bool oldRes = config.HasValue("resourceName");
                         string resource = "";
                         if (oldRes)
                         {
                             resource = config.GetValue("resourceName");
                             rcs.resourceName = resource;
-                        }
+                        }*/
                         DoConfig(config);
                         pModule.Load(config);
-                        if (oldRes)
+                        /*if (oldRes)
                         {
                             rcs.resourceName = resource;
                             rcs.SetResource(resource);
-                        }
+                        }*/
                         // PROPELLANT handling is automatic.
                         fastRCS = rcs;
                         fastType = ModuleType.MODULERCS;
@@ -1746,6 +1746,8 @@ namespace RealFuels
             SetConfiguration (configuration);
             if (part.Modules.Contains("ModuleEngineIgnitor"))
                 part.Modules["ModuleEngineIgnitor"].OnStart(state);
+            if (fastType == ModuleType.MODULERCS)
+                fastRCS.OnStart(state);
         }
 
         public override void OnInitialize()

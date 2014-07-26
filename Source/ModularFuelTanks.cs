@@ -1029,7 +1029,6 @@ namespace RealFuels
         [PartMessageListener(typeof(PartChildDetached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
         public void VesselAttachmentsChanged(Part childPart)
         {
-            print("*RFKAE* vessel attachments changed.");
             UpdateUsedBy();
         }
 
