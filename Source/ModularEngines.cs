@@ -610,6 +610,8 @@ namespace RealFuels
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
         public float configMassMult = 1.0f;
+
+        public bool useThrustCurve = false;
         public FloatCurve configThrustCurve = null;
         public string curveResource = "";
         public int curveProp = -1;
@@ -1312,10 +1314,6 @@ namespace RealFuels
                 heat = (float)Math.Round(float.Parse(cfg.GetValue("heatProduction")) * heatMult, 0);
                 cfg.SetValue("heatProduction", heat.ToString());
             }
-            else
-            {
-                configThrustCurve = null;
-            }
             if (techLevel != -1)
             {
                 // load techlevels
@@ -1627,34 +1625,45 @@ namespace RealFuels
                 }
                 UpdateTweakableMenu();
                 // Check for and enable the thrust curve
-                if (config.HasNode("thrustCurve"))
+                useThrustCurve = false;
+                if (config.HasNode("thrustCurve") && config.HasValue("curveResource"))
                 {
+                    curveResource = config.GetValue("curveResource");
                     if (curveResource != "")
                     {
+                        double ratio = 0.0;
                         switch (fastType)
                         {
                             case ModuleType.MODULEENGINES:
                                 for (int i = 0; i < fastEngines.propellants.Count; i++ )
                                     if (fastEngines.propellants[i].name.Equals(curveResource))
                                         curveProp = i;
+                                if (curveProp >= 0)
+                                    ratio = fastEngines.propellants[curveProp].totalResourceAvailable / fastEngines.propellants[curveProp].totalResourceCapacity;
                                 break;
 
                             case ModuleType.MODULEENGINESFX:
                                 for (int i = 0; i < fastEnginesFX.propellants.Count; i++)
                                     if (fastEnginesFX.propellants[i].name.Equals(curveResource))
                                         curveProp = i;
+                                if (curveProp >= 0)
+                                    ratio = fastEnginesFX.propellants[curveProp].totalResourceAvailable / fastEnginesFX.propellants[curveProp].totalResourceCapacity;
                                 break;
 
                             case ModuleType.MODULERCS:
                                 for (int i = 0; i < fastRCS.propellants.Count; i++)
                                     if (fastRCS.propellants[i].name.Equals(curveResource))
                                         curveProp = i;
+                                if (curveProp >= 0)
+                                    ratio = fastRCS.propellants[curveProp].totalResourceAvailable / fastRCS.propellants[curveProp].totalResourceCapacity;
                                 break;
                         }
                         if (curveProp != -1)
                         {
+                            useThrustCurve = true;
                             configThrustCurve = new FloatCurve();
                             configThrustCurve.Load(config.GetNode("thrustCurve"));
+                            print("*RF* Found thrust curve for " + part.name + ", current ratio " + ratio + ", curve: " + configThrustCurve.Evaluate((float)ratio));
                         }
                         
                     }
@@ -1763,8 +1772,8 @@ namespace RealFuels
                     bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
-                        float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
-                        if ((object)configThrustCurve != null)
+                        float multiplier = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                        if (useThrustCurve)
                         {
                             
                             multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
@@ -1791,8 +1800,8 @@ namespace RealFuels
                     bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
-                        float multiplier = Mathf.Lerp(ispSLMult, ispVMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
-                        if ((object)configThrustCurve != null)
+                        float multiplier = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                        if (useThrustCurve)
                         {
 
                             multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
@@ -1817,7 +1826,7 @@ namespace RealFuels
                 {
                     float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                     float multiplier = frameIsp / engine.atmosphereCurve.Evaluate(0);
-                    if ((object)configThrustCurve != null)
+                    if (useThrustCurve)
                     {
 
                         multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
