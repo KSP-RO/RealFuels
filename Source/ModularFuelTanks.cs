@@ -739,6 +739,9 @@ namespace RealFuels
          UI_FloatEdit(minValue = 0, maxValue = 100, incrementSlide = 1, scene = UI_Scene.Editor)]
         public float utilization = -1;
         private float oldUtilization = -1;
+        
+        [KSPField]
+        public bool utilizationTweakable = false;
 
 
         // no double support for KSPFields - [KSPField(isPersistant = true)]
@@ -813,7 +816,7 @@ namespace RealFuels
 
         private void InitializeUtilization() 
         {
-            Fields["utilization"].guiActiveEditor = Settings.partUtilizationTweakable;
+            Fields["utilization"].guiActiveEditor = Settings.partUtilizationTweakable || utilizationTweakable;
         }
 
         #endregion
