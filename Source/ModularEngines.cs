@@ -1482,7 +1482,7 @@ namespace RealFuels
                         }
                     }
                 }
-                if (type.Equals("ModuleRCS"))
+                if (type.Equals("ModuleRCS") || type.Equals("ModuleRCSFX"))
                 {
                     ModuleRCS rcs = (ModuleRCS)pModule;
                     if (rcs != null)
@@ -1746,8 +1746,6 @@ namespace RealFuels
             SetConfiguration (configuration);
             if (part.Modules.Contains("ModuleEngineIgnitor"))
                 part.Modules["ModuleEngineIgnitor"].OnStart(state);
-            if (fastType == ModuleType.MODULERCS)
-                fastRCS.OnStart(state);
         }
 
         public override void OnInitialize()

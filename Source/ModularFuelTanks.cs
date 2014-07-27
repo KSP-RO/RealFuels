@@ -1071,58 +1071,65 @@ namespace RealFuels
 
         public void GUIWindow(int windowID)
         {
-            InitializeStyles();
-
-            GUILayout.BeginVertical();
+            try
             {
-                GUILayout.BeginHorizontal();
-                GUILayout.Label("Mass: " + massDisplay);
-                GUILayout.EndHorizontal();
+                InitializeStyles();
 
-                if (tankList.Count == 0)
+                GUILayout.BeginVertical();
                 {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("This fuel tank cannot hold resources.");
+                    GUILayout.Label("Mass: " + massDisplay);
                     GUILayout.EndHorizontal();
-                    return;
+
+                    if (tankList.Count == 0)
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label("This fuel tank cannot hold resources.");
+                        GUILayout.EndHorizontal();
+                        return;
+                    }
+
+                    GUILayout.BeginHorizontal();
+                    if (Math.Round(AvailableVolume, 4) < 0)
+                        GUILayout.Label("Volume: " + volumeDisplay, overfull);
+                    else
+                        GUILayout.Label("Volume: " + volumeDisplay);
+                    GUILayout.EndHorizontal();
+
+                    scrollPos = GUILayout.BeginScrollView(scrollPos);
+
+                    GUITanks();
+
+                    GUIEngines();
+
+                    GUILayout.EndScrollView();
+                    GUILayout.Label(MFSSettings.GetVersion());
                 }
+                GUILayout.EndVertical();
 
-                GUILayout.BeginHorizontal();
-                if (Math.Round(AvailableVolume, 4) < 0)
-                    GUILayout.Label("Volume: " + volumeDisplay, overfull);
+                if (!(myToolTip.Equals("")) && GUI.tooltip.Equals(""))
+                {
+                    if (counterTT > 4)
+                    {
+                        myToolTip = GUI.tooltip;
+                        counterTT = 0;
+                    }
+                    else
+                    {
+                        counterTT++;
+                    }
+                }
                 else
-                    GUILayout.Label("Volume: " + volumeDisplay);
-                GUILayout.EndHorizontal();
-
-                scrollPos = GUILayout.BeginScrollView(scrollPos);
-
-                GUITanks();
-
-                GUIEngines();
-
-                GUILayout.EndScrollView();
-                GUILayout.Label(MFSSettings.GetVersion ());
-            }
-            GUILayout.EndVertical();
-
-            if (!(myToolTip.Equals("")) && GUI.tooltip.Equals(""))
-            {
-                if (counterTT > 4)
                 {
                     myToolTip = GUI.tooltip;
                     counterTT = 0;
                 }
-                else
-                {
-                    counterTT++;
-                }
+                //print("GT: " + GUI.tooltip);
             }
-            else
+            catch (Exception e)
             {
-                myToolTip = GUI.tooltip;
-                counterTT = 0;
+                print("*RF* Exception in GUI: " + e.Message);
             }
-            //print("GT: " + GUI.tooltip);
         }
 
         private static void InitializeStyles()
