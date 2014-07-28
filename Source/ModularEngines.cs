@@ -1504,29 +1504,12 @@ namespace RealFuels
                         }*/
                         // PROPELLANT handling is automatic.
                         fastRCS = rcs;
-                        fastType = ModuleType.MODULERCS;
+                        if(type.Equals("ModuleRCS"))
+                            fastType = ModuleType.MODULERCS;
+                        else
+                            fastType = ModuleType.MODULERCSFX;
                     }
                 }
-                    // obsolete in 0.24.1
-                /*if (type.Equals("ModuleRCSFX"))
-                {
-                    ModuleRCS rcs = (ModuleRCS)pModule;
-                    if (rcs != null)
-                    {
-                        rcs.G = 9.80665f;
-                        fastRCS = rcs;
-                        fastType = ModuleType.MODULERCSFX;
-                        DoConfig(config);
-                        pModule.Load(config);
-                        Type rType = pModule.GetType();
-                        if (rType != null)
-                        {
-                            MethodInfo loadProp = rType.GetMethod("LoadPropellants", BindingFlags.Public | BindingFlags.Instance);
-                            if (loadProp != null)
-                                loadProp.Invoke(pModule, new object[] { config });
-                        }
-                    }
-                }*/
                 else
                 { // is an ENGINE
                     if (type.Equals("ModuleEngines"))
@@ -1774,10 +1757,7 @@ namespace RealFuels
                     {
                         float multiplier = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
                         if (useThrustCurve)
-                        {
-                            
                             multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
-                        }
                         float realIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                         multiplier = realIsp * ispVMult / multiplier;
                         engine.maxThrust = configMaxThrust * multiplier;
@@ -1802,10 +1782,7 @@ namespace RealFuels
                     {
                         float multiplier = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
                         if (useThrustCurve)
-                        {
-
                             multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
-                        }
                         float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                         multiplier = frameIsp * ispVMult / multiplier;
 
@@ -1825,12 +1802,11 @@ namespace RealFuels
                 if ((object)config != null && (object)engine != null && engine.realISP > 0)
                 {
                     float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
-                    float multiplier = frameIsp / engine.atmosphereCurve.Evaluate(0);
+                    float multiplier = 1.0f;
+                    if(fastType != ModuleType.MODULERCSFX) // done in the module
+                        multiplier = frameIsp / engine.atmosphereCurve.Evaluate(0);
                     if (useThrustCurve)
-                    {
-
                         multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
-                    }
                     engine.thrusterPower = configMaxThrust * multiplier;
                 }
             }

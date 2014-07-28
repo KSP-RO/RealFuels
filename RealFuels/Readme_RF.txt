@@ -40,6 +40,11 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v7.2
+*Fix bug with auto-rescaling of solid fuel resources.
+*aristurtle: add support for 5m KW tanks
+*Add back ModuleRCSFX support
+
 v7.1 \/
 *Update to KSP 0.24.2
 
