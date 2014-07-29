@@ -1496,6 +1496,10 @@ namespace RealFuels
                             rcs.resourceName = resource;
                         }*/
                         DoConfig(config);
+                        if (config.HasNode("PROPELLANT"))
+                        {
+                            rcs.propellants.Clear();
+                        }
                         pModule.Load(config);
                         /*if (oldRes)
                         {
@@ -1504,7 +1508,7 @@ namespace RealFuels
                         }*/
                         // PROPELLANT handling is automatic.
                         fastRCS = rcs;
-                        if(type.Equals("ModuleRCS"))
+                        if(type.Equals("ModuleRCS") && !part.Modules.Contains("ModuleRCSFX"))
                             fastType = ModuleType.MODULERCS;
                         else
                             fastType = ModuleType.MODULERCSFX;
@@ -1522,6 +1526,10 @@ namespace RealFuels
                             fastEngines = mE;
                             fastType = ModuleType.MODULEENGINES;
                             mE.g = 9.80665f;
+                            if (config.HasNode("PROPELLANT"))
+                            {
+                                mE.propellants.Clear();
+                            }
                         }
                         if (config.HasValue("maxThrust"))
                         {
@@ -1546,6 +1554,10 @@ namespace RealFuels
                             fastEnginesFX = mE;
                             fastType = ModuleType.MODULEENGINESFX;
                             mE.g = 9.80665f;
+                            if (config.HasNode("PROPELLANT"))
+                            {
+                                mE.propellants.Clear();
+                            }
                         }
                         if (config.HasValue("maxThrust"))
                         {
@@ -1801,10 +1813,9 @@ namespace RealFuels
                 ModuleRCS engine = fastRCS;
                 if ((object)config != null && (object)engine != null && engine.realISP > 0)
                 {
-                    float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                     float multiplier = 1.0f;
-                    if(fastType != ModuleType.MODULERCSFX) // done in the module
-                        multiplier = frameIsp / engine.atmosphereCurve.Evaluate(0);
+                    if(fastType != ModuleType.MODULERCSFX) // done in the module for MRCSFX
+                        multiplier = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure) / engine.atmosphereCurve.Evaluate(0);
                     if (useThrustCurve)
                         multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
                     engine.thrusterPower = configMaxThrust * multiplier;
