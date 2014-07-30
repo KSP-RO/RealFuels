@@ -391,7 +391,7 @@ namespace RealFuels
                     return;
                 foreach (ConfigNode tankNode in node.GetNodes("TANK"))
                 {
-                    Add(new FuelTank(tankNode));
+                        Add(new FuelTank(tankNode));
                 }
             }
 
@@ -1169,142 +1169,156 @@ namespace RealFuels
 
         private void GUITanks()
         {
-            foreach (FuelTank tank in tankList)
+            try
             {
-                GUILayout.BeginHorizontal();
-                GUILayout.Label(" " + tank, GUILayout.Width(120));
-
-
-
-                // So our states here are:
-                //   Not being edited currently(empty):    maxAmountExpression = null, maxAmount = 0
-                //   Have updated the field, no user edit: maxAmountExpression == maxAmount.ToStringExt
-                //   Other non UI updated maxAmount:       maxAmountExpression = null(set), maxAmount = non-zero
-                //   User has updated the field:           maxAmountExpression != null, maxAmountExpression != maxAmount.ToStringExt
-
-                if (part.Resources.Contains(tank.name) && part.Resources[tank.name].maxAmount > 0)
+                foreach (FuelTank tank in tankList)
                 {
-                    GUILayout.Label(" ", GUILayout.Width(5));
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label(" " + tank, GUILayout.Width(120));
 
-                    GUIStyle style = unchanged;
-                    if (tank.maxAmountExpression == null)
+
+
+                    // So our states here are:
+                    //   Not being edited currently(empty):    maxAmountExpression = null, maxAmount = 0
+                    //   Have updated the field, no user edit: maxAmountExpression == maxAmount.ToStringExt
+                    //   Other non UI updated maxAmount:       maxAmountExpression = null(set), maxAmount = non-zero
+                    //   User has updated the field:           maxAmountExpression != null, maxAmountExpression != maxAmount.ToStringExt
+
+                    if (part.Resources.Contains(tank.name) && part.Resources[tank.name].maxAmount > 0)
                     {
-                        tank.maxAmountExpression = tank.maxAmount.ToString();
-                        //Debug.LogWarning("[MFT] Adding tank from API " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
-                    }
-                    else if (tank.maxAmountExpression.Length > 0 && tank.maxAmountExpression != tank.maxAmount.ToString())
-                    {
-                        style = changed;
-                    }
+                        GUILayout.Label(" ", GUILayout.Width(5));
 
-                    tank.maxAmountExpression = GUILayout.TextField(tank.maxAmountExpression, style, GUILayout.Width(140));
-
-                    if (GUILayout.Button("Update", GUILayout.Width(60)))
-                    {
-                        string trimmed = tank.maxAmountExpression.Trim();
-
-                        // TODO: Allow for expressions in mass, volume, or percentage
-#if false
+                        GUIStyle style = unchanged;
+                        if (tank.maxAmountExpression == null)
                         {
-                            char unit = 'L';
-                            if (trimmed.Length > 0)
-                                switch (unit = trimmed[trimmed.Length - 1])
-                                {
-                                    case 'l':
-                                    case 'L':
-                                        unit = 'L'; // Liters defaults to uppercase
-                                        trimmed = trimmed.Substring(0, trimmed.Length - 1);
-                                        break;
-                                    case 't':
-                                    case 'T':
-                                        unit = 't'; // Tons defaults to lowercase
-                                        trimmed = trimmed.Substring(0, trimmed.Length - 1);
-                                        break;
-                                    case 'g':
-                                        // Cannot use 'G' as collides with giga. And anyhow that would be daft.
-                                        trimmed = trimmed.Substring(0, trimmed.Length - 1);
-                                        break;
-                                }
+                            tank.maxAmountExpression = tank.maxAmount.ToString();
+                            //Debug.LogWarning("[MFT] Adding tank from API " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                         }
+                        else if (tank.maxAmountExpression.Length > 0 && tank.maxAmountExpression != tank.maxAmount.ToString())
+                        {
+                            style = changed;
+                        }
+
+                        tank.maxAmountExpression = GUILayout.TextField(tank.maxAmountExpression, style, GUILayout.Width(140));
+
+                        if (GUILayout.Button("Update", GUILayout.Width(60)))
+                        {
+                            string trimmed = tank.maxAmountExpression.Trim();
+
+                            // TODO: Allow for expressions in mass, volume, or percentage
+#if false
+                            {
+                                char unit = 'L';
+                                if (trimmed.Length > 0)
+                                    switch (unit = trimmed[trimmed.Length - 1])
+                                    {
+                                        case 'l':
+                                        case 'L':
+                                            unit = 'L'; // Liters defaults to uppercase
+                                            trimmed = trimmed.Substring(0, trimmed.Length - 1);
+                                            break;
+                                        case 't':
+                                        case 'T':
+                                            unit = 't'; // Tons defaults to lowercase
+                                            trimmed = trimmed.Substring(0, trimmed.Length - 1);
+                                            break;
+                                        case 'g':
+                                            // Cannot use 'G' as collides with giga. And anyhow that would be daft.
+                                            trimmed = trimmed.Substring(0, trimmed.Length - 1);
+                                            break;
+                                    }
+                            }
 #endif
 
-                        if (trimmed == "")
-                        {
-                            tank.maxAmount = 0;
-                            //Debug.LogWarning("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
-                        }
-                        else
-                        {
-                            double tmp;
-                            if (MathUtils.TryParseExt(trimmed, out tmp))
+                            if (trimmed == "")
                             {
-                                tank.maxAmount = tmp;
-                                
-                                if (tmp != 0)
+                                tank.maxAmount = 0;
+                                //Debug.LogWarning("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                            }
+                            else
+                            {
+                                double tmp;
+                                if (MathUtils.TryParseExt(trimmed, out tmp))
                                 {
-                                    tank.amount = tank.fillable ? tank.maxAmount : 0;
+                                    tank.maxAmount = tmp;
 
-                                    // Need to round-trip the value
-                                    tank.maxAmountExpression = tank.maxAmount.ToString();
-                                    //Debug.LogWarning("[MFT] Updating maxAmount " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                                    if (tmp != 0)
+                                    {
+                                        tank.amount = tank.fillable ? tank.maxAmount : 0;
+
+                                        // Need to round-trip the value
+                                        tank.maxAmountExpression = tank.maxAmount.ToString();
+                                        //Debug.LogWarning("[MFT] Updating maxAmount " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                                    }
                                 }
                             }
                         }
+                        if (GUILayout.Button("Remove", GUILayout.Width(60)))
+                        {
+                            tank.maxAmount = 0;
+                            //Debug.LogWarning("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                        }
                     }
-                    if (GUILayout.Button("Remove", GUILayout.Width(60)))
+                    else if (AvailableVolume >= 0.001)
                     {
-                        tank.maxAmount = 0;
-                        //Debug.LogWarning("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                        string extraData = "Max: " + (AvailableVolume * tank.utilization).ToStringExt("S3") + "L (+" + FormatMass((float)(AvailableVolume * tank.mass)) + " )";
+
+                        GUILayout.Label(extraData, GUILayout.Width(150));
+
+                        if (GUILayout.Button("Add", GUILayout.Width(130)))
+                        {
+                            tank.maxAmount = AvailableVolume * tank.utilization;
+                            tank.amount = tank.fillable ? tank.maxAmount : 0;
+
+                            tank.maxAmountExpression = tank.maxAmount.ToString();
+                            //Debug.LogWarning("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
+                        }
                     }
-                }
-                else if (AvailableVolume >= 0.001)
-                {
-                    string extraData = "Max: " + (AvailableVolume * tank.utilization).ToStringExt("S3") + "L (+" + FormatMass((float)(AvailableVolume * tank.mass)) + " )";
-
-                    GUILayout.Label(extraData, GUILayout.Width(150));
-
-                    if (GUILayout.Button("Add", GUILayout.Width(130)))
+                    else
                     {
-                        tank.maxAmount = AvailableVolume * tank.utilization;
-                        tank.amount = tank.fillable ? tank.maxAmount : 0;
+                        GUILayout.Label("  No room for tank.", GUILayout.Width(150));
 
-                        tank.maxAmountExpression = tank.maxAmount.ToString();
-                        //Debug.LogWarning("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
                     }
+                    GUILayout.EndHorizontal();
                 }
-                else
-                {
-                    GUILayout.Label("  No room for tank.", GUILayout.Width(150));
 
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("Remove All Tanks"))
+                {
+                    Empty();
                 }
                 GUILayout.EndHorizontal();
             }
-
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Remove All Tanks"))
+            catch (Exception e)
             {
-                Empty();
+                print("RF GUITanks exception " + e);
             }
-            GUILayout.EndHorizontal();
         }
 
         private void GUIEngines()
         {
-            if (usedBy.Count > 0 && AvailableVolume >= 0.001)
+            try
             {
-                GUILayout.BeginHorizontal();
-                GUILayout.Label("Configure remaining volume for " + engineCount + " engines:");
-                GUILayout.EndHorizontal();
-
-                foreach (FuelInfo info in usedBy.Values)
+                if (usedBy.Count > 0 && AvailableVolume >= 0.001)
                 {
                     GUILayout.BeginHorizontal();
-                    if (GUILayout.Button(new GUIContent(info.Label, info.names)))
-                    {
-                        ConfigureFor(info);
-                    }
+                    GUILayout.Label("Configure remaining volume for " + engineCount + " engines:");
                     GUILayout.EndHorizontal();
+
+                    foreach (FuelInfo info in usedBy.Values)
+                    {
+                        GUILayout.BeginHorizontal();
+                        if (GUILayout.Button(new GUIContent(info.Label, info.names)))
+                        {
+                            ConfigureFor(info);
+                        }
+                        GUILayout.EndHorizontal();
+                    }
                 }
+            }
+            catch (Exception e)
+            {
+                print("RF GUIEngines exception " + e);
             }
         }
 
