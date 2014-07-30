@@ -1781,7 +1781,7 @@ namespace RealFuels
                         }
                         if (localCorrectThrust && correctThrust)
                         {
-                            float refIsp = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                            float refIsp = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) / ispVMult * engine.atmosphereCurve.Evaluate(0);
                             float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                             multiplier *= frameIsp / refIsp;
                         }
@@ -1814,7 +1814,7 @@ namespace RealFuels
                         }
                         if (localCorrectThrust && correctThrust)
                         {
-                            float refIsp = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                            float refIsp = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) / ispVMult * engine.atmosphereCurve.Evaluate(0);
                             float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                             multiplier *= frameIsp / refIsp;
                         }
@@ -1843,7 +1843,7 @@ namespace RealFuels
                     }
                     if (fastType != ModuleType.MODULERCSFX && localCorrectThrust && correctThrust)
                     {
-                        float refIsp = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
+                        float refIsp = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) / ispVMult * engine.atmosphereCurve.Evaluate(0);
                         float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                         multiplier *= frameIsp / refIsp;
                     }
