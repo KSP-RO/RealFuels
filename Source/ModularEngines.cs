@@ -615,6 +615,8 @@ namespace RealFuels
         public FloatCurve configThrustCurve = null;
         public string curveResource = "";
         public int curveProp = -1;
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "% Rated Thrust", guiUnits = "%", guiFormat = "F3")]
+        public float thrustCurveDisplay = 0f;
 
         // *NEW* TL Handling
         public class TechLevel
@@ -1621,6 +1623,7 @@ namespace RealFuels
                 UpdateTweakableMenu();
                 // Check for and enable the thrust curve
                 useThrustCurve = false;
+                Fields["thrustCurveDisplay"].guiActive = true;
                 if (config.HasNode("thrustCurve") && config.HasValue("curveResource"))
                 {
                     curveResource = config.GetValue("curveResource");
@@ -1659,6 +1662,7 @@ namespace RealFuels
                             configThrustCurve = new FloatCurve();
                             configThrustCurve.Load(config.GetNode("thrustCurve"));
                             print("*RF* Found thrust curve for " + part.name + ", current ratio " + ratio + ", curve: " + configThrustCurve.Evaluate((float)ratio));
+                            Fields["thrustCurveDisplay"].guiActive = true;
                         }
                         
                     }
@@ -1769,7 +1773,10 @@ namespace RealFuels
                     {
                         float multiplier = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
                         if (useThrustCurve)
-                            multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
+                        {
+                            thrustCurveDisplay = configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
+                            multiplier *= thrustCurveDisplay;
+                        }
                         float realIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                         multiplier = realIsp * ispVMult / multiplier;
                         engine.maxThrust = configMaxThrust * multiplier;
@@ -1794,7 +1801,10 @@ namespace RealFuels
                     {
                         float multiplier = Mathf.Lerp(ispVMult, ispSLMult, (float)part.vessel.staticPressure) * engine.atmosphereCurve.Evaluate(0);
                         if (useThrustCurve)
-                            multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
+                        {
+                            thrustCurveDisplay = configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
+                            multiplier *= thrustCurveDisplay;
+                        }
                         float frameIsp = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure);
                         multiplier = frameIsp * ispVMult / multiplier;
 
@@ -1817,7 +1827,10 @@ namespace RealFuels
                     if(fastType != ModuleType.MODULERCSFX) // done in the module for MRCSFX
                         multiplier = engine.atmosphereCurve.Evaluate((float)vessel.staticPressure) / engine.atmosphereCurve.Evaluate(0);
                     if (useThrustCurve)
-                        multiplier *= configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
+                    {
+                        thrustCurveDisplay = configThrustCurve.Evaluate((float)(engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
+                        multiplier *= thrustCurveDisplay;
+                    }
                     engine.thrusterPower = configMaxThrust * multiplier;
                 }
             }
