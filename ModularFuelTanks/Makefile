@@ -5,29 +5,15 @@ MODGAMEDATA	:= ${GAMEDATA}/ModularFuelTanks
 PLUGINDIR	:= ${MODGAMEDATA}/Plugins
 APIEXTDATA	:= ${PLUGINDIR}
 
-TARGETS		:= modularFuelTanks.dll
-
-MFT_FILES := \
-    AssemblyInfoMFT.cs			\
-    HeatPump.cs					\
-    ModularFuelTanks.cs			\
-    ModularFuelPartModule.cs	\
-    RefuelingPump.cs			\
-	MFSSettings.cs				\
-	VersionReport.cs			\
-	$e
-
 RESGEN2	:= resgen2
 GMCS	:= gmcs
 GIT		:= git
 TAR		:= tar
 ZIP		:= zip
 
-all: version ${TARGETS}
+all:
 
-.PHONY: version
-version:
-	@./git-version.sh
+clean:
 
 info:
 	@echo "Modular Fuel Tanks Build Information"
@@ -39,17 +25,8 @@ info:
 	@echo "    KSP Data: ${KSPDIR}"
 	@echo "    Plugin:   ${PLUGINDIR}"
 
-modularFuelTanks.dll: ${MFT_FILES}
-	${GMCS} -t:library -lib:${APIEXTDATA},${MANAGED} \
-		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
-		-r:KSPAPIExtensions \
-		-out:$@ $^
-
-clean:
-	rm -f ${TARGETS} AssemblyInfoMFT.cs
-
 install: all
-	mkdir -p ${PLUGINDIR}
-	cp ${TARGETS} ${PLUGINDIR}
+	mkdir -p ${MODGAMEDATA}
+	cp -a *.cfg Resources ${MODGAMEDATA}
 
 .PHONY: all clean info install
