@@ -62,8 +62,8 @@
     <Compile Include="VersionReport.cs" />
   </ItemGroup>
   <PropertyGroup>
-    <PreBuildEvent>rem cd $(ProjectDir)
-rem sh git-version.sh
+    <PreBuildEvent>cd $(ProjectDir)
+sh git-version.sh
 del KSPAPIExtensions.dll</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
