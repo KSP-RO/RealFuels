@@ -62,9 +62,9 @@
     <Compile Include="VersionReport.cs" />
   </ItemGroup>
   <PropertyGroup>
-    <PreBuildEvent>cd $(ProjectDir)
-sh git-version.sh
-del KSPAPIExtensions.dll</PreBuildEvent>
+    <PreBuildEvent>del KSPAPIExtensions.dll
+cd $(ProjectDir)
+sh git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>rem copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
