@@ -610,6 +610,7 @@ namespace RealFuels
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
         public float configMassMult = 1.0f;
+        public float configHeat = 0.0f;
 
         public bool useThrustCurve = false;
         public FloatCurve configThrustCurve = null;
@@ -617,7 +618,7 @@ namespace RealFuels
         public int curveProp = -1;
         [KSPField(isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "% Rated Thrust", guiUnits = "%", guiFormat = "F3")]
         public float thrustCurveDisplay = 100f;
-        [KSPField(isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "% Rated Thrust", guiUnits = "%", guiFormat = "F3")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
         public float thrustCurveRatio = 1f;
 
         // *NEW* TL Handling
@@ -1318,6 +1319,14 @@ namespace RealFuels
                 heat = (float)Math.Round(float.Parse(cfg.GetValue("heatProduction")) * heatMult, 0);
                 cfg.SetValue("heatProduction", heat.ToString());
             }
+
+            // load throttle (for later)
+            curThrottle = throttle;
+            if (cfg.HasValue("throttle"))
+                float.TryParse(cfg.GetValue("throttle"), out curThrottle);
+            else if(cfg.HasValue("minThrust") && cfg.HasValue("maxThrust"))
+                curThrottle = float.Parse(cfg.GetValue("minThrust")) / float.Parse(cfg.GetValue("maxThrust"));
+            float TLMassMult = 1.0f;
             if (techLevel != -1)
             {
                 // load techlevels
@@ -1336,8 +1345,6 @@ namespace RealFuels
                     float ispSL, ispV;
                     float.TryParse(cfg.GetValue("IspSL"), out ispSL);
                     float.TryParse(cfg.GetValue("IspV"), out ispV);
-                    ispSL *= ispSLMult;
-                    ispV *= ispVMult;
                     FloatCurve aC = new FloatCurve();
                     aC = Mod(cTL.atmosphereCurve, ispSL, ispV);
                     aC.Save(curve);
@@ -1350,11 +1357,6 @@ namespace RealFuels
                     cfg.SetValue("heatProduction", MassTL(heat).ToString("0"));
                     part.heatDissipation = 0.12f / MassTL(1.0f);
                 }
-
-                // load throttle (for later)
-                curThrottle = throttle;
-                if(cfg.HasValue("throttle"))
-                    float.TryParse(cfg.GetValue("throttle"), out curThrottle);
 
                 // set thrust and throttle
                 if (cfg.HasValue(thrustRating))
@@ -1394,19 +1396,39 @@ namespace RealFuels
                         }
                     }
                     curThrottle = configMinThrust / configMaxThrust;
+                    if(origMass > 0)
+                         TLMassMult =  MassTL(1.0f);
                 }
-
-                // mass change
-                if (origMass > 0)
+            }
+            else
+            {
+                if(cfg.HasValue(thrustRating) && curThrottle > 0f && !cfg.HasValue("minThrust"))
                 {
-                    float ftmp;
-                    configMassMult = 1.0f;
-                    if (cfg.HasValue("massMult"))
-                        if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
-                            configMassMult = ftmp;
-
-                    part.mass = MassTL(origMass * configMassMult * massMult);
+                    configMinThrust = curThrottle * float.Parse(cfg.GetValue(thrustRating));
+                    cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"));
                 }
+            }
+            // mass change
+            if (origMass > 0)
+            {
+                float ftmp;
+                configMassMult = 1.0f;
+                if (cfg.HasValue("massMult"))
+                    if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
+                        configMassMult = ftmp;
+
+                part.mass = origMass * configMassMult * massMult * TLMassMult;
+            }
+            // KIDS integration
+            if(cfg.HasNode("atmosphereCurve"))
+            {
+                ConfigNode newCurveNode = new ConfigNode("atmosphereCurve");
+                FloatCurve oldCurve = new FloatCurve();
+                oldCurve.Load(cfg.GetNode("atmosphereCurve"));
+                FloatCurve newCurve = Mod(oldCurve, ispSLMult, ispVMult);
+                newCurve.Save(newCurveNode);
+                cfg.RemoveNode("atmosphereCurve");
+                cfg.AddNode(newCurveNode);
             }
         }
 
@@ -1625,7 +1647,7 @@ namespace RealFuels
                 UpdateTweakableMenu();
                 // Check for and enable the thrust curve
                 useThrustCurve = false;
-                //Fields["thrustCurveDisplay"].guiActive = true;
+                Fields["thrustCurveDisplay"].guiActive = false;
                 if (config.HasNode("thrustCurve") && config.HasValue("curveResource"))
                 {
                     curveResource = config.GetValue("curveResource");
@@ -1635,6 +1657,7 @@ namespace RealFuels
                         switch (fastType)
                         {
                             case ModuleType.MODULEENGINES:
+                                configHeat = fastEngines.heatProduction;
                                 for (int i = 0; i < fastEngines.propellants.Count; i++ )
                                     if (fastEngines.propellants[i].name.Equals(curveResource))
                                         curveProp = i;
@@ -1643,6 +1666,7 @@ namespace RealFuels
                                 break;
 
                             case ModuleType.MODULEENGINESFX:
+                                configHeat = fastEnginesFX.heatProduction;
                                 for (int i = 0; i < fastEnginesFX.propellants.Count; i++)
                                     if (fastEnginesFX.propellants[i].name.Equals(curveResource))
                                         curveProp = i;
@@ -1663,8 +1687,8 @@ namespace RealFuels
                             useThrustCurve = true;
                             configThrustCurve = new FloatCurve();
                             configThrustCurve.Load(config.GetNode("thrustCurve"));
-                            print("*RF* Found thrust curve for " + part.name + ", current ratio " + ratio + ", curve: " + configThrustCurve.Evaluate((float)ratio));
-                            //Fields["thrustCurveDisplay"].guiActive = true;
+                            print("*RF* Found thrust curve for " + part.name);
+                            Fields["thrustCurveDisplay"].guiActive = true;
                         }
                         
                     }
@@ -1748,6 +1772,13 @@ namespace RealFuels
             SetConfiguration (configuration);
             if (part.Modules.Contains("ModuleEngineIgnitor"))
                 part.Modules["ModuleEngineIgnitor"].OnStart(state);
+            if (state != StartState.Editor && type.Contains("ModuleEngines"))
+            {
+                if (part.Modules.Contains("ModuleEngines"))
+                    ((ModuleEngines)part.Modules["ModuleEngines"]).minThrust = 0f;
+                else if (part.Modules.Contains("ModuleEnginesFX"))
+                    ((ModuleEnginesFX)part.Modules["ModuleEnginesFX"]).minThrust = 0f;
+            }
         }
 
         public override void OnInitialize()
@@ -1776,8 +1807,10 @@ namespace RealFuels
                         if (useThrustCurve)
                         {
                             thrustCurveRatio = (float)((engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
-                            thrustCurveDisplay = configThrustCurve.Evaluate(thrustCurveRatio)*100f;
-                            multiplier *= (thrustCurveDisplay*0.01f);
+                            thrustCurveDisplay = configThrustCurve.Evaluate(thrustCurveRatio);
+                            multiplier *= thrustCurveDisplay;
+                            engine.heatProduction = configHeat * thrustCurveDisplay;
+                            thrustCurveDisplay *= 100f;
                         }
                         if (localCorrectThrust && correctThrust)
                         {
@@ -1809,8 +1842,10 @@ namespace RealFuels
                         if (useThrustCurve)
                         {
                             thrustCurveRatio = (float)((engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
-                            thrustCurveDisplay = configThrustCurve.Evaluate(thrustCurveRatio) * 100f;
-                            multiplier *= (thrustCurveDisplay * 0.01f);
+                            thrustCurveDisplay = configThrustCurve.Evaluate(thrustCurveRatio);
+                            multiplier *= thrustCurveDisplay;
+                            engine.heatProduction = configHeat * thrustCurveDisplay;
+                            thrustCurveDisplay *= 100f;
                         }
                         if (localCorrectThrust && correctThrust)
                         {
@@ -1838,8 +1873,9 @@ namespace RealFuels
                     if (useThrustCurve)
                     {
                         thrustCurveRatio = (float)((engine.propellants[curveProp].totalResourceAvailable / engine.propellants[curveProp].totalResourceCapacity));
-                        thrustCurveDisplay = configThrustCurve.Evaluate(thrustCurveRatio)*100f;
-                        multiplier *= (thrustCurveDisplay*0.01f);
+                        thrustCurveDisplay = configThrustCurve.Evaluate(thrustCurveRatio);
+                        multiplier *= thrustCurveDisplay;
+                        thrustCurveDisplay *= 100f;
                     }
                     if (fastType != ModuleType.MODULERCSFX && localCorrectThrust && correctThrust)
                     {
