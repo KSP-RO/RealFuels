@@ -1435,7 +1435,7 @@ namespace RealFuels
                         {
                             if (label.Length > 0)
                                 label += " / ";
-                            label += Math.Round(100 * tfuel.ratio / ratioFactor, 0) + "% " + tfuel.name;
+                            label += Math.Round(100000 * tfuel.ratio / ratioFactor, 0)*0.001 + "% " + tfuel.name;
                         }
                     }
                     return label;
@@ -1459,6 +1459,16 @@ namespace RealFuels
                 else if (engine.Modules.Contains("ModuleEngines"))
                 {
                     ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
+                    propellants = e.propellants;
+                }
+                else if (engine.Modules.Contains("ModuleRCSFX"))
+                {
+                    ModuleRCS e = (ModuleRCS)engine.Modules["ModuleRCSFX"];
+                    propellants = e.propellants;
+                }
+                else if (engine.Modules.Contains("ModuleRCS"))
+                {
+                    ModuleRCS e = (ModuleRCS)engine.Modules["ModuleRCS"];
                     propellants = e.propellants;
                 }
 
@@ -1521,7 +1531,7 @@ namespace RealFuels
             while (ppart.parent != null && ppart.parent != ppart)
                 ppart = ppart.parent;
 
-            return new List<Part>(ppart.FindChildParts<Part>(true)).FindAll(p => (p.Modules.Contains("ModuleEngines") || p.Modules.Contains("ModuleEnginesFX")));
+            return new List<Part>(ppart.FindChildParts<Part>(true)).FindAll(p => (p.Modules.Contains("ModuleEngines") || p.Modules.Contains("ModuleEnginesFX") || p.Modules.Contains("ModuleRCSFX") || p.Modules.Contains("ModuleRCS")));
         }
 
         #endregion
