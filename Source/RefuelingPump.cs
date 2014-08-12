@@ -11,7 +11,7 @@ namespace RealFuels
     public class RefuelingPump : ModularFuelPartModule
     {
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Pump Enabled")]
-        bool enablePump = true;
+        bool enablePump = false;
 
         [KSPField(isPersistant = true)]
         double pump_rate = 100.0; // 100L/sec per resource
