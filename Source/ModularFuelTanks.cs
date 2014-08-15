@@ -1098,9 +1098,10 @@ namespace RealFuels
 
                     scrollPos = GUILayout.BeginScrollView(scrollPos);
 
+                    GUIEngines();
+
                     GUITanks();
 
-                    GUIEngines();
 
                     GUILayout.EndScrollView();
                     GUILayout.Label(MFSSettings.GetVersion());
