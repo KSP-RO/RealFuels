@@ -40,7 +40,18 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
-v7.2
+v7.3 \/
+*Change versioning to 0.x.y internally.
+*Only apply SF patch to parts with SolidFuel (less log spam)
+*Fixed KIDS interoperabilty
+*Fixed so that throttle and massMult work for CONFIGs that don't use techlevels.
+*thrustCurves now modify heat in proportion to thrust
+*Launch clamp refuel pumps default to off (note: the value is persistent, so if you have a saved craft from before this change, and it has clamps, they will still be defaulting to on).
+*aristurtle: fix bugs in HGR config, fix KW typos, add more KW tanks, add KSO tanks
+*Increase B9 spaceplane parts fuel capacity by 1.5x to bring them more in line with their physical volume, switch them to using Fuselage tank type
+*Fix right-click menu displays regarding rated thrust; now there is only one display, and it only shows up when there is a thrustCurve in use.
+
+v7.2 \/
 *Fix bug with auto-rescaling of solid fuel resources.
 *aristurtle: add support for 5m KW tanks
 *Add back ModuleRCSFX support (get ModuleRCSFX from Realism Overhaul)
