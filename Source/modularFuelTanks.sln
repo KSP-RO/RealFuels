@@ -1,7 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual C# Express 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "modularFuelTanks", "modularFuelTanks.csproj", "{0041813D-DCD1-4AC7-8327-85765BF924A3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TweakScale_ModularFuelTanks", "TweakScale_ModularFuelTanks.csproj", "{F8D41CCB-BF60-4E9F-946D-6E19D0260175}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,6 +17,13 @@ Global
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F8D41CCB-BF60-4E9F-946D-6E19D0260175}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F8D41CCB-BF60-4E9F-946D-6E19D0260175}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F8D41CCB-BF60-4E9F-946D-6E19D0260175}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F8D41CCB-BF60-4E9F-946D-6E19D0260175}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = modularFuelTanks.csproj
