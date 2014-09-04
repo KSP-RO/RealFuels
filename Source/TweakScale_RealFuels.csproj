@@ -32,17 +32,6 @@
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\KSP.app\Contents\Data\Managed\Assembly-CSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\KSP.app\Contents\Data\Managed\UnityEngine.dll</HintPath>
-    </Reference>
-    <Reference Include="Scale_Redist">
-      <HintPath>Scale_Redist.dll</HintPath>
-    </Reference>
-  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
     <Compile Include="TweakScale_ModularFuelSystem.cs" />
@@ -51,6 +40,21 @@
     <ProjectReference Include="RealFuels.csproj">
       <Project>{0041813d-dcd1-4ac7-8327-85765bf924a3}</Project>
       <Name>RealFuels</Name>
+      <Private>False</Private>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\..\..\..\..\Games\KSP_win64\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Scale">
+      <HintPath>..\..\..\..\..\..\Games\COM\GameData\TweakScale\plugins\Scale.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>..\..\..\..\..\..\Games\KSP_win64\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 </Project>
