@@ -581,6 +581,15 @@ namespace RealFuels
         [KSPField]
         public string type = "ModuleEngines";
 
+        [KSPField]
+        public string engineID = "";
+
+        [KSPField]
+        public int moduleIndex = -1;
+
+        [KSPField]
+        public int offsetGUIPos = -1;
+
         public ModuleType fastType = ModuleType.MODULEENGINES;
         public ModuleEngines fastEngines = null;
         public ModuleEnginesFX fastEnginesFX = null;
@@ -1076,6 +1085,10 @@ namespace RealFuels
         private string TLTInfo()
         {
             string retStr = "";
+            if (engineID != "")
+                retStr += "Bound to " + engineID;
+            if(moduleIndex >= 0)
+                retStr += "Bound to engine " + moduleIndex + " in part";
             if(techLevel != -1)
             {
                 retStr =  "Type: " + engineType + ". Tech Level: " + techLevel + " (" + origTechLevel + "-" + maxTechLevel + ")";
@@ -1201,15 +1214,19 @@ namespace RealFuels
             }
 
             Rect screenRect;
+            int posMult = 0;
+            if (offsetGUIPos != -1)
+                posMult = offsetGUIPos;
             if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
             {
-                bool mft = part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated;
+                if (offsetGUIPos == -1 && (part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated))
+                    posMult = 1;
 
-                screenRect = new Rect(mft ? 430 : 0, 365, 430, (Screen.height - 365)); // NK allow both MFT and MEC to work
+                screenRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
             }
             else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
             {
-                screenRect = new Rect(256, 365, 430, (Screen.height - 365));
+                screenRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
             }
             else
             {
@@ -1471,8 +1488,41 @@ namespace RealFuels
                 pModule = null;
                 if (part.Modules.Contains(type))
                 {
+                    if (type.Equals("ModuleEnginesFX"))
+                    {
+                        if (engineID != "")
+                        {
+                            foreach (ModuleEnginesFX mFX in part.Modules.OfType<ModuleEnginesFX>())
+                            {
+                                if (mFX.engineID.Equals(engineID))
+                                    pModule = (PartModule)mFX;
+                            }
+                        }
+                        else if (moduleIndex >= 0)
+                        {
+                            int tmpIdx = 0;
+                            pModule = null;
+                            foreach (PartModule pM in part.Modules)
+                            {
+                                if (pM.GetType().Equals(type))
+                                {
+                                    if (tmpIdx == moduleIndex)
+                                        pModule = pM;
+                                    tmpIdx++;
+                                }
+                            }
+                        }
+                        else
+                            pModule = part.Modules[type];
+                    }
+                    else
                         pModule = part.Modules[type];
 
+                    if ((object)pModule == null)
+                    {
+                        Debug.Log("*RF* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
+                        return;
+                    }
                     // clear all FloatCurves
                     Type mType = pModule.GetType();
                     foreach (FieldInfo field in mType.GetFields())

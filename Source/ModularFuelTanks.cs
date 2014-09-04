@@ -14,6 +14,9 @@ namespace RealFuels
     public class ModuleFuelTanks : ModularFuelPartModule
     {
         #region loading stuff from config files
+        
+        [KSPField]
+        public int offsetGUIPos = -1;
 
         private static float MassMult
         {
@@ -1049,15 +1052,18 @@ namespace RealFuels
 
             Rect screenRect;
             Rect tooltipRect;
+            int posMult = 0;
+            if (offsetGUIPos != -1)
+                posMult = offsetGUIPos;
             if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) 
             {
-                screenRect = new Rect(0, 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect(440, Screen.height - Input.mousePosition.y, 300, 20);
+                screenRect = new Rect(430 * posMult, 365, 438, (Screen.height - 365));
+                tooltipRect = new Rect(430 * posMult+10, Screen.height - Input.mousePosition.y, 300, 20);
             }
             else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
             {
-                screenRect = new Rect((Screen.width - 438), 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect(Screen.width - 660, Screen.height - Input.mousePosition.y, 220, 20);
+                screenRect = new Rect((Screen.width - 8 - 430 * (posMult+1)), 365, 438, (Screen.height - 365));
+                tooltipRect = new Rect(Screen.width - 230 - 430 * (posMult+1), Screen.height - Input.mousePosition.y, 220, 20);
             }
             else 
             {
