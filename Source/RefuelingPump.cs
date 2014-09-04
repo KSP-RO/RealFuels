@@ -53,7 +53,9 @@ namespace RealFuels
                     foreach (ModuleFuelTanks.FuelTank tank in m.tankList)
                     {
                         // if a tank isn't full, start filling it.
-                        if (tank.amount < tank.maxAmount && tank.fillable)
+                        PartResource r = tank.resource;
+                        PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(r.name);
+                        if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP)
                         {
                             tank.amount = tank.amount + deltaTime * pump_rate;
                         }
