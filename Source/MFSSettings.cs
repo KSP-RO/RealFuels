@@ -21,6 +21,9 @@ namespace RealFuels
         public float heatMultiplier = 1;
 
         [Persistent]
+        public float baseCostPV = 0.01f; // 0.01 * 1000 USD per liter
+
+        [Persistent]
         public float partUtilizationDefault = 86;
         [Persistent]
         public bool partUtilizationTweakable = false;

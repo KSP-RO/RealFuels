@@ -550,7 +550,7 @@ namespace RealFuels
 
     }
 
-    public class ModuleEngineConfigs : PartModule
+    public class ModuleEngineConfigs : PartModule, IPartCostModifier
     {
 
         [KSPField(isPersistant = true)]
@@ -620,6 +620,7 @@ namespace RealFuels
         public float configMinThrust = 0.0f;
         public float configMassMult = 1.0f;
         public float configHeat = 0.0f;
+        public float configCost = 0f;
 
         public bool useThrustCurve = false;
         public FloatCurve configThrustCurve = null;
@@ -968,7 +969,10 @@ namespace RealFuels
             }
         }
 
-
+        public float GetModuleCost()
+        {
+            return configCost;
+        }
 
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
@@ -1016,6 +1020,7 @@ namespace RealFuels
             else
                 heatMult = 1.0f;
         }
+
 
         public override void OnAwake ()
         {
@@ -1694,6 +1699,8 @@ namespace RealFuels
                     part.Resources["ElectricCharge"].amount = 0;
                     part.Resources["ElectricCharge"].maxAmount = 0.1;
                 }
+                if (config.HasValue("cost"))
+                    configCost = float.Parse(config.GetValue("cost"));
                 UpdateTweakableMenu();
                 // Check for and enable the thrust curve
                 useThrustCurve = false;

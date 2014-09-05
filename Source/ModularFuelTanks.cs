@@ -11,7 +11,7 @@ using KSPAPIExtensions.PartMessage;
 
 namespace RealFuels
 {
-    public class ModuleFuelTanks : ModularFuelPartModule
+    public class ModuleFuelTanks : ModularFuelPartModule, IPartCostModifier
     {
         #region loading stuff from config files
         
@@ -35,6 +35,14 @@ namespace RealFuels
         private static MFSSettings Settings
         {
             get { return MFSSettings.Instance; }
+        }
+
+        private static float BaseCostPV
+        {
+            get
+            {
+                return MFSSettings.Instance.baseCostPV;
+            }
         }
 
         #endregion
@@ -502,6 +510,24 @@ namespace RealFuels
             {
                 Debug.LogException(ex);
             }
+        }
+
+        public float GetModuleCost()
+        {
+            double cst = volume * BaseCostPV;
+            if ((object)(PartResourceLibrary.Instance) != null)
+            {
+                foreach (FuelTank t in tankList)
+                {
+                    if ((object)t.resource != null)
+                    {
+                        PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(t.resource.name);
+                        if ((object)d != null)
+                            cst += t.maxAmount * d.unitCost;
+                    }
+                }
+            }
+            return (float)cst;
         }
 
         public override string GetInfo()
