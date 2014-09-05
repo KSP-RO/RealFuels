@@ -482,6 +482,7 @@ namespace RealFuels
                         LoadTankListOverridesInLoading(node);
 
                         ParseBasemass(node);
+                        ParseBaseCost(node);
 
                         typesAvailable = node.GetValues("typeAvailable");
                     }
@@ -904,6 +905,8 @@ namespace RealFuels
 
         private void ParseBaseCost(string baseCost)
         {
+            if (baseCost == null)
+                baseCost = "";
             if (baseCost.Contains("*") && baseCost.Contains("volume"))
             {
                 if (float.TryParse(baseCost.Replace("volume", "").Replace("*", "").Trim(), out baseCostPV))
@@ -920,8 +923,10 @@ namespace RealFuels
             }
             if (baseCost != "")
                 Debug.LogWarning("[MFT] Unable to parse baseCost \"" + baseCost + "\"");
-            else
+            else if ((object)MFSSettings.Instance != null)
                 baseCostPV = MFSSettings.Instance.baseCostPV;
+            else
+                baseCostPV = 0.01f;
         }
 
         public void CalculateMass()

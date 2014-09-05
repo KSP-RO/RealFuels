@@ -8,7 +8,7 @@
     <ProjectGuid>{F2B85F9A-6E39-4525-B31F-A3D764DE28D0}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>RealFuels</RootNamespace>
-    <AssemblyName>RealFuels</AssemblyName>
+    <AssemblyName>TweakScale_RealFuels</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -48,8 +48,8 @@
       <HintPath>..\..\..\..\..\..\Games\KSP_win64\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Scale">
-      <HintPath>..\..\..\..\..\..\Games\COM\GameData\TweakScale\plugins\Scale.dll</HintPath>
+    <Reference Include="Scale_Redist">
+      <HintPath>..\..\..\..\..\..\Games\COM\GameData\TweakScale\plugins\Scale_Redist.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
