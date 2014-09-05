@@ -102,6 +102,9 @@ namespace RealFuels
             [Persistent]
             public string basemass;
 
+            [Persistent]
+            public string baseCost;
+
             public ModuleFuelTanks.FuelTankList tankList = new ModuleFuelTanks.FuelTankList();
 
             public TankDefinition() { }

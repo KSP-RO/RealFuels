@@ -37,7 +37,7 @@ namespace RealFuels
             get { return MFSSettings.Instance; }
         }
 
-        private static float BaseCostPV
+        private static float defaultBaseCostPV
         {
             get
             {
@@ -66,6 +66,8 @@ namespace RealFuels
             public float utilization = 1.0f;
             [Persistent]
             public float mass = 0.0f;
+            [Persistent]
+            public float cost = 0.0f;
             [Persistent]
             public double loss_rate = 0.0;
             [Persistent]
@@ -512,24 +514,6 @@ namespace RealFuels
             }
         }
 
-        public float GetModuleCost()
-        {
-            double cst = volume * BaseCostPV;
-            if ((object)(PartResourceLibrary.Instance) != null)
-            {
-                foreach (FuelTank t in tankList)
-                {
-                    if ((object)t.resource != null)
-                    {
-                        PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(t.resource.name);
-                        if ((object)d != null)
-                            cst += t.maxAmount * d.unitCost;
-                    }
-                }
-            }
-            return (float)cst;
-        }
-
         public override string GetInfo()
         {
             try
@@ -741,6 +725,8 @@ namespace RealFuels
             // Update the basemass
             if (!basemassOverride)
                 ParseBasemass(def.basemass);
+            if (!baseCostOverride)
+                ParseBaseCost(def.baseCost);
 
             if (GameSceneFilter.Loading.IsLoaded())
                 return;
@@ -861,8 +847,11 @@ namespace RealFuels
 
         // public so they copy
         public bool basemassOverride;
+        public bool baseCostOverride;
         public float basemassPV;
+        public float baseCostPV;
         public float basemassConst;
+        public float baseCostConst;
 
         [PartMessageEvent]
         public event PartMassChanged MassChanged;
@@ -901,6 +890,38 @@ namespace RealFuels
                 return;
             }
             Debug.LogWarning("[MFT] Unable to parse basemass \"" + baseMass + "\"");
+        }
+
+        private void ParseBaseCost(ConfigNode node)
+        {
+            if (!node.HasValue("baseCost"))
+                return;
+
+            string baseCost = node.GetValue("baseCost");
+            ParseBaseCost(baseCost);
+            baseCostOverride = true;
+        }
+
+        private void ParseBaseCost(string baseCost)
+        {
+            if (baseCost.Contains("*") && baseCost.Contains("volume"))
+            {
+                if (float.TryParse(baseCost.Replace("volume", "").Replace("*", "").Trim(), out baseCostPV))
+                {
+                    baseCostConst = 0;
+                    return;
+                }
+            }
+            else if (float.TryParse(baseCost.Trim(), out baseCostPV))
+            {
+                baseCostPV = (float)(baseCostPV / volume);
+                baseCostConst = 0;
+                return;
+            }
+            if (baseCost != "")
+                Debug.LogWarning("[MFT] Unable to parse baseCost \"" + baseCost + "\"");
+            else
+                baseCostPV = MFSSettings.Instance.baseCostPV;
         }
 
         public void CalculateMass()
@@ -945,6 +966,28 @@ namespace RealFuels
 
                 UpdateTweakableMenu();
             }
+        }
+
+        public float GetModuleCost()
+        {
+            double cst = 0;
+            if (baseCostPV >= 0)
+            {
+                cst = volume * baseCostPV;
+                if ((object)(PartResourceLibrary.Instance) != null && (object)tankList != null)
+                {
+                    foreach (FuelTank t in tankList)
+                    {
+                        if ((object)t.resource != null)
+                        {
+                            PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(t.resource.name);
+                            if ((object)d != null)
+                                cst += t.maxAmount / t.utilization * (d.unitCost + t.cost);
+                        }
+                    }
+                }
+            }
+            return (float)cst;
         }
 
         #endregion
