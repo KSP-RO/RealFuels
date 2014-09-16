@@ -63,7 +63,22 @@ namespace RealFuels
 						}
                         if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP)
                         {
-                            tank.amount = tank.amount + deltaTime * pump_rate;
+							double amount = deltaTime * pump_rate;
+							var game = HighLogic.CurrentGame;
+
+							if (d.unitCost > 0 && game.Mode == Game.Modes.CAREER && Funding.Instance != null) {
+								double funds = Funding.Instance.Funds;
+								double cost = amount * d.unitCost;
+								if (cost > funds)
+								{
+									amount = funds / d.unitCost;
+									funds = 0;
+								} else {
+									funds -= cost;
+								}
+								Funding.Instance.Funds = funds;
+							}
+                            tank.amount = tank.amount + amount;
                         }
                     }
                 }
