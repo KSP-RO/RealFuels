@@ -164,7 +164,7 @@ v4.3 = \/
 *Fixed big bug with useRealisticMass (mass multiplier was never used!).
 *Non-SM, Non-RCS tanks can no longer hold monopropellant.
 *Pressurized tanks (i.e. SM) now properly note they are pressurized.
-*Fixed issue with TL0 Isp. It was too low (due to my having created techlevels before I added alcohol, and stupidly used alcohol/LOx Isp for TL0 kerolox Isp). This means, however, that upgrading TL0 engines no longer delivers quite the increase in thrust it used to.
+*Fixed issue with TL0 Isp. It was too low (due to my having created techlevels before I added Ethanol75, and stupidly used Ethanol75/LOx Isp for TL0 kerolox Isp). This means, however, that upgrading TL0 engines no longer delivers quite the increase in thrust it used to.
 *Lowered U+ TWR slightly to better accord with real turbopump-fed vacuum engines.
 *Fixed sign error in ignitionsAvailable
 
@@ -236,7 +236,7 @@ v3.1 = \/
 *Internal tweaks
 *Added localCorrectThrust, in the ModuleEngineConfigs module. Set to false if MFS should not alter thrust due to Isp change (like for jets).
 *Added useConfigAsTitle. Will change part title to config name when setting configuration, if true.
-*Added new resources: UDMH (same as monopropellant but set to STACK_PRIORITY_SEARCH not ALL_VESSEL), Hydrazine, Aerozine, and Methane.
+*Added new resources: UDMH (same as monopropellant but set to STACK_PRIORITY_SEARCH not ALL_VESSEL), Hydrazine, Aerozine50, and Methane.
 
 v3 === \/
 *Finally put back stock masses and thrusts (well, in 99.9% of cases) for all engines. Some had to be tweaked ever-so-slightly as they were balance-breakers.
@@ -296,11 +296,11 @@ FUEL MIXTURES
 
 *Liquid Methane and LOx is midway between RP-1/LOx and LH2/LOx: lower performance than hydrolox but denser, and less cryogenic.
 
-*Various hypergolics. They are various nitrogen-based storable (but highly toxic) liquid fuels. They perform less well than RP-1/LOx (about 95% the specific impulse for modern hypergolics), but are slightly denser and non-cryogenic: they can be stored for months at a time. Given their advantage in density, in actual use they are better than 95% as efficient--tankage for them masses much less. Further, another key advantage is that they do not need ignition: hypergolic means that if the two substances are put in contact, they will burn with no outside trigger. N2O4 is the highest-performing oxidizer; MMH and Aerozine-50 are the highest-performing fuels (UDMH is more stable but has slightly worse performance). Other oxidizers (Nitric Acid, Nitrous Oxide) have lower performance, especially when used with a mixture of Amines rather than a hydrazine derivative like MMH, AZ50, or UDMH. N2O4 and MMH (or another fuel) is often used for high-performance bipropellant RCS (Gemini, Apollo, Shuttle, etc.).
+*Various hypergolics. They are various nitrogen-based storable (but highly toxic) liquid fuels. They perform less well than RP-1/LOx (about 95% the specific impulse for modern hypergolics), but are slightly denser and non-cryogenic: they can be stored for months at a time. Given their advantage in density, in actual use they are better than 95% as efficient--tankage for them masses much less. Further, another key advantage is that they do not need ignition: hypergolic means that if the two substances are put in contact, they will burn with no outside trigger. NTO is the highest-performing oxidizer; MMH and Aerozine50-50 are the highest-performing fuels (UDMH is more stable but has slightly worse performance). Other oxidizers (Nitric Acid, Nitrous Oxide) have lower performance, especially when used with a mixture of Aniline rather than a hydrazine derivative like MMH, AZ50, or UDMH. NTO and MMH (or another fuel) is often used for high-performance bipropellant RCS (Gemini, Apollo, Shuttle, etc.).
 
 *Kerosene and Hight-Test Peroxide is hypergolic when the HTP is heated and run over a catalyst bed. It's storable, non-toxic, very dense, but has lower performance than kerolox.
 
-*Alcohol (75% Ethanol, 25% Water) and LOx was used before kerolox; it is worse in just about every respect compared to kerolox.
+*Ethanol75 (75% Ethanol, 25% Water) and LOx was used before kerolox; it is worse in just about every respect compared to kerolox.
 
 *Hydrazine, Nitrous Oxide, and HTP can be used as monopropellants. Hydrazine has by far the highest performance, but is very toxic.
 
@@ -324,7 +324,7 @@ In general: the less dense the fuel, the higher your specific impulse and the lo
 TECH LEVELS
 
 In order to have realistic engine performance, RF divides engines into types and tech levels. While type cannot be changed in game (it is determined by chamber pressure, area ratio, cycle type, etc., all abstracted as "engine type" and applied, as well as can be done given how unrealistic most KSP engine models are, to most stock and mod engines), tech level can. Tech level represents the advances that are applied to a specific model of engine over time.
-For example, the venerable LR87 used in the Titan rocket went through upwards of 11 revisions over time, and was converted to use all three main fuel types (kerolox, i.e. kerosene [RP-1] and Liquid Oxygen; hypergolic NTO / Aerozine-50; and hydrolox, i.e. Liquid Hydrogen and LOx). Its Isp and thrust-to-weight ratio increased considerably through the revisions.
+For example, the venerable LR87 used in the Titan rocket went through upwards of 11 revisions over time, and was converted to use all three main fuel types (kerolox, i.e. kerosene [RP-1] and Liquid Oxygen; hypergolic NTO / Aerozine50-50; and hydrolox, i.e. Liquid Hydrogen and LOx). Its Isp and thrust-to-weight ratio increased considerably through the revisions.
 Terms: SL = sea level, TWR = thrust to weight ratio. Note that in RF, all engines include the mass of their thrust plate, so RF TWRs will be about 20-30% lower than real life engine stats.
 
 So, first RF classifies each engine it supports by type. The types are:
