@@ -77,9 +77,10 @@ namespace RealFuels
             ConfigNode.LoadObjectFromConfig(this, node);
 
             ConfigNode ignoreNode = node.GetNode("IgnoreFuelsForFill");
-            if(ignoreNode != null)
-                foreach(ConfigNode.Value v in node.values)
+            if (ignoreNode != null)
+                foreach (ConfigNode.Value v in ignoreNode.values)
                     ignoreFuelsForFill.Add(v.name);
+            
 
             foreach (ConfigNode defNode in GameDatabase.Instance.GetConfigNodes("TANK_DEFINITION"))
             {
