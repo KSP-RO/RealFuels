@@ -1458,7 +1458,6 @@ namespace RealFuels
                         FuelInfo f = new FuelInfo(propellants, this, engine.partInfo.title);
                         if (f.ratioFactor > 0.0)
                         {
-                            print("**RF* Found " + f.Label + " for module " + pM.GetType() + " in part " + engine.partInfo.title);
                             FuelInfo found;
                             if (!usedBy.TryGetValue(f.Label, out found))
                             {
@@ -1540,7 +1539,7 @@ namespace RealFuels
                     string label = "";
                     foreach (Propellant tfuel in propellants)
                     {
-                        if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
+                        if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE && !IgnoreFuel(tfuel.name))
                         {
                             if (label.Length > 0)
                                 label += " / ";
@@ -1579,7 +1578,6 @@ namespace RealFuels
                         }
                         else if (!IgnoreFuel(tfuel.name))
                         {
-                            print("**RF* Failed because of fuel " + tfuel.name);
                             ratioFactor = 0.0;
                             break;
                         }
