@@ -985,7 +985,7 @@ namespace RealFuels
                     {
                         if ((object)t.resource != null)
                         {
-                            PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(t.resource.name);
+                            PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(t.resource.resourceName);
                             if ((object)d != null)
                                 cst += t.maxAmount / t.utilization * (d.unitCost + t.cost);
                         }
@@ -1132,12 +1132,12 @@ namespace RealFuels
             if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) 
             {
                 screenRect = new Rect(430 * posMult, 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect(430 * posMult+10, Screen.height - Input.mousePosition.y, 300, 20);
+                tooltipRect = new Rect(430 * (posMult+1)+10, Screen.height - Input.mousePosition.y-5, 300, 20);
             }
             else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
             {
                 screenRect = new Rect((Screen.width - 8 - 430 * (posMult+1)), 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect(Screen.width - 230 - 430 * (posMult+1), Screen.height - Input.mousePosition.y, 220, 20);
+                tooltipRect = new Rect(Screen.width - 230 - 430 * (posMult+1), Screen.height - Input.mousePosition.y-5, 220, 20);
             }
             else 
             {
@@ -1430,17 +1430,45 @@ namespace RealFuels
 
             foreach (Part engine in enginesList)
             {
-                FuelInfo f = new FuelInfo(engine, this);
-                if (f.ratioFactor > 0.0)
+                foreach (PartModule pM in engine.Modules)
                 {
-                    FuelInfo found;
-                    if (!usedBy.TryGetValue(f.Label, out found))
+                    List<Propellant> propellants = null;
+                    if (pM.GetType().ToString().Equals("ModuleEnginesFX"))
                     {
-                        usedBy.Add(f.Label, f);
+                        ModuleEnginesFX e = (ModuleEnginesFX)pM;
+                        propellants = e.propellants;
                     }
-                    else if (!found.names.Contains(engine.partInfo.title))
+                    else if (pM.GetType().ToString().Equals("ModuleEngines"))
                     {
-                        found.names += ", " + engine.partInfo.title;
+                        ModuleEngines e = (ModuleEngines)pM;
+                        propellants = e.propellants;
+                    }
+                    else if (pM.GetType().ToString().Equals("ModuleRCSFX"))
+                    {
+                        ModuleRCS e = (ModuleRCS)pM;
+                        propellants = e.propellants;
+                    }
+                    else if (pM.GetType().ToString().Equals("ModuleRCS"))
+                    {
+                        ModuleRCS e = (ModuleRCS)pM;
+                        propellants = e.propellants;
+                    }
+                    if ((object)propellants != null)
+                    {
+                        FuelInfo f = new FuelInfo(propellants, this, engine.partInfo.title);
+                        if (f.ratioFactor > 0.0)
+                        {
+                            print("**RF* Found " + f.Label + " for module " + pM.GetType() + " in part " + engine.partInfo.title);
+                            FuelInfo found;
+                            if (!usedBy.TryGetValue(f.Label, out found))
+                            {
+                                usedBy.Add(f.Label, f);
+                            }
+                            else if (!found.names.Contains(engine.partInfo.title))
+                            {
+                                found.names += ", " + engine.partInfo.title;
+                            }
+                        }
                     }
                 }
             }
@@ -1523,7 +1551,7 @@ namespace RealFuels
                 }
             }
 
-            public FuelInfo(Part engine, ModuleFuelTanks tank)
+            public FuelInfo(List<Propellant> props, ModuleFuelTanks tank, string title)
             {
                 // tank math:
                 // efficiency = sum[utilization * ratio]
@@ -1531,27 +1559,7 @@ namespace RealFuels
 
                 ratioFactor = 0.0;
                 efficiency = 0.0;
-
-                if (engine.Modules.Contains("ModuleEnginesFX"))
-                {
-                    ModuleEnginesFX e = (ModuleEnginesFX)engine.Modules["ModuleEnginesFX"];
-                    propellants = e.propellants;
-                }
-                else if (engine.Modules.Contains("ModuleEngines"))
-                {
-                    ModuleEngines e = (ModuleEngines)engine.Modules["ModuleEngines"];
-                    propellants = e.propellants;
-                }
-                else if (engine.Modules.Contains("ModuleRCSFX"))
-                {
-                    ModuleRCS e = (ModuleRCS)engine.Modules["ModuleRCSFX"];
-                    propellants = e.propellants;
-                }
-                else if (engine.Modules.Contains("ModuleRCS"))
-                {
-                    ModuleRCS e = (ModuleRCS)engine.Modules["ModuleRCS"];
-                    propellants = e.propellants;
-                }
+                propellants = props;
 
                 foreach (Propellant tfuel in propellants)
                 {
@@ -1571,18 +1579,47 @@ namespace RealFuels
                         }
                         else if (!IgnoreFuel(tfuel.name))
                         {
+                            print("**RF* Failed because of fuel " + tfuel.name);
                             ratioFactor = 0.0;
                             break;
                         }
                     }
                 }
-                names = "Used by: " + engine.partInfo.title;
+                names = "Used by: " + title;
             }
         }
 
         public void ConfigureFor(Part engine)
         {
-            ConfigureFor(new FuelInfo(engine, this));
+            foreach (PartModule pM in engine.Modules)
+            {
+                List<Propellant> propellants = null;
+                if (pM.GetType().ToString().Equals("ModuleEnginesFX"))
+                {
+                    ModuleEnginesFX e = (ModuleEnginesFX)pM;
+                    propellants = e.propellants;
+                }
+                else if (pM.GetType().ToString().Equals("ModuleEngines"))
+                {
+                    ModuleEngines e = (ModuleEngines)pM;
+                    propellants = e.propellants;
+                }
+                else if (pM.GetType().ToString().Equals("ModuleRCSFX"))
+                {
+                    ModuleRCS e = (ModuleRCS)pM;
+                    propellants = e.propellants;
+                }
+                else if (pM.GetType().ToString().Equals("ModuleRCS"))
+                {
+                    ModuleRCS e = (ModuleRCS)pM;
+                    propellants = e.propellants;
+                }
+                if ((object)propellants != null)
+                {
+                    ConfigureFor(new FuelInfo(propellants, this, engine.partInfo.title));
+                    break;
+                }
+            }
         }
 
         private void ConfigureFor(FuelInfo fi)
