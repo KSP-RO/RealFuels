@@ -72,11 +72,9 @@ namespace RealFuels
 								if (cost > funds)
 								{
 									amount = funds / d.unitCost;
-									funds = 0;
-								} else {
-									funds -= cost;
+									cost = funds;
 								}
-								Funding.Instance.Funds = funds;
+								Funding.Instance.AddFunds (-cost, TransactionReasons.VesselRollout);
 							}
                             tank.amount = tank.amount + amount;
                         }
