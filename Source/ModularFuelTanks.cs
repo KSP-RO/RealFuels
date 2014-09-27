@@ -477,7 +477,8 @@ namespace RealFuels
 
                 using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged)))
                 {
-                    if (GameSceneFilter.Loading.IsLoaded())
+                    // FIXME should detect if DB reload in progress; for now, check if in space center too...
+                    if (GameSceneFilter.Loading.IsLoaded() || GameSceneFilter.SpaceCenter.IsLoaded())
                     {
                         LoadTankListOverridesInLoading(node);
 
@@ -664,7 +665,7 @@ namespace RealFuels
 
         private void InitializeTankType()
         {
-            if (typesAvailable == null || typesAvailable.Length <= 1)
+            if ((object)typesAvailable == null || typesAvailable.Length <= 1)
             {
                 Fields["type"].guiActiveEditor = false;
             }
@@ -729,7 +730,8 @@ namespace RealFuels
             if (!baseCostOverride)
                 ParseBaseCost(def.baseCost);
 
-            if (GameSceneFilter.Loading.IsLoaded())
+            // fixmne should detect DB reload. For now, just detecting space center...
+            if (GameSceneFilter.Loading.IsLoaded() || GameSceneFilter.SpaceCenter.IsLoaded())
                 return;
 
             // for EngineIgnitor integration: store a public list of all pressurized propellants
