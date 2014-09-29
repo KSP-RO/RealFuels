@@ -214,7 +214,6 @@ namespace RealFuels
 
         public void ProcessCooling(Part targetPart)
         {
-            print("*RF* ModuleHeatPump processing part temperature and efficiency: " + targetPart.name);
             float efficiency = (targetPart.temperature + 273) / (targetPart.temperature + 300);
             if (targetPart.temperature < -273)
                 efficiency = 0;
@@ -224,7 +223,6 @@ namespace RealFuels
                 if(part.temperature < -273)
                     efficiency = 0;
             }
-            print("*RF* ModuleHeatPump processing resources");
             foreach (ResourceRate resource in resources)
             {
                 if(resource.rate > 0)
@@ -235,10 +233,8 @@ namespace RealFuels
                 }
             }
             // this really should be linear, but KSP's current heat model is weird.
-            print("*RF* ModuleHeatPump setting targetPart temperature");
             targetPart.temperature -= efficiency * heatTransfer * Time.deltaTime / targetPart.mass;
             // target part ought to take into consideration resource mass too - Starwaster
-            print("*RF* ModuleHeatPump setting radiator temperature");
             part.temperature += efficiency * heatTransfer * heatGain * Time.deltaTime;
         }
     }
