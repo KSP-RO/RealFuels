@@ -188,28 +188,6 @@ namespace RealFuels
                 ProcessCooling(targetPart);
             }
             ProcessCooling(this.part.parent);
-
-            /*
-            float efficiency = (part.parent.temperature + 273) / (part.parent.temperature + 300);
-            if (part.parent.temperature < -273)
-                efficiency = 0;
-            if (heatTransfer < 0) 
-            {
-                efficiency = (part.temperature + 273) / (part.temperature + 300);
-                if(part.temperature < -273)
-                    efficiency = 0;
-            }
-            foreach (ResourceRate resource in resources) {
-                if(resource.rate > 0) {
-                    float available = part.RequestResource(resource.id, resource.rate);
-                    if(efficiency > available / resource.rate)
-                        efficiency = available / resource.rate;
-                }
-            }
-            // this really should be linear, but KSP's current heat model is weird.
-            part.parent.temperature -= efficiency * heatTransfer * Time.deltaTime / part.parent.mass;
-            part.temperature += efficiency * heatTransfer * heatGain * Time.deltaTime;
-            */
         }
 
         public void ProcessCooling(Part targetPart)
