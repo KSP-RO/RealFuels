@@ -24,6 +24,8 @@ namespace RealFuels
     {
         public override void OnStart (StartState state)
         {
+            if (!compatible)
+                return;
             if(configs.Count == 0 && part.partInfo != null
                && part.partInfo.partPrefab.Modules.Contains ("ModuleHybridEngine")) {
                 ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
@@ -49,6 +51,8 @@ namespace RealFuels
 
         public override void OnInitialize()
         {
+            if (!compatible)
+                return;
             if (type.Equals("ModuleEnginesFX"))
                 ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
             else if (type.Equals("ModuleEngines"))
@@ -224,6 +228,8 @@ namespace RealFuels
 
         new public void FixedUpdate ()
         {
+            if (!compatible)
+                return;
             SetThrust ();
             if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
                 foreach (Propellant propellant in propellants) {
@@ -552,7 +558,7 @@ namespace RealFuels
 
     public class ModuleEngineConfigs : PartModule, IPartCostModifier
     {
-
+        protected bool compatible = true;
         [KSPField(isPersistant = true)]
         public string configuration = "";
 
@@ -1024,6 +1030,11 @@ namespace RealFuels
 
         public override void OnAwake ()
         {
+            if (!CompatibilityChecker.IsAllCompatible())
+            {
+                compatible = false;
+                return;
+            }
             PartMessageService.Register(this);
             if(HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
@@ -1109,6 +1120,8 @@ namespace RealFuels
 
         public override string GetInfo ()
         {
+            if (!compatible)
+                return "";
             if (configs.Count < 2)
                 return TLTInfo();
 
@@ -1206,12 +1219,16 @@ namespace RealFuels
 
         public override void OnInactive()
         {
+            if (!compatible)
+                return;
             if(HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
         }
 
         public void OnGUI()
         {
+            if (!compatible)
+                return;
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor)
             {
@@ -1244,6 +1261,8 @@ namespace RealFuels
 
         public override void OnLoad(ConfigNode node)
         {
+            if (!compatible)
+                return;
             base.OnLoad (node);
 
             techNodes = new ConfigNode();
@@ -1310,6 +1329,8 @@ namespace RealFuels
 
         public override void OnSave (ConfigNode node)
         {
+            if (!compatible)
+                return;
             /*if (configs == null)
                 configs = new List<ConfigNode> ();
             foreach (ConfigNode c in configs)
@@ -1762,6 +1783,8 @@ namespace RealFuels
 
         public void UpdateTweakableMenu()
         {
+            if (!compatible)
+                return;
             if (!HighLogic.LoadedSceneIsEditor)
                 return;
 
@@ -1813,6 +1836,8 @@ namespace RealFuels
 
         public override void OnStart (StartState state)
         {
+            if (!compatible)
+                return;
             this.enabled = true;
             if(configs.Count == 0 && part.partInfo != null
                && part.partInfo.partPrefab.Modules.Contains ("ModuleEngineConfigs")) {
@@ -1840,11 +1865,15 @@ namespace RealFuels
 
         public override void OnInitialize()
         {
+            if (!compatible)
+                return;
             SetConfiguration(configuration);
         }
 
         public void FixedUpdate ()
         {
+            if (!compatible)
+                return;
             if (vessel == null)
                 return;
             SetThrust ();

@@ -427,6 +427,11 @@ namespace RealFuels
 
         public override void OnAwake()
         {
+            if (!CompatibilityChecker.IsAllCompatible())
+            {
+                compatible = false;
+                return;
+            }
             try
             {
                 base.OnAwake();
@@ -449,6 +454,8 @@ namespace RealFuels
 
         public override void OnInactive()
         {
+            if (!compatible)
+                return;
             try
             {
                 if (HighLogic.LoadedSceneIsEditor)
@@ -462,6 +469,8 @@ namespace RealFuels
 
         public override void OnLoad(ConfigNode node)
         {
+            if (!compatible)
+                return;
             try
             {
                 // Load the volume. If totalVolume is specified, use that to calc the volume
@@ -518,6 +527,8 @@ namespace RealFuels
 
         public override string GetInfo()
         {
+            if (!compatible)
+                return "";
             try
             {
                 UpdateTankType();
@@ -545,6 +556,8 @@ namespace RealFuels
         // This flag lets us know if this is a symmetry copy or clone in the vab.
         public override void OnStart(StartState state)
         {
+            if (!compatible)
+                return;
             // This won't do anything if it's already been done in OnLoad (stored vessel/assem)
             if (GameSceneFilter.AnyEditor.IsLoaded())
             {
@@ -569,6 +582,8 @@ namespace RealFuels
 
         public override void OnSave (ConfigNode node)
         {
+            if (!compatible)
+                return;
             try
             {
                 base.OnSave(node);
@@ -586,6 +601,8 @@ namespace RealFuels
 
         public void OnUpdateEditor()
         {
+            if (!compatible)
+                return;
             try
             {
                 UpdateTankType();
@@ -601,6 +618,8 @@ namespace RealFuels
 
         public override void OnUpdate()
         {
+            if (!compatible)
+                return;
             try
             {
                 if (timestamp > 0)
@@ -1120,6 +1139,8 @@ namespace RealFuels
 
         public void OnGUI()
         {
+            if (!compatible)
+                return;
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor || dedicated) {
                 return;
@@ -1506,6 +1527,8 @@ namespace RealFuels
 
         private void UpdateTweakableMenu()
         {
+            if (!compatible)
+                return;
             if (dedicated)
                 return;
 

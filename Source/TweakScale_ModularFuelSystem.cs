@@ -32,11 +32,11 @@ namespace RealFuels
         public void OnRescale(ScalingFactor factor)
         {
             Module.ChangeVolume(Module.volume * factor.relative.cubic);
-            foreach (PartResource f in Part.Resources)
+            /*foreach (PartResource f in Part.Resources)
             {
                 f.amount /= factor.relative.cubic;
                 f.maxAmount /= factor.relative.cubic;
-            }
+            }*/
         }
     }
 }
