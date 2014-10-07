@@ -825,18 +825,29 @@ namespace RealFuels
             ChangeTotalVolume(newVolume * 100 / utilization);
         }
 
-        public void ChangeTotalVolume(double newTotalVolume)
+        protected void ChangeResources(double volumeRatio)
         {
-            totalVolume = newTotalVolume;
-
-            double newVolume = Math.Round(newTotalVolume * utilization / 100);
-
-            double volumeRatio = newVolume / volume;
-            volume = newVolume;
-
             // The used volume will rescale automatically when setting maxAmount
             foreach (FuelTank tank in tankList)
+            {
                 tank.maxAmount *= volumeRatio;
+            }
+        }
+
+        public void ChangeTotalVolume(double newTotalVolume)
+        {
+            double newVolume = Math.Round(newTotalVolume * utilization / 100);
+            double volumeRatio = newVolume / volume;
+            bool doResources = false;
+            if (totalVolume > newTotalVolume)
+                ChangeResources(volumeRatio);
+            else
+                doResources = true;
+            totalVolume = newTotalVolume;
+            volume = newVolume;
+            if(doResources)
+                ChangeResources(volumeRatio);
+            
 
             massDirty = true;
         }
