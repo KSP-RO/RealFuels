@@ -32,6 +32,7 @@ namespace RealFuels
         public void OnRescale(ScalingFactor factor)
         {
             Module.ChangeVolume(Module.volume * factor.relative.cubic);
+            // hacky; will fix.
             foreach (PartResource f in Part.Resources)
             {
                 f.amount /= factor.relative.cubic;
