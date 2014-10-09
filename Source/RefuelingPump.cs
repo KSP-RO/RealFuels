@@ -30,7 +30,7 @@ namespace RealFuels
 		public override void OnStart (PartModule.StartState state)
 		{
 			if (HighLogic.LoadedSceneIsFlight) {
-				if (vessel.situation == Vessel.Situations.LANDED
+				if ((state & StartState.Landed) != StartState.None
 					&& vessel.landedAt.Contains ("KSC")) {
 					Events["TogglePump"].guiActive = true;
 				} else {
