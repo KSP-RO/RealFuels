@@ -9,6 +9,7 @@ TARGETS		:= modularFuelTanks.dll
 
 MFT_FILES := \
     AssemblyInfoMFT.cs			\
+    Checkers.cs					\
     HeatPump.cs					\
     ModularFuelTanks.cs			\
     ModularFuelPartModule.cs	\
