@@ -430,6 +430,7 @@ namespace RealFuels
             if (!CompatibilityChecker.IsAllCompatible())
             {
                 compatible = false;
+				enabled = false;
                 return;
             }
             try
