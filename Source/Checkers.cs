@@ -58,7 +58,7 @@ namespace RealFuels
             // If you want to disable some behavior when incompatible, other parts of the plugin
             // should query this method:
             //
-            //    if (!CompatibilityChecker.IsCompatible()) {
+            //    if (!CompatibilityChecker.IsAllCompatible()) {
             //        ...disable some features...
             //    }
             //
@@ -80,7 +80,7 @@ namespace RealFuels
 
             // TODO: Implement your own Unity compatibility check.
             //
-            // DRE is not going to care about the fact that KSP .25 OSX uses a different Unity...
+            // Not going to care about the fact that KSP .25 OSX uses a different Unity...
             return true;
 
             /*-----------------------------------------------*\

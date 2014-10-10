@@ -848,9 +848,12 @@ namespace RealFuels
             volume = newVolume;
             if(doResources)
                 ChangeResources(volumeRatio);
-            
-
             massDirty = true;
+        }
+
+        public void ChangeVolumeRatio(double ratio)
+        {
+            ChangeTotalVolume(totalVolume * ratio);
         }
 
         private void UpdateUtilization()
