@@ -1151,7 +1151,8 @@ namespace RealFuels
         {
             UpdateUsedBy();
         }
-
+        private Rect guiWindowRect = new Rect(0, 0, 0, 0);
+        private static Vector3 mousePos = Vector3.zero;
         public void OnGUI()
         {
             if (!compatible)
@@ -1162,21 +1163,24 @@ namespace RealFuels
             }
 
             //UpdateMixtures();
+            bool cursorInGUI = false; // nicked the locking code from Ferram
+            mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
+            mousePos.y = Screen.height - mousePos.y;
 
-            Rect screenRect;
             Rect tooltipRect;
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
             if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) 
             {
-                screenRect = new Rect(430 * posMult, 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect(430 * (posMult+1)+10, Screen.height - Input.mousePosition.y-5, 300, 20);
+                guiWindowRect = new Rect(430 * posMult, 365, 438, (Screen.height - 365));
+                tooltipRect = new Rect(430 * (posMult+1)+10, mousePos.y-5, 300, 20);
             }
             else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
             {
-                screenRect = new Rect((Screen.width - 8 - 430 * (posMult+1)), 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect(Screen.width - 230 - 430 * (posMult+1), Screen.height - Input.mousePosition.y-5, 220, 20);
+                if(guiWindowRect.width == 0)
+                    guiWindowRect = new Rect(Screen.width - 8 - 430 * (posMult+1), 365, 438, (Screen.height - 365));
+                tooltipRect = new Rect(guiWindowRect.left - (230-8), mousePos.y - 5, 220, 20);
             }
             else 
             {
@@ -1185,7 +1189,7 @@ namespace RealFuels
             }
 
             GUI.Label(tooltipRect, myToolTip);
-            GUILayout.Window(part.name.GetHashCode(), screenRect, GUIWindow, "Fuel Tanks for " + part.partInfo.title);
+            guiWindowRect = GUILayout.Window(part.name.GetHashCode(), guiWindowRect, GUIWindow, "Fuel Tanks for " + part.partInfo.title);
         }
 
         public void GUIWindow(int windowID)
@@ -1245,6 +1249,8 @@ namespace RealFuels
                     counterTT = 0;
                 }
                 //print("GT: " + GUI.tooltip);
+                if(showRFGUI)
+                    GUI.DragWindow();
             }
             catch (Exception e)
             {

@@ -1225,17 +1225,21 @@ namespace RealFuels
                 GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
         }
 
+        private static Vector3 mousePos = Vector3.zero;
+        private Rect guiWindowRect = new Rect(0, 0, 0, 0);
         public void OnGUI()
         {
             if (!compatible)
                 return;
+            bool cursorInGUI = false; // nicked the locking code from Ferram
+            mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
+            mousePos.y = Screen.height - mousePos.y;
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor)
             {
                 return;
             }
 
-            Rect screenRect;
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
@@ -1243,12 +1247,33 @@ namespace RealFuels
             {
                 if (offsetGUIPos == -1 && (part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated))
                     posMult = 1;
-
-                screenRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
+                
+                guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
+                cursorInGUI = guiWindowRect.Contains(mousePos);
+                if (cursorInGUI)
+                {
+                    editor.Lock(false, false, false, "RFGUILock");
+                    EditorTooltip.Instance.HideToolTip();
+                }
+                else if (!cursorInGUI)
+                {
+                    editor.Unlock("RFGUILock");
+                }
             }
             else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
             {
-                screenRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
+                if (guiWindowRect.width == 0)
+                    guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
+                cursorInGUI = guiWindowRect.Contains(mousePos);
+                if (cursorInGUI)
+                {
+                    editor.Lock(false, false, false, "RFGUILock");
+                    EditorTooltip.Instance.HideToolTip();
+                }
+                else if (!cursorInGUI)
+                {
+                    editor.Unlock("RFGUILock");
+                }
             }
             else
             {
@@ -1256,7 +1281,7 @@ namespace RealFuels
                 return;
             }
 
-            GUILayout.Window(part.name.GetHashCode() + 1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
+            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title);
         }
 
         public override void OnLoad(ConfigNode node)
@@ -2035,6 +2060,9 @@ namespace RealFuels
             GUILayout.BeginHorizontal();
             GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo()); //part.Modules[type].GetInfo()
             GUILayout.EndHorizontal();
+
+            if(showRFGUI)
+                GUI.DragWindow();
         }
 
         virtual public int UpdateSymmetryCounterparts()
