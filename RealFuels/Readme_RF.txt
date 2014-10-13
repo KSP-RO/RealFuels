@@ -40,6 +40,18 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v8.0
+*SAVE-BRREAKING - however, regex made a tool to attempt to update saves. Post on the thread if you want to try it out.
+*Redone resources by regex: some resources have changed name, a couple generic ones have been made into various specific ones, and many new (often scary) resources have been added. Note that all resources now have costs, normalized for 1 fund = $1000 in 1965 US Dollars.
+*Redone tank masses to better match extant launch vehicles. LV performance will decrease, since mostly that means dry mass went up.
+*Cryogenic tank type is now modeled on the Delta IV and Ariane 5 cores; the Shuttle ET is best modeled as a BalloonCryo tank with some ballast.
+*RCS, RCSHighEfficiency, Jet, and Oxy tanks are deprecated. Fuselage is ServiceModule with slightly higher mass (used for planes) and Structural is Default with the same basemass as Fuselage (used for planes when the tank doesn't need to be highly pressurized, or have electricity, life support, etc.)
+*Updated to MM 2.5.1 (and added FOR[] to the patches).
+*Updated SPP patches for .25, redid volumes.
+*Fixed for current Tweakscale; should now finally work right!
+*taniwha: refueling pump now works, costs funds, and only works if at KSC.
+*Disabled when incompatible KSP detected (.24 or any non-.25 version, .25Winx64), though unlocked versions are available on request by PM (on condition of no redistribution and no support)
+
 v7.4 \/
 *B9 configs removed from RF; they are included in B9 itself.
 *Fixed so tank-switching can be done after a database reload
