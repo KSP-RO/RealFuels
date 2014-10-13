@@ -148,6 +148,107 @@ namespace RealFuels
                 }
             }
 
+            void DeleteTank ()
+            {
+                PartResource partResource = resource;
+                // Delete it
+                //Debug.LogWarning("[MFT] Deleting tank from API " + name);
+                maxAmountExpression = null;
+
+                part.Resources.list.Remove(partResource);
+                Destroy(partResource);
+                module.RaiseResourceListChanged();
+                //print("Removed.");
+
+                // Update symmetry counterparts.
+                if (HighLogic.LoadedSceneIsEditor && propagate)
+                    foreach (Part sym in part.symmetryCounterparts)
+                    {
+                        PartResource symResc = sym.Resources[name];
+                        sym.Resources.list.Remove(symResc);
+                        Destroy(symResc);
+                        PartMessageService.Send<PartResourceListChanged>(this, sym);
+                    }
+                //print("Sym removed");
+            }
+
+            void UpdateTank (double value)
+            {
+                PartResource partResource = resource;
+                if (value > partResource.maxAmount)
+                {
+                    // If expanding, modify it to be less than overfull
+                    double maxQty = module.AvailableVolume * utilization + partResource.maxAmount;
+                    if (maxQty < value)
+                        value = maxQty;
+                }
+
+                // Do nothing if unchanged
+                if (value == partResource.maxAmount)
+                    return;
+
+                //Debug.LogWarning("[MFT] Updating tank from API " + name + " amount: " + value);
+                maxAmountExpression = null;
+
+                // Keep the same fill fraction
+                double newAmount = value * fillFraction;
+
+                partResource.maxAmount = value;
+                module.RaiseResourceMaxChanged(partResource, value);
+                //print("Set new maxAmount");
+
+                if (newAmount != partResource.amount)
+                {
+                    partResource.amount = newAmount;
+                    module.RaiseResourceInitialChanged(partResource, newAmount);
+                }
+
+                // Update symmetry counterparts.
+                if (HighLogic.LoadedSceneIsEditor && propagate)
+                    foreach (Part sym in part.symmetryCounterparts)
+                    {
+                        PartResource symResc = sym.Resources[name];
+                        symResc.maxAmount = value;
+                        PartMessageService.Send<PartResourceMaxAmountChanged>(this, sym, symResc, value);
+
+                        if (newAmount != symResc.amount)
+                        {
+                            symResc.amount = newAmount;
+                            PartMessageService.Send<PartResourceInitialAmountChanged>(this, sym, symResc, newAmount);
+                        }
+                    }
+
+                //print("Symmetry set");
+            }
+
+            void AddTank (double value)
+            {
+                PartResource partResource = resource;
+                //Debug.LogWarning("[MFT] Adding tank from API " + name + " amount: " + value);
+                maxAmountExpression = null;
+
+                ConfigNode node = new ConfigNode("RESOURCE");
+                node.AddValue ("name", name);
+                node.AddValue ("amount", value);
+                node.AddValue ("maxAmount", value);
+#if DEBUG
+                print (node.ToString ());
+#endif
+                partResource = part.AddResource (node);
+                partResource.enabled = true;
+
+                module.RaiseResourceListChanged();
+
+                // Update symmetry counterparts.
+                if (HighLogic.LoadedSceneIsEditor && propagate)
+                    foreach (Part sym in part.symmetryCounterparts)
+                    {
+                        PartResource symResc = sym.AddResource(node);
+                        symResc.enabled = true;
+                        PartMessageService.Send<PartResourceListChanged>(this, sym);
+                    }
+            }
+
             public double maxAmount {
                 get 
                 {
@@ -168,100 +269,15 @@ namespace RealFuels
                     PartResource partResource = resource;
                     if (partResource != null && value <= 0.0) 
                     {
-                        // Delete it
-                        //Debug.LogWarning("[MFT] Deleting tank from API " + name);
-                        maxAmountExpression = null;
-
-                        part.Resources.list.Remove(partResource);
-                        Destroy(partResource);
-                        module.RaiseResourceListChanged();
-                        //print("Removed.");
-
-                        // Update symmetry counterparts.
-                        if (HighLogic.LoadedSceneIsEditor && propagate)
-                            foreach (Part sym in part.symmetryCounterparts)
-                            {
-                                PartResource symResc = sym.Resources[name];
-                                sym.Resources.list.Remove(symResc);
-                                Destroy(symResc);
-                                PartMessageService.Send<PartResourceListChanged>(this, sym);
-                            }
-                        //print("Sym removed");
+                        DeleteTank();
                     } 
                     else if (partResource != null) 
                     {
-                        if (value > partResource.maxAmount)
-                        {
-                            // If expanding, modify it to be less than overfull
-                            double maxQty = module.AvailableVolume * utilization + partResource.maxAmount;
-                            if (maxQty < value)
-                                value = maxQty;
-                        }
-
-                        // Do nothing if unchanged
-                        if (value == partResource.maxAmount)
-                            return;
-
-                        //Debug.LogWarning("[MFT] Updating tank from API " + name + " amount: " + value);
-                        maxAmountExpression = null;
-
-                        // Keep the same fill fraction
-                        double newAmount = value * fillFraction;
-
-                        partResource.maxAmount = value;
-                        module.RaiseResourceMaxChanged(partResource, value);
-                        //print("Set new maxAmount");
-
-                        if (newAmount != partResource.amount)
-                        {
-                            partResource.amount = newAmount;
-                            module.RaiseResourceInitialChanged(partResource, newAmount);
-                        }
-
-                        // Update symmetry counterparts.
-                        if (HighLogic.LoadedSceneIsEditor && propagate)
-                            foreach (Part sym in part.symmetryCounterparts)
-                            {
-                                PartResource symResc = sym.Resources[name];
-                                symResc.maxAmount = value;
-                                PartMessageService.Send<PartResourceMaxAmountChanged>(this, sym, symResc, value);
-
-                                if (newAmount != symResc.amount)
-                                {
-                                    symResc.amount = newAmount;
-                                    PartMessageService.Send<PartResourceInitialAmountChanged>(this, sym, symResc, newAmount);
-                                }
-                            }
-
-                        //print("Symmetry set");
-
+                        UpdateTank(value);
                     } 
                     else if(value > 0.0) 
                     {
-                        //Debug.LogWarning("[MFT] Adding tank from API " + name + " amount: " + value);
-                        maxAmountExpression = null;
-
-                        ConfigNode node = new ConfigNode("RESOURCE");
-                        node.AddValue ("name", name);
-                        node.AddValue ("amount", value);
-                        node.AddValue ("maxAmount", value);
-#if DEBUG
-                        print (node.ToString ());
-#endif
-                        partResource = part.AddResource (node);
-                        partResource.enabled = true;
-
-                        module.RaiseResourceListChanged();
-
-                        // Update symmetry counterparts.
-                        if (HighLogic.LoadedSceneIsEditor && propagate)
-                            foreach (Part sym in part.symmetryCounterparts)
-                            {
-                                PartResource symResc = sym.AddResource(node);
-                                symResc.enabled = true;
-                                PartMessageService.Send<PartResourceListChanged>(this, sym);
-                            }
-
+                        AddTank(value);
                     }
                     module.massDirty = true;
                 }
@@ -433,10 +449,10 @@ namespace RealFuels
 
         public override void OnAwake()
         {
+            enabled = false;
             if (!CompatibilityChecker.IsAllCompatible())
             {
                 compatible = false;
-				enabled = false;
                 return;
             }
             try
@@ -565,6 +581,8 @@ namespace RealFuels
         {
             if (!compatible)
                 return;
+            if (HighLogic.LoadedSceneIsEditor)
+                enabled = true;
             // This won't do anything if it's already been done in OnLoad (stored vessel/assem)
             if (GameSceneFilter.AnyEditor.IsLoaded())
             {
@@ -1505,6 +1523,32 @@ namespace RealFuels
         private readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
         private int engineCount;
 
+        List<Propellant> GetEnginePropellants(PartModule engine)
+        {
+            string typename = engine.GetType().ToString ();
+            if (typename.Equals("ModuleEnginesFX"))
+            {
+                ModuleEnginesFX e = (ModuleEnginesFX)engine;
+                return e.propellants;
+            }
+            else if (typename.Equals("ModuleEngines"))
+            {
+                ModuleEngines e = (ModuleEngines)engine;
+                return e.propellants;
+            }
+            else if (typename.Equals("ModuleRCSFX"))
+            {
+                ModuleRCS e = (ModuleRCS)engine;
+                return e.propellants;
+            }
+            else if (typename.Equals("ModuleRCS"))
+            {
+                ModuleRCS e = (ModuleRCS)engine;
+                return e.propellants;
+            }
+            return null;
+        }
+
         private void UpdateUsedBy()
         {
             //print("*RK* Updating UsedBy");
@@ -1525,29 +1569,9 @@ namespace RealFuels
 
             foreach (Part engine in enginesList)
             {
-                foreach (PartModule pM in engine.Modules)
+                foreach (PartModule engine_module in engine.Modules)
                 {
-                    List<Propellant> propellants = null;
-                    if (pM.GetType().ToString().Equals("ModuleEnginesFX"))
-                    {
-                        ModuleEnginesFX e = (ModuleEnginesFX)pM;
-                        propellants = e.propellants;
-                    }
-                    else if (pM.GetType().ToString().Equals("ModuleEngines"))
-                    {
-                        ModuleEngines e = (ModuleEngines)pM;
-                        propellants = e.propellants;
-                    }
-                    else if (pM.GetType().ToString().Equals("ModuleRCSFX"))
-                    {
-                        ModuleRCS e = (ModuleRCS)pM;
-                        propellants = e.propellants;
-                    }
-                    else if (pM.GetType().ToString().Equals("ModuleRCS"))
-                    {
-                        ModuleRCS e = (ModuleRCS)pM;
-                        propellants = e.propellants;
-                    }
+                    List<Propellant> propellants = GetEnginePropellants (engine_module);
                     if ((object)propellants != null)
                     {
                         FuelInfo f = new FuelInfo(propellants, this, engine.partInfo.title);
@@ -1686,29 +1710,9 @@ namespace RealFuels
 
         public void ConfigureFor(Part engine)
         {
-            foreach (PartModule pM in engine.Modules)
+            foreach (PartModule engine_module in engine.Modules)
             {
-                List<Propellant> propellants = null;
-                if (pM.GetType().ToString().Equals("ModuleEnginesFX"))
-                {
-                    ModuleEnginesFX e = (ModuleEnginesFX)pM;
-                    propellants = e.propellants;
-                }
-                else if (pM.GetType().ToString().Equals("ModuleEngines"))
-                {
-                    ModuleEngines e = (ModuleEngines)pM;
-                    propellants = e.propellants;
-                }
-                else if (pM.GetType().ToString().Equals("ModuleRCSFX"))
-                {
-                    ModuleRCS e = (ModuleRCS)pM;
-                    propellants = e.propellants;
-                }
-                else if (pM.GetType().ToString().Equals("ModuleRCS"))
-                {
-                    ModuleRCS e = (ModuleRCS)pM;
-                    propellants = e.propellants;
-                }
+                List<Propellant> propellants = GetEnginePropellants(engine_module);
                 if ((object)propellants != null)
                 {
                     ConfigureFor(new FuelInfo(propellants, this, engine.partInfo.title));
