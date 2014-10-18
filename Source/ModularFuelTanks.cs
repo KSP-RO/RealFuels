@@ -75,6 +75,10 @@ namespace RealFuels
             [Persistent]
             public bool fillable = true;
 
+            public bool locked = false;
+
+            public bool propagate = true;
+
             public bool resourceAvailable;
 
             internal string amountExpression;
@@ -131,13 +135,15 @@ namespace RealFuels
                     if (HighLogic.LoadedSceneIsEditor)
                     {
                         module.RaiseResourceInitialChanged(partResource, amount);
-                        foreach (Part sym in part.symmetryCounterparts)
+                        if (propagate)
                         {
-                            PartResource symResc = sym.Resources[name];
-                            symResc.amount = value;
-                            PartMessageService.Send<PartResourceInitialAmountChanged>(this, sym, symResc, amount);
+                            foreach (Part sym in part.symmetryCounterparts)
+                            {
+                                PartResource symResc = sym.Resources[name];
+                                symResc.amount = value;
+                                PartMessageService.Send<PartResourceInitialAmountChanged>(this, sym, symResc, amount);
+                            }
                         }
-                        
                     }
                 }
             }
@@ -172,7 +178,7 @@ namespace RealFuels
                         //print("Removed.");
 
                         // Update symmetry counterparts.
-                        if (HighLogic.LoadedSceneIsEditor)
+                        if (HighLogic.LoadedSceneIsEditor && propagate)
                             foreach (Part sym in part.symmetryCounterparts)
                             {
                                 PartResource symResc = sym.Resources[name];
@@ -213,7 +219,7 @@ namespace RealFuels
                         }
 
                         // Update symmetry counterparts.
-                        if (HighLogic.LoadedSceneIsEditor)
+                        if (HighLogic.LoadedSceneIsEditor && propagate)
                             foreach (Part sym in part.symmetryCounterparts)
                             {
                                 PartResource symResc = sym.Resources[name];
@@ -248,7 +254,7 @@ namespace RealFuels
                         module.RaiseResourceListChanged();
 
                         // Update symmetry counterparts.
-                        if (HighLogic.LoadedSceneIsEditor)
+                        if (HighLogic.LoadedSceneIsEditor && propagate)
                             foreach (Part sym in part.symmetryCounterparts)
                             {
                                 PartResource symResc = sym.AddResource(node);
@@ -826,34 +832,49 @@ namespace RealFuels
             ChangeTotalVolume(newVolume * 100 / utilization);
         }
 
-        protected void ChangeResources(double volumeRatio)
+        protected void ChangeResources(double volumeRatio, bool propagate = false)
         {
             // The used volume will rescale automatically when setting maxAmount
             foreach (FuelTank tank in tankList)
             {
+                bool btmp = tank.propagate;
+                if(!propagate)
+                    tank.propagate = false;
                 tank.maxAmount *= volumeRatio;
+                if (!propagate)
+                    tank.propagate = btmp;
             }
         }
 
-        public void ChangeTotalVolume(double newTotalVolume)
+        public void ChangeTotalVolume(double newTotalVolume, bool propagate = false)
         {
             double newVolume = Math.Round(newTotalVolume * utilization / 100);
             double volumeRatio = newVolume / volume;
             bool doResources = false;
             if (totalVolume > newTotalVolume)
-                ChangeResources(volumeRatio);
+                ChangeResources(volumeRatio, propagate);
             else
                 doResources = true;
             totalVolume = newTotalVolume;
             volume = newVolume;
+            if (propagate)
+            {
+                foreach (Part p in part.symmetryCounterparts)
+                {
+                    // FIXME: Not safe, assumes only 1 MFT on the part.
+                    ModuleFuelTanks m = (ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
+                    m.totalVolume = newTotalVolume;
+                    m.volume = newVolume;
+                }
+            }
             if(doResources)
-                ChangeResources(volumeRatio);
+                ChangeResources(volumeRatio, propagate);
             massDirty = true;
         }
 
-        public void ChangeVolumeRatio(double ratio)
+        public void ChangeVolumeRatio(double ratio, bool propagate = false)
         {
-            ChangeTotalVolume(totalVolume * ratio);
+            ChangeTotalVolume(totalVolume * ratio, propagate);
         }
 
         private void UpdateUtilization()
@@ -1175,12 +1196,31 @@ namespace RealFuels
             {
                 guiWindowRect = new Rect(430 * posMult, 365, 438, (Screen.height - 365));
                 tooltipRect = new Rect(430 * (posMult+1)+10, mousePos.y-5, 300, 20);
+                cursorInGUI = guiWindowRect.Contains(mousePos);
+                if (cursorInGUI)
+                {
+                    editor.Lock(false, false, false, "MFTGUILock");
+                    EditorTooltip.Instance.HideToolTip();
+                }
+                else if (!cursorInGUI)
+                {
+                    editor.Unlock("MFTGUILock");
+                }
             }
             else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
             {
                 if(guiWindowRect.width == 0)
                     guiWindowRect = new Rect(Screen.width - 8 - 430 * (posMult+1), 365, 438, (Screen.height - 365));
                 tooltipRect = new Rect(guiWindowRect.left - (230-8), mousePos.y - 5, 220, 20);
+                if (cursorInGUI)
+                {
+                    editor.Lock(false, false, false, "MFTGUILock");
+                    EditorTooltip.Instance.HideToolTip();
+                }
+                else if (!cursorInGUI)
+                {
+                    editor.Unlock("MFTGUILock");
+                }
             }
             else 
             {
@@ -1300,7 +1340,7 @@ namespace RealFuels
                 foreach (FuelTank tank in tankList)
                 {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label(" " + tank, GUILayout.Width(120));
+                    GUILayout.Label(" " + tank, GUILayout.Width(115));
 
 
 
@@ -1325,9 +1365,9 @@ namespace RealFuels
                             style = changed;
                         }
 
-                        tank.maxAmountExpression = GUILayout.TextField(tank.maxAmountExpression, style, GUILayout.Width(140));
+                        tank.maxAmountExpression = GUILayout.TextField(tank.maxAmountExpression, style, GUILayout.Width(127));
 
-                        if (GUILayout.Button("Update", GUILayout.Width(60)))
+                        if (GUILayout.Button("Update", GUILayout.Width(53)))
                         {
                             string trimmed = tank.maxAmountExpression.Trim();
 
@@ -1379,12 +1419,21 @@ namespace RealFuels
                                 }
                             }
                         }
-                        if (GUILayout.Button("Remove", GUILayout.Width(60)))
+                        if (GUILayout.Button("Remove", GUILayout.Width(58)))
                         {
                             tank.maxAmount = 0;
 							GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
                             //Debug.LogWarning("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                         }
+                        // FIXME: Need to add the tank logic before this can be reenabled.
+                        /*if (tank.locked)
+                        {
+                            if (GUILayout.Button("=", GUILayout.Width(15)))
+                                tank.locked = false;
+                        }
+                        else
+                            if (GUILayout.Button("+", GUILayout.Width(15)))
+                                tank.locked = true;*/
                     }
                     else if (AvailableVolume >= 0.001)
                     {
@@ -1392,7 +1441,7 @@ namespace RealFuels
 
                         GUILayout.Label(extraData, GUILayout.Width(150));
 
-                        if (GUILayout.Button("Add", GUILayout.Width(130)))
+                        if (GUILayout.Button("Add", GUILayout.Width(120)))
                         {
                             tank.maxAmount = AvailableVolume * tank.utilization;
                             tank.amount = tank.fillable ? tank.maxAmount : 0;

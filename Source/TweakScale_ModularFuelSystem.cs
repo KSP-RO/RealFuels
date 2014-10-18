@@ -31,7 +31,7 @@ namespace RealFuels
 
         public void OnRescale(ScalingFactor factor)
         {
-            Module.ChangeVolumeRatio(factor.relative.cubic);
+            Module.ChangeVolumeRatio(factor.relative.cubic, false); // do not propagate since TS itself will.
             // hacky; will fix.
             /*foreach (PartResource f in Part.Resources)
             {
