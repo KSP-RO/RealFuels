@@ -42,11 +42,11 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 Changelog:
 v8.1
 *Fix my stupidity; I forgot to change some of RF's own patches to account for the new resource names.
-*camlost: fix tank name for new FS
+*camlost: fix tank name for new FS.
 *Fix applying changes to resource amounts more than once on TweakScale rescale.
 *Change FS fuselages to calculate their own basemass.
-*Fix a GUI click-locking issue
-*Remove old/broken KSPI interaction config; a new one is in the works by dreadicon and Northstar1898
+*Fix a GUI click-locking issue.
+*Remove old/broken KSPI interaction config; a new one is in the works by dreadicon and Northstar1989.
 
 v8.0
 *SAVE-BRREAKING - however, regex made a tool to attempt to update saves. Post on the thread if you want to try it out.
