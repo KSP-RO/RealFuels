@@ -1229,7 +1229,7 @@ namespace RealFuels
             {
                 if(guiWindowRect.width == 0)
                     guiWindowRect = new Rect(Screen.width - 8 - 430 * (posMult+1), 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect(guiWindowRect.left - (230-8), mousePos.y - 5, 220, 20);
+                tooltipRect = new Rect(guiWindowRect.xMin - (230-8), mousePos.y - 5, 220, 20);
                 if (cursorInGUI)
                 {
                     editor.Lock(false, false, false, "MFTGUILock");
