@@ -4,8 +4,9 @@ GAMEDATA	:= ${KSPDIR}/GameData
 MODGAMEDATA	:= ${GAMEDATA}/ModularFuelTanks
 PLUGINDIR	:= ${MODGAMEDATA}/Plugins
 APIEXTDATA	:= ${PLUGINDIR}
+TSPLUGIN	:= ${GAMEDATA}/TweakScale/Plugins
 
-TARGETS		:= modularFuelTanks.dll
+TARGETS		:= modularFuelTanks.dll TweakScale_ModularFuelTanks.dll
 
 MFT_FILES := \
     AssemblyInfoMFT.cs			\
@@ -16,6 +17,10 @@ MFT_FILES := \
     RefuelingPump.cs			\
 	MFSSettings.cs				\
 	VersionReport.cs			\
+	$e
+
+MFT_TS_FILES := \
+	TweakScale_ModularFuelSystem.cs	\
 	$e
 
 RESGEN2	:= resgen2
@@ -45,6 +50,13 @@ modularFuelTanks.dll: ${MFT_FILES}
 		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
 		-r:KSPAPIExtensions \
 		-out:$@ $^
+
+TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} modularFuelTanks.dll
+	${GMCS} -t:library -lib:${TSPLUGIN},${MANAGED} \
+		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
+		-r:Scale_Redist.dll \
+		-r:modularFuelTanks.dll \
+		-out:$@ ${MFT_TS_FILES}
 
 clean:
 	rm -f ${TARGETS} AssemblyInfoMFT.cs
