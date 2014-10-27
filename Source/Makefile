@@ -4,9 +4,12 @@ GAMEDATA	:= ${KSPDIR}/GameData
 MODGAMEDATA	:= ${GAMEDATA}/ModularFuelTanks
 PLUGINDIR	:= ${MODGAMEDATA}/Plugins
 APIEXTDATA	:= ${PLUGINDIR}
-TSPLUGIN	:= ${GAMEDATA}/TweakScale/Plugins
+TSGAMEDATA	:= ${GAMEDATA}/TweakScale
+TSPLUGIN	:= ${TSGAMEDATA}/Plugins
+TSINTERACT	:= ${TSGAMEDATA}/TweakScaleInteraction
 
-TARGETS		:= modularFuelTanks.dll TweakScale_ModularFuelTanks.dll
+TARGETS		:= modularFuelTanks.dll
+TSTARGETS	:= TweakScale_ModularFuelTanks.dll
 
 MFT_FILES := \
     AssemblyInfoMFT.cs			\
@@ -64,5 +67,7 @@ clean:
 install: all
 	mkdir -p ${PLUGINDIR}
 	cp ${TARGETS} ${PLUGINDIR}
+	mkdir -p ${TSINTERACT}
+	cp ${TSTARGETS} ${TSINTERACT}
 
 .PHONY: all clean info install
