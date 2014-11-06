@@ -324,7 +324,7 @@ namespace RealFuels.Tanks
 
 
             // Copy the tank list from the tank definitiion
-            MFSSettings.TankDefinition def;
+            TankDefinition def;
             try
             {
                 def = MFSSettings.Instance.tankDefinitions[type];

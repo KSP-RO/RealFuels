@@ -19,6 +19,8 @@ MFT_FILES := \
     Tanks/FuelTank.cs				\
     Tanks/FuelTankList.cs			\
     Tanks/ModularFuelTanks.cs		\
+    Tanks/TankDefinition.cs			\
+    Tanks/TankDefinitionList.cs		\
     Pumps/HeatPump.cs				\
     Pumps/RefuelingPump.cs			\
 	MFSSettings.cs					\

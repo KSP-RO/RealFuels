@@ -31,7 +31,7 @@ namespace RealFuels
 
         public HashSet<string> ignoreFuelsForFill = new HashSet<string>();
 
-        public TankDefinitionList tankDefinitions = new TankDefinitionList();
+        public Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
 
         // TODO: Move engine tech levels into here too.
 
@@ -87,81 +87,7 @@ namespace RealFuels
                 if(tankDefinitions.Contains(defNode.GetValue("name")))
                     Debug.LogWarning("[MFS] Ignored duplicate definition of tank type " + defNode.GetValue("name"));
                 else
-                    tankDefinitions.Add(new TankDefinition(defNode));
-            }
-        }
-
-        #endregion
-
-        #region TankDefinition
-
-        public class TankDefinition : IConfigNode
-        {
-            [Persistent]
-            public string name;
-
-            [Persistent]
-            public string basemass;
-
-            [Persistent]
-            public string baseCost;
-
-            public Tanks.FuelTankList tankList = new Tanks.FuelTankList();
-
-            public TankDefinition() { }
-
-            public TankDefinition(ConfigNode node)
-            {
-                Load(node);
-            }
-
-            public void Load(ConfigNode node)
-            {
-                if (!(node.name.Equals("TANK_DEFINITION") && node.HasValue("name")))
-                    return;
-
-                ConfigNode.LoadObjectFromConfig(this, node);
-                tankList.Load(node);
-
-                for (int i = tankList.Count - 1; i >= 0; --i)
-                {
-                    var tank = tankList[i];
-                    if (!tank.resourceAvailable)
-                    {
-                        //Debug.LogWarning("[MFT] Unable to initialize tank definition for resource \"" + tank.name + "\" in tank definition \"" + name + "\" as this resource is not defined.");
-                        tankList.RemoveAt(i);
-                    }
-                }
-            }
-
-            public void Save(ConfigNode node)
-            {
-                ConfigNode.CreateConfigFromObject(this, node);
-                tankList.Save(node);
-            }
-        }
-
-        public class TankDefinitionList : KeyedCollection<string, TankDefinition>, IConfigNode
-        {
-            protected override string GetKeyForItem(TankDefinition item)
-            {
-                return item.name;
-            }
-
-            public void Load(ConfigNode node)
-            {
-                foreach (ConfigNode tankNode in node.GetNodes("TANK_DEFINITION"))
-                    Add(new TankDefinition(tankNode));
-            }
-
-            public void Save(ConfigNode node)
-            {
-                foreach (TankDefinition tank in this)
-                {
-                    ConfigNode tankNode = new ConfigNode("TANK");
-                    tank.Save(tankNode);
-                    node.AddNode(tankNode);
-                }
+                    tankDefinitions.Add(new Tanks.TankDefinition(defNode));
             }
         }
 
