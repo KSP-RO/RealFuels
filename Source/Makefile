@@ -12,14 +12,14 @@ TARGETS		:= bin/modularFuelTanks.dll
 TSTARGETS	:= bin/TweakScale_ModularFuelTanks.dll
 
 MFT_FILES := \
-    assembly/AssemblyInfoMFT.cs	\
-    assembly/Checkers.cs		\
-	assembly/VersionReport.cs	\
-    HeatPump.cs					\
-    ModularFuelTanks.cs			\
-    ModularFuelPartModule.cs	\
-    RefuelingPump.cs			\
-	MFSSettings.cs				\
+    assembly/AssemblyInfoMFT.cs		\
+    assembly/Checkers.cs			\
+	assembly/VersionReport.cs		\
+    Tanks/ModularFuelTanks.cs		\
+    Tanks/ModularFuelPartModule.cs	\
+    Pumps/HeatPump.cs				\
+    Pumps/RefuelingPump.cs			\
+	MFSSettings.cs					\
 	$e
 
 MFT_TS_FILES := \
