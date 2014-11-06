@@ -16,7 +16,6 @@ MFT_FILES := \
     assembly/Checkers.cs			\
 	assembly/VersionReport.cs		\
     Tanks/ModularFuelTanks.cs		\
-    Tanks/ModularFuelPartModule.cs	\
     Pumps/HeatPump.cs				\
     Pumps/RefuelingPump.cs			\
 	MFSSettings.cs					\

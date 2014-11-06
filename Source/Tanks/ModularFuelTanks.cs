@@ -11,9 +11,11 @@ using KSPAPIExtensions.PartMessage;
 
 namespace RealFuels
 {
-    public class ModuleFuelTanks : ModularFuelPartModule, IPartCostModifier
+    public class ModuleFuelTanks : PartModule, IPartCostModifier
     {
         #region loading stuff from config files
+
+        bool compatible = true;
         
         [KSPField]
         public int offsetGUIPos = -1;
@@ -641,17 +643,13 @@ namespace RealFuels
             }
         }
 
-        public override void OnUpdate()
+        public void FixedUpdate()
         {
             if (!compatible)
                 return;
             try
             {
-                if (timestamp > 0)
-                    CalculateTankLossFunction(precisionDeltaTime);
-                // Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; 
-                // this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
-                base.OnUpdate();
+				CalculateTankLossFunction(TimeWarp.fixedDeltaTime);
             }
             catch (Exception ex)
             {
