@@ -15,6 +15,7 @@ MFT_FILES := \
     assembly/AssemblyInfoMFT.cs		\
     assembly/Checkers.cs			\
 	assembly/VersionReport.cs		\
+    Tanks/FuelInfo.cs				\
     Tanks/FuelTank.cs				\
     Tanks/FuelTankList.cs			\
     Tanks/ModularFuelTanks.cs		\
