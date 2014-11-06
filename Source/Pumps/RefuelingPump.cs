@@ -56,9 +56,9 @@ namespace RealFuels
             {
                 if (p.Modules.Contains("ModuleFuelTanks"))
                 {
-                    ModuleFuelTanks m = (ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
+                    Tanks.ModuleFuelTanks m = (Tanks.ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
                     // look through all tanks inside this part
-                    foreach (ModuleFuelTanks.FuelTank tank in m.tankList)
+                    foreach (Tanks.FuelTank tank in m.tankList)
                     {
                         // if a tank isn't full, start filling it.
                         PartResource r = tank.resource;
