@@ -8,7 +8,7 @@ using KSP;
 
 namespace RealFuels
 {
-    public class RefuelingPump : ModularFuelPartModule
+    public class RefuelingPump : PartModule
     {
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Pump Enabled")]
         bool enablePump = false;
@@ -39,13 +39,9 @@ namespace RealFuels
 			}
 		}
 
-        public override void OnUpdate ()
+        public void FixedUpdate ()
         {
-            if (!HighLogic.LoadedSceneIsEditor && timestamp > 0 && part.parent != null && part.vessel != null && enablePump)
-            {
-                FillAttachedTanks(precisionDeltaTime);
-            }
-            base.OnUpdate();            //Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
+			FillAttachedTanks(TimeWarp.fixedDeltaTime);
         }
 
 
