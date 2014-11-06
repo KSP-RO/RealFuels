@@ -49,55 +49,6 @@ namespace RealFuels.Tanks
 
         #endregion
 
-        #region FuelTank
-        // A FuelTank is a single TANK {} entry from the part.cfg file.
-        // it defines four properties:
-        // name = the name of the resource that can be stored
-        // utilization = how much of the tank is devoted to that resource (vs. how much is wasted in cryogenics or pumps)
-        // mass = how much the part's mass is increased per volume unit of tank installed for this resource type
-        // loss_rate = how quickly this resource type bleeds out of the tank
-
-        public class FuelTankList : KeyedCollection<string, FuelTank>, IConfigNode
-        {
-            public FuelTankList()
-            {
-            }
-
-            public FuelTankList(ConfigNode node)
-            {
-                Load(node);
-            }
-
-            protected override string GetKeyForItem(FuelTank item)
-            {
-                return item.name;
-            }
-
-            public void Load(ConfigNode node)
-            {
-                if (node == null)
-                    return;
-                foreach (ConfigNode tankNode in node.GetNodes("TANK"))
-                {
-                        Add(new FuelTank(tankNode));
-                }
-            }
-
-            public void Save(ConfigNode node)
-            {
-                foreach (FuelTank tank in this)
-                {
-                    ConfigNode tankNode = new ConfigNode("TANK");
-                    tank.Save(tankNode);
-                    node.AddNode(tankNode);
-                }
-            }
-        }
-
-
-
-        #endregion
-
         #region KSP Callbacks
 
         public override void OnAwake()
