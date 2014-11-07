@@ -35,7 +35,6 @@ namespace RealFuels
 
         // TODO: Move engine tech levels into here too.
 
-        #region Initialization
         private static MFSSettings _instance;
         public static MFSSettings Instance
         {
@@ -62,8 +61,7 @@ namespace RealFuels
             }
 
             var asm = Assembly.GetCallingAssembly ();
-            // ReSharper disable once PossibleNullReferenceException
-            var title = (asm.GetCustomAttributes(typeof(AssemblyTitleAttribute), false)[0] as AssemblyTitleAttribute).Title;
+            var title = SystemUtils.GetAssemblyTitle (asm);
             version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
 
             return version;
@@ -90,8 +88,6 @@ namespace RealFuels
                     tankDefinitions.Add(new Tanks.TankDefinition(defNode));
             }
         }
-
-        #endregion
     }
 
 }
