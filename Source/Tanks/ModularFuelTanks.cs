@@ -656,7 +656,7 @@ namespace RealFuels.Tanks
                         {
                             PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(t.resource.resourceName);
                             if ((object)d != null)
-                                cst += t.maxAmount * (d.unitCost + t.cost);
+                                cst += t.maxAmount * (d.unitCost + t.cost / t.utilization);
                         }
                     }
                 }
