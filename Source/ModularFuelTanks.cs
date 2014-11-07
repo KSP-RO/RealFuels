@@ -1062,7 +1062,7 @@ namespace RealFuels
                         {
                             PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(t.resource.resourceName);
                             if ((object)d != null)
-                                cst += t.maxAmount / t.utilization * (d.unitCost + t.cost);
+                                cst += t.maxAmount * (d.unitCost + t.cost);
                         }
                     }
                 }
