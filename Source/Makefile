@@ -32,7 +32,7 @@ GIT		:= git
 TAR		:= tar
 ZIP		:= zip
 
-all: version ${TARGETS}
+all: version ${TARGETS} ${TSTARGETS}
 
 .PHONY: version
 version:
