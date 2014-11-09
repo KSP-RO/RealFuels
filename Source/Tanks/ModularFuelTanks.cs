@@ -160,7 +160,7 @@ namespace RealFuels.Tanks
 
                 StringBuilder info = new StringBuilder();
                 info.AppendLine("Modular Fuel Tank:");
-                info.Append("  Max Volume: ").Append(volume.ToStringSI(unit: "L"));
+                info.Append("  Max Volume: ").Append(volume.ToStringSI(unit: "u"));
                 info.AppendLine("  Tank can hold:");
                 foreach (FuelTank tank in tankList)
                     info.Append("   ").Append(tank).Append(" ").AppendLine(tank.note);
@@ -631,7 +631,7 @@ namespace RealFuels.Tanks
 
                 SIPrefix pfx = volume.GetSIPrefix();
                 Func<double, string> formatter = pfx.GetFormatter(volume);
-                volumeDisplay = "Avail: " + formatter(AvailableVolume) + pfx.PrefixString() + "L / Tot: " + formatter(volume) + pfx.PrefixString() + "L";
+                volumeDisplay = "Avail: " + formatter(AvailableVolume) + pfx.PrefixString() + "L / Tot: " + formatter(volume) + pfx.PrefixString() + "u";
 
                 double resourceMass = part.Resources.Cast<PartResource>().Sum(r => r.maxAmount*r.info.density);
 
