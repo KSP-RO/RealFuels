@@ -1,0 +1,6 @@
+Icons for the AlternateResourcePanel mod
+----------------------------------------
+
+These icons are configured using the ksparpicon property in the resources.cfg file.
+
+Forum Thread for latest: http://forum.kerbalspaceprogram.com/threads/60227-KSP-Alternate-Resource-Panel

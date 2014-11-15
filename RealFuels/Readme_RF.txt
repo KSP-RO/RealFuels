@@ -40,6 +40,40 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v8.1
+*Fix my stupidity; I forgot to change some of RF's own patches to account for the new resource names.
+*camlost: fix tank name for new FS.
+*Fix applying changes to resource amounts more than once on TweakScale rescale.
+*Change FS fuselages to calculate their own basemass.
+*Fix a GUI click-locking issue.
+*Remove old/broken KSPI interaction config; a new one is in the works by dreadicon and Northstar1989.
+
+v8.0
+*SAVE-BRREAKING - however, regex made a tool to attempt to update saves. Post on the thread if you want to try it out.
+*Redone resources by regex: some resources have changed name, a couple generic ones have been made into various specific ones, and many new (often scary) resources have been added. Note that all resources now have costs, normalized for 1 fund = $1000 in 1965 US Dollars.
+*Redone tank masses to better match extant launch vehicles. LV performance will decrease, since mostly that means dry mass went up.
+*Cryogenic tank type is now modeled on the Delta IV and Ariane 5 cores; the Shuttle ET is best modeled as a BalloonCryo tank with some ballast.
+*RCS, RCSHighEfficiency, Jet, and Oxy tanks are deprecated. Fuselage is ServiceModule with slightly higher mass (used for planes) and Structural is Default with the same basemass as Fuselage (used for planes when the tank doesn't need to be highly pressurized, or have electricity, life support, etc.)
+*Updated to MM 2.5.1 (and added FOR[] to the patches).
+*Updated SPP patches for .25, redid volumes.
+*Fixed for current Tweakscale; should now finally work right!
+*taniwha: refueling pump now works, costs funds, and only works if at KSC.
+*Disabled when incompatible KSP detected (.24 or any non-.25 version, .25Winx64), though unlocked versions are available on request by PM (on condition of no redistribution and no support)
+
+v7.4 \/
+*B9 configs removed from RF; they are included in B9 itself.
+*Fixed so tank-switching can be done after a database reload
+*Added procedural cost, with taniwha
+*Fixed refueling pumps again, with taniwha (they respect flow and flow type, and cost funds)
+*Autoconfig buttons moved to the top of the list, and fixed (will now treat jets etc properly, and both multimode modes)
+*Supports multiple ModuleEngineConfigs per part (i.e. Multi mode engines, engine+RCS, etc)
+*Maeyanie: add support for SXT and KAX
+*Removed some unneeded Firespitter entries
+*Supports Tweakscale again, internally. NOTE if you do not have tweakscale, you will get a harmless exception in the log about failing to load Tweakscale_Realfuels.dll. Ignore it.
+*Made all RCS tanks into ServiceModule tanks (finally); deprecated old RCS tank type.
+*Aristurtle Support blackheart's AJKD and KSLO mods.
+*Raptor831: Support for Kommit Nucleonics, KSPI improvement, Near Future
+
 v7.3 \/
 *Change versioning to 0.x.y internally.
 *Only apply SF patch to parts with SolidFuel (less log spam)

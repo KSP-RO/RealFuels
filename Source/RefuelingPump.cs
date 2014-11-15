@@ -16,7 +16,7 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         double pump_rate = 100.0; // 100L/sec per resource
 
-        [KSPEvent(guiActive = true, guiActiveEditor = true, guiName = "Toggle Pump")]
+        [KSPEvent(guiActive = false, guiActiveEditor = true, guiName = "Toggle Pump")]
         public void TogglePump()
         {
             enablePump = !enablePump;
@@ -26,6 +26,18 @@ namespace RealFuels
         {
             return "\nPump rate: " + pump_rate + "/s";
         }
+
+		public override void OnStart (PartModule.StartState state)
+		{
+			if (HighLogic.LoadedSceneIsFlight) {
+				if ((state & StartState.Landed) != StartState.None
+					&& vessel.landedAt.Contains ("KSC")) {
+					Events["TogglePump"].guiActive = true;
+				} else {
+					enablePump = false;
+				}
+			}
+		}
 
         public override void OnUpdate ()
         {

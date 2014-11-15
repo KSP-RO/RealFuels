@@ -24,6 +24,8 @@ namespace RealFuels
     {
         public override void OnStart (StartState state)
         {
+            if (!compatible)
+                return;
             if(configs.Count == 0 && part.partInfo != null
                && part.partInfo.partPrefab.Modules.Contains ("ModuleHybridEngine")) {
                 ModuleHybridEngine prefab = (ModuleHybridEngine) part.partInfo.partPrefab.Modules["ModuleHybridEngine"];
@@ -49,6 +51,8 @@ namespace RealFuels
 
         public override void OnInitialize()
         {
+            if (!compatible)
+                return;
             if (type.Equals("ModuleEnginesFX"))
                 ActiveEngine = new EngineWrapper((ModuleEnginesFX)part.Modules[type]);
             else if (type.Equals("ModuleEngines"))
@@ -224,6 +228,8 @@ namespace RealFuels
 
         new public void FixedUpdate ()
         {
+            if (!compatible)
+                return;
             SetThrust ();
             if (ActiveEngine.getIgnitionState) { // engine is active, render fuel gauges
                 foreach (Propellant propellant in propellants) {
@@ -552,7 +558,7 @@ namespace RealFuels
 
     public class ModuleEngineConfigs : PartModule, IPartCostModifier
     {
-
+        protected bool compatible = true;
         [KSPField(isPersistant = true)]
         public string configuration = "";
 
@@ -1024,6 +1030,11 @@ namespace RealFuels
 
         public override void OnAwake ()
         {
+            if (!CompatibilityChecker.IsAllCompatible())
+            {
+                compatible = false;
+                return;
+            }
             PartMessageService.Register(this);
             if(HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
@@ -1109,6 +1120,8 @@ namespace RealFuels
 
         public override string GetInfo ()
         {
+            if (!compatible)
+                return "";
             if (configs.Count < 2)
                 return TLTInfo();
 
@@ -1206,19 +1219,27 @@ namespace RealFuels
 
         public override void OnInactive()
         {
+            if (!compatible)
+                return;
             if(HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
         }
 
+        private static Vector3 mousePos = Vector3.zero;
+        private Rect guiWindowRect = new Rect(0, 0, 0, 0);
         public void OnGUI()
         {
+            if (!compatible)
+                return;
+            bool cursorInGUI = false; // nicked the locking code from Ferram
+            mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
+            mousePos.y = Screen.height - mousePos.y;
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor)
             {
                 return;
             }
 
-            Rect screenRect;
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
@@ -1226,12 +1247,33 @@ namespace RealFuels
             {
                 if (offsetGUIPos == -1 && (part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated))
                     posMult = 1;
-
-                screenRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
+                
+                guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
+                cursorInGUI = guiWindowRect.Contains(mousePos);
+                if (cursorInGUI)
+                {
+                    editor.Lock(false, false, false, "RFGUILock");
+                    EditorTooltip.Instance.HideToolTip();
+                }
+                else if (!cursorInGUI)
+                {
+                    editor.Unlock("RFGUILock");
+                }
             }
             else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
             {
-                screenRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
+                if (guiWindowRect.width == 0)
+                    guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
+                cursorInGUI = guiWindowRect.Contains(mousePos);
+                if (cursorInGUI)
+                {
+                    editor.Lock(false, false, false, "RFGUILock");
+                    EditorTooltip.Instance.HideToolTip();
+                }
+                else if (!cursorInGUI)
+                {
+                    editor.Unlock("RFGUILock");
+                }
             }
             else
             {
@@ -1239,11 +1281,13 @@ namespace RealFuels
                 return;
             }
 
-            GUILayout.Window(part.name.GetHashCode() + 1, screenRect, engineManagerGUI, "Configure " + part.partInfo.title);
+            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title);
         }
 
         public override void OnLoad(ConfigNode node)
         {
+            if (!compatible)
+                return;
             base.OnLoad (node);
 
             techNodes = new ConfigNode();
@@ -1310,6 +1354,8 @@ namespace RealFuels
 
         public override void OnSave (ConfigNode node)
         {
+            if (!compatible)
+                return;
             /*if (configs == null)
                 configs = new List<ConfigNode> ();
             foreach (ConfigNode c in configs)
@@ -1762,6 +1808,8 @@ namespace RealFuels
 
         public void UpdateTweakableMenu()
         {
+            if (!compatible)
+                return;
             if (!HighLogic.LoadedSceneIsEditor)
                 return;
 
@@ -1813,6 +1861,8 @@ namespace RealFuels
 
         public override void OnStart (StartState state)
         {
+            if (!compatible)
+                return;
             this.enabled = true;
             if(configs.Count == 0 && part.partInfo != null
                && part.partInfo.partPrefab.Modules.Contains ("ModuleEngineConfigs")) {
@@ -1840,11 +1890,15 @@ namespace RealFuels
 
         public override void OnInitialize()
         {
+            if (!compatible)
+                return;
             SetConfiguration(configuration);
         }
 
         public void FixedUpdate ()
         {
+            if (!compatible)
+                return;
             if (vessel == null)
                 return;
             SetThrust ();
@@ -2006,6 +2060,9 @@ namespace RealFuels
             GUILayout.BeginHorizontal();
             GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo()); //part.Modules[type].GetInfo()
             GUILayout.EndHorizontal();
+
+            if(showRFGUI)
+                GUI.DragWindow();
         }
 
         virtual public int UpdateSymmetryCounterparts()

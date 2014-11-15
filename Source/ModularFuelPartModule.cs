@@ -20,10 +20,24 @@ namespace RealFuels
         public static double controllerTimeStamp = 0.0;
         public static double controllerPrecisionDeltaTime = 0.0;
 
+        protected bool compatible = true;
+
+        public override void OnAwake()
+        {
+            if (!CompatibilityChecker.IsAllCompatible())
+            {
+                compatible = false;
+                return;
+            }
+            base.OnAwake();
+        }
+
         //This makes sure that every frame the timestep is determined only once; all other Modular Fuel parts then use that timestep for all operations
         //This function must occur AFTER part-specific functions that are dependent on it if you also want to use precisionDeltaTime for persistence purposes
         public override void OnUpdate()
         {
+            if (!compatible)
+                return;
             base.OnUpdate();
 
             //If the controller module isn't assigned, assign it; we cast to object because that is faster than the standard == null function, which involves Unity checking if the object was destroyed in addition to being null
@@ -47,12 +61,16 @@ namespace RealFuels
 
         public override void OnSave(ConfigNode node)
         {
+            if (!compatible)
+                return;
             timestamp = controllerTimeStamp;        //This ensures that the timestamp is saved for when the thing initially loads, so that "persistence" effects can be handled; do it before things are saved
             base.OnSave(node);
         }
 
         public override void OnStart(PartModule.StartState state)
         {
+            if (!compatible)
+                return;
             base.OnStart(state);
             precisionDeltaTime = Planetarium.GetUniversalTime() - timestamp;        //This allows us to handle persistence by calculating the deltaTime between "now" and the last time this part was loaded
         }
