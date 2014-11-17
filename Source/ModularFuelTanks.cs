@@ -1259,7 +1259,7 @@ namespace RealFuels
                 GUILayout.BeginVertical();
                 {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("Mass: " + massDisplay);
+                    GUILayout.Label("Mass: " + massDisplay + ", Cst " + GetModuleCost().ToString("N1"));
                     GUILayout.EndHorizontal();
 
                     if (tankList.Count == 0)
