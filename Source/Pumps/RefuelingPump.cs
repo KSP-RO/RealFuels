@@ -41,7 +41,9 @@ namespace RealFuels
 
         public void FixedUpdate ()
         {
-			FillAttachedTanks(TimeWarp.fixedDeltaTime);
+            if (!HighLogic.LoadedSceneIsEditor && part.parent != null && part.vessel != null && enablePump) {
+                FillAttachedTanks(TimeWarp.fixedDeltaTime);
+			}
         }
 
 
