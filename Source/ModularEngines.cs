@@ -971,7 +971,7 @@ namespace RealFuels
                 TechLevel nTL = new TechLevel();
                 if (!nTL.Load(cfg, mod, type, level))
                     return false;
-                return HighLogic.CurrentGame.Mode != Game.Modes.CAREER || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
+                return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
             }
         }
 
@@ -2001,7 +2001,7 @@ namespace RealFuels
 
         private bool CanConfig(ConfigNode config)
         {
-            return (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode != Game.Modes.CAREER || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available);
+            return (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available);
         }
 
         private void engineManagerGUI(int WindowID)
