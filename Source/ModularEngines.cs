@@ -1290,7 +1290,7 @@ namespace RealFuels
                 return;
             base.OnLoad (node);
 
-            techNodes = new ConfigNode();
+            techNodes = new ConfigNode(); // FIXME unsafe
             var tLs = node.GetNodes("TECHLEVEL");
             foreach (ConfigNode n in tLs)
                 techNodes.AddNode(n);
@@ -1507,6 +1507,15 @@ namespace RealFuels
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
+            if (!CanConfig(newConfig))
+            {
+                foreach(ConfigNode cfg in configs)
+                    if (CanConfig(cfg))
+                    {
+                        newConfig = cfg;
+                        break;
+                    }
+            }
             if (newConfig != null) {
 
                 // for asmi
@@ -2001,6 +2010,8 @@ namespace RealFuels
 
         private bool CanConfig(ConfigNode config)
         {
+            if ((object)HighLogic.CurrentGame == null)
+                return true;
             return (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available);
         }
 
