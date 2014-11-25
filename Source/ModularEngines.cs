@@ -1504,15 +1504,18 @@ namespace RealFuels
 
         virtual public void SetConfiguration(string newConfiguration = null)
         {
+            print("*RFE* Part " + part.name + " setting config");
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
             if (!CanConfig(newConfig))
             {
+                print("*RFE* Current config can't be done: part " + part.name + ", config " + newConfiguration);
                 foreach(ConfigNode cfg in configs)
                     if (CanConfig(cfg))
                     {
                         newConfig = cfg;
+                        newConfiguration = cfg.GetValue("name");
                         break;
                     }
             }
@@ -1805,6 +1808,8 @@ namespace RealFuels
                         
                     }
                 }
+                if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null)
+                    GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
             
         }
@@ -2012,7 +2017,9 @@ namespace RealFuels
         {
             if ((object)HighLogic.CurrentGame == null)
                 return true;
-            return (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available);
+            if (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
+                return true;
+            return false;
         }
 
         private void engineManagerGUI(int WindowID)
