@@ -31,7 +31,8 @@ namespace RealFuels
 		{
 			if (HighLogic.LoadedSceneIsFlight) {
 				if ((state & StartState.Landed) != StartState.None
-					&& vessel.landedAt.Contains ("KSC")) {
+					&& (vessel.landedAt.Equals ("LaunchPad") ||
+                    vessel.landedAt.Equals ("Runway"))) {
 					Events["TogglePump"].guiActive = true;
 				} else {
 					enablePump = false;

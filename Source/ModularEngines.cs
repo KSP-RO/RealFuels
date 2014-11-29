@@ -971,7 +971,7 @@ namespace RealFuels
                 TechLevel nTL = new TechLevel();
                 if (!nTL.Load(cfg, mod, type, level))
                     return false;
-                return HighLogic.CurrentGame.Mode != Game.Modes.CAREER || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
+                return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
             }
         }
 
@@ -1290,7 +1290,7 @@ namespace RealFuels
                 return;
             base.OnLoad (node);
 
-            techNodes = new ConfigNode();
+            techNodes = new ConfigNode(); // FIXME unsafe
             var tLs = node.GetNodes("TECHLEVEL");
             foreach (ConfigNode n in tLs)
                 techNodes.AddNode(n);
@@ -1504,9 +1504,21 @@ namespace RealFuels
 
         virtual public void SetConfiguration(string newConfiguration = null)
         {
+            print("*RFE* Part " + part.name + " setting config");
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
+            if (!CanConfig(newConfig))
+            {
+                print("*RFE* Current config can't be done: part " + part.name + ", config " + newConfiguration);
+                foreach(ConfigNode cfg in configs)
+                    if (CanConfig(cfg))
+                    {
+                        newConfig = cfg;
+                        newConfiguration = cfg.GetValue("name");
+                        break;
+                    }
+            }
             if (newConfig != null) {
 
                 // for asmi
@@ -1796,6 +1808,8 @@ namespace RealFuels
                         
                     }
                 }
+                if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null)
+                    GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
             
         }
@@ -2001,7 +2015,11 @@ namespace RealFuels
 
         private bool CanConfig(ConfigNode config)
         {
-            return (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode != Game.Modes.CAREER || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available);
+            if ((object)HighLogic.CurrentGame == null)
+                return true;
+            if (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
+                return true;
+            return false;
         }
 
         private void engineManagerGUI(int WindowID)
