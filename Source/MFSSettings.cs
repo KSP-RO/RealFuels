@@ -11,7 +11,7 @@ namespace RealFuels
     public class MFSSettings : MonoBehaviour
     {
         [Persistent]
-        public bool useRealisticMass;
+        public bool useRealisticMass = true;
         [Persistent]
         public float tankMassMultiplier = 1;
 
@@ -27,6 +27,9 @@ namespace RealFuels
         public float partUtilizationDefault = 86;
         [Persistent]
         public bool partUtilizationTweakable = false;
+
+        [Persistent]
+        public string unitLabel = "u";
 
 
         public HashSet<string> ignoreFuelsForFill = new HashSet<string>();
