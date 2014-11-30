@@ -289,6 +289,19 @@ namespace RealFuels.Tanks
 			resourceAvailable = PartResourceLibrary.Instance.GetDefinition (name) != null;
 		}
 
+		public void Save (ConfigNode node)
+		{
+			if (name == null) {
+				return;
+			}
+			ConfigNode.CreateConfigFromObject (this, node);
+
+			if (module == null) {
+				node.AddValue ("amount", amountExpression);
+				node.AddValue ("maxAmount", maxAmountExpression);
+			}
+		}
+
 		internal void InitializeAmounts ()
 		{
 			if (module == null) {
@@ -331,19 +344,6 @@ namespace RealFuels.Tanks
 				Debug.LogError ("Unable to parse amount expression: " + amountExpression + " for tank " + name);
 			}
 			amountExpression = null;
-		}
-
-		public void Save (ConfigNode node)
-		{
-			if (name == null) {
-				return;
-			}
-			ConfigNode.CreateConfigFromObject (this, node);
-
-			if (module == null) {
-				node.AddValue ("amount", amountExpression);
-				node.AddValue ("maxAmount", maxAmountExpression);
-			}
 		}
 
 		//------------------- Constructor
