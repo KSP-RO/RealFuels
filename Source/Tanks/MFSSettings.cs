@@ -36,8 +36,6 @@ namespace RealFuels
 
         public Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
 
-        // TODO: Move engine tech levels into here too.
-
         private static MFSSettings _instance;
         public static MFSSettings Instance
         {
