@@ -18,12 +18,12 @@ MFT_FILES := \
     Tanks/FuelInfo.cs				\
     Tanks/FuelTank.cs				\
     Tanks/FuelTankList.cs			\
+	Tanks/MFSSettings.cs			\
     Tanks/ModularFuelTanks.cs		\
     Tanks/TankDefinition.cs			\
     Tanks/TankDefinitionList.cs		\
     Pumps/HeatPump.cs				\
     Pumps/RefuelingPump.cs			\
-	MFSSettings.cs					\
 	$e
 
 MFT_TS_FILES := \
