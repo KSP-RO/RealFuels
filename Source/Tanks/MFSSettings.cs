@@ -16,11 +16,6 @@ namespace RealFuels
         public float tankMassMultiplier = 1;
 
         [Persistent]
-        public float engineMassMultiplier = 1;
-        [Persistent]
-        public float heatMultiplier = 1;
-
-        [Persistent]
         public float baseCostPV = 0.0f;
 
         [Persistent]
