@@ -352,7 +352,7 @@ namespace RealFuels.Tanks
 			Load (node);
 		}
 
-		internal FuelTank CreateCopy (ModuleFuelTanks toModule, ConfigNode overNode, bool initializeAmounts)
+		internal FuelTank CreateCopy (ModuleFuelTanks toModule, ConfigNode overNode)
 		{
 			FuelTank clone = (FuelTank)MemberwiseClone ();
 			clone.module = toModule;
@@ -360,13 +360,7 @@ namespace RealFuels.Tanks
 			if (overNode != null) {
 				clone.Load (overNode);
 			}
-
-			if (initializeAmounts) {
-				clone.InitializeAmounts ();
-			} else {
-				clone.amountExpression = clone.maxAmountExpression = null;
-			}
-
+			clone.InitializeAmounts ();
 			return clone;
 		}
 	}
