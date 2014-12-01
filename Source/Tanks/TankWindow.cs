@@ -14,6 +14,8 @@ namespace RealFuels.Tanks
 	[KSPAddon (KSPAddon.Startup.EditorAny, false)]
     public class TankWindow : MonoBehaviour
     {
+		internal static EventVoid OnActionGroupEditorOpened = new EventVoid ("OnActionGroupEditorOpened");
+		internal static EventVoid OnActionGroupEditorClosed = new EventVoid ("OnActionGroupEditorClosed");
         [KSPField]
         public int offsetGUIPos = -1;
 
@@ -52,23 +54,33 @@ namespace RealFuels.Tanks
 			}
 		}
 
-        private void OnPartActionGuiCreate (Part p)
-        {
-            tank_module = null;
-			ActionGroupMode = true;
-			UpdateGUIState ();
-        }
-
-        private void OnPartActionGuiDismiss (Part p)
-        {
-            tank_module = null;
-			ActionGroupMode = false;
-			UpdateGUIState ();
-        }
-
 		void UpdateGUIState ()
 		{
 			enabled = tank_module != null;
+		}
+
+		private IEnumerator<YieldInstruction> CheckActionGroupEditor ()
+		{
+			while (EditorLogic.fetch == null) {
+				yield return null;
+			}
+            EditorLogic editor = EditorLogic.fetch;
+			while (EditorLogic.fetch != null) {
+				if (editor.editorScreen == EditorLogic.EditorScreen.Actions) {
+					if (!ActionGroupMode) {
+						HideGUI ();
+					}
+					ActionGroupMode = true;
+					OnActionGroupEditorOpened.Fire ();
+				} else {
+					if (ActionGroupMode) {
+						HideGUI ();
+					}
+					ActionGroupMode = false;
+					OnActionGroupEditorClosed.Fire ();
+				}
+				yield return null;
+			}
 		}
 
 		void Awake ()
@@ -78,15 +90,12 @@ namespace RealFuels.Tanks
 				return;
 			}
 			instance = this;
-			GameEvents.onPartActionUICreate.Add (OnPartActionGuiCreate);
-			GameEvents.onPartActionUIDismiss.Add (OnPartActionGuiDismiss);
+			StartCoroutine (CheckActionGroupEditor ());
 		}
 
 		void OnDestroy ()
 		{
 			instance = null;
-			GameEvents.onPartActionUICreate.Remove (OnPartActionGuiCreate);
-			GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
 		}
 
         private Rect guiWindowRect = new Rect (0, 0, 0, 0);
