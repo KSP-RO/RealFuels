@@ -299,6 +299,9 @@ namespace RealFuels.Tanks
 			if (module == null) {
 				node.AddValue ("amount", amountExpression);
 				node.AddValue ("maxAmount", maxAmountExpression);
+			} else {
+				node.AddValue ("amount", amount.ToString ("G17"));
+				node.AddValue ("maxAmount", maxAmount.ToString ("G17"));
 			}
 		}
 

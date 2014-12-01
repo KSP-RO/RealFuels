@@ -51,8 +51,6 @@ namespace RealFuels.Tanks
 				Events["ShowUI"].active = false;
 				return;
 			}
-			Events["HideUI"].active = false;
-			Events["ShowUI"].active = true;
 
 			PartMessageService.Register (this);
 			this.RegisterOnUpdateEditor (OnUpdateEditor);
@@ -80,22 +78,10 @@ namespace RealFuels.Tanks
 			} else if (node.HasValue ("volume") && double.TryParse (node.GetValue ("volume"), out volume)) {
 				totalVolume = volume * 100 / utilization;
 			}
-
-			using (PartMessageService.Instance.Ignore (this, null, typeof (PartResourcesChanged))) {
-				LoadTankListOverridesInLoading (node);
-				if (GameSceneFilter.Loading.IsLoaded () || GameSceneFilter.SpaceCenter.IsLoaded ()) {
-					// OnLoad () being called in the SpaceCenter scene is assumed to be a database reload
-					ParseBaseMass (node);
-					ParseBaseCost (node);
-
-					typesAvailable = node.GetValues ("typeAvailable");
-				} else if (GameSceneFilter.AnyEditorOrFlight.IsLoaded ()) {
-					UpdateTankType ();
-					// Setup the mass
-					part.mass = mass;
-					MassChanged (mass);
-				}
-			}
+			typesAvailable = node.GetValues ("typeAvailable");
+			LoadTankListOverrides (node);
+			ParseBaseMass (node);
+			ParseBaseCost (node);
 		}
 
 		public override string GetInfo ()
@@ -117,7 +103,18 @@ namespace RealFuels.Tanks
 			return info.ToString ();
 		}
 
-		// This flag lets us know if this is a symmetry copy or clone in the vab.
+		void OnActionGroupEditorOpened ()
+		{
+			Events["HideUI"].active = false;
+			Events["ShowUI"].active = false;
+		}
+
+		void OnActionGroupEditorClosed ()
+		{
+			Events["HideUI"].active = false;
+			Events["ShowUI"].active = true;
+		}
+
 		public override void OnStart (StartState state)
 		{
 			if (!compatible) {
@@ -125,13 +122,15 @@ namespace RealFuels.Tanks
 			}
 
 			enabled = true;
-			// This won't do anything if it's already been done in OnLoad (stored vessel/assem)
-			if (GameSceneFilter.AnyEditor.IsLoaded ()) {
-				if (part.isClone) {
-					UpdateTankType ();
-					massDirty = true;
-				}
+			Events["HideUI"].active = false;
+			Events["ShowUI"].active = true;
 
+			UpdateTankType ();
+			massDirty = true;
+
+			if (GameSceneFilter.AnyEditor.IsLoaded ()) {
+				TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
+				TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
 				InitializeTankType ();
 				InitializeUtilization ();
 			}
@@ -146,6 +145,7 @@ namespace RealFuels.Tanks
 			}
 
 			node.AddValue ("volume", volume.ToString ("G17")); // no KSPField support for doubles
+			tankList.Save (node);
 		}
 
 		public void OnUpdateEditor ()
@@ -160,7 +160,7 @@ namespace RealFuels.Tanks
 
             EditorLogic editor = EditorLogic.fetch;
             if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
-				ShowUI ();
+				TankWindow.ShowGUI (this);
 			}
 		}
 
@@ -214,7 +214,7 @@ namespace RealFuels.Tanks
 		public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool> ();
 
 		// Load the list of TANK overrides from the part file
-		private void LoadTankListOverridesInLoading (ConfigNode node)
+		private void LoadTankListOverrides (ConfigNode node)
 		{
 			overrideListNodes = node.GetNodes ("TANK");
 		}
@@ -276,7 +276,7 @@ namespace RealFuels.Tanks
 			bool needsMesage = false;
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
-				if (tankList.Contains (partResource.name)) {
+				if (tankList.Contains (partResource.resourceName)) {
 					continue;
 				}
 				part.Resources.list.RemoveAt (i);
@@ -640,18 +640,18 @@ namespace RealFuels.Tanks
 			massDirty = true;
 		}
 
-		[KSPEvent (guiActive = true, guiName = "Hide UI", active = false)]
+		[KSPEvent (guiActiveEditor = true, guiName = "Hide UI", active = false)]
 		public void HideUI ()
 		{
 			TankWindow.HideGUI ();
 			UpdateMenus (false);
 		}
 
-		[KSPEvent (guiActive = true, guiName = "Show UI", active = false)]
+		[KSPEvent (guiActiveEditor = true, guiName = "Show UI", active = false)]
 		public void ShowUI ()
 		{
 			TankWindow.ShowGUI (this);
-			UpdateMenus (false);
+			UpdateMenus (true);
 		}
 
 		void UpdateMenus (bool visible)
