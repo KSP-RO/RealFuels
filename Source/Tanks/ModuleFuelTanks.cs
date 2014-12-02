@@ -129,6 +129,7 @@ namespace RealFuels.Tanks
 			massDirty = true;
 
 			if (GameSceneFilter.AnyEditor.IsLoaded ()) {
+				GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 				TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
 				TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
 				InitializeTankType ();
@@ -146,6 +147,13 @@ namespace RealFuels.Tanks
 
 			node.AddValue ("volume", volume.ToString ("G17")); // no KSPField support for doubles
 			tankList.Save (node);
+		}
+
+		private void OnPartActionGuiDismiss(Part p)
+		{
+			if (p == part) {
+				HideUI ();
+			}
 		}
 
 		public void OnUpdateEditor ()

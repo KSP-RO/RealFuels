@@ -69,15 +69,15 @@ namespace RealFuels.Tanks
 				if (editor.editorScreen == EditorLogic.EditorScreen.Actions) {
 					if (!ActionGroupMode) {
 						HideGUI ();
+						OnActionGroupEditorOpened.Fire ();
 					}
 					ActionGroupMode = true;
-					OnActionGroupEditorOpened.Fire ();
 				} else {
 					if (ActionGroupMode) {
 						HideGUI ();
+						OnActionGroupEditorClosed.Fire ();
 					}
 					ActionGroupMode = false;
-					OnActionGroupEditorClosed.Fire ();
 				}
 				yield return null;
 			}
