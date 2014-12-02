@@ -71,6 +71,10 @@ namespace RealFuels.Tanks
 						HideGUI ();
 						OnActionGroupEditorOpened.Fire ();
 					}
+					var age = EditorActionGroups.Instance;
+					if (tank_module && !age.GetSelectedParts ().Contains (tank_module.part)) {
+						HideGUI ();
+					}
 					ActionGroupMode = true;
 				} else {
 					if (ActionGroupMode) {
