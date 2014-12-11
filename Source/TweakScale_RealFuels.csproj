@@ -27,7 +27,7 @@
     <DebugType>none</DebugType>
     <Optimize>True</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
-    <OutputPath>..\TweakScale\TweakScaleInteraction\</OutputPath>
+    <OutputPath>..\TweakScale\tweakScaleInteraction\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
