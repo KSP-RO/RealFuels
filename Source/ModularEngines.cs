@@ -1504,13 +1504,11 @@ namespace RealFuels
 
         virtual public void SetConfiguration(string newConfiguration = null)
         {
-            print("*RFE* Part " + part.name + " setting config");
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
             if (!CanConfig(newConfig))
             {
-                print("*RFE* Current config can't be done: part " + part.name + ", config " + newConfiguration);
                 foreach(ConfigNode cfg in configs)
                     if (CanConfig(cfg))
                     {
@@ -1923,9 +1921,11 @@ namespace RealFuels
             if (fastType == ModuleType.MODULEENGINES)
             {
                 ModuleEngines engine = fastEngines;
-                if ((object)config != null)
+                if ((object)config != null && (object)engine != null)
                 {
-                    bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
+                    bool throttleCut = (object)vessel != null;
+                    if (throttleCut)
+                        throttleCut = throttleCut && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
                         float multiplier = 1.0f;
@@ -1960,7 +1960,9 @@ namespace RealFuels
                 ModuleEnginesFX engine = fastEnginesFX;
                 if ((object)config != null)
                 {
-                    bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
+                    bool throttleCut = (object)vessel != null;
+                    if (throttleCut)
+                        throttleCut = throttleCut && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
                         float multiplier = 1.0f;
@@ -2015,9 +2017,11 @@ namespace RealFuels
 
         private bool CanConfig(ConfigNode config)
         {
-            if ((object)HighLogic.CurrentGame == null)
+            if ((object)config == null)
                 return true;
-            if (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
+            if (!config.HasValue("techRequired") || (object)HighLogic.CurrentGame == null)
+                return true;
+            if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
                 return true;
             return false;
         }
