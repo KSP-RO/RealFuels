@@ -1048,7 +1048,7 @@ namespace RealFuels
             }
         }
 
-        public float GetModuleCost()
+        public float GetModuleCost(float defaultCost)
         {
             double cst = 0;
             if (baseCostPV >= 0)
@@ -1210,7 +1210,7 @@ namespace RealFuels
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
-            if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) 
+            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part))
             {
                 guiWindowRect = new Rect(430 * posMult, 365, 438, (Screen.height - 365));
                 tooltipRect = new Rect(430 * (posMult+1)+10, mousePos.y-5, 300, 20);
@@ -1225,7 +1225,7 @@ namespace RealFuels
                     editor.Unlock("MFTGUILock");
                 }
             }
-            else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
+            else if (showRFGUI && editor.editorScreen == EditorScreen.Parts)
             {
                 if(guiWindowRect.width == 0)
                     guiWindowRect = new Rect(Screen.width - 8 - 430 * (posMult+1), 365, 438, (Screen.height - 365));
@@ -1259,7 +1259,7 @@ namespace RealFuels
                 GUILayout.BeginVertical();
                 {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("Mass: " + massDisplay + ", Cst " + GetModuleCost().ToString("N1"));
+                    GUILayout.Label("Mass: " + massDisplay + ", Cst " + GetModuleCost(0).ToString("N1"));
                     GUILayout.EndHorizontal();
 
                     if (tankList.Count == 0)
