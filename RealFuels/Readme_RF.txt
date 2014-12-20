@@ -40,6 +40,12 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v8.3
+*Update to .90 (thanks ckfinite and taniwha)
+*Don't fire editor events when we shouldn't
+*Add cost info to engine change GUI
+*Show engine configs that are not avialable due tech (not having that node)
+
 v8.2
 *Update heat pumps (thanks Starwaster)
 *Fix added parts to be MM clones
