@@ -1255,7 +1255,7 @@ namespace RealFuels
                     editor.Lock(false, false, false, "RFGUILock");
                     EditorTooltip.Instance.HideToolTip();
                 }
-                else if (!cursorInGUI)
+                else
                 {
                     editor.Unlock("RFGUILock");
                 }
@@ -1270,7 +1270,7 @@ namespace RealFuels
                     editor.Lock(false, false, false, "RFGUILock");
                     EditorTooltip.Instance.HideToolTip();
                 }
-                else if (!cursorInGUI)
+                else
                 {
                     editor.Unlock("RFGUILock");
                 }
