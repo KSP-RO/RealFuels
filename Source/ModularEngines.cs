@@ -1140,6 +1140,8 @@ namespace RealFuels
                         info += "    (" + ThrustTL(config.GetValue (thrustRating), config).ToString("0.00") + " Thrust";
                     else
                         info += "    (Unknown Thrust";
+                    if(config.HasValue("cost"))
+                        info += "    (" +config.GetValue("cost") + " extra cost)";
 
                     FloatCurve isp = new FloatCurve();
                     if(config.HasNode ("atmosphereCurve")) {
@@ -2031,15 +2033,24 @@ namespace RealFuels
             foreach (ConfigNode node in configs)
             {
                 GUILayout.BeginHorizontal();
+                string costString = "";
+                if (node.HasValue("cost"))
+                {
+                    costString = " (+" + float.Parse(node.GetValue("cost")).ToString("N0") + "f)";
+                }
                 if (node.GetValue("name").Equals(configuration))
-                    GUILayout.Label("Current configuration: " + configuration);
+                    GUILayout.Label("Current config: " + configuration + costString);
                 else if (CanConfig(node))
                 {
-                    if(GUILayout.Button("Configure to " + node.GetValue("name")))
+                    if (GUILayout.Button("Switch to " + node.GetValue("name") + costString))
                     {
                         SetConfiguration(node.GetValue("name"));
                         UpdateSymmetryCounterparts();
                     }
+                }
+                else
+                {
+                    GUILayout.Label("Lack tech for " + node.GetValue("name"));
                 }
                 GUILayout.EndHorizontal();
             }
