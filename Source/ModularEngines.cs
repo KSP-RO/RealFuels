@@ -1806,7 +1806,7 @@ namespace RealFuels
                         
                     }
                 }
-                if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null)
+                if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
             

@@ -1109,7 +1109,8 @@ namespace RealFuels
                 foreach (FuelTank tank in tankList)
                     tank.maxAmount = 0;
             }
-			GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
+            if(HighLogic.LoadedSceneIsEditor)
+			    GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
         }
 
         #endregion
@@ -1440,7 +1441,8 @@ namespace RealFuels
                         if (GUILayout.Button("Remove", GUILayout.Width(58)))
                         {
                             tank.maxAmount = 0;
-							GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
+                            if (HighLogic.LoadedSceneIsEditor)
+							    GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
                             //Debug.LogWarning("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                         }
                         // FIXME: Need to add the tank logic before this can be reenabled.
