@@ -1220,7 +1220,7 @@ namespace RealFuels
                     editor.Lock(false, false, false, "MFTGUILock");
                     EditorTooltip.Instance.HideToolTip();
                 }
-                else if (!cursorInGUI)
+                else
                 {
                     editor.Unlock("MFTGUILock");
                 }
@@ -1235,7 +1235,7 @@ namespace RealFuels
                     editor.Lock(false, false, false, "MFTGUILock");
                     EditorTooltip.Instance.HideToolTip();
                 }
-                else if (!cursorInGUI)
+                else
                 {
                     editor.Unlock("MFTGUILock");
                 }
