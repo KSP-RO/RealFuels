@@ -975,7 +975,7 @@ namespace RealFuels
             }
         }
 
-        public float GetModuleCost()
+        public float GetModuleCost(float stdCost)
         {
             return configCost;
         }
@@ -1243,7 +1243,7 @@ namespace RealFuels
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
-            if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
+            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
             {
                 if (offsetGUIPos == -1 && (part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated))
                     posMult = 1;
@@ -1260,7 +1260,7 @@ namespace RealFuels
                     editor.Unlock("RFGUILock");
                 }
             }
-            else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
+            else if (showRFGUI && editor.editorScreen == EditorScreen.Parts)
             {
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
