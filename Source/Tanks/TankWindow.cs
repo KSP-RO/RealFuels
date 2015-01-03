@@ -145,7 +145,7 @@ namespace RealFuels.Tanks
 		void DisplayMass ()
 		{
 			GUILayout.BeginHorizontal ();
-			GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cst " + tank_module.GetModuleCost ().ToString ("N1"));
+			GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cst " + tank_module.GetModuleCost (0).ToString ("N1"));
 			GUILayout.EndHorizontal ();
 		}
 
