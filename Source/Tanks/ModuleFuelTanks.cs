@@ -51,6 +51,7 @@ namespace RealFuels.Tanks
 				Events["ShowUI"].active = false;
 				return;
 			}
+			print ("[MFT] OnAwake");
 
 			PartMessageService.Register (this);
 			this.RegisterOnUpdateEditor (OnUpdateEditor);
@@ -71,6 +72,7 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
+			print ("[MFT] OnLoad");
 			// Load the volume. If totalVolume is specified, use that to calc the volume
 			// otherwise scale up the provided volume. No KSPField support for doubles
 			if (node.HasValue ("totalVolume") && double.TryParse (node.GetValue ("totalVolume"), out totalVolume)) {
@@ -78,10 +80,30 @@ namespace RealFuels.Tanks
 			} else if (node.HasValue ("volume") && double.TryParse (node.GetValue ("volume"), out volume)) {
 				totalVolume = volume * 100 / utilization;
 			}
-			typesAvailable = node.GetValues ("typeAvailable");
-			LoadTankListOverrides (node);
-			ParseBaseMass (node);
-			ParseBaseCost (node);
+			using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged))) {
+				if (GameSceneFilter.Loading.IsLoaded() || GameSceneFilter.SpaceCenter.IsLoaded()) {
+					overrideListNodes = node.GetNodes("TANK");
+					ParseBaseMass(node);
+					ParseBaseCost(node);
+					typesAvailable = node.GetValues ("typeAvailable");
+				} else if (GameSceneFilter.AnyEditorOrFlight.IsLoaded()) {
+					// The amounts initialized flag is there so that the tank type loading doesn't
+					// try to set up any resources. They'll get loaded directly from the save.
+					UpdateTankType (false);
+					// Destroy any resources still hanging around from the LOADING phase
+					for (int i = part.Resources.Count - 1; i >= 0; --i) {
+						PartResource partResource = part.Resources[i];
+						if (!tankList.Contains (partResource.resourceName))
+							continue;
+						part.Resources.list.RemoveAt (i);
+						DestroyImmediate (partResource);
+					}
+					RaiseResourceListChanged ();
+					// Setup the mass
+					part.mass = mass;
+					MassChanged (mass);
+				}
+			}
 		}
 
 		public override string GetInfo ()
@@ -120,18 +142,21 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
+			print ("[MFT] OnStart");
 
 			enabled = true;
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
 
-			UpdateTankType ();
-			massDirty = true;
-
 			if (GameSceneFilter.AnyEditor.IsLoaded ()) {
 				GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 				TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
 				TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
+				if (part.isClone) {
+					UpdateTankType (false);
+					massDirty = true;
+				}
+
 				InitializeTankType ();
 				InitializeUtilization ();
 			}
@@ -253,7 +278,7 @@ namespace RealFuels.Tanks
 			}
 		}
 
-		private void UpdateTankType ()
+		private void UpdateTankType (bool initializeAmounts = true)
 		{
 			if (oldType == type || type == null) {
 				return;
@@ -269,6 +294,7 @@ namespace RealFuels.Tanks
 			def = Settings.tankDefinitions[type];
 
 			oldType = type;
+			FuelTankList oldList = tankList;
 
 			// Build the new tank list.
 			tankList = new FuelTankList ();
@@ -277,16 +303,15 @@ namespace RealFuels.Tanks
 				// Pull the override from the list of overrides
 				ConfigNode overNode = overrideListNodes.FirstOrDefault (n => n.GetValue ("name") == tank.name);
 
-				tankList.Add (tank.CreateCopy (this, overNode));
+				tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
 			}
 
-			// Destroy resources that are not in the new type
+			// Destroy resources that are in either the new or the old type.
 			bool needsMesage = false;
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
-				if (tankList.Contains (partResource.resourceName)) {
+				if (!tankList.Contains(partResource.name) || oldList == null || !oldList.Contains(partResource.name))
 					continue;
-				}
 				part.Resources.list.RemoveAt (i);
 				Destroy (partResource);
 				needsMesage = true;
