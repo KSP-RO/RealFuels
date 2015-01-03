@@ -167,7 +167,7 @@ namespace RealFuels.Tanks
 			CalculateMass ();
 
             EditorLogic editor = EditorLogic.fetch;
-            if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
+            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
 				TankWindow.ShowGUI (this);
 			}
 		}
@@ -601,7 +601,7 @@ namespace RealFuels.Tanks
         }
         private UIPartActionWindow _myWindow;
 
-		public float GetModuleCost ()
+		public float GetModuleCost (float defaultCost)
 		{
 			double cst = 0;
 			if (baseCostPV >= 0) {

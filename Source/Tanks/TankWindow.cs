@@ -66,7 +66,7 @@ namespace RealFuels.Tanks
 			}
             EditorLogic editor = EditorLogic.fetch;
 			while (EditorLogic.fetch != null) {
-				if (editor.editorScreen == EditorLogic.EditorScreen.Actions) {
+				if (editor.editorScreen == EditorScreen.Actions) {
 					if (!ActionGroupMode) {
 						HideGUI ();
 						OnActionGroupEditorOpened.Fire ();
@@ -134,7 +134,7 @@ namespace RealFuels.Tanks
 			if (cursorInGUI) {
 				editor.Lock (false, false, false, "MFTGUILock");
 				EditorTooltip.Instance.HideToolTip ();
-			} else if (!cursorInGUI) {
+			} else {
 				editor.Unlock ("MFTGUILock");
 			}
 
