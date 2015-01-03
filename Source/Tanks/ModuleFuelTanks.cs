@@ -51,7 +51,6 @@ namespace RealFuels.Tanks
 				Events["ShowUI"].active = false;
 				return;
 			}
-			print ("[MFT] OnAwake");
 
 			PartMessageService.Register (this);
 			this.RegisterOnUpdateEditor (OnUpdateEditor);
@@ -72,7 +71,6 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
-			print ("[MFT] OnLoad");
 			// Load the volume. If totalVolume is specified, use that to calc the volume
 			// otherwise scale up the provided volume. No KSPField support for doubles
 			if (node.HasValue ("totalVolume") && double.TryParse (node.GetValue ("totalVolume"), out totalVolume)) {
@@ -142,7 +140,6 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
-			print ("[MFT] OnStart");
 
 			enabled = true;
 			Events["HideUI"].active = false;
@@ -310,8 +307,6 @@ namespace RealFuels.Tanks
 			bool needsMesage = false;
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
-				if (!tankList.Contains(partResource.name) || oldList == null || !oldList.Contains(partResource.name))
-					continue;
 				part.Resources.list.RemoveAt (i);
 				Destroy (partResource);
 				needsMesage = true;
