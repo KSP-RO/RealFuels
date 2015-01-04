@@ -291,8 +291,6 @@ namespace RealFuels.Tanks
 			def = Settings.tankDefinitions[type];
 
 			oldType = type;
-			FuelTankList oldList = tankList;
-
 			// Build the new tank list.
 			tankList = new FuelTankList ();
 			for (int i = 0; i < def.tankList.Count; i++) {
@@ -307,8 +305,10 @@ namespace RealFuels.Tanks
 			bool needsMesage = false;
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
+				if (tankList.Contains(partResource.resourceName))
+					continue;
 				part.Resources.list.RemoveAt (i);
-				Destroy (partResource);
+				DestroyImmediate (partResource);
 				needsMesage = true;
 			}
 			if (needsMesage) {
