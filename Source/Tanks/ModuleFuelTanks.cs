@@ -301,7 +301,7 @@ namespace RealFuels.Tanks
 				tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
 			}
 
-			// Destroy resources that are in either the new or the old type.
+			// Destroy any resources that are not in the new type.
 			bool needsMesage = false;
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
