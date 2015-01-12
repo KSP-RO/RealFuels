@@ -66,6 +66,27 @@ namespace RealFuels.Tanks
 			}
 		}
 
+		bool isDatabaseLoad
+		{
+			get {
+				return (GameSceneFilter.Loading.IsLoaded () || GameSceneFilter.SpaceCenter.IsLoaded ());
+			}
+		}
+
+		bool isEditor
+		{
+			get {
+				return GameSceneFilter.AnyEditor.IsLoaded ();
+			}
+		}
+
+		bool isEditorOrFlight
+		{
+			get {
+				return GameSceneFilter.AnyEditorOrFlight.IsLoaded();
+			}
+		}
+
 		public override void OnLoad (ConfigNode node)
 		{
 			if (!compatible) {
@@ -79,12 +100,12 @@ namespace RealFuels.Tanks
 				totalVolume = volume * 100 / utilization;
 			}
 			using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged))) {
-				if (GameSceneFilter.Loading.IsLoaded() || GameSceneFilter.SpaceCenter.IsLoaded()) {
+				if (isDatabaseLoad) {
 					overrideListNodes = node.GetNodes("TANK");
 					ParseBaseMass(node);
 					ParseBaseCost(node);
 					typesAvailable = node.GetValues ("typeAvailable");
-				} else if (GameSceneFilter.AnyEditorOrFlight.IsLoaded()) {
+				} else if (isEditorOrFlight) {
 					// The amounts initialized flag is there so that the tank type loading doesn't
 					// try to set up any resources. They'll get loaded directly from the save.
 					UpdateTankType (false);
@@ -145,7 +166,7 @@ namespace RealFuels.Tanks
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
 
-			if (GameSceneFilter.AnyEditor.IsLoaded ()) {
+			if (isEditor) {
 				GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 				TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
 				TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
@@ -321,7 +342,7 @@ namespace RealFuels.Tanks
 				ParseBaseCost (def.baseCost);
 			}
 
-			if (GameSceneFilter.Loading.IsLoaded () || GameSceneFilter.SpaceCenter.IsLoaded ()) {
+			if (isDatabaseLoad) {
 				// being called in the SpaceCenter scene is assumed to be a database reload
 				//FIXME is this really needed?
 				return;
@@ -561,7 +582,7 @@ namespace RealFuels.Tanks
 				mass = part.mass; // display dry mass even in this case.
 			}
 
-			if (GameSceneFilter.AnyEditor.IsLoaded ()) {
+			if (isEditor) {
 				UsedVolume = tankList
 					.Where (fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
 					.Sum (fuel => fuel.maxAmount/fuel.utilization);
