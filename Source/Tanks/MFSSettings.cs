@@ -20,6 +20,7 @@ namespace RealFuels
         public static HashSet<string> ignoreFuelsForFill;
         public static Tanks.TankDefinitionList tankDefinitions;
 
+		public static Dictionary<string, HashSet<string>> managedResources;
 
         static string version;
         public static string GetVersion ()
@@ -39,6 +40,7 @@ namespace RealFuels
 		{
 			ignoreFuelsForFill = null;
 			tankDefinitions = null;
+			managedResources = null;
 
 			Destroy (this);
 		}
@@ -47,6 +49,7 @@ namespace RealFuels
         {
 			ignoreFuelsForFill = new HashSet<string> ();
 			tankDefinitions = new Tanks.TankDefinitionList ();
+			managedResources = new Dictionary<string,HashSet<string>> ();
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes ("MFSSETTINGS").Last ();
             Debug.Log ("[MFS] Loading global settings");

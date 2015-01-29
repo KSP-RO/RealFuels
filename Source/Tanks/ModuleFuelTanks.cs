@@ -74,6 +74,33 @@ namespace RealFuels.Tanks
 			}
 		}
 
+		void RecordTankTypeResources (HashSet<string> resources, string type)
+		{
+			TankDefinition def;
+			if (!MFSSettings.tankDefinitions.Contains (type)) {
+				return;
+			}
+			def = MFSSettings.tankDefinitions[type];
+
+			for (int i = 0; i < def.tankList.Count; i++) {
+				FuelTank tank = def.tankList[i];
+				resources.Add (tank.name);
+			}
+		}
+
+		void RecordManagedResources ()
+		{
+			HashSet<string> resources = new HashSet<string> ();
+
+			RecordTankTypeResources (resources, type);
+			if (typesAvailable != null) {
+				for (int i = 0; i < typesAvailable.Count(); i++) {
+					RecordTankTypeResources (resources, typesAvailable[i]);
+				}
+			}
+			MFSSettings.managedResources[part.name] = resources;
+		}
+
 		public override void OnLoad (ConfigNode node)
 		{
 			if (!compatible) {
@@ -97,6 +124,7 @@ namespace RealFuels.Tanks
 					ParseBaseMass(node);
 					ParseBaseCost(node);
 					typesAvailable = node.GetValues ("typeAvailable");
+					RecordManagedResources ();
 				} else if (isEditorOrFlight) {
 					// The amounts initialized flag is there so that the tank type loading doesn't
 					// try to set up any resources. They'll get loaded directly from the save.
@@ -314,11 +342,13 @@ namespace RealFuels.Tanks
 				tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
 			}
 
-			// Destroy any resources that are not in the new type.
+			// Destroy any managed resources that are not in the new type.
+			HashSet<string> managed = MFSSettings.managedResources[part.name];	// if this throws, we have some big fish to fry
 			bool needsMesage = false;
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
-				if (tankList.Contains(partResource.resourceName))
+				string resname = partResource.resourceName;
+				if (!managed.Contains(resname) || tankList.Contains(resname))
 					continue;
 				part.Resources.list.RemoveAt (i);
 				DestroyImmediate (partResource);
