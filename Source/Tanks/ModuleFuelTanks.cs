@@ -18,27 +18,14 @@ namespace RealFuels.Tanks
 		private static float MassMult
 		{
 			get {
-				if (MFSSettings.Instance == null) {
-					return 1.0f;
-				}
-				return MFSSettings.Instance.useRealisticMass ? 1.0f : MFSSettings.Instance.tankMassMultiplier;
-			}
-		}
-
-		private static MFSSettings Settings
-		{
-			get {
-				return MFSSettings.Instance;
+				return MFSSettings.useRealisticMass ? 1.0f : MFSSettings.tankMassMultiplier;
 			}
 		}
 
 		private static float defaultBaseCostPV
 		{
 			get {
-				if (MFSSettings.Instance == null) {
-					return 0.01f;
-				}
-				return MFSSettings.Instance.baseCostPV;
+				return MFSSettings.baseCostPV;
 			}
 		}
 
@@ -56,7 +43,7 @@ namespace RealFuels.Tanks
 			this.RegisterOnUpdateEditor (OnUpdateEditor);
 
 			// Initialize utilization from the settings file
-			utilization = Settings.partUtilizationDefault;
+			utilization = MFSSettings.partUtilizationDefault;
 		}
 
 		public override void OnInactive ()
@@ -92,6 +79,11 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
+
+			if (MFSSettings.tankDefinitions == null) {
+				MFSSettings.Initialize ();
+			}
+
 			// Load the volume. If totalVolume is specified, use that to calc the volume
 			// otherwise scale up the provided volume. No KSPField support for doubles
 			if (node.HasValue ("totalVolume") && double.TryParse (node.GetValue ("totalVolume"), out totalVolume)) {
@@ -135,7 +127,7 @@ namespace RealFuels.Tanks
 
 			StringBuilder info = new StringBuilder ();
 			info.AppendLine ("Modular Fuel Tank:");
-			info.Append ("	Max Volume: ").Append (volume.ToStringSI (unit: Settings.unitLabel));
+			info.Append ("	Max Volume: ").Append (volume.ToStringSI (unit: MFSSettings.unitLabel));
 			info.AppendLine ("	Tank can hold:");
 			for (int i = 0; i < tankList.Count; i++) {
 				FuelTank tank = tankList[i];
@@ -304,12 +296,12 @@ namespace RealFuels.Tanks
 
 			// Copy the tank list from the tank definitiion
 			TankDefinition def;
-			if (!Settings.tankDefinitions.Contains (type)) {
+			if (!MFSSettings.tankDefinitions.Contains (type)) {
 				Debug.LogError ("Unable to find tank definition for type \"" + type + "\" reverting.");
 				type = oldType;
 				return;
 			}
-			def = Settings.tankDefinitions[type];
+			def = MFSSettings.tankDefinitions[type];
 
 			oldType = type;
 			// Build the new tank list.
@@ -470,7 +462,7 @@ namespace RealFuels.Tanks
 
 		private void InitializeUtilization () 
 		{
-			Fields["utilization"].guiActiveEditor = Settings.partUtilizationTweakable || utilizationTweakable;
+			Fields["utilization"].guiActiveEditor = MFSSettings.partUtilizationTweakable || utilizationTweakable;
 		}
 
 		[KSPField (isPersistant = true)]
@@ -589,7 +581,7 @@ namespace RealFuels.Tanks
 
 				SIPrefix pfx = volume.GetSIPrefix ();
 				Func<double, string> formatter = pfx.GetFormatter (volume);
-				volumeDisplay = "Avail: " + formatter (AvailableVolume) + pfx.PrefixString () + Settings.unitLabel + " / Tot: " + formatter (volume) + pfx.PrefixString () + Settings.unitLabel;
+				volumeDisplay = "Avail: " + formatter (AvailableVolume) + pfx.PrefixString () + MFSSettings.unitLabel + " / Tot: " + formatter (volume) + pfx.PrefixString () + MFSSettings.unitLabel;
 
 				double resourceMass = part.Resources.Cast<PartResource> ().Sum (r => r.maxAmount*r.info.density);
 

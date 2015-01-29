@@ -21,7 +21,7 @@ namespace RealFuels.Tanks
 		// looks to see if we should ignore this fuel when creating an autofill for an engine
 		private static bool IgnoreFuel (string name)
 		{
-			return MFSSettings.Instance.ignoreFuelsForFill.Contains (name);
+			return MFSSettings.ignoreFuelsForFill.Contains (name);
 		}
 
 		public string Label
