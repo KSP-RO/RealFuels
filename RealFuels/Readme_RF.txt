@@ -40,6 +40,33 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v8.3
+*Update to .90 (thanks ckfinite and taniwha)
+*Don't fire editor events when we shouldn't
+*Add cost info to engine change GUI
+*Show engine configs that are not avialable due tech (not having that node)
+
+v8.2
+*Update heat pumps (thanks Starwaster)
+*Fix added parts to be MM clones
+*taniwha: lots of refactoring
+*regex: add lots of missing tanks (FASA, HGR, NP2, RLA, SXT)
+*dreadicon: improved KSPI config
+*camlost: RetroFuture tank configs
+*TriggerAu: include icons for ARP in RealFuels rather than in ARP
+*taniwha: correct tank cost calcs
+*Raptor831: Add missing NP2, HGR tanks; Add Taurus pod/SM tanks
+*lilienthal: fix Thermal Fin description
+*Starman-4308: Add configs for Modular Rocket System
+*Add support for the 0.625m tanks in Ven's Stock Part Revamp
+*Show tank/fuel cost in GUI
+*Lower Solid Fuel and ElectricCharge costs (oops)
+*Fix so science sandbox is still detected as "has R&D tree"
+*Add setting for unit label
+*A Modular Engine will switch to the first available config if its current config is not available (due to requiring a tech tree node you don't have researched).
+*Starman4308: SpaceY tank configs
+*Starwaster: configs for TT's Mk2 nosecone and Nertea's MkIV system.
+
 v8.1
 *Fix my stupidity; I forgot to change some of RF's own patches to account for the new resource names.
 *camlost: fix tank name for new FS.

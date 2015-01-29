@@ -4,11 +4,11 @@ using TweakScale;
 
 namespace RealFuels
 {
-    class TweakScaleModularFuelTanksUpdater : IRescalable<RealFuels.ModuleFuelTanks>
+    class TweakScaleModularFuelTanksUpdater : IRescalable<RealFuels.Tanks.ModuleFuelTanks>
     {
-        private RealFuels.ModuleFuelTanks _module;
+        private RealFuels.Tanks.ModuleFuelTanks _module;
 
-        private RealFuels.ModuleFuelTanks Module
+        private RealFuels.Tanks.ModuleFuelTanks Module
         {
             get
             {
@@ -24,7 +24,7 @@ namespace RealFuels
             }
         }
 
-        public TweakScaleModularFuelTanksUpdater(RealFuels.ModuleFuelTanks pm)
+        public TweakScaleModularFuelTanksUpdater(RealFuels.Tanks.ModuleFuelTanks pm)
         {
             _module = pm;
         }

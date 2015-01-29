@@ -8,22 +8,27 @@ TSGAMEDATA	:= ${GAMEDATA}/TweakScale
 TSPLUGIN	:= ${TSGAMEDATA}/Plugins
 TSINTERACT	:= ${TSGAMEDATA}/TweakScaleInteraction
 
-TARGETS		:= modularFuelTanks.dll
-TSTARGETS	:= TweakScale_ModularFuelTanks.dll
+TARGETS		:= bin/modularFuelTanks.dll
+TSTARGETS	:= bin/TweakScale_ModularFuelTanks.dll
 
 MFT_FILES := \
-    AssemblyInfoMFT.cs			\
-    Checkers.cs					\
-    HeatPump.cs					\
-    ModularFuelTanks.cs			\
-    ModularFuelPartModule.cs	\
-    RefuelingPump.cs			\
-	MFSSettings.cs				\
-	VersionReport.cs			\
+    assembly/AssemblyInfoMFT.cs		\
+    assembly/Checkers.cs			\
+	assembly/VersionReport.cs		\
+    Tanks/FuelInfo.cs				\
+    Tanks/FuelTank.cs				\
+    Tanks/FuelTankList.cs			\
+	Tanks/MFSSettings.cs			\
+    Tanks/ModuleFuelTanks.cs		\
+    Tanks/TankDefinition.cs			\
+    Tanks/TankDefinitionList.cs		\
+    Tanks/TankWindow.cs				\
+    Pumps/HeatPump.cs				\
+    Pumps/RefuelingPump.cs			\
 	$e
 
 MFT_TS_FILES := \
-	TweakScale_ModularFuelSystem.cs	\
+	tweakscale/TweakScale_ModularFuelSystem.cs	\
 	$e
 
 RESGEN2	:= resgen2
@@ -36,7 +41,7 @@ all: version ${TARGETS} ${TSTARGETS}
 
 .PHONY: version
 version:
-	@./git-version.sh
+	@./tools/git-version.sh
 
 info:
 	@echo "Modular Fuel Tanks Build Information"
@@ -48,21 +53,23 @@ info:
 	@echo "    KSP Data: ${KSPDIR}"
 	@echo "    Plugin:   ${PLUGINDIR}"
 
-modularFuelTanks.dll: ${MFT_FILES}
+bin/modularFuelTanks.dll: ${MFT_FILES}
+	@mkdir -p bin
 	${GMCS} -t:library -lib:${APIEXTDATA},${MANAGED} \
 		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
 		-r:KSPAPIExtensions \
 		-out:$@ $^
 
-TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} modularFuelTanks.dll
+bin/TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} bin/modularFuelTanks.dll
+	@mkdir -p bin
 	${GMCS} -t:library -lib:${TSPLUGIN},${MANAGED} \
 		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
 		-r:Scale_Redist.dll \
-		-r:modularFuelTanks.dll \
+		-r:bin/modularFuelTanks.dll \
 		-out:$@ ${MFT_TS_FILES}
 
 clean:
-	rm -f ${TARGETS} AssemblyInfoMFT.cs
+	rm -f ${TARGETS} assembly/AssemblyInfoMFT.cs
 
 install: all
 	mkdir -p ${PLUGINDIR}

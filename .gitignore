@@ -16,7 +16,6 @@ build/
 [Oo]bj/
 *.dll
 *.dll.mdb
-Source/AssemblyInfo.cs
 
 # Enable "build/" folder in the NuGet Packages folder since NuGet packages use it for MSBuild targets
 !packages/*/build/
@@ -152,7 +151,8 @@ $RECYCLE.BIN/
 
 # Mac crap
 .DS_Store
-Source/AssemblyInfoMFT.cs
-Source/AssemblyInfoRF.cs
+
+Source/assembly/AssemblyInfoMFT.cs
+Source/assembly/AssemblyInfoRF.cs
 Source/RealFuels.sln
 Source/RealFuels.csproj

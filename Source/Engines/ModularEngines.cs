@@ -113,7 +113,7 @@ namespace RealFuels
             {
                 if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                 {
-                    //print("*MFS* resetting curve " + field.Name);
+                    //print("*MHE* resetting curve " + field.Name);
                     field.SetValue(pModule, new FloatCurve());
                 }
             }
@@ -135,7 +135,7 @@ namespace RealFuels
                         }
                         catch (Exception e)
                         {
-                            print("*MFS* Trying to remove info box: " + e.Message);
+                            print("*MHE* Trying to remove info box: " + e.Message);
                         }
                     }
                     boxes.Clear();
@@ -580,7 +580,7 @@ namespace RealFuels
 
         public ConfigNode techNodes = new ConfigNode();
 
-        public static ConfigNode MFSSettings = null;
+        public static ConfigNode MHESettings = null;
 
 
         // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
@@ -768,10 +768,10 @@ namespace RealFuels
             // loads from global techlevels
             public bool Load(string type, int level)
             {
-                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
+                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
                     return false;
 
-                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
+                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                         return Load(node, level);
@@ -811,7 +811,7 @@ namespace RealFuels
                 }
 
                 // check global
-                //print("*MFS* Fallback to global for type " + type + ", TL " + level);
+                //print("*MHE* Fallback to global for type " + type + ", TL " + level);
                 return Load(type, level);
             }
 
@@ -851,9 +851,9 @@ namespace RealFuels
             public static int MaxTL(string type)
             {
                 int max = -1;
-                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
+                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
                     return max;
-                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
+                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                     {
@@ -880,9 +880,9 @@ namespace RealFuels
             public static int MinTL(string type)
             {
                 int min = int.MaxValue;
-                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
+                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
                     return min;
-                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
+                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                     {
@@ -971,11 +971,11 @@ namespace RealFuels
                 TechLevel nTL = new TechLevel();
                 if (!nTL.Load(cfg, mod, type, level))
                     return false;
-                return HighLogic.CurrentGame.Mode != Game.Modes.CAREER || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
+                return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
             }
         }
 
-        public float GetModuleCost()
+        public float GetModuleCost(float stdCost)
         {
             return configCost;
         }
@@ -1005,22 +1005,22 @@ namespace RealFuels
 
         private static void FillSettings()
         {
-            print("*MFS* Loading Engine Settings!\n");
+            print("*MHE* Loading Engine Settings!\n");
 
-            if (MFSSettings.HasValue("useRealisticMass"))
+            if (MHESettings.HasValue("useRealisticMass"))
             {
                 bool usereal = false;
-                bool.TryParse(MFSSettings.GetValue("useRealisticMass"), out usereal);
+                bool.TryParse(MHESettings.GetValue("useRealisticMass"), out usereal);
                 if (!usereal)
-                    massMult = float.Parse(MFSSettings.GetValue("engineMassMultiplier"));
+                    massMult = float.Parse(MHESettings.GetValue("engineMassMultiplier"));
                 else
                     massMult = 1.0f;
             }
             else
                 massMult = 1.0f;
-            if (MFSSettings.HasValue("heatMultiplier"))
+            if (MHESettings.HasValue("heatMultiplier"))
             {
-                if (!float.TryParse(MFSSettings.GetValue("heatMultiplier"), out heatMult))
+                if (!float.TryParse(MHESettings.GetValue("heatMultiplier"), out heatMult))
                     heatMult = 1.0f;
             }
             else
@@ -1041,12 +1041,12 @@ namespace RealFuels
 
             if(configs == null)
                 configs = new List<ConfigNode>();
-            if (MFSSettings == null)
+            if (MHESettings == null)
             {
-                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
-                    MFSSettings = node;
-                if(MFSSettings == null)
-                    throw new UnityException("*MFS* MFSSettings not found!");
+                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MHESETTINGS"))
+                    MHESettings = node;
+                if(MHESettings == null)
+                    throw new UnityException("*MHE* MHESettings not found!");
                 FillSettings();
             }
         }
@@ -1140,6 +1140,8 @@ namespace RealFuels
                         info += "    (" + ThrustTL(config.GetValue (thrustRating), config).ToString("0.00") + " Thrust";
                     else
                         info += "    (Unknown Thrust";
+                    if(config.HasValue("cost"))
+                        info += "    (" +config.GetValue("cost") + " extra cost)";
 
                     FloatCurve isp = new FloatCurve();
                     if(config.HasNode ("atmosphereCurve")) {
@@ -1243,7 +1245,7 @@ namespace RealFuels
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
-            if (editor.editorScreen == EditorLogic.EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
+            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
             {
                 if (offsetGUIPos == -1 && (part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated))
                     posMult = 1;
@@ -1255,12 +1257,12 @@ namespace RealFuels
                     editor.Lock(false, false, false, "RFGUILock");
                     EditorTooltip.Instance.HideToolTip();
                 }
-                else if (!cursorInGUI)
+                else
                 {
                     editor.Unlock("RFGUILock");
                 }
             }
-            else if (showRFGUI && editor.editorScreen == EditorLogic.EditorScreen.Parts)
+            else if (showRFGUI && editor.editorScreen == EditorScreen.Parts)
             {
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
@@ -1270,7 +1272,7 @@ namespace RealFuels
                     editor.Lock(false, false, false, "RFGUILock");
                     EditorTooltip.Instance.HideToolTip();
                 }
-                else if (!cursorInGUI)
+                else
                 {
                     editor.Unlock("RFGUILock");
                 }
@@ -1290,7 +1292,7 @@ namespace RealFuels
                 return;
             base.OnLoad (node);
 
-            techNodes = new ConfigNode();
+            techNodes = new ConfigNode(); // FIXME unsafe
             var tLs = node.GetNodes("TECHLEVEL");
             foreach (ConfigNode n in tLs)
                 techNodes.AddNode(n);
@@ -1507,6 +1509,16 @@ namespace RealFuels
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
+            if (!CanConfig(newConfig))
+            {
+                foreach(ConfigNode cfg in configs)
+                    if (CanConfig(cfg))
+                    {
+                        newConfig = cfg;
+                        newConfiguration = cfg.GetValue("name");
+                        break;
+                    }
+            }
             if (newConfig != null) {
 
                 // for asmi
@@ -1580,7 +1592,7 @@ namespace RealFuels
                     {
                         if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                         {
-                            //print("*MFS* resetting curve " + field.Name);
+                            //print("*MHE* resetting curve " + field.Name);
                             field.SetValue(pModule, new FloatCurve());
                         }
                     }
@@ -1602,7 +1614,7 @@ namespace RealFuels
                                 }
                                 catch (Exception e)
                                 {
-                                    print("*MFS* Trying to remove info box: " + e.Message);
+                                    print("*MHE* Trying to remove info box: " + e.Message);
                                 }
                             }
                             boxes.Clear();
@@ -1796,6 +1808,8 @@ namespace RealFuels
                         
                     }
                 }
+                if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
+                    GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
             
         }
@@ -1843,7 +1857,7 @@ namespace RealFuels
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
-            //print("*MFS* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
+            //print("*MHE* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
             foreach(ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust.ToString());
@@ -1909,9 +1923,11 @@ namespace RealFuels
             if (fastType == ModuleType.MODULEENGINES)
             {
                 ModuleEngines engine = fastEngines;
-                if ((object)config != null)
+                if ((object)config != null && (object)engine != null)
                 {
-                    bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
+                    bool throttleCut = (object)vessel != null;
+                    if (throttleCut)
+                        throttleCut = throttleCut && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
                         float multiplier = 1.0f;
@@ -1946,7 +1962,9 @@ namespace RealFuels
                 ModuleEnginesFX engine = fastEnginesFX;
                 if ((object)config != null)
                 {
-                    bool throttleCut = (object)vessel != null && vessel.ctrlState.mainThrottle <= 0;
+                    bool throttleCut = (object)vessel != null;
+                    if (throttleCut)
+                        throttleCut = throttleCut && vessel.ctrlState.mainThrottle <= 0;
                     if (engine.realIsp > 0)
                     {
                         float multiplier = 1.0f;
@@ -2001,7 +2019,13 @@ namespace RealFuels
 
         private bool CanConfig(ConfigNode config)
         {
-            return (!config.HasValue("techRequired") || HighLogic.CurrentGame.Mode != Game.Modes.CAREER || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available);
+            if ((object)config == null)
+                return true;
+            if (!config.HasValue("techRequired") || (object)HighLogic.CurrentGame == null)
+                return true;
+            if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
+                return true;
+            return false;
         }
 
         private void engineManagerGUI(int WindowID)
@@ -2009,15 +2033,24 @@ namespace RealFuels
             foreach (ConfigNode node in configs)
             {
                 GUILayout.BeginHorizontal();
+                string costString = "";
+                if (node.HasValue("cost"))
+                {
+                    costString = " (+" + float.Parse(node.GetValue("cost")).ToString("N0") + "f)";
+                }
                 if (node.GetValue("name").Equals(configuration))
-                    GUILayout.Label("Current configuration: " + configuration);
+                    GUILayout.Label("Current config: " + configuration + costString);
                 else if (CanConfig(node))
                 {
-                    if(GUILayout.Button("Configure to " + node.GetValue("name")))
+                    if (GUILayout.Button("Switch to " + node.GetValue("name") + costString))
                     {
                         SetConfiguration(node.GetValue("name"));
                         UpdateSymmetryCounterparts();
                     }
+                }
+                else
+                {
+                    GUILayout.Label("Lack tech for " + node.GetValue("name"));
                 }
                 GUILayout.EndHorizontal();
             }
