@@ -8,7 +8,7 @@ using KSP;
 
 namespace RealFuels
 {
-    public class RefuelingPump : PartModule
+    public class RefuelingPump : ModularFuelPartModule
     {
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Pump Enabled")]
         bool enablePump = false;
@@ -31,8 +31,8 @@ namespace RealFuels
 		{
 			if (HighLogic.LoadedSceneIsFlight) {
 				if ((state & StartState.Landed) != StartState.None
-					&& (vessel.landedAt.Equals ("LaunchPad")
-						|| vessel.landedAt.Equals ("Runway"))) {
+					&& (vessel.landedAt.Equals ("LaunchPad") ||
+                    vessel.landedAt.Equals ("Runway"))) {
 					Events["TogglePump"].guiActive = true;
 				} else {
 					enablePump = false;
@@ -40,11 +40,13 @@ namespace RealFuels
 			}
 		}
 
-        public void FixedUpdate ()
+        public override void OnUpdate ()
         {
-            if (HighLogic.LoadedSceneIsFlight && part.parent != null && part.vessel != null && enablePump) {
-                FillAttachedTanks(TimeWarp.fixedDeltaTime);
-			}
+            if (!HighLogic.LoadedSceneIsEditor && timestamp > 0 && part.parent != null && part.vessel != null && enablePump)
+            {
+                FillAttachedTanks(precisionDeltaTime);
+            }
+            base.OnUpdate();            //Needs to be at the end to prevent weird things from happening during startup and to make handling persistance easy; this does mean that the effects are delayed by a frame, but since they're constant, that shouldn't matter here
         }
 
 
@@ -59,9 +61,9 @@ namespace RealFuels
             {
                 if (p.Modules.Contains("ModuleFuelTanks"))
                 {
-                    Tanks.ModuleFuelTanks m = (Tanks.ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
+                    ModuleFuelTanks m = (ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
                     // look through all tanks inside this part
-                    foreach (Tanks.FuelTank tank in m.tankList)
+                    foreach (ModuleFuelTanks.FuelTank tank in m.tankList)
                     {
                         // if a tank isn't full, start filling it.
                         PartResource r = tank.resource;

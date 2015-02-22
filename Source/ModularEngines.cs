@@ -78,6 +78,10 @@ namespace RealFuels
         }
         override public void SetConfiguration(string newConfiguration = null)
         {
+            // Grab a pointer to the TestFlight interface if its installed
+            if (tfInterface == null)
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
@@ -113,7 +117,7 @@ namespace RealFuels
             {
                 if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                 {
-                    //print("*MHE* resetting curve " + field.Name);
+                    //print("*MFS* resetting curve " + field.Name);
                     field.SetValue(pModule, new FloatCurve());
                 }
             }
@@ -135,7 +139,7 @@ namespace RealFuels
                         }
                         catch (Exception e)
                         {
-                            print("*MHE* Trying to remove info box: " + e.Message);
+                            print("*MFS* Trying to remove info box: " + e.Message);
                         }
                     }
                     boxes.Clear();
@@ -222,6 +226,11 @@ namespace RealFuels
                 ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
 
             UpdateTweakableMenu();
+
+            // update TestFlight if its installed
+            if (tfInterface != null) {
+                tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+            }
         }
 
         public EngineWrapper ActiveEngine = null;
@@ -580,7 +589,7 @@ namespace RealFuels
 
         public ConfigNode techNodes = new ConfigNode();
 
-        public static ConfigNode MHESettings = null;
+        public static ConfigNode MFSSettings = null;
 
 
         // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
@@ -636,6 +645,10 @@ namespace RealFuels
         public float thrustCurveDisplay = 100f;
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
         public float thrustCurveRatio = 1f;
+
+        // For working with TestFlight
+        protected Type tfInterface = null;
+        protected BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
 
         // *NEW* TL Handling
         public class TechLevel
@@ -768,10 +781,10 @@ namespace RealFuels
             // loads from global techlevels
             public bool Load(string type, int level)
             {
-                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
+                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
                     return false;
 
-                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
+                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                         return Load(node, level);
@@ -811,7 +824,7 @@ namespace RealFuels
                 }
 
                 // check global
-                //print("*MHE* Fallback to global for type " + type + ", TL " + level);
+                //print("*MFS* Fallback to global for type " + type + ", TL " + level);
                 return Load(type, level);
             }
 
@@ -851,9 +864,9 @@ namespace RealFuels
             public static int MaxTL(string type)
             {
                 int max = -1;
-                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
+                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
                     return max;
-                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
+                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                     {
@@ -880,9 +893,9 @@ namespace RealFuels
             public static int MinTL(string type)
             {
                 int min = int.MaxValue;
-                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
+                if (MFSSettings == null || MFSSettings.GetNode("MFS_TECHLEVELS") == null)
                     return min;
-                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
+                foreach (ConfigNode node in MFSSettings.GetNode("MFS_TECHLEVELS").GetNodes("ENGINETYPE"))
                 {
                     if (node.HasValue("name") && node.GetValue("name").Equals(type))
                     {
@@ -1005,22 +1018,22 @@ namespace RealFuels
 
         private static void FillSettings()
         {
-            print("*MHE* Loading Engine Settings!\n");
+            print("*MFS* Loading Engine Settings!\n");
 
-            if (MHESettings.HasValue("useRealisticMass"))
+            if (MFSSettings.HasValue("useRealisticMass"))
             {
                 bool usereal = false;
-                bool.TryParse(MHESettings.GetValue("useRealisticMass"), out usereal);
+                bool.TryParse(MFSSettings.GetValue("useRealisticMass"), out usereal);
                 if (!usereal)
-                    massMult = float.Parse(MHESettings.GetValue("engineMassMultiplier"));
+                    massMult = float.Parse(MFSSettings.GetValue("engineMassMultiplier"));
                 else
                     massMult = 1.0f;
             }
             else
                 massMult = 1.0f;
-            if (MHESettings.HasValue("heatMultiplier"))
+            if (MFSSettings.HasValue("heatMultiplier"))
             {
-                if (!float.TryParse(MHESettings.GetValue("heatMultiplier"), out heatMult))
+                if (!float.TryParse(MFSSettings.GetValue("heatMultiplier"), out heatMult))
                     heatMult = 1.0f;
             }
             else
@@ -1041,12 +1054,12 @@ namespace RealFuels
 
             if(configs == null)
                 configs = new List<ConfigNode>();
-            if (MHESettings == null)
+            if (MFSSettings == null)
             {
-                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MHESETTINGS"))
-                    MHESettings = node;
-                if(MHESettings == null)
-                    throw new UnityException("*MHE* MHESettings not found!");
+                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
+                    MFSSettings = node;
+                if(MFSSettings == null)
+                    throw new UnityException("*MFS* MFSSettings not found!");
                 FillSettings();
             }
         }
@@ -1506,6 +1519,10 @@ namespace RealFuels
 
         virtual public void SetConfiguration(string newConfiguration = null)
         {
+            // Grab a pointer to the TestFlight interface if its installed
+            if (tfInterface == null)
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
@@ -1592,7 +1609,7 @@ namespace RealFuels
                     {
                         if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                         {
-                            //print("*MHE* resetting curve " + field.Name);
+                            //print("*MFS* resetting curve " + field.Name);
                             field.SetValue(pModule, new FloatCurve());
                         }
                     }
@@ -1614,7 +1631,7 @@ namespace RealFuels
                                 }
                                 catch (Exception e)
                                 {
-                                    print("*MHE* Trying to remove info box: " + e.Message);
+                                    print("*MFS* Trying to remove info box: " + e.Message);
                                 }
                             }
                             boxes.Clear();
@@ -1812,6 +1829,10 @@ namespace RealFuels
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
             
+            // update TestFlight if its installed
+            if (tfInterface != null) {
+                tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+            }
         }
 
         private int oldTechLevel = -1;
@@ -1857,7 +1878,7 @@ namespace RealFuels
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
-            //print("*MHE* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
+            //print("*MFS* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
             foreach(ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust.ToString());
