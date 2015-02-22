@@ -347,20 +347,20 @@ namespace RealFuels.Tanks
 
         private void GUIEngines ()
         {
-/*			if (usedBy.Count > 0 && tank_module.AvailableVolume >= 0.001) {
+			if (tank_module.usedBy.Count > 0 && tank_module.AvailableVolume >= 0.001) {
 				GUILayout.BeginHorizontal ();
-				GUILayout.Label ("Configure remaining volume for " + engineCount + " engines:");
+				GUILayout.Label ("Configure remaining volume for " + tank_module.engineCount + " engines:");
 				GUILayout.EndHorizontal ();
 
-				foreach (FuelInfo info in usedBy.Values)
+				foreach (FuelInfo info in tank_module.usedBy.Values)
 				{
 					GUILayout.BeginHorizontal ();
 					if (GUILayout.Button (new GUIContent (info.Label, info.names))) {
-						ConfigureFor (info);
+						tank_module.ConfigureFor (info);
 					}
 					GUILayout.EndHorizontal ();
 				}
-			}*/
+			}
         }
     }
 }
