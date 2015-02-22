@@ -227,9 +227,17 @@ namespace RealFuels
 
             UpdateTweakableMenu();
 
+            SetupFX();
+
             // update TestFlight if its installed
             if (tfInterface != null) {
-                tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -272,6 +280,7 @@ namespace RealFuels
             } else if(meters.Count > 0) { // engine is shut down, remove all fuel gauges
                 ClearMeters();
             }
+            StopFX();
         }
 
         List<Propellant> _props;
@@ -565,7 +574,7 @@ namespace RealFuels
 
     }
 
-    public class ModuleEngineConfigs : PartModule, IPartCostModifier
+    public class ModuleEngineConfigs : PartModule, IPartCostModifier, IPartMassModifier
     {
         protected bool compatible = true;
         [KSPField(isPersistant = true)]
@@ -579,6 +588,7 @@ namespace RealFuels
 
         public int origTechLevel = 1; // default TL
         public float origMass = -1;
+        public float massDelta = 0;
 
         public int maxTechLevel = -1;
         public int minTechLevel = -1;
@@ -993,6 +1003,11 @@ namespace RealFuels
             return configCost;
         }
 
+        public float GetModuleMass(float defaultMass)
+        {
+            return massDelta;
+        }
+
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
             //print("Modding this");
@@ -1334,7 +1349,11 @@ namespace RealFuels
             if (node.HasValue("origMass"))
             {
                 float.TryParse(node.GetValue("origMass"), out origMass);
+                massDelta = 0;
                 part.mass = origMass * massMult;
+                if ((object)(part.partInfo) != null)
+                    if ((object)(part.partInfo.partPrefab) != null)
+                        massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
 
             if (node.HasValue("localCorrectThrust"))
@@ -1501,6 +1520,10 @@ namespace RealFuels
                         configMassMult = ftmp;
 
                 part.mass = origMass * configMassMult * massMult * TLMassMult;
+                massDelta = 0;
+                if((object)(part.partInfo) != null)
+                    if((object)(part.partInfo.partPrefab) != null)
+                        massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
             // KIDS integration
             if(cfg.HasNode("atmosphereCurve"))
@@ -1513,6 +1536,38 @@ namespace RealFuels
                 cfg.RemoveNode("atmosphereCurve");
                 cfg.AddNode(newCurveNode);
             }
+        }
+
+        List<string> effectsToStop;
+        public void SetupFX()
+        {
+            effectsToStop = new List<string>();
+            foreach (ConfigNode cfg in configs)
+            {
+                if (cfg.GetValue("name").Equals(configuration))
+                    continue;
+                if (cfg.HasValue("runningEffectName"))
+                {
+                    print("*RF Setting up turning off " + cfg.GetValue("runningEffectName"));
+                    effectsToStop.Add(cfg.GetValue("runningEffectName"));
+                }
+                if (cfg.HasValue("powerEffectName"))
+                {
+                    print("*RF Setting up turning off " + cfg.GetValue("powerEffectName"));
+                    effectsToStop.Add(cfg.GetValue("powerEffectName"));
+                }
+                if (cfg.HasValue("directThrottleEffectName"))
+                {
+                    print("*RF Setting up turning off " + cfg.GetValue("directThrottleEffectName"));
+                    effectsToStop.Add(cfg.GetValue("directThrottleEffectName"));
+                }
+            }
+        }
+        public void StopFX()
+        {
+            //if(HighLogic.LoadedSceneIsFlight)
+                for (int i = 0; i < effectsToStop.Count; i++)
+                    part.Effect(effectsToStop[i], 0f);
         }
 
         public PartModule pModule = null;
@@ -1536,6 +1591,7 @@ namespace RealFuels
                         break;
                     }
             }
+
             if (newConfig != null) {
 
                 // for asmi
@@ -1828,10 +1884,17 @@ namespace RealFuels
                 if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
+            SetupFX();
             
             // update TestFlight if its installed
             if (tfInterface != null) {
-                tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -1937,6 +2000,7 @@ namespace RealFuels
             if (vessel == null)
                 return;
             SetThrust ();
+            StopFX();
         }
 
         public void SetThrust()

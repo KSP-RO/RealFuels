@@ -156,3 +156,5 @@ Source/assembly/AssemblyInfoMFT.cs
 Source/assembly/AssemblyInfoRF.cs
 Source/RealFuels.sln
 Source/RealFuels.csproj
+Source/AssemblyInfoMFT.cs
+Source/AssemblyInfoRF.cs

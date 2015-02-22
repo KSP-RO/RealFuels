@@ -11,7 +11,7 @@ using KSPAPIExtensions.PartMessage;
 
 namespace RealFuels
 {
-    public class ModuleFuelTanks : ModularFuelPartModule, IPartCostModifier
+    public class ModuleFuelTanks : ModularFuelPartModule, IPartCostModifier, IPartMassModifier
     {
         #region loading stuff from config files
         
@@ -538,6 +538,9 @@ namespace RealFuels
 
                         // Setup the mass
                         part.mass = mass;
+                        if ((object)(part.partInfo) != null)
+                            if ((object)(part.partInfo.partPrefab) != null)
+                                massDelta = part.mass - part.partInfo.partPrefab.mass;
                         MassChanged(mass);
                     }
                 }
@@ -928,6 +931,7 @@ namespace RealFuels
         public float baseCostPV;
         public float basemassConst;
         public float baseCostConst;
+        public float massDelta = 0f;
 
         [PartMessageEvent]
         public event PartMassChanged MassChanged;
@@ -1023,6 +1027,9 @@ namespace RealFuels
                 if (part.mass != mass)
                 {
                     part.mass = mass;
+                    if ((object)(part.partInfo) != null)
+                        if ((object)(part.partInfo.partPrefab) != null)
+                            massDelta = part.mass - part.partInfo.partPrefab.mass;
                     MassChanged(mass);
                 }
             }
@@ -1046,6 +1053,14 @@ namespace RealFuels
 
                 UpdateTweakableMenu();
             }
+        }
+
+        public float GetModuleMass(float defaultMass)
+        {
+            /*if (basemassConst + basemassPV * volume < 0)
+                return 0;
+            return part.mass - defaultMass;*/
+            return massDelta;
         }
 
         public float GetModuleCost(float defaultCost)
