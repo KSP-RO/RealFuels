@@ -452,6 +452,24 @@ namespace RealFuels
         protected Type tfInterface = null;
         protected BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
 
+        public void UpdateTFInterops()
+        {
+            // Grab a pointer to the TestFlight interface if its installed
+            if (tfInterface == null)
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+            // update TestFlight if its installed
+            if (tfInterface != null)
+            {
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "tankType", type, "RealFuels" });
+                }
+                catch
+                {
+                }
+            }
+        }
+
         public override void OnAwake()
         {
             enabled = false;
@@ -582,6 +600,11 @@ namespace RealFuels
                 Debug.LogException(ex);
                 return string.Empty;
             }
+        }
+
+        public void Start() // run always, not just when activated
+        {
+            UpdateTFInterops();
         }
 
         // This flag lets us know if this is a symmetry copy or clone in the vab.
@@ -782,20 +805,7 @@ namespace RealFuels
             if (!baseCostOverride)
                 ParseBaseCost(def.baseCost);
 
-            // Grab a pointer to the TestFlight interface if its installed
-            if (tfInterface == null)
-                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
-            // update TestFlight if its installed
-            if (tfInterface != null)
-            {
-                try
-                {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "tankType", type, "RealFuels" });
-                }
-                catch
-                {
-                }
-            }
+            UpdateTFInterops();
 
             // fixmne should detect DB reload. For now, just detecting space center...
             if (GameSceneFilter.Loading.IsLoaded() || GameSceneFilter.SpaceCenter.IsLoaded())
