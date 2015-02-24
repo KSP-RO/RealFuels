@@ -230,10 +230,10 @@ namespace RealFuels
             SetupFX();
 
             // update TestFlight if its installed
-            if (tfInterface != null) {
+            if (tfInterface != null && isMaster) {
                 try
                 {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
                 }
                 catch
                 {
@@ -600,6 +600,11 @@ namespace RealFuels
         public ConfigNode techNodes = new ConfigNode();
 
         public static ConfigNode MFSSettings = null;
+
+        [KSPField]
+        public bool isMaster = true; //is this Module the "master" module on the part?
+        // For TestFlight integration, only ONE ModuleEngineConfigs (or child class) can be
+        // the master module on a part.
 
 
         // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
@@ -1887,10 +1892,10 @@ namespace RealFuels
             SetupFX();
             
             // update TestFlight if its installed
-            if (tfInterface != null) {
+            if (tfInterface != null && isMaster) {
                 try
                 {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", newConfiguration, "RealFuels" });
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
                 }
                 catch
                 {

@@ -6,6 +6,7 @@ using UnityEngine;
 using System.Collections.ObjectModel;
 using KSPAPIExtensions;
 using KSPAPIExtensions.PartMessage;
+using System.Reflection;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -445,7 +446,11 @@ namespace RealFuels
 
         #endregion
 
-        #region KSP Callbacks
+        #region Callbacks
+
+        // For working with TestFlight
+        protected Type tfInterface = null;
+        protected BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
 
         public override void OnAwake()
         {
@@ -777,6 +782,21 @@ namespace RealFuels
             if (!baseCostOverride)
                 ParseBaseCost(def.baseCost);
 
+            // Grab a pointer to the TestFlight interface if its installed
+            if (tfInterface == null)
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+            // update TestFlight if its installed
+            if (tfInterface != null)
+            {
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "tankType", type, "RealFuels" });
+                }
+                catch
+                {
+                }
+            }
+
             // fixmne should detect DB reload. For now, just detecting space center...
             if (GameSceneFilter.Loading.IsLoaded() || GameSceneFilter.SpaceCenter.IsLoaded())
                 return;
@@ -1027,14 +1047,20 @@ namespace RealFuels
                 if (part.mass != mass)
                 {
                     part.mass = mass;
-                    if ((object)(part.partInfo) != null)
-                        if ((object)(part.partInfo.partPrefab) != null)
-                            massDelta = part.mass - part.partInfo.partPrefab.mass;
                     MassChanged(mass);
                 }
             }
             else
                 mass = part.mass; // display dry mass even in this case.
+            // Update mass delta vs the prefab
+            if ((object)(part.partInfo) != null)
+            {
+                if ((object)(part.partInfo.partPrefab) != null)
+                {
+                    massDelta = part.mass - part.partInfo.partPrefab.mass;
+                    print("*RF MASS our mass = " + part.mass + ", prefab = " + part.partInfo.partPrefab.mass + ", delta = " + massDelta);
+                }
+            }
 
             if (GameSceneFilter.AnyEditor.IsLoaded())
             {
@@ -1057,9 +1083,6 @@ namespace RealFuels
 
         public float GetModuleMass(float defaultMass)
         {
-            /*if (basemassConst + basemassPV * volume < 0)
-                return 0;
-            return part.mass - defaultMass;*/
             return massDelta;
         }
 
