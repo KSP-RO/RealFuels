@@ -11,7 +11,7 @@ using KSPAPIExtensions.PartMessage;
 
 namespace RealFuels.Tanks
 {
-	public class ModuleFuelTanks : PartModule, IPartCostModifier
+	public class ModuleFuelTanks : PartModule, IPartCostModifier, IPartMassModifier
 	{
 		bool compatible = true;
 
@@ -141,6 +141,10 @@ namespace RealFuels.Tanks
 					// Setup the mass
 					part.mass = mass;
 					MassChanged (mass);
+					// compute massDelta based on prefab, if available.
+					if ((object)(part.partInfo) != null)
+						if ((object)(part.partInfo.partPrefab) != null)
+							massDelta = part.mass - part.partInfo.partPrefab.mass;
 				}
 			}
 		}
@@ -229,8 +233,8 @@ namespace RealFuels.Tanks
 			UpdateUtilization ();
 			CalculateMass ();
 
-            EditorLogic editor = EditorLogic.fetch;
-            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
+			EditorLogic editor = EditorLogic.fetch;
+			if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
 				TankWindow.ShowGUI (this);
 			}
 		}
@@ -599,6 +603,10 @@ namespace RealFuels.Tanks
 				if (part.mass != mass) {
 					part.mass = mass;
 					MassChanged (mass);
+					// compute massDelta based on prefab, if available.
+					if ((object)(part.partInfo) != null)
+						if ((object)(part.partInfo.partPrefab) != null)
+							massDelta = part.mass - part.partInfo.partPrefab.mass;
 				}
 			} else {
 				mass = part.mass; // display dry mass even in this case.
@@ -620,6 +628,12 @@ namespace RealFuels.Tanks
 
 				UpdateTweakableMenu ();
 			}
+		}
+		// mass-change interface, so Engineer's Report / Pad limit checking is correct.
+		public float massDelta = 0f; // assigned whenever part.mass is changed.
+		public float GetModuleMass(float defaultMass)
+		{
+			return massDelta;
 		}
 
         private void UpdateTweakableMenu ()
