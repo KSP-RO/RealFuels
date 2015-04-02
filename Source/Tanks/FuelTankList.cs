@@ -44,5 +44,14 @@ namespace RealFuels.Tanks
 				node.AddNode (tankNode);
 			}
 		}
+
+        public void TechAmounts()
+        {
+            for (int i = 0; i < this.Count; i++)
+            {
+                if (!this[i].canHave)
+                    this[i].maxAmount = 0;
+            }
+        }
 	}
 }

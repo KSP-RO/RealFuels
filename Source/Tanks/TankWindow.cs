@@ -339,7 +339,15 @@ namespace RealFuels.Tanks
         private void GUITanks ()
         {
 			foreach (FuelTank tank in tank_module.tankList) {
-				TankLine (tank);
+                if (tank.canHave)
+                    TankLine(tank);
+                else
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label("No tech for " + tank.name, GUILayout.Width(115));
+                    GUILayout.EndHorizontal();
+                    tank.maxAmount = 0;
+                }
 			}
 
 			RemoveAllTanks ();

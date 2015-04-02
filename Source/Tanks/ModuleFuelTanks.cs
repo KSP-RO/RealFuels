@@ -337,8 +337,25 @@ namespace RealFuels.Tanks
 			if (typesAvailable == null || typesAvailable.Length <= 1) {
 				Fields["type"].guiActiveEditor = false;
 			} else {
-				UI_ChooseOption typeOptions = (UI_ChooseOption)Fields["type"].uiControlEditor;
-				typeOptions.options = typesAvailable;
+                List<string> typesTech = new List<string>();
+                foreach (string type in typesAvailable)
+                {
+                    TankDefinition def;
+                    if (!MFSSettings.tankDefinitions.Contains(type))
+                    {
+                        Debug.LogError("Unable to find tank definition for type \"" + type + "\".");
+                    }
+                    def = MFSSettings.tankDefinitions[type];
+                    if (def.canHave)
+                        typesTech.Add(type);
+                }
+                if (typesTech.Count > 0)
+                {
+                    UI_ChooseOption typeOptions = (UI_ChooseOption)Fields["type"].uiControlEditor;
+                    typeOptions.options = typesTech.ToArray();
+                }
+                else
+                    Fields["type"].guiActiveEditor = false;
 			}
 
 			UpdateTankType ();
@@ -372,6 +389,11 @@ namespace RealFuels.Tanks
 				return;
 			}
 			def = MFSSettings.tankDefinitions[type];
+            if (!def.canHave)
+            {
+                type = oldType;
+                return;
+            }
 
 			oldType = type;
 			// Build the new tank list.
@@ -383,6 +405,7 @@ namespace RealFuels.Tanks
 
 				tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
 			}
+            tankList.TechAmounts(); // update for current techs
 
 			// Destroy any managed resources that are not in the new type.
 			HashSet<string> managed = MFSSettings.managedResources[part.name];	// if this throws, we have some big fish to fry

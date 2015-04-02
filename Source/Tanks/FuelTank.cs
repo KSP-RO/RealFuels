@@ -41,6 +41,8 @@ namespace RealFuels.Tanks
 		public float temperature = 300.0f;
 		[Persistent]
 		public bool fillable = true;
+        [Persistent]
+        public string techRequired = "";
 
 		public bool locked = false;
 
@@ -119,6 +121,15 @@ namespace RealFuels.Tanks
 				}
 			}
 		}
+
+        public bool canHave
+        {
+            get {
+                if (techRequired.Equals("") || HighLogic.CurrentGame == null || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX)
+                    return true;
+                return ResearchAndDevelopment.GetTechnologyState(techRequired) == RDTech.State.Available;
+            }
+        }
 
 		void DeleteTank ()
 		{

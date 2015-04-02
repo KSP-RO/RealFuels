@@ -18,6 +18,9 @@ namespace RealFuels.Tanks
 		[Persistent]
 		public string baseCost;
 
+        [Persistent]
+        public string techRequired = "";
+
 		public Tanks.FuelTankList tankList = new Tanks.FuelTankList ();
 
 
@@ -51,5 +54,15 @@ namespace RealFuels.Tanks
 			ConfigNode.CreateConfigFromObject (this, node);
 			tankList.Save (node);
 		}
+
+        public bool canHave
+        {
+            get
+            {
+                if (techRequired.Equals("") || HighLogic.CurrentGame == null || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX)
+                    return true;
+                return ResearchAndDevelopment.GetTechnologyState(techRequired) == RDTech.State.Available;
+            }
+        }
 	}
 }
