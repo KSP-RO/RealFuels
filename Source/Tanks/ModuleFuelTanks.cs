@@ -6,6 +6,7 @@ using UnityEngine;
 using System.Collections.ObjectModel;
 using KSPAPIExtensions;
 using KSPAPIExtensions.PartMessage;
+using System.Reflection;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -14,8 +15,35 @@ namespace RealFuels.Tanks
 	public class ModuleFuelTanks : PartModule, IPartCostModifier, IPartMassModifier
 	{
 		bool compatible = true;
+        #region TestFlight
+        protected static bool tfChecked = false;
+        protected static bool tfFound = false;
+        protected static Type tfInterface = null;
+        protected static BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
+        public void UpdateTFInterops()
+        {
+            // Grab a pointer to the TestFlight interface if its installed
+            if (!tfChecked)
+            {
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+                if (tfInterface != null)
+                    tfFound = true;
+            }
+            // update TestFlight if its installed
+            if (tfFound)
+            {
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "tankType", type, "RealFuels" });
+                }
+                catch
+                {
+                }
+            }
+        }
+        #endregion
 
-		private static float MassMult
+        private static float MassMult
 		{
 			get {
 				return MFSSettings.useRealisticMass ? 1.0f : MFSSettings.tankMassMultiplier;
@@ -180,13 +208,22 @@ namespace RealFuels.Tanks
 			Events["ShowUI"].active = true;
 		}
 
+        public void Start() // not just when activated
+        {
+            if (!compatible) {
+				return;
+			}
+            enabled = true;
+            UpdateTFInterops();
+        }
+
 		public override void OnStart (StartState state)
 		{
 			if (!compatible) {
 				return;
 			}
 
-			enabled = true;
+			
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
 
@@ -367,6 +404,8 @@ namespace RealFuels.Tanks
 			if (!baseCostOverride) {
 				ParseBaseCost (def.baseCost);
 			}
+
+            UpdateTFInterops();
 
 			if (isDatabaseLoad) {
 				// being called in the SpaceCenter scene is assumed to be a database reload
