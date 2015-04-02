@@ -78,6 +78,10 @@ namespace RealFuels
         }
         override public void SetConfiguration(string newConfiguration = null)
         {
+            // Grab a pointer to the TestFlight interface if its installed
+            if (tfInterface == null)
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
@@ -222,6 +226,19 @@ namespace RealFuels
                 ActiveEngine.Actions ["ActivateAction"].Invoke (new KSPActionParam (KSPActionGroup.None, KSPActionType.Activate));
 
             UpdateTweakableMenu();
+
+            SetupFX();
+
+            // update TestFlight if its installed
+            if (tfInterface != null && isMaster) {
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
+                }
+                catch
+                {
+                }
+            }
         }
 
         public EngineWrapper ActiveEngine = null;
@@ -263,6 +280,7 @@ namespace RealFuels
             } else if(meters.Count > 0) { // engine is shut down, remove all fuel gauges
                 ClearMeters();
             }
+            StopFX();
         }
 
         List<Propellant> _props;
@@ -570,6 +588,7 @@ namespace RealFuels
 
         public int origTechLevel = 1; // default TL
         public float origMass = -1;
+        public float massDelta = 0;
 
         public int maxTechLevel = -1;
         public int minTechLevel = -1;
@@ -581,6 +600,11 @@ namespace RealFuels
         public ConfigNode techNodes = new ConfigNode();
 
         public static ConfigNode MHESettings = null;
+
+        [KSPField]
+        public bool isMaster = true; //is this Module the "master" module on the part?
+        // For TestFlight integration, only ONE ModuleEngineConfigs (or child class) can be
+        // the master module on a part.
 
 
         // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
@@ -636,6 +660,10 @@ namespace RealFuels
         public float thrustCurveDisplay = 100f;
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
         public float thrustCurveRatio = 1f;
+
+        // For working with TestFlight
+        protected Type tfInterface = null;
+        protected BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
 
         // *NEW* TL Handling
         public class TechLevel
@@ -980,6 +1008,11 @@ namespace RealFuels
             return configCost;
         }
 
+        public float GetModuleMass(float defaultMass)
+        {
+            return massDelta;
+        }
+
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
             //print("Modding this");
@@ -1321,7 +1354,11 @@ namespace RealFuels
             if (node.HasValue("origMass"))
             {
                 float.TryParse(node.GetValue("origMass"), out origMass);
+                massDelta = 0;
                 part.mass = origMass * massMult;
+                if ((object)(part.partInfo) != null)
+                    if ((object)(part.partInfo.partPrefab) != null)
+                        massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
 
             if (node.HasValue("localCorrectThrust"))
@@ -1488,6 +1525,10 @@ namespace RealFuels
                         configMassMult = ftmp;
 
                 part.mass = origMass * configMassMult * massMult * TLMassMult;
+                massDelta = 0;
+                if((object)(part.partInfo) != null)
+                    if((object)(part.partInfo.partPrefab) != null)
+                        massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
             // KIDS integration
             if(cfg.HasNode("atmosphereCurve"))
@@ -1502,10 +1543,46 @@ namespace RealFuels
             }
         }
 
+        List<string> effectsToStop;
+        public void SetupFX()
+        {
+            effectsToStop = new List<string>();
+            foreach (ConfigNode cfg in configs)
+            {
+                if (cfg.GetValue("name").Equals(configuration))
+                    continue;
+                if (cfg.HasValue("runningEffectName"))
+                {
+                    print("*RF Setting up turning off " + cfg.GetValue("runningEffectName"));
+                    effectsToStop.Add(cfg.GetValue("runningEffectName"));
+                }
+                if (cfg.HasValue("powerEffectName"))
+                {
+                    print("*RF Setting up turning off " + cfg.GetValue("powerEffectName"));
+                    effectsToStop.Add(cfg.GetValue("powerEffectName"));
+                }
+                if (cfg.HasValue("directThrottleEffectName"))
+                {
+                    print("*RF Setting up turning off " + cfg.GetValue("directThrottleEffectName"));
+                    effectsToStop.Add(cfg.GetValue("directThrottleEffectName"));
+                }
+            }
+        }
+        public void StopFX()
+        {
+            //if(HighLogic.LoadedSceneIsFlight)
+                for (int i = 0; i < effectsToStop.Count; i++)
+                    part.Effect(effectsToStop[i], 0f);
+        }
+
         public PartModule pModule = null;
 
         virtual public void SetConfiguration(string newConfiguration = null)
         {
+            // Grab a pointer to the TestFlight interface if its installed
+            if (tfInterface == null)
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+
             if (newConfiguration == null)
                 newConfiguration = configuration;
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
@@ -1811,7 +1888,18 @@ namespace RealFuels
                 if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
+            SetupFX();
             
+            // update TestFlight if its installed
+            if (tfInterface != null && isMaster) {
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
+                }
+                catch
+                {
+                }
+            }
         }
 
         private int oldTechLevel = -1;
@@ -1916,6 +2004,7 @@ namespace RealFuels
             if (vessel == null)
                 return;
             SetThrust ();
+            StopFX();
         }
 
         public void SetThrust()
