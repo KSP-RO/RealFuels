@@ -60,7 +60,7 @@
     <Compile Include="assembly\Checkers.cs" />
     <Compile Include="assembly\VersionReport.cs" />
     <Compile Include="Engines\ModularEngines.cs" />
-    <Compile Include="Engines\MHESettings.cs" />
+    <Compile Include="Engines\MECSettings.cs" />
     <Compile Include="Pumps\HeatPump.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
@@ -71,6 +71,7 @@
     <Compile Include="Tanks\TankDefinition.cs" />
     <Compile Include="Tanks\TankDefinitionList.cs" />
     <Compile Include="Tanks\TankWindow.cs" />
+    <Compile Include="TechLevels\TechLevel.cs" />
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>cd $(ProjectDir)

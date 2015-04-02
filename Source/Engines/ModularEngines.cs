@@ -8,6 +8,7 @@ using UnityEngine;
 using KSP;
 using KSPAPIExtensions.Utils;
 using Debug = UnityEngine.Debug;
+using RealFuels.TechLevels;
 
 namespace RealFuels
 {
@@ -117,7 +118,7 @@ namespace RealFuels
             {
                 if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                 {
-                    //print("*MHE* resetting curve " + field.Name);
+                    //print("*RFEng* resetting curve " + field.Name);
                     field.SetValue(pModule, new FloatCurve());
                 }
             }
@@ -139,7 +140,7 @@ namespace RealFuels
                         }
                         catch (Exception e)
                         {
-                            print("*MHE* Trying to remove info box: " + e.Message);
+                            print("*RFEng* Trying to remove info box: " + e.Message);
                         }
                     }
                     boxes.Clear();
@@ -599,7 +600,7 @@ namespace RealFuels
 
         public ConfigNode techNodes = new ConfigNode();
 
-        public static ConfigNode MHESettings = null;
+        public static ConfigNode RFEngSettings = null;
 
         [KSPField]
         public bool isMaster = true; //is this Module the "master" module on the part?
@@ -665,344 +666,6 @@ namespace RealFuels
         protected Type tfInterface = null;
         protected BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
 
-        // *NEW* TL Handling
-        public class TechLevel
-        {
-            public FloatCurve atmosphereCurve;
-            public FloatCurve velocityCurve;
-            public double TWR;
-            public double thrustMultiplier;
-            public double massMultiplier;
-            public double minThrottleMultiplier;
-            string techRequired;
-
-            // CONSTRUCTORS
-            public TechLevel()
-            {
-                atmosphereCurve = new FloatCurve();
-                velocityCurve = new FloatCurve();
-                TWR = -1;
-                thrustMultiplier = -1;
-                massMultiplier = -1;
-                minThrottleMultiplier = -1;
-                techRequired = "";
-            }
-            public TechLevel(TechLevel t)
-            {
-                atmosphereCurve = t.atmosphereCurve;
-                velocityCurve = t.velocityCurve;
-                TWR = t.TWR;
-                thrustMultiplier = t.thrustMultiplier;
-                massMultiplier = t.massMultiplier;
-                techRequired = t.techRequired;
-                minThrottleMultiplier = t.minThrottleMultiplier;
-            }
-            public TechLevel(ConfigNode node)
-            {
-                Load(node);
-            }
-
-            // LOADERS
-            // loads from an override node
-            public bool Load(ConfigNode node)
-            {
-                if (node.HasNode("atmosphereCurve"))
-                    atmosphereCurve.Load(node.GetNode("atmosphereCurve"));
-                else
-                {
-                    atmosphereCurve = null;
-                    return false;
-                }
-
-                if (node.HasNode("velocityCurve"))
-                    velocityCurve.Load(node.GetNode("velocityCurve"));
-                else
-                    velocityCurve = null;
-
-                if (node.HasValue("TWR"))
-                    TWR = double.Parse(node.GetValue("TWR"));
-                else
-                    TWR = -1;
-
-                if (node.HasValue("thrustMultiplier"))
-                    thrustMultiplier = double.Parse(node.GetValue("thrustMultiplier"));
-                else
-                    thrustMultiplier = -1;
-
-                if (node.HasValue("massMultiplier"))
-                    massMultiplier = double.Parse(node.GetValue("massMultiplier"));
-                else
-                    massMultiplier = -1;
-
-                if (node.HasValue("minThrottleMultiplier"))
-                    minThrottleMultiplier = double.Parse(node.GetValue("minThrottleMultiplier"));
-                else
-                    minThrottleMultiplier = -1;
-
-                if (node.HasValue("techRequired"))
-                    techRequired = node.GetValue("techRequired");
-                else
-                    techRequired = "";
-
-                return true;
-            }
-
-            // loads a given techlevel from global techlevels-style node
-            public bool Load(ConfigNode node, int level)
-            {
-                var tLs = node.GetNodes("TECHLEVEL");
-                if (tLs.Count() > 0)
-                {
-                    foreach(ConfigNode n in tLs)
-                        if (n.HasValue("name") && n.GetValue("name").Trim().Equals(level.ToString()))
-                            return Load(n);
-                    return false;
-                }
-
-                if (node.HasValue("techLevelType"))
-                    return Load(node.GetValue("techLevelType"), level);
-
-                if (node.HasNode("TLISP" + level))
-                    atmosphereCurve.Load(node.GetNode("TLISP" + level));
-                else
-                {
-                    atmosphereCurve = null;
-                    return false;
-                }
-
-                if (node.HasNode("TLVC" + level))
-                    velocityCurve.Load(node.GetNode("TLVC" + level));
-                else
-                    velocityCurve = null;
-
-                if (node.HasValue("TLTWR" + level))
-                    TWR = double.Parse(node.GetValue("TLTWR" + level));
-                else
-                    TWR = 60;
-
-                if (node.HasValue("TLTHROTTLE" + level))
-                    minThrottleMultiplier = double.Parse(node.GetValue("TLTHROTTLE" + level));
-                else
-                    minThrottleMultiplier = 0.0;
-
-                if (node.HasValue("TLTECH"+level))
-                    techRequired = node.GetValue("TLTECH"+level);
-                else
-                    techRequired = "";
-
-                return true;
-            }
-
-            // loads from global techlevels
-            public bool Load(string type, int level)
-            {
-                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
-                    return false;
-
-                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
-                {
-                    if (node.HasValue("name") && node.GetValue("name").Equals(type))
-                        return Load(node, level);
-                }
-                return false;
-            }
-
-            // loads from anything
-            public bool Load(ConfigNode cfg, ConfigNode mod, string type, int level)
-            {
-                // check local techlevel configs
-                if (cfg != null)
-                {
-                    var tLs = cfg.GetNodes("TECHLEVEL");
-                    if (tLs.Count() > 0)
-                    {
-                        foreach (ConfigNode n in tLs)
-                            if (n.HasValue("name") && n.GetValue("name").Equals(level.ToString()))
-                                return Load(n);
-                        return false;
-                    }
-                    if (cfg.HasValue("techLevelType"))
-                        return Load(cfg.GetValue("techLevelType"), level);
-                }
-
-                // check module techlevel configs
-                if (mod != null)
-                {
-                    var tLs = mod.GetNodes("TECHLEVEL");
-                    if (tLs.Count() > 0)
-                    {
-                        foreach (ConfigNode n in tLs)
-                            if (n.HasValue("name") && n.GetValue("name").Equals(level.ToString()))
-                                return Load(n);
-                        return false;
-                    }
-                }
-
-                // check global
-                //print("*MHE* Fallback to global for type " + type + ", TL " + level);
-                return Load(type, level);
-            }
-
-            // MULTIPLIERS
-            public double Thrust(TechLevel oldTL, bool constantMass = false)
-            {
-                if (oldTL.thrustMultiplier > 0 && thrustMultiplier > 0)
-                    return thrustMultiplier / oldTL.thrustMultiplier;
-
-                if(constantMass)
-                    return TWR / oldTL.TWR;
-                else
-                    return TWR / oldTL.TWR * oldTL.atmosphereCurve.Evaluate(0) / atmosphereCurve.Evaluate(0);
-            }
-
-            public double Mass(TechLevel oldTL, bool constantThrust = false)
-            {
-                if (oldTL.massMultiplier > 0 && massMultiplier > 0)
-                    return massMultiplier / oldTL.massMultiplier;
-
-                if (constantThrust)
-                    return oldTL.TWR / TWR;
-                else
-                    return oldTL.atmosphereCurve.Evaluate(0) / atmosphereCurve.Evaluate(0);
-            }
-
-            public double Throttle()
-            {
-                if(minThrottleMultiplier < 0)
-                    return 0.0;
-                if (minThrottleMultiplier > 1.0)
-                    return 1.0;
-                return minThrottleMultiplier;
-            }
-
-            // looks up in global techlevels
-            public static int MaxTL(string type)
-            {
-                int max = -1;
-                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
-                    return max;
-                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
-                {
-                    if (node.HasValue("name") && node.GetValue("name").Equals(type))
-                    {
-                        var tLs = node.GetNodes("TECHLEVEL");
-                        if (tLs.Count() > 0)
-                        {
-                            return MaxTL(node);
-                        }
-                        foreach (ConfigNode.Value val in node.values)
-                        {
-                            string stmp = val.name;
-                            stmp = stmp.Replace("TLTWR", "");
-                            int itmp;
-                            if (int.TryParse(stmp.Trim(), out itmp))
-                                if (itmp > max)
-                                    max = itmp;
-                        }
-                    }
-                }
-                return max;
-            }
-
-            // looks up in global techlevels
-            public static int MinTL(string type)
-            {
-                int min = int.MaxValue;
-                if (MHESettings == null || MHESettings.GetNode("MHE_TECHLEVELS") == null)
-                    return min;
-                foreach (ConfigNode node in MHESettings.GetNode("MHE_TECHLEVELS").GetNodes("ENGINETYPE"))
-                {
-                    if (node.HasValue("name") && node.GetValue("name").Equals(type))
-                    {
-                        var tLs = node.GetNodes("TECHLEVEL");
-                        if (tLs.Count() > 0)
-                        {
-                            return MinTL(node);
-                        }
-                        foreach (ConfigNode.Value val in node.values)
-                        {
-                            string stmp = val.name;
-                            stmp = stmp.Replace("TLTWR", "");
-                            int itmp;
-                            if (int.TryParse(stmp.Trim(), out itmp))
-                                if (itmp < min)
-                                    min = itmp;
-                        }
-                    }
-                }
-                return min;
-            }
-
-            // local check, with optional fallback to global
-            public static int MaxTL(ConfigNode node, string type = "")
-            {
-                int max = -1;
-                if (node != null)
-                {
-                    foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
-                    {
-                        int itmp;
-                        if (n.HasValue("name") && int.TryParse(n.GetValue("name").Trim(), out itmp))
-                            if (itmp > max)
-                                max = itmp;
-                    }
-                }
-                if (max < 0 && !type.Equals(""))
-                    max = MaxTL(type);
-                return max;
-            }
-
-            // local check, with optional fallback to global
-            public static int MinTL(ConfigNode node, string type = "")
-            {
-                int min = int.MaxValue;
-                if (node != null)
-                {
-                    foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
-                    {
-                        int itmp;
-                        if (n.HasValue("name") && int.TryParse(n.GetValue("name").Trim(), out itmp))
-                            if (itmp < min)
-                                min = itmp;
-                    }
-                }
-                if (min >= int.MaxValue && !type.Equals(""))
-                    min = MinTL(type);
-                return min;
-            }
-
-            // full check
-            public static int MaxTL(ConfigNode cfg, ConfigNode mod, string type)
-            {
-                if (cfg.GetNodes("TECHLEVEL").Count() > 0)
-                    return MaxTL(cfg, type);
-                else if (cfg.HasValue("techLevelType"))
-                    return MaxTL(cfg.GetValue("techLevelType"));
-                else
-                    return MaxTL(mod, type);
-            }
-
-            // full check
-            public static int MinTL(ConfigNode cfg, ConfigNode mod, string type)
-            {
-                if (cfg.GetNodes("TECHLEVEL").Count() > 0)
-                    return MinTL(cfg, type);
-                else if (cfg.HasValue("techLevelType"))
-                    return MinTL(cfg.GetValue("techLevelType"));
-                else
-                    return MinTL(mod, type);
-            }
-
-            // Check if can switch to TL
-            public static bool CanTL(ConfigNode cfg, ConfigNode mod, string type, int level)
-            {
-                TechLevel nTL = new TechLevel();
-                if (!nTL.Load(cfg, mod, type, level))
-                    return false;
-                return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
-            }
-        }
-
         public float GetModuleCost(float stdCost)
         {
             return configCost;
@@ -1038,22 +701,22 @@ namespace RealFuels
 
         private static void FillSettings()
         {
-            print("*MHE* Loading Engine Settings!\n");
+            print("*RFEng* Loading Engine Settings!\n");
 
-            if (MHESettings.HasValue("useRealisticMass"))
+            if (RFEngSettings.HasValue("useRealisticMass"))
             {
                 bool usereal = false;
-                bool.TryParse(MHESettings.GetValue("useRealisticMass"), out usereal);
+                bool.TryParse(RFEngSettings.GetValue("useRealisticMass"), out usereal);
                 if (!usereal)
-                    massMult = float.Parse(MHESettings.GetValue("engineMassMultiplier"));
+                    massMult = float.Parse(RFEngSettings.GetValue("engineMassMultiplier"));
                 else
                     massMult = 1.0f;
             }
             else
                 massMult = 1.0f;
-            if (MHESettings.HasValue("heatMultiplier"))
+            if (RFEngSettings.HasValue("heatMultiplier"))
             {
-                if (!float.TryParse(MHESettings.GetValue("heatMultiplier"), out heatMult))
+                if (!float.TryParse(RFEngSettings.GetValue("heatMultiplier"), out heatMult))
                     heatMult = 1.0f;
             }
             else
@@ -1074,14 +737,6 @@ namespace RealFuels
 
             if(configs == null)
                 configs = new List<ConfigNode>();
-            if (MHESettings == null)
-            {
-                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MHESETTINGS"))
-                    MHESettings = node;
-                if(MHESettings == null)
-                    throw new UnityException("*MHE* MHESettings not found!");
-                FillSettings();
-            }
         }
 
         private double ThrustTL(ConfigNode cfg = null)
@@ -1669,7 +1324,7 @@ namespace RealFuels
                     {
                         if (field.FieldType == typeof(FloatCurve) && (field.Name.Equals("atmosphereCurve") || field.Name.Equals("velocityCurve")))
                         {
-                            //print("*MHE* resetting curve " + field.Name);
+                            //print("*RFEng* resetting curve " + field.Name);
                             field.SetValue(pModule, new FloatCurve());
                         }
                     }
@@ -1691,7 +1346,7 @@ namespace RealFuels
                                 }
                                 catch (Exception e)
                                 {
-                                    print("*MHE* Trying to remove info box: " + e.Message);
+                                    print("*RFEng* Trying to remove info box: " + e.Message);
                                 }
                             }
                             boxes.Clear();
@@ -1945,7 +1600,7 @@ namespace RealFuels
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
-            //print("*MHE* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
+            //print("*RFEng* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
             foreach(ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust.ToString());

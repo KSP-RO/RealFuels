@@ -8,7 +8,7 @@ using KSPAPIExtensions;
 namespace RealFuels
 {
     // ReSharper disable once InconsistentNaming
-    public class MHESettings : MonoBehaviour
+    public class MECSettings : MonoBehaviour
     {
         [Persistent]
         public float engineMassMultiplier = 1;
@@ -17,8 +17,8 @@ namespace RealFuels
 
         public Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
 
-        private static MHESettings _instance;
-        public static MHESettings Instance
+        private static MECSettings _instance;
+        public static MECSettings Instance
         {
             get
             {
@@ -29,8 +29,8 @@ namespace RealFuels
 
                 //Debug.Log("*MHE* Loading settings");
 
-                GameObject gameObject = new GameObject(typeof(MHESettings).FullName);
-                _instance = gameObject.AddComponent<MHESettings>();
+                GameObject gameObject = new GameObject(typeof(MECSettings).FullName);
+                _instance = gameObject.AddComponent<MECSettings>();
                 return _instance;
             }
         }
