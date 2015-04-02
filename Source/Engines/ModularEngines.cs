@@ -981,9 +981,27 @@ namespace RealFuels
             base.OnLoad (node);
 
             techNodes = new ConfigNode(); // FIXME unsafe
-            var tLs = node.GetNodes("TECHLEVEL");
-            foreach (ConfigNode n in tLs)
-                techNodes.AddNode(n);
+            ConfigNode[] tLs = node.GetNodes("TECHLEVEL");
+            if (tLs.Length == 0)
+            {
+                if (part.partInfo != null && part.partInfo.partPrefab != null)
+                {
+                    foreach (PartModule p in part.partInfo.partPrefab.Modules)
+                    {
+                        ModuleEngineConfigs m = (ModuleEngineConfigs)p;
+                        if (m != null && m.engineID == engineID && m.moduleIndex == moduleIndex)
+                        {
+                            techNodes = m.techNodes;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                foreach (ConfigNode n in tLs)
+                    techNodes.AddNode(n);
+            }
 
             if (node.HasValue("engineType"))
                 engineType = node.GetValue("engineType");
