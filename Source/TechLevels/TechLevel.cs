@@ -7,13 +7,14 @@ namespace RealFuels.TechLevels
 {
     public class TechLevel
     {
-        public FloatCurve atmosphereCurve;
-        public FloatCurve velocityCurve;
-        public double TWR;
-        public double thrustMultiplier;
-        public double massMultiplier;
-        public double minThrottleMultiplier;
-        string techRequired;
+        protected FloatCurve atmosphereCurve;
+        protected FloatCurve velocityCurve;
+        protected double TWR;
+        protected double thrustMultiplier;
+        protected double massMultiplier;
+        protected double minThrottleMultiplier;
+        protected float gimbalRange;
+        protected string techRequired;
 
         public static ConfigNode globalTechLevels = null;
 
@@ -26,6 +27,7 @@ namespace RealFuels.TechLevels
             thrustMultiplier = -1;
             massMultiplier = -1;
             minThrottleMultiplier = -1;
+            gimbalRange = -1f;
             techRequired = "";
 
             LoadGlobals();
@@ -37,6 +39,7 @@ namespace RealFuels.TechLevels
             TWR = t.TWR;
             thrustMultiplier = t.thrustMultiplier;
             massMultiplier = t.massMultiplier;
+            gimbalRange = t.gimbalRange;
             techRequired = t.techRequired;
             minThrottleMultiplier = t.minThrottleMultiplier;
 
@@ -101,6 +104,11 @@ namespace RealFuels.TechLevels
             else
                 minThrottleMultiplier = -1;
 
+            if (node.HasValue("gimbalRange"))
+                gimbalRange = float.Parse(node.GetValue("gimbalRange"));
+            else
+                gimbalRange = -1;
+
             if (node.HasValue("techRequired"))
                 techRequired = node.GetValue("techRequired");
             else
@@ -146,6 +154,11 @@ namespace RealFuels.TechLevels
                 minThrottleMultiplier = double.Parse(node.GetValue("TLTHROTTLE" + level));
             else
                 minThrottleMultiplier = 0.0;
+
+            if (node.HasValue("TLGIMBAL" + level))
+                gimbalRange = float.Parse(node.GetValue("TLGIMBAL" + level));
+            else
+                gimbalRange = -1;
 
             if (node.HasValue("TLTECH" + level))
                 techRequired = node.GetValue("TLTECH" + level);
@@ -235,6 +248,22 @@ namespace RealFuels.TechLevels
             if (minThrottleMultiplier > 1.0)
                 return 1.0;
             return minThrottleMultiplier;
+        }
+
+        public float GimbalRange
+        {
+            get
+            {
+                return gimbalRange;
+            }
+        }
+
+        public FloatCurve AtmosphereCurve
+        {
+            get
+            {
+                return atmosphereCurve;
+            }
         }
 
         // looks up in global techlevels

@@ -578,6 +578,10 @@ namespace RealFuels
         public int origTechLevel = 1; // default TL
         public float origMass = -1;
         public float massDelta = 0;
+        [KSPField]
+        public string gimbalTransform = "";
+        [KSPField]
+        public bool useGimbalAnyway = false;
 
         public int maxTechLevel = -1;
         public int minTechLevel = -1;
@@ -859,8 +863,8 @@ namespace RealFuels
                         TechLevel cTL = new TechLevel();
                         if (cTL.Load(config, techNodes, engineType, techLevel))
                         {
-                            ispSL *= ispSLMult * cTL.atmosphereCurve.Evaluate(1);
-                            ispV *= ispVMult * cTL.atmosphereCurve.Evaluate(0);
+                            ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
+                            ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
                             info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
                         }
                     }
@@ -1120,6 +1124,11 @@ namespace RealFuels
             else if(cfg.HasValue("minThrust") && cfg.HasValue("maxThrust"))
                 curThrottle = float.Parse(cfg.GetValue("minThrust")) / float.Parse(cfg.GetValue("maxThrust"));
             float TLMassMult = 1.0f;
+
+            float gimbal = -1f;
+            if (cfg.HasValue("gimbalRange"))
+                gimbal = float.Parse(cfg.GetValue("gimbalRange"));
+
             if (techLevel != -1)
             {
                 // load techlevels
@@ -1139,7 +1148,7 @@ namespace RealFuels
                     float.TryParse(cfg.GetValue("IspSL"), out ispSL);
                     float.TryParse(cfg.GetValue("IspV"), out ispV);
                     FloatCurve aC = new FloatCurve();
-                    aC = Mod(cTL.atmosphereCurve, ispSL, ispV);
+                    aC = Mod(cTL.AtmosphereCurve, ispSL, ispV);
                     aC.Save(curve);
                     cfg.AddNode(curve);
                 }
@@ -1192,6 +1201,11 @@ namespace RealFuels
                     if(origMass > 0)
                          TLMassMult =  MassTL(1.0f);
                 }
+                // Don't want to change gimbals on TL-enabled engines willy-nilly
+                // So we don't unless either a transform is specified, or we override.
+                // We assume if it was specified in the CONFIG that we should use it anyway.
+                if (gimbal < 0 && (!gimbalTransform.Equals("") || useGimbalAnyway))
+                    gimbal = cTL.GimbalRange;
             }
             else
             {
@@ -1226,6 +1240,11 @@ namespace RealFuels
                 newCurve.Save(newCurveNode);
                 cfg.RemoveNode("atmosphereCurve");
                 cfg.AddNode(newCurveNode);
+            }
+            // gimbal change
+            if (gimbal >= 0 && !cfg.HasValue("gimbalRange")) // if TL set a gimbal
+            {
+                cfg.AddValue("gimbalRange", gimbal.ToString());
             }
         }
 
@@ -1532,6 +1551,24 @@ namespace RealFuels
                 { // hacking around a KSP bug here
                     part.Resources["ElectricCharge"].amount = 0;
                     part.Resources["ElectricCharge"].maxAmount = 0.1;
+                }
+
+                // set gimbal
+                if (config.HasValue("gimbalRange"))
+                {
+                    float newGimbal = float.Parse(config.GetValue("gimbalRange"));
+                    for (int m = 0; m < part.Modules.Count; ++m)
+                    {
+                        if (part.Modules[m] is ModuleGimbal)
+                        {
+                            ModuleGimbal g = part.Modules[m] as ModuleGimbal;
+                            if (gimbalTransform.Equals("") || g.gimbalTransformName.Equals(gimbalTransform))
+                            {
+                                g.gimbalRange = newGimbal;
+                                break;
+                            }
+                        }
+                    }
                 }
                 if (config.HasValue("cost"))
                     configCost = float.Parse(config.GetValue("cost"));
