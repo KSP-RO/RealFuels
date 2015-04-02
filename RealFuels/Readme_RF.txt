@@ -40,6 +40,17 @@ AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v8.4
+*Fixed stock KSP mass calculation (for engineer's report and for pad limits).
+*Added TestFlight integration support.
+*Remove KSPI config so that RF will no longer be a bottleneck.
+*Add support for per-CONFIG effects settings (running, power, or directThrottle FX not listed in the current CONFIG but listed in other CONFIGs will be turned off).
+*aristurtle: add support for TurboNisuReloaded.
+*Maeyanie: add missing SXT LMiniAircaftTail, Tantares tanks.
+*Raptor831: add Firespitter helicopter crewtank.
+*Raptor831, Starwaster: Fix & to , for MM.
+*ImAHungryMan: add support for missing tanks in RS Capsuldyne (Taurus), Nertea's Mk IV system, RetroFuture, SXT; Convert some Mk2 and Mk3 tanks to cryogenic and add missnig Mk3 tanks.
+
 v8.3
 *Update to .90 (thanks ckfinite and taniwha)
 *Don't fire editor events when we shouldn't
