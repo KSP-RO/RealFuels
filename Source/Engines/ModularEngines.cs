@@ -806,8 +806,9 @@ namespace RealFuels
         {
             TechLevel cTL = new TechLevel();
             TechLevel oTL = new TechLevel();
-            if (cTL.Load(cfg, techNodes, engineType, techLevel) && oTL.Load(cfg, techNodes, engineType, origTechLevel))
+            if (cTL.Load(cfg, techNodes, engineType, techLevel) && oTL.Load(cfg, techNodes, engineType, origTechLevel) && part.partInfo != null)
                 return (part.partInfo.cost + cost) * (cTL.CostMult / oTL.CostMult) - part.partInfo.cost;
+                
             return cost;
         }
 
