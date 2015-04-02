@@ -1232,7 +1232,6 @@ namespace RealFuels
         string[] effectsToStop;
         public void SetupFX()
         {
-            effectsToStop = new List<string>();
             List<string> ourFX = new List<string>();
 
             // grab all effects
