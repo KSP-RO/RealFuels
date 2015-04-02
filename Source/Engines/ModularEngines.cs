@@ -79,9 +79,6 @@ namespace RealFuels
         }
         override public void SetConfiguration(string newConfiguration = null)
         {
-            // Grab a pointer to the TestFlight interface if its installed
-            if (tfInterface == null)
-                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
 
             if (newConfiguration == null)
                 newConfiguration = configuration;
@@ -230,16 +227,7 @@ namespace RealFuels
 
             SetupFX();
 
-            // update TestFlight if its installed
-            if (tfInterface != null && isMaster) {
-                try
-                {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
-                }
-                catch
-                {
-                }
-            }
+            UpdateTFInterops(); // update TestFlight if it's installed
         }
 
         public EngineWrapper ActiveEngine = null;
@@ -662,9 +650,34 @@ namespace RealFuels
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
         public float thrustCurveRatio = 1f;
 
-        // For working with TestFlight
-        protected Type tfInterface = null;
-        protected BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
+        #region TestFlight
+        protected static bool tfChecked = false;
+        protected static bool tfFound = false;
+        protected static Type tfInterface = null;
+        protected static BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
+
+        public void UpdateTFInterops()
+        {
+            // Grab a pointer to the TestFlight interface if its installed
+            if (!tfChecked)
+            {
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
+                if (tfInterface != null)
+                    tfFound = true;
+            }
+            // update TestFlight if its installed
+            if (tfFound)
+            {
+                try
+                {
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
+                }
+                catch
+                {
+                }
+            }
+        }
+        #endregion
 
         public float GetModuleCost(float stdCost)
         {
@@ -1269,9 +1282,6 @@ namespace RealFuels
 
         virtual public void SetConfiguration(string newConfiguration = null)
         {
-            // Grab a pointer to the TestFlight interface if its installed
-            if (tfInterface == null)
-                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
 
             if (newConfiguration == null)
                 newConfiguration = configuration;
@@ -1579,17 +1589,8 @@ namespace RealFuels
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             }
             SetupFX();
-            
-            // update TestFlight if its installed
-            if (tfInterface != null && isMaster) {
-                try
-                {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
-                }
-                catch
-                {
-                }
-            }
+
+            UpdateTFInterops(); // update TestFlight if it's installed
         }
 
         private int oldTechLevel = -1;

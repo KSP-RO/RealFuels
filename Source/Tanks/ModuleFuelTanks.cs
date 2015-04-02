@@ -20,6 +20,7 @@ namespace RealFuels.Tanks
         protected static bool tfFound = false;
         protected static Type tfInterface = null;
         protected static BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
+
         public void UpdateTFInterops()
         {
             // Grab a pointer to the TestFlight interface if its installed
