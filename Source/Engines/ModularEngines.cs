@@ -1216,35 +1216,52 @@ namespace RealFuels
             }
         }
 
-        List<string> effectsToStop;
+        string[] effectsToStop;
         public void SetupFX()
         {
             effectsToStop = new List<string>();
+            List<string> ourFX = new List<string>();
+
+            // grab all effects
+            List<string> effectsNames = new List<string>();
+            effectsNames.Add("runningEffectName");
+            effectsNames.Add("powerEffectName");
+            effectsNames.Add("directThrottleEffectName");
+            effectsNames.Add("disengageEffectName");
+            effectsNames.Add("engageEffectName");
+            effectsNames.Add("flameoutEffectName");
+
+            // will be pushed to effectsToStop when done
+            Dictionary<string, bool> otherCfgsFX = new Dictionary<string, bool>();
+
+            // for each config and effect name, apply to dict if not us, else add to list of ours.
             foreach (ConfigNode cfg in configs)
             {
-                if (cfg.GetValue("name").Equals(configuration))
-                    continue;
-                if (cfg.HasValue("runningEffectName"))
+                bool ourConfig = cfg.GetValue("name").Equals(configuration);
+                foreach (string fxName in effectsNames)
                 {
-                    print("*RF Setting up turning off " + cfg.GetValue("runningEffectName"));
-                    effectsToStop.Add(cfg.GetValue("runningEffectName"));
-                }
-                if (cfg.HasValue("powerEffectName"))
-                {
-                    print("*RF Setting up turning off " + cfg.GetValue("powerEffectName"));
-                    effectsToStop.Add(cfg.GetValue("powerEffectName"));
-                }
-                if (cfg.HasValue("directThrottleEffectName"))
-                {
-                    print("*RF Setting up turning off " + cfg.GetValue("directThrottleEffectName"));
-                    effectsToStop.Add(cfg.GetValue("directThrottleEffectName"));
+                    if (cfg.HasValue(fxName))
+                    {
+                        string val = cfg.GetValue(fxName);
+                        if (ourConfig)
+                            ourFX.Add(val);
+                        else
+                            otherCfgsFX[val] = true;
+
+                    }
                 }
             }
+            foreach (string s in ourFX)
+            {
+                otherCfgsFX.Remove(s);
+            }
+            effectsToStop = new string[otherCfgsFX.Keys.Count];
+            otherCfgsFX.Keys.CopyTo(effectsToStop, 0);
         }
         public void StopFX()
         {
             //if(HighLogic.LoadedSceneIsFlight)
-                for (int i = 0; i < effectsToStop.Count; i++)
+                for (int i = 0; i < effectsToStop.Length; i++)
                     part.Effect(effectsToStop[i], 0f);
         }
 
