@@ -1247,7 +1247,7 @@ namespace RealFuels
                 posMult = offsetGUIPos;
             if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
             {
-                if (offsetGUIPos == -1 && (part.Modules.Contains("ModuleFuelTanks") && !((ModuleFuelTanks)part.Modules["ModuleFuelTanks"]).dedicated))
+                if (offsetGUIPos == -1 && part.Modules.Contains("ModuleFuelTanks"))
                     posMult = 1;
                 
                 guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));

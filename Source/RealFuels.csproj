@@ -38,8 +38,10 @@
       <HintPath>..\..\..\..\..\..\Games\KSP_090clean\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="KSPAPIExtensions">
-      <HintPath>..\..\KSPAPIExtensions\KSPAPIExtensions.dll</HintPath>
+    <Reference Include="KSPAPIExtensions, Version=1.7.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\RealFuels\Plugins\KSPAPIExtensions.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="System, Version=2.0.5.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -54,24 +56,25 @@
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
-    <Compile Include="AssemblyInfoRF.cs" />
-    <Compile Include="Checkers.cs" />
-    <Compile Include="HeatPump.cs" />
-    <Compile Include="MFSSettings.cs" />
-    <Compile Include="ModularEngines.cs" />
-    <Compile Include="ModularFuelPartModule.cs" />
-    <Compile Include="ModularFuelTanks.cs" />
-    <Compile Include="RefuelingPump.cs" />
-    <Compile Include="VersionReport.cs" />
+    <Compile Include="assembly\AssemblyInfoRF.cs" />
+    <Compile Include="assembly\Checkers.cs" />
+    <Compile Include="assembly\VersionReport.cs" />
+    <Compile Include="Engines\ModularEngines.cs" />
+    <Compile Include="Engines\MHESettings.cs" />
+    <Compile Include="Pumps\HeatPump.cs" />
+    <Compile Include="Pumps\RefuelingPump.cs" />
+    <Compile Include="Tanks\FuelInfo.cs" />
+    <Compile Include="Tanks\FuelTank.cs" />
+    <Compile Include="Tanks\FuelTankList.cs" />
+    <Compile Include="Tanks\MFSSettings.cs" />
+    <Compile Include="Tanks\ModuleFuelTanks.cs" />
+    <Compile Include="Tanks\TankDefinition.cs" />
+    <Compile Include="Tanks\TankDefinitionList.cs" />
+    <Compile Include="Tanks\TankWindow.cs" />
   </ItemGroup>
   <PropertyGroup>
-    <PreBuildEvent>del KSPAPIExtensions.dll
-cd $(ProjectDir)
-sh git-version.sh</PreBuildEvent>
-  </PropertyGroup>
-  <PropertyGroup>
-    <PostBuildEvent>rem copy /y "$(TargetPath)" "$(SolutionDir)\..\RealFuels\Plugins\"
-rem if exist "$(SolutionDir)\KSPAPIExtensions.dll" copy /Y "$(SolutionDir)\KSPAPIExtensions.dll"  "$(SolutionDir)\..\RealFuels\Plugins\"
-rem del "System.Core.dll"</PostBuildEvent>
+    <PreBuildEvent>cd $(ProjectDir)
+
+sh tools/git-version.sh</PreBuildEvent>
   </PropertyGroup>
 </Project>
