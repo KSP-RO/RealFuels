@@ -27,7 +27,7 @@
     <DebugType>none</DebugType>
     <Optimize>True</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
-    <OutputPath>..\TweakScale\tweakScaleInteraction\</OutputPath>
+    <OutputPath>..\RealFuels\Plugins\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
@@ -49,7 +49,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="Scale_Redist">
-      <HintPath>..\..\..\..\..\..\Games\KSP_025\GameData\TweakScale\plugins\Scale_Redist.dll</HintPath>
+      <HintPath>..\RealFuels\Plugins\Scale_Redist.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
