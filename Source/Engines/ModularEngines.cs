@@ -802,6 +802,14 @@ namespace RealFuels
         {
             return (float)Math.Round((double)mass * MassTL(), 6);
         }
+        private float CostTL(float cost, ConfigNode cfg = null)
+        {
+            TechLevel cTL = new TechLevel();
+            TechLevel oTL = new TechLevel();
+            if (cTL.Load(cfg, techNodes, engineType, techLevel) && oTL.Load(cfg, techNodes, engineType, origTechLevel))
+                return (part.partInfo.cost + cost) * (cTL.CostMult / oTL.CostMult) - part.partInfo.cost;
+            return cost;
+        }
 
         private string TLTInfo()
         {
@@ -1129,6 +1137,10 @@ namespace RealFuels
             if (cfg.HasValue("gimbalRange"))
                 gimbal = float.Parse(cfg.GetValue("gimbalRange"));
 
+            float cost = 0f;
+            if(cfg.HasValue("cost"))
+                cost = float.Parse(cfg.GetValue("cost"));
+
             if (techLevel != -1)
             {
                 // load techlevels
@@ -1206,6 +1218,9 @@ namespace RealFuels
                 // We assume if it was specified in the CONFIG that we should use it anyway.
                 if (gimbal < 0 && (!gimbalTransform.Equals("") || useGimbalAnyway))
                     gimbal = cTL.GimbalRange;
+
+                // Cost (multiplier will be 1.0 if unspecified)
+                cost = CostTL(cost, cfg);
             }
             else
             {
@@ -1245,6 +1260,13 @@ namespace RealFuels
             if (gimbal >= 0 && !cfg.HasValue("gimbalRange")) // if TL set a gimbal
             {
                 cfg.AddValue("gimbalRange", gimbal.ToString());
+            }
+            if (cost != 0f)
+            {
+                if (cfg.HasValue("cost"))
+                    cfg.SetValue("cost", cost.ToString("N3"));
+                else
+                    cfg.AddValue("cost", cost.ToString("N3"));
             }
         }
 
@@ -1852,7 +1874,13 @@ namespace RealFuels
                 string costString = "";
                 if (node.HasValue("cost"))
                 {
-                    costString = " (+" + float.Parse(node.GetValue("cost")).ToString("N0") + "f)";
+                    float cost = float.Parse(node.GetValue("cost"));
+
+                    if (techLevel != -1)
+                    {
+                        cost = CostTL(cost, node);
+                    }
+                    costString = " (+" + cost.ToString("N0") + "f)";
                 }
                 if (node.GetValue("name").Equals(configuration))
                     GUILayout.Label("Current config: " + configuration + costString);
@@ -1907,7 +1935,7 @@ namespace RealFuels
             }
 
             GUILayout.BeginHorizontal();
-            GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo()); //part.Modules[type].GetInfo()
+            GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + configCost).ToString("N3"));
             GUILayout.EndHorizontal();
 
             if(showRFGUI)

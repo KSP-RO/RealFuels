@@ -15,6 +15,7 @@ namespace RealFuels.TechLevels
         protected double minThrottleMultiplier;
         protected float gimbalRange;
         protected string techRequired;
+        protected float costMult;
 
         public static ConfigNode globalTechLevels = null;
 
@@ -29,6 +30,7 @@ namespace RealFuels.TechLevels
             minThrottleMultiplier = -1;
             gimbalRange = -1f;
             techRequired = "";
+            costMult = 1f;
 
             LoadGlobals();
         }
@@ -42,6 +44,7 @@ namespace RealFuels.TechLevels
             gimbalRange = t.gimbalRange;
             techRequired = t.techRequired;
             minThrottleMultiplier = t.minThrottleMultiplier;
+            costMult = t.costMult;
 
             LoadGlobals();
         }
@@ -109,6 +112,11 @@ namespace RealFuels.TechLevels
             else
                 gimbalRange = -1;
 
+            if (node.HasValue("costMult"))
+                costMult = float.Parse(node.GetValue("costMult"));
+            else
+                costMult = 1f;
+
             if (node.HasValue("techRequired"))
                 techRequired = node.GetValue("techRequired");
             else
@@ -159,6 +167,11 @@ namespace RealFuels.TechLevels
                 gimbalRange = float.Parse(node.GetValue("TLGIMBAL" + level));
             else
                 gimbalRange = -1;
+
+            if (node.HasValue("TLCOST" + level))
+                costMult = float.Parse(node.GetValue("TLCOST" + level));
+            else
+                costMult = 1;
 
             if (node.HasValue("TLTECH" + level))
                 techRequired = node.GetValue("TLTECH" + level);
@@ -255,6 +268,14 @@ namespace RealFuels.TechLevels
             get
             {
                 return gimbalRange;
+            }
+        }
+
+        public float CostMult
+        {
+            get
+            {
+                return costMult;
             }
         }
 
