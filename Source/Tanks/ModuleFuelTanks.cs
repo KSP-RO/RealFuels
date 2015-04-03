@@ -392,7 +392,27 @@ namespace RealFuels.Tanks
             if (!def.canHave)
             {
                 type = oldType;
-                return;
+                if(oldType != null) // we have an old type
+                {
+                    def = MFSSettings.tankDefinitions[type];
+                    if (def.canHave)
+                        return; // go back to old type
+                }
+                // else find one that does work
+                foreach (TankDefinition newDef in MFSSettings.tankDefinitions)
+                {
+                    if (newDef.canHave)
+                    {
+                        def = newDef;
+                        type = newDef.name;
+                        break;
+                    }
+                }
+                if (type == oldType) // if we didn't find a new one
+                {
+                    Debug.LogError("Unalbe to find a type that is tech-available for part " + part.name);
+                    return;
+                }
             }
 
 			oldType = type;
