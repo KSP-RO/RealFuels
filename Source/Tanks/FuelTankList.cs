@@ -32,7 +32,17 @@ namespace RealFuels.Tanks
 			if (node == null)
 				return;
 			foreach (ConfigNode tankNode in node.GetNodes ("TANK")) {
-					Add (new FuelTank (tankNode));
+                if (tankNode.HasValue("name"))
+                {
+                    if (!Contains(tankNode.GetValue("name")))
+                        Add(new FuelTank(tankNode));
+                    else
+                    {
+                        Debug.LogWarning("[MFS] Ignored duplicate definition of TANK of type " + tankNode.GetValue("name"));
+                    }
+                }
+                else
+                    Debug.LogWarning("[MFS] TANK node invalid, lacks name");
 			}
 		}
 
