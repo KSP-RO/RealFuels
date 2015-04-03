@@ -582,6 +582,8 @@ namespace RealFuels
         [KSPField]
         public string gimbalTransform = "";
         [KSPField]
+        public float gimbalMult = 1f;
+        [KSPField]
         public bool useGimbalAnyway = false;
 
         [KSPField]
@@ -813,7 +815,16 @@ namespace RealFuels
             TechLevel cTL = new TechLevel();
             TechLevel oTL = new TechLevel();
             if (cTL.Load(cfg, techNodes, engineType, techLevel) && oTL.Load(cfg, techNodes, engineType, origTechLevel) && part.partInfo != null)
-                return (part.partInfo.cost + cost) * (cTL.CostMult / oTL.CostMult) - part.partInfo.cost;
+            {
+                // Bit of a dance: we have to figure out the total cost of the part, but doing so
+                // also depends on us. So we zero out our contribution first
+                // and then restore configCost.
+                float oldCC = configCost;
+                configCost = 0f;
+                float totalCost = part.GetModuleCosts(part.partInfo.cost);
+                configCost = oldCC;
+                cost = (totalCost + cost) * (cTL.CostMult / oTL.CostMult) - totalCost;
+            }
                 
             return cost;
         }
@@ -854,6 +865,11 @@ namespace RealFuels
                 moduleTLInfo = null;
 
             foreach (ConfigNode config in configs) {
+                
+                TechLevel cTL = new TechLevel();
+                if (!cTL.Load(config, techNodes, engineType, techLevel))
+                    cTL = null;
+
                 if(!config.GetValue ("name").Equals (configuration)) {
                     info += "   " + config.GetValue ("name") + "\n";
                     if(config.HasValue (thrustRating))
@@ -861,7 +877,8 @@ namespace RealFuels
                     else
                         info += "    (Unknown Thrust";
                     if(config.HasValue("cost"))
-                        info += "    (" +config.GetValue("cost") + " extra cost)";
+                        info += "    (" + config.GetValue("cost") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
+                    // because it will always be the cost for the original TL, and thus unmodified.
 
                     FloatCurve isp = new FloatCurve();
                     if(config.HasNode ("atmosphereCurve")) {
@@ -875,13 +892,20 @@ namespace RealFuels
                         float ispSL = 1.0f, ispV = 1.0f;
                         float.TryParse(config.GetValue("IspSL"), out ispSL);
                         float.TryParse(config.GetValue("IspV"), out ispV);
-                        TechLevel cTL = new TechLevel();
-                        if (cTL.Load(config, techNodes, engineType, techLevel))
+                        if (cTL != null)
                         {
                             ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
                             ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
                             info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
                         }
+                    }
+                    float gimbalR = -1;
+                    if (config.HasValue("gimbalRange"))
+                        gimbalR = float.Parse(config.GetValue("gimbalRange"));
+                    else if (!gimbalTransform.Equals("") || useGimbalAnyway)
+                    {
+                        if (cTL != null)
+                            gimbalR = cTL.GimbalRange;
                     }
                     info += ")\n";
                 }
@@ -1216,6 +1240,12 @@ namespace RealFuels
                 // We assume if it was specified in the CONFIG that we should use it anyway.
                 if (gimbal < 0 && (!gimbalTransform.Equals("") || useGimbalAnyway))
                     gimbal = cTL.GimbalRange;
+                if (gimbal >= 0)
+                {
+                    // allow local override of gimbal mult
+                    if (cfg.HasValue("gimbalMult"))
+                        gimbal *= float.Parse(cfg.GetValue("gimbalMult"));
+                }
 
                 // Cost (multiplier will be 1.0 if unspecified)
                 cost = CostTL(cost, cfg);
@@ -1257,7 +1287,8 @@ namespace RealFuels
             // gimbal change
             if (gimbal >= 0 && !cfg.HasValue("gimbalRange")) // if TL set a gimbal
             {
-                cfg.AddValue("gimbalRange", gimbal.ToString("N4"));
+                // apply module-wide gimbal mult on top of any local ones
+                cfg.AddValue("gimbalRange", (gimbal * gimbalMult).ToString("N4"));
             }
             if (cost != 0f)
             {
@@ -1876,9 +1907,9 @@ namespace RealFuels
 
                     if (techLevel != -1)
                     {
-                        curCost = CostTL(curCost, node);
+                        curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
                     }
-                    costString = " (+" + curCost.ToString("0") + "f)";
+                    costString = " (" + ((curCost < 0) ? "" : "+") + curCost.ToString("0") + "f)";
                 }
                 if (node.GetValue("name").Equals(configuration))
                     GUILayout.Label("Current config: " + configuration + costString);
