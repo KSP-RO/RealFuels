@@ -575,6 +575,7 @@ namespace RealFuels
 
         public static float massMult = 1.0f;
 
+        [KSPField]
         public int origTechLevel = 1; // default TL
         public float origMass = -1;
         public float massDelta = 0;
@@ -583,10 +584,15 @@ namespace RealFuels
         [KSPField]
         public bool useGimbalAnyway = false;
 
+        [KSPField]
         public int maxTechLevel = -1;
+        [KSPField]
         public int minTechLevel = -1;
 
+        [KSPField]
         public string engineType = "L"; // default = lower stage
+
+        [KSPField]
         public float throttle = 0.0f; // default min throttle level
         public float curThrottle = 0.0f;
 
@@ -637,7 +643,7 @@ namespace RealFuels
         [KSPField]
         public bool useConfigAsTitle = false;
 
-
+        [KSPField]
         public bool localCorrectThrust = true;
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
@@ -1006,49 +1012,14 @@ namespace RealFuels
                 return;
             base.OnLoad (node);
 
-            techNodes = new ConfigNode(); // FIXME unsafe
-            ConfigNode[] tLs = node.GetNodes("TECHLEVEL");
-            if (tLs.Length == 0)
+
+            if (techLevel != -1)
             {
-                if (part.partInfo != null && part.partInfo.partPrefab != null)
-                {
-                    foreach (PartModule p in part.partInfo.partPrefab.Modules)
-                    {
-                        ModuleEngineConfigs m = (ModuleEngineConfigs)p;
-                        if (m != null && m.engineID == engineID && m.moduleIndex == moduleIndex)
-                        {
-                            techNodes = m.techNodes;
-                            break;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                foreach (ConfigNode n in tLs)
-                    techNodes.AddNode(n);
-            }
-
-            if (node.HasValue("engineType"))
-                engineType = node.GetValue("engineType");
-
-            if (node.HasValue("throttle"))
-                float.TryParse(node.GetValue("throttle"), out throttle);
-
-            if(node.HasValue("origTechLevel"))
-               int.TryParse(node.GetValue("origTechLevel"), out origTechLevel);
-            if (node.HasValue("maxTechLevel"))
-                int.TryParse(node.GetValue("maxTechLevel"), out maxTechLevel);
-            else
-                { if (techLevel != -1 && maxTechLevel < 0) { maxTechLevel = TechLevel.MaxTL(node, engineType); } }
-
-            if (node.HasValue("minTechLevel"))
-            {
-                if (!int.TryParse(node.GetValue("minTechLevel"), out minTechLevel))
+                if (maxTechLevel < 0)
+                    maxTechLevel = TechLevel.MaxTL(node, engineType);
+                if (minTechLevel < 0)
                     minTechLevel = origTechLevel;
             }
-            else if(minTechLevel < 0)
-                minTechLevel = origTechLevel;
 
             if (node.HasValue("origMass"))
             {
@@ -1060,13 +1031,11 @@ namespace RealFuels
                         massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
 
-            if (node.HasValue("localCorrectThrust"))
-                bool.TryParse(node.GetValue("localCorrectThrust"), out localCorrectThrust);
 
             if (configs == null)
-                configs = new List<ConfigNode> ();
+                configs = new List<ConfigNode>();
             else
-                configs.Clear ();
+                configs.Clear();
 
             foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
                 ConfigNode newNode = new ConfigNode("CONFIG");
@@ -1074,17 +1043,45 @@ namespace RealFuels
                 configs.Add (newNode);
             }
 
+
+            techNodes = new ConfigNode();
+            ConfigNode[] tLs = node.GetNodes("TECHLEVEL");
+            foreach (ConfigNode n in tLs)
+                techNodes.AddNode(n);
+
             // same as OnStart
             if (configs.Count == 0 && part.partInfo != null
                && part.partInfo.partPrefab.Modules.Contains("ModuleEngineConfigs"))
             {
-                ModuleEngineConfigs prefab = (ModuleEngineConfigs)part.partInfo.partPrefab.Modules["ModuleEngineConfigs"];
-                configs = new List<ConfigNode>();
-                foreach (ConfigNode subNode in prefab.configs)
+                // get the correct prefab
+                ModuleEngineConfigs prefab = null;
+                if (part.partInfo != null && part.partInfo.partPrefab != null)
                 {
-                    ConfigNode newNode = new ConfigNode("CONFIG");
-                    subNode.CopyTo(newNode);
-                    configs.Add(newNode);                    
+                    foreach (PartModule p in part.partInfo.partPrefab.Modules)
+                    {
+                        if (p is ModuleEngineConfigs)
+                        {
+                            ModuleEngineConfigs m = (ModuleEngineConfigs)p;
+                            if (m != null && m.engineID == engineID && m.moduleIndex == moduleIndex)
+                            {
+                                prefab = m;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if((object)prefab != null)
+                {
+                    configs = new List<ConfigNode>();
+                    foreach (ConfigNode subNode in prefab.configs)
+                    {
+                        ConfigNode newNode = new ConfigNode("CONFIG");
+                        subNode.CopyTo(newNode);
+                        configs.Add(newNode);
+                    }
+                    techNodes = new ConfigNode();
+                    foreach (ConfigNode n in prefab.techNodes.nodes)
+                        techNodes.AddNode(n);
                 }
             }
             SetConfiguration(configuration);
@@ -1260,7 +1257,7 @@ namespace RealFuels
             // gimbal change
             if (gimbal >= 0 && !cfg.HasValue("gimbalRange")) // if TL set a gimbal
             {
-                cfg.AddValue("gimbalRange", gimbal.ToString());
+                cfg.AddValue("gimbalRange", gimbal.ToString("N4"));
             }
             if (cost != 0f)
             {
@@ -1875,13 +1872,13 @@ namespace RealFuels
                 string costString = "";
                 if (node.HasValue("cost"))
                 {
-                    float cost = float.Parse(node.GetValue("cost"));
+                    float curCost = float.Parse(node.GetValue("cost"));
 
                     if (techLevel != -1)
                     {
-                        cost = CostTL(cost, node);
+                        curCost = CostTL(curCost, node);
                     }
-                    costString = " (+" + cost.ToString("N0") + "f)";
+                    costString = " (+" + curCost.ToString("0") + "f)";
                 }
                 if (node.GetValue("name").Equals(configuration))
                     GUILayout.Label("Current config: " + configuration + costString);
@@ -1936,7 +1933,7 @@ namespace RealFuels
             }
 
             GUILayout.BeginHorizontal();
-            GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + configCost).ToString("N3"));
+            GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
             GUILayout.EndHorizontal();
 
             if(showRFGUI)
