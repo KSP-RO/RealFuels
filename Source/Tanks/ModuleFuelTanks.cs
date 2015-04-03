@@ -67,7 +67,7 @@ namespace RealFuels.Tanks
 				Events["ShowUI"].active = false;
 				return;
 			}
-
+            PartMessageService.Register(this);
 			// Initialize utilization from the settings file
 			utilization = MFSSettings.partUtilizationDefault;
 		}
