@@ -794,21 +794,15 @@ namespace RealFuels.Tanks
 
 		internal void RaiseResourceInitialChanged (PartResource resource, double amount)
 		{
-            // dirty hack to avoid NREs on KSP load: make sure it's not load.
-            if (part.partInfo != null && part.partInfo.partPrefab != null)
-			    ResourceInitialChanged (resource, amount);
+			ResourceInitialChanged (resource, amount);
 		}
 		internal void RaiseResourceMaxChanged (PartResource resource, double amount)
 		{
-            // dirty hack to avoid NREs on KSP load: make sure it's not load.
-            if (part.partInfo != null && part.partInfo.partPrefab != null)
-			    ResourceMaxChanged (resource, amount);
+			ResourceMaxChanged (resource, amount);
 		}
 		internal void RaiseResourceListChanged ()
 		{
-            // dirty hack to avoid NREs on KSP load: make sure it's not load.
-            if(part.partInfo != null && part.partInfo.partPrefab != null)
-			    ResourceListChanged ();
+			ResourceListChanged ();
 		}
 
 		[PartMessageListener (typeof (PartResourcesChanged))]
