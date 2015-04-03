@@ -344,7 +344,7 @@ namespace RealFuels.Tanks
                 else
                 {
                     GUILayout.BeginHorizontal();
-                    GUILayout.Label("No tech for " + tank.name, GUILayout.Width(115));
+                    GUILayout.Label("No tech for " + tank.name);
                     GUILayout.EndHorizontal();
                     tank.maxAmount = 0;
                 }
