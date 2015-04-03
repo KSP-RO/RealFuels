@@ -36,10 +36,21 @@ For engines/RCS:
 At the top are buttons for changing the current engine's configuration. Then there are the buttons for changing techlevel. They will have X if a change in that direction is unavailable. Below that are stats for the current config and TL. NOTE that if your RCS uses a fuel that is set to STACK_PRIORITY_SEARCH rather than ALL_VESSEL (anything except MonoPropellant) you need to have fuel feeding your RCS thrusters (i.e. treat them like radial engines). It is suggested you get CrossFeedEnabler to help with this.
 
 
-AN OVERVIEW OF FUEL TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
+AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v9.0
+* Added notes on tank types to the notes section at the bottom of the readme.
+* Switch to taniwha's refactor of MFT (should fix a lot of bugs).
+* Refactor TechLevels, fix longstanding techlevel override bug.
+* Change so it's not ElectricCharge the resource that costs funds, but rather how much capacity you have.
+* Fixed bug where an engine that shares FX betwqeen CONFIGs could have its FX shut down.
+* Removed deprecated StretchyTanks clones.
+* Add techRequired support for resources and for tank types.
+* Add gimbal support to modular engines (TechLevel changing or CONFIG changing can change gimbal). Supports only stock gimbal for now.
+* Cost for engines increases with TechLevel.
+
 v8.4
 *Fixed stock KSP mass calculation (for engineer's report and for pad limits).
 *Added TestFlight integration support.
@@ -391,6 +402,23 @@ In general: the less dense the fuel, the higher your specific impulse and the lo
 
 *LOx-Augmented NTR: This involves pumping LOx into the reactor along with LH2; thus you get a hybrid between a chemical rocket and a NTR. Massive thrust increase (8x or so) with a drop in efficiency down to about 65-70% what the NTR gets in pure-LH2 mode.
 
+=======================
+TANK TYPES
+(Note: All tanks are pressurized, but some tanks are highly pressurized; you need the latter for pressure-fed engines.)
+
+* Default: Your regular tank type, roughly equivalent to the tanks used for Titan or Saturn I/V. Note that in order to match Titan tanks, it's lighter than it should be for other cases. Features minimal insulation for cryogenic resources (equivalent to the insulation on Saturn V's S-IVB).
+
+* Structural: A heavier version of Default, used for aircraft/spaceplanes (or to simulate old, massive tanks). Example: A jet plane's tank, or the R-7's.
+
+* ServiceModule: Used for service modules and other pressure-fed tanks. You need this for pressure-fed engines (RCS are pressure-fed engines). Due to supporting up to 200atm of pressure rather for resources than just the 1.8 or so that non-highly-pressurized tanks do, it's much heavier. Also can store electricity and life support resources. Features more insulation for the cryogenic resources. Examples: Able/Delta upper stage, Apollo Service Module.
+
+* Fuselage: A heavier version of ServiceModule, used for aircraft/spaceplanes (or to simulate old, massive tanks). Examples: the electronics and life support section of a spaceplane.
+
+* Cryogenic: Highly insulated tank. Has the level of insulation (and low boiloff) of a modern cryogenic tank. Slightly heavier than Default due to the increased insulation. Example: Delta IV Common Core Booster.
+
+* Balloon: Light, fragile tank. In real life the tanks must be kept pressurized at all times (even when empty of propellants) or they will collapse, and if left unmonitored they can collapse. In addition they are much less strong than other tank types, and one cannot attach heavy things to their sides or place heavy masses above them under high acceleartion. Ingame, however, their only major disadvantage is that they cost more. Example: Atlas sustainer (pre-Atlas III).
+
+* BalloonCryo: Same as Balloon, but with more insulation (to the level of type Cryogenic). Example: Centaur upper stage. The Shuttle ET falls in between this and type Cryogenic.
 
 =========================
 TECH LEVELS
