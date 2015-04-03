@@ -337,16 +337,20 @@ namespace RealFuels.Tanks
 				Fields["type"].guiActiveEditor = false;
 			} else {
                 List<string> typesTech = new List<string>();
-                foreach (string type in typesAvailable)
+                foreach (string curType in typesAvailable)
                 {
                     TankDefinition def;
-                    if (!MFSSettings.tankDefinitions.Contains(type))
+                    if (!MFSSettings.tankDefinitions.Contains(curType))
                     {
-                        Debug.LogError("Unable to find tank definition for type \"" + type + "\".");
+                        string loadedTypes = "";
+                        foreach (TankDefinition d2 in MFSSettings.tankDefinitions)
+                            loadedTypes += " " + d2.name;
+                        Debug.LogError("Unable to find tank definition for type \"" + curType + "\". Available types are:" + loadedTypes);
+                        continue;
                     }
-                    def = MFSSettings.tankDefinitions[type];
+                    def = MFSSettings.tankDefinitions[curType];
                     if (def.canHave)
-                        typesTech.Add(type);
+                        typesTech.Add(curType);
                 }
                 if (typesTech.Count > 0)
                 {
