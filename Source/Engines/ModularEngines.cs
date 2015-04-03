@@ -821,7 +821,7 @@ namespace RealFuels
                 // and then restore configCost.
                 float oldCC = configCost;
                 configCost = 0f;
-                float totalCost = part.GetModuleCosts(part.partInfo.cost);
+                float totalCost = part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost);
                 configCost = oldCC;
                 cost = (totalCost + cost) * (cTL.CostMult / oTL.CostMult) - totalCost;
             }
@@ -838,11 +838,27 @@ namespace RealFuels
                 retStr += "Bound to engine " + moduleIndex + " in part";
             if(techLevel != -1)
             {
+                TechLevel cTL = new TechLevel();
+                if (!cTL.Load(config, techNodes, engineType, techLevel))
+                    cTL = null;
+
                 retStr =  "Type: " + engineType + ". Tech Level: " + techLevel + " (" + origTechLevel + "-" + maxTechLevel + ")";
                 if (origMass > 0)
                     retStr += ", Mass: " + part.mass.ToString("N3") + " (was " + (origMass * massMult).ToString("N3") + ")";
                 if (curThrottle >= 0)
                     retStr += ", MinThr " + (100f * curThrottle).ToString("N0") + "%";
+
+                float gimbalR = -1f;
+                if (config.HasValue("gimbalRange"))
+                    gimbalR = float.Parse(config.GetValue("gimbalRange"));
+                else if (!gimbalTransform.Equals("") || useGimbalAnyway)
+                {
+                    if (cTL != null)
+                        gimbalR = cTL.GimbalRange;
+                }
+                if (gimbalR != -1f)
+                    retStr += ", Gimbal " + gimbalR.ToString("N1");
+
                 return retStr;
             }
             else
@@ -899,14 +915,17 @@ namespace RealFuels
                             info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
                         }
                     }
-                    float gimbalR = -1;
+                    float gimbalR = -1f;
                     if (config.HasValue("gimbalRange"))
                         gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                    else if (!gimbalTransform.Equals("") || useGimbalAnyway)
+                    // Don't do per-TL checks here, they're misleading.
+                    /*else if (!gimbalTransform.Equals("") || useGimbalAnyway)
                     {
                         if (cTL != null)
                             gimbalR = cTL.GimbalRange;
-                    }
+                    }*/
+                    if (gimbalR != -1f)
+                        info += ", Gimbal " + gimbalR.ToString("N1");
                     info += ")\n";
                 }
 
@@ -1623,6 +1642,8 @@ namespace RealFuels
                 }
                 if (config.HasValue("cost"))
                     configCost = float.Parse(config.GetValue("cost"));
+                else
+                    configCost = 0f;
                 UpdateTweakableMenu();
                 // Check for and enable the thrust curve
                 useThrustCurve = false;
