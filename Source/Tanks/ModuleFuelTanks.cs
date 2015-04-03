@@ -220,7 +220,7 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
-
+            enabled = true; // just in case...
 			
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
@@ -264,7 +264,6 @@ namespace RealFuels.Tanks
             {
 				return;
 			}
-
 			UpdateTankType ();
 			UpdateUtilization ();
 			CalculateMass ();
