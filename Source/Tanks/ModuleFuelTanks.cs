@@ -68,9 +68,6 @@ namespace RealFuels.Tanks
 				return;
 			}
 
-			PartMessageService.Register (this);
-			this.RegisterOnUpdateEditor (OnUpdateEditor);
-
 			// Initialize utilization from the settings file
 			utilization = MFSSettings.partUtilizationDefault;
 		}
@@ -261,9 +258,10 @@ namespace RealFuels.Tanks
 			}
 		}
 
-		public void OnUpdateEditor ()
+		public void Update ()
 		{
-			if (!compatible) {
+            if (!compatible || !HighLogic.LoadedSceneIsEditor)
+            {
 				return;
 			}
 
@@ -394,7 +392,7 @@ namespace RealFuels.Tanks
             if (!def.canHave)
             {
                 type = oldType;
-                if(oldType != null) // we have an old type
+                if(oldType != null && oldType != "") // we have an old type
                 {
                     def = MFSSettings.tankDefinitions[type];
                     if (def.canHave)
@@ -418,6 +416,7 @@ namespace RealFuels.Tanks
             }
 
 			oldType = type;
+            
             // Get pressurization
             highlyPressurized = def.highlyPressurized;
 
