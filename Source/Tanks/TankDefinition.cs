@@ -21,6 +21,9 @@ namespace RealFuels.Tanks
         [Persistent]
         public string techRequired = "";
 
+        [Persistent]
+        public bool highlyPressurized = false;
+
 		public Tanks.FuelTankList tankList = new Tanks.FuelTankList ();
 
 

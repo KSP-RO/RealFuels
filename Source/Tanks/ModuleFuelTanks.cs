@@ -325,6 +325,8 @@ namespace RealFuels.Tanks
 		// for EngineIgnitor integration: store a public dictionary of all pressurized propellants
 		[NonSerialized]
 		public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool> ();
+        [KSPField(guiActiveEditor = true, guiName = "Highly Pressurized?")]
+        public bool highlyPressurized = false;
 
 		// Load the list of TANK overrides from the part file
 		private void LoadTankListOverrides (ConfigNode node)
@@ -371,7 +373,7 @@ namespace RealFuels.Tanks
 			pressurizedFuels.Clear ();
 			for (int i = 0; i < tankList.Count; i++) {
 				FuelTank f = tankList[i];
-				pressurizedFuels[f.name] = def.name == "ServiceModule" || f.note.ToLower ().Contains ("pressurized");
+				pressurizedFuels[f.name] = def.highlyPressurized || f.note.ToLower ().Contains ("pressurized");
 			}
 		}
 
@@ -416,6 +418,9 @@ namespace RealFuels.Tanks
             }
 
 			oldType = type;
+            // Get pressurization
+            highlyPressurized = def.highlyPressurized;
+
 			// Build the new tank list.
 			tankList = new FuelTankList ();
 			for (int i = 0; i < def.tankList.Count; i++) {
