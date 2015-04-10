@@ -72,7 +72,7 @@ namespace RealFuels
 						if (d == null) {
 							continue;
 						}
-                        if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP)
+                        if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
                         {
 							double amount = deltaTime * pump_rate;
 							var game = HighLogic.CurrentGame;
