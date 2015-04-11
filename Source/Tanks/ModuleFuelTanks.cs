@@ -473,7 +473,7 @@ namespace RealFuels.Tanks
 		public double totalVolume;
 
 		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0"),
-		 UI_FloatEdit (minValue = 0, maxValue = 100, incrementSlide = 1, scene = UI_Scene.Editor)]
+		 UI_FloatEdit (minValue = 1, maxValue = 100, incrementSlide = 1, scene = UI_Scene.Editor)]
 		public float utilization = -1;
 		private float oldUtilization = -1;
 
