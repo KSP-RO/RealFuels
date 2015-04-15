@@ -44,6 +44,9 @@ namespace RealFuels.Tanks
 				instance.tank_module = null;
 				instance.UpdateGUIState ();
 			}
+            EditorLogic editor = EditorLogic.fetch;
+            if(editor != null)
+                editor.Unlock("MFTGUILock");
 		}
 
 		public static void ShowGUI (ModuleFuelTanks tank_module)
@@ -57,6 +60,9 @@ namespace RealFuels.Tanks
 		void UpdateGUIState ()
 		{
 			enabled = tank_module != null;
+            EditorLogic editor = EditorLogic.fetch;
+            if(!enabled &&  editor != null)
+                editor.Unlock("MFTGUILock");
 		}
 
 		private IEnumerator<YieldInstruction> CheckActionGroupEditor ()

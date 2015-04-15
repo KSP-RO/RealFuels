@@ -1043,6 +1043,7 @@ namespace RealFuels
             else
             {
                 showRFGUI = false;
+                editor.Unlock("RFGUILock");
                 return;
             }
 
