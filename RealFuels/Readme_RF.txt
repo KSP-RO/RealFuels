@@ -40,6 +40,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW 
 
 ==========
 Changelog:
+v9.1
+* Fixed stock RCS and xenon tank volumes.
+* Don't pump into tanks if their flow has been turned off.
+* Clamp utilization slider to 1% (avoids a divide-by-zero).
+* Fix typos in Tantares tanks. Thanks komodo!
+* Unlock input when the RF GUI disappears (fixes a bug where clicking can be locked).
+
 v9.0
 * Added notes on tank types to the notes section at the bottom of the readme.
 * Switch to taniwha's refactor of MFT (should fix a lot of bugs).
