@@ -51,35 +51,37 @@ namespace RealFuels
 			tankDefinitions = new Tanks.TankDefinitionList ();
 			managedResources = new Dictionary<string,HashSet<string>> ();
 
-            ConfigNode node = GameDatabase.Instance.GetConfigNodes ("MFSSETTINGS").Last ();
+            ConfigNode node = GameDatabase.Instance.GetConfigNodes ("MFSSETTINGS").LastOrDefault ();
             Debug.Log ("[MFS] Loading global settings");
 
-			bool tb;
-			float tf;
+			if (node != null) {
+				bool tb;
+				float tf;
 
-			if (bool.TryParse (node.GetValue ("useRealisticMass"), out tb)) {
-				useRealisticMass = tb;
-			}
-			if (float.TryParse (node.GetValue ("tankMassMultiplier"), out tf)) {
-				tankMassMultiplier = tf;
-			}
-			if (float.TryParse (node.GetValue ("baseCostPV"), out tf)) {
-				baseCostPV = tf;
-			}
-			if (float.TryParse (node.GetValue ("partUtilizationDefault"), out tf)) {
-				partUtilizationDefault = tf;
-			}
-			if (bool.TryParse (node.GetValue ("partUtilizationTweakable"), out tb)) {
-				partUtilizationTweakable = tb;
-			}
-			if (node.HasValue ("unitLabel")) {
-				unitLabel = node.GetValue ("unitLabel");
-			}
+				if (bool.TryParse (node.GetValue ("useRealisticMass"), out tb)) {
+					useRealisticMass = tb;
+				}
+				if (float.TryParse (node.GetValue ("tankMassMultiplier"), out tf)) {
+					tankMassMultiplier = tf;
+				}
+				if (float.TryParse (node.GetValue ("baseCostPV"), out tf)) {
+					baseCostPV = tf;
+				}
+				if (float.TryParse (node.GetValue ("partUtilizationDefault"), out tf)) {
+					partUtilizationDefault = tf;
+				}
+				if (bool.TryParse (node.GetValue ("partUtilizationTweakable"), out tb)) {
+					partUtilizationTweakable = tb;
+				}
+				if (node.HasValue ("unitLabel")) {
+					unitLabel = node.GetValue ("unitLabel");
+				}
 
-            ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
-            if (ignoreNode != null) {
-                foreach (ConfigNode.Value v in ignoreNode.values) {
-                    ignoreFuelsForFill.Add (v.name);
+				ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
+				if (ignoreNode != null) {
+					foreach (ConfigNode.Value v in ignoreNode.values) {
+						ignoreFuelsForFill.Add (v.name);
+					}
 				}
 			}
 
