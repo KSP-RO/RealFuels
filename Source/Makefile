@@ -23,7 +23,6 @@ MFT_FILES := \
     Tanks/TankDefinition.cs			\
     Tanks/TankDefinitionList.cs		\
     Tanks/TankWindow.cs				\
-    Pumps/HeatPump.cs				\
     Pumps/RefuelingPump.cs			\
 	$e
 
