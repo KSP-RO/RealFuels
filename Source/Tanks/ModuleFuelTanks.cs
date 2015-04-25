@@ -12,7 +12,7 @@ using System.Reflection;
 
 namespace RealFuels.Tanks
 {
-	public class ModuleFuelTanks : PartModule, IPartCostModifier, IPartMassModifier
+	public class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier
 	{
 		bool compatible = true;
         #region TestFlight
@@ -192,6 +192,24 @@ namespace RealFuels.Tanks
 				info.Append ("	 ").Append (tank).Append (" ").AppendLine (tank.note);
 			}
 			return info.ToString ();
+		}
+
+		public string GetPrimaryField ()
+		{
+			return String.Format ("Max Volume: {0}, {1}{2}",
+							volume.ToStringSI (unit: MFSSettings.unitLabel),
+							type,
+							(typesAvailable != null && typesAvailable.Length > 1) ? "*" : "");
+		}
+
+		public Callback<Rect> GetDrawModulePanelCallback ()
+		{
+			return null;
+		}
+
+		public string GetModuleTitle ()
+		{
+			return "Modular Fuel Tank";
 		}
 
 		void OnActionGroupEditorOpened ()
