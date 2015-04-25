@@ -23,8 +23,7 @@ namespace ExtraplanetaryLaunchpads {
 			}
 			var cat = PartCategorizer.Instance.filters.Find (c => c.button.categoryName == "Filter by Module");
 			var subcat = cat.subcategories.Find (c => c.button.categoryName == "Modular Fuel Tank");
-			subcat.button.icon = icon;
-			subcat.button.UpdateIconState ();
+			subcat.button.SetIcon (icon);
 		}
 
 		void Awake ()
