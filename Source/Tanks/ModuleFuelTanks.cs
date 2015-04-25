@@ -428,7 +428,10 @@ namespace RealFuels.Tanks
 			for (int i = 0; i < def.tankList.Count; i++) {
 				FuelTank tank = def.tankList[i];
 				// Pull the override from the list of overrides
-				ConfigNode overNode = overrideListNodes.FirstOrDefault (n => n.GetValue ("name") == tank.name);
+				ConfigNode overNode = null;
+				if (overrideListNodes != null) {
+					overNode = overrideListNodes.FirstOrDefault (n => n.GetValue ("name") == tank.name);
+				}
 
 				tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
 			}
