@@ -37,7 +37,7 @@ GIT		:= git
 TAR		:= tar
 ZIP		:= zip
 
-all: version ${TARGETS} #${TSTARGETS}
+all: version ${TARGETS} ${TSTARGETS}
 
 .PHONY: version
 version:
@@ -74,7 +74,7 @@ clean:
 install: all
 	mkdir -p ${PLUGINDIR}
 	cp ${TARGETS} ${PLUGINDIR}
-	#mkdir -p ${TSINTERACT}
-	#cp ${TSTARGETS} ${TSINTERACT}
+	mkdir -p ${TSINTERACT}
+	cp ${TSTARGETS} ${TSINTERACT}
 
 .PHONY: all clean info install
