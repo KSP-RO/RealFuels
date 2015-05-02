@@ -751,7 +751,7 @@ namespace RealFuels
 
         public override void OnAwake ()
         {
-            if (!CompatibilityChecker.IsAllCompatible())
+            if (CompatibilityChecker.IsWin64 ())
             {
                 compatible = false;
                 return;

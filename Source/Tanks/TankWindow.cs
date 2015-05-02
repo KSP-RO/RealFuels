@@ -96,7 +96,7 @@ namespace RealFuels.Tanks
 		void Awake ()
 		{
 			enabled = false;
-			if (!CompatibilityChecker.IsAllCompatible ()) {
+			if (CompatibilityChecker.IsWin64 ()) {
 				return;
 			}
 			instance = this;

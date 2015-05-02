@@ -61,7 +61,7 @@ namespace RealFuels.Tanks
 		public override void OnAwake ()
 		{
 			enabled = false;
-			if (!CompatibilityChecker.IsAllCompatible ()) {
+			if (CompatibilityChecker.IsWin64 ()) {
 				compatible = false;
 				Events["HideUI"].active = false;
 				Events["ShowUI"].active = false;
