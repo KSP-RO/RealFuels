@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+using UnityEngine;
+
 namespace RealFuels.TechLevels
 {
     public class TechLevel
@@ -61,11 +63,7 @@ namespace RealFuels.TechLevels
         {
             if (globalTechLevels == null)
             {
-                ConfigNode RFEngSettings = null;
-                foreach (ConfigNode node in GameDatabase.Instance.GetConfigNodes("MFSSETTINGS"))
-                    RFEngSettings = node;
-                if (RFEngSettings != null)
-                    globalTechLevels = RFEngSettings.GetNode("MFS_TECHLEVELS");
+                globalTechLevels = RFSettings.Instance.techLevels;
             }
 
             return globalTechLevels != null;
@@ -412,6 +410,26 @@ namespace RealFuels.TechLevels
             if (!nTL.Load(cfg, mod, type, level))
                 return false;
             return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
+        }
+
+        public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
+        {
+            FloatCurve newCurve = new FloatCurve();
+            ConfigNode tmp = new ConfigNode();
+            fc.Save(tmp);
+            newCurve.Load(tmp);
+            AnimationCurve ac = newCurve.Curve;
+            int kCount = ac.keys.Length;
+            for (int i = 0; i < kCount; ++i)
+            {
+                Keyframe key = ac.keys[i];
+                float mult = Mathf.Lerp(vMult, sMult, key.time);
+                key.value *= mult;
+                key.inTangent *= mult;
+                key.outTangent *= mult;
+                ac.keys[i] = key;
+            }
+            return newCurve;
         }
     }
 }
