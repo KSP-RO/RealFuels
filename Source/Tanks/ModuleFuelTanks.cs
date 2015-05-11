@@ -982,7 +982,7 @@ namespace RealFuels.Tanks
             int mC = p.Modules.Count;
             for (int i = 0; i < mC; ++i)
             {
-                PartModule m = p.Modules[mC];
+                PartModule m = p.Modules[i];
                 if (m is ModuleEngines || m is ModuleRCS)
                     return true;
             }
