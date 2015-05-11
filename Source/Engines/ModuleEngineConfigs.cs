@@ -249,6 +249,7 @@ namespace RealFuels
                 configs.Clear();
 
             foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
+                Debug.Log("*RF* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
                 ConfigNode newNode = new ConfigNode("CONFIG");
                 subNode.CopyTo (newNode);
                 configs.Add (newNode);
@@ -716,36 +717,7 @@ namespace RealFuels
             else if (configMinThrust >= 0f && configMaxThrust >= 0f)
                 configThrottle = configMinThrust / configMaxThrust;
 
-            // fix propellant ratios to not be rounded
-            if (cfg.HasNode("PROPELLANT"))
-            {
-                double ratioSum = 0d;
-                foreach (ConfigNode pNode in cfg.GetNodes("PROPELLANT"))
-                {
-                    if (pNode.HasValue("ratio"))
-                    {
-                        double dtmp;
-                        if (double.TryParse(pNode.GetValue("ratio"), out dtmp))
-                            ratioSum += dtmp;
-                    }
-                }
-                if (ratioSum < 11d)
-                {
-                    double mult = 10d;
-                    if (ratioSum < 1.1d)
-                        mult = 100d;
-                    foreach (ConfigNode pNode in cfg.GetNodes("PROPELLANT"))
-                    {
-                        if (pNode.HasValue("ratio"))
-                        {
-                            double dtmp;
-                            if (double.TryParse(pNode.GetValue("ratio"), out dtmp))
-                                pNode.SetValue("ratio", (dtmp * mult).ToString());
-                        }
-                    }
-                }
-            }
-            
+                        
             float TLMassMult = 1.0f;
 
             float gimbal = -1f;
@@ -1157,7 +1129,10 @@ namespace RealFuels
         {
             foreach (ConfigNode node in configs)
             {
+                string nName = node.GetValue("name");
                 GUILayout.BeginHorizontal();
+
+                // get cost
                 string costString = "";
                 if (node.HasValue("cost"))
                 {
@@ -1169,19 +1144,22 @@ namespace RealFuels
                     }
                     costString = " (" + ((curCost < 0) ? "" : "+") + curCost.ToString("0") + "f)";
                 }
-                if (node.GetValue("name").Equals(configuration))
-                    GUILayout.Label("Current config: " + configuration + costString);
+
+                if (nName.Equals(configuration))
+                {
+                    GUILayout.Label("Current config: " + nName + costString);
+                }
                 else if (CanConfig(node))
                 {
-                    if (GUILayout.Button("Switch to " + node.GetValue("name") + costString))
+                    if (GUILayout.Button("Switch to " + nName + costString))
                     {
-                        SetConfiguration(node.GetValue("name"));
+                        SetConfiguration(nName);
                         UpdateSymmetryCounterparts();
                     }
                 }
                 else
                 {
-                    GUILayout.Label("Lack tech for " + node.GetValue("name"));
+                    GUILayout.Label("Lack tech for " + nName);
                 }
                 GUILayout.EndHorizontal();
             }
@@ -1220,9 +1198,14 @@ namespace RealFuels
                 }
                 GUILayout.EndHorizontal();
             }
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
-            GUILayout.EndHorizontal();
+
+            // show current info, cost
+            if (pModule != null && part.partInfo != null)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
+                GUILayout.EndHorizontal();
+            }
 
             if(showRFGUI)
                 GUI.DragWindow();
@@ -1278,12 +1261,19 @@ namespace RealFuels
             string partName = part.name;
             if(part.partInfo != null)
                 partName = part.partInfo.name;
+            //Debug.Log("*RFCS* Part " + part.name + " has lookup name " + partName + " which is turned into " + partName.Replace(".", "-").Replace("_", "-"));
+            partName = partName.Replace(".", "-");
+            partName = partName.Replace("_", "-");
+
             if (configs.Count > 0)
             {
                 if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
-                    Debug.Log("*RFE* error: part already in database!");
+                    Debug.Log("*RFCSL* error: part already in database!");
                 else
+                {
                     RFSettings.Instance.engineConfigs[partName] = configs;
+                    Debug.Log("*RFCSL* for part " + part.name + " as " + partName + " stored " + configs.Count + " configs.");
+                }
 
             }
             else
@@ -1291,43 +1281,8 @@ namespace RealFuels
                 if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                     configs = RFSettings.Instance.engineConfigs[partName];
                 else
-                    Debug.Log("*RFE* error: could not find configs definition for " + partName);
+                    Debug.Log("*RFCSL* error: could not find configs definition for " + partName);
             }
-            /*Type mType = this.GetType();
-            Debug.Log("Reloading from prefab, current count = " + configs.Count + ", our type " + mType.Name);
-            // get the correct prefab
-            ModuleEngineConfigs prefab = null;
-            if (part.partInfo != null && part.partInfo.partPrefab != null)
-            {
-                foreach (PartModule p in part.partInfo.partPrefab.Modules)
-                {
-                    if (p.GetType() == mType)
-                    {
-                        ModuleEngineConfigs m = (ModuleEngineConfigs)p;
-                        if (m != null && m.engineID == engineID && m.moduleIndex == moduleIndex)
-                        {
-                            Debug.Log("found module in prefabs");
-                            prefab = m;
-                            break;
-                        }
-                    }
-                }
-            }
-            if ((object)prefab != null)
-            {
-                configs = new List<ConfigNode>();
-                Debug.Log("Prefab has configs count " + prefab.configs.Count);
-                foreach (ConfigNode subNode in prefab.configs)
-                {
-                    ConfigNode newNode = new ConfigNode("CONFIG");
-                    subNode.CopyTo(newNode);
-                    configs.Add(newNode);
-                }
-                techNodes = new ConfigNode();
-                Debug.Log("Prefab has technodes count " + prefab.techNodes.nodes.Count);
-                foreach (ConfigNode n in prefab.techNodes.nodes)
-                    techNodes.AddNode(n);
-            }*/
         }
 
         protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType = true)
