@@ -49,6 +49,9 @@ namespace RealFuels
             // set base bits
             base.CalculatePerformance(airRatio, commandedThrottle, flowMult, ispMult);
 
+            // Calculate Isp (before the shutdown check, so it displays even then)
+            Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;
+
             // if we're not combusting, don't combust and start cooling off
             bool shutdown = !running;
             statusString = "Nominal";
@@ -57,23 +60,21 @@ namespace RealFuels
                 shutdown = true;
                 statusString = "No propellants";
             }
-            if (shutdown)
+            if (shutdown || commandedThrottle <= 0d)
             {
                 double declinePow = Math.Pow(tempDeclineRate, TimeWarp.fixedDeltaTime);
                 chamberTemp = Math.Max(t0, chamberTemp * declinePow);
                 return;
             }
 
-            // Calculate isp, fuel flow, and thrust
-            Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;
-            double exhaustVelocity = Isp * 9.80665d;
-
+            // get current flow, and thus thrust.
             double fuelFlowMult = FlowMult();
-            if (fuelFlowMult < 0.05d || commandedThrottle <= 0d)
+            if (fuelFlowMult < 0.05d)
                 fuelFlow = 0d;
             else
                 fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * fuelFlowMult;
 
+            double exhaustVelocity = Isp * 9.80665d;
             thrust = fuelFlow * exhaustVelocity;
 
             // Calculate chamber temperature as ratio
