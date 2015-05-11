@@ -36,7 +36,7 @@ namespace RealFuels
 
 
         protected bool instantThrottle = false;
-        protected double throttleResponseRate;
+        protected float throttleResponseRate;
         #endregion
 
         #region Overrides
@@ -120,8 +120,10 @@ namespace RealFuels
             }
 
             // FIXME calculating throttle change rate
-            if(!instantThrottle)
-                throttleResponseRate = 10d / Math.Sqrt(Math.Sqrt(part.mass * maxThrust));
+            if (!instantThrottle)
+                throttleResponseRate = (float)(10d / Math.Sqrt(Math.Sqrt(part.mass * maxThrust)));
+            else
+                throttleResponseRate = 1000000f;
 
             // set fields
             Fields["Inlet"].guiActive = usesAir;
@@ -129,25 +131,26 @@ namespace RealFuels
         public override void UpdateThrottle()
         {
             if (instantThrottle)
-                currentThrottle = (float)(requestedThrottle * thrustPercentage * 0.01);
+                currentThrottle = requestedThrottle * thrustPercentage * 0.01f;
             else
             {
                 
-                double requiredThrottle = requestedThrottle * thrustPercentage * 0.01d;
-                double deltaT = TimeWarp.fixedDeltaTime;
+                float requiredThrottle = requestedThrottle * thrustPercentage * 0.01f;
+                float deltaT = TimeWarp.fixedDeltaTime;
 
-                double d = requiredThrottle - currentThrottle;
-                if (Math.Abs(d) > throttleResponseRate * deltaT)
+                float d = requiredThrottle - currentThrottle;
+                float thisTick = throttleResponseRate * deltaT;
+                if (Math.Abs((double)d) > thisTick)
                 {
-                    double sign = 1d;
-                    if (d < 0)
-                        sign = -1d;
-                    currentThrottle += (float)(sign * throttleResponseRate * deltaT);
+                    if (d > 0f)
+                        currentThrottle += thisTick;
+                    else
+                        currentThrottle -= thisTick;
                 }
                 else
-                    currentThrottle = (float)requiredThrottle;
+                    currentThrottle = requiredThrottle;
             }
-            base.UpdateThrottle();
+            actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
         }
 
         public override void UpdateFlightCondition(double altitude, double vel, double pressure, double temperature, double rho, double mach, bool oxygen)
@@ -280,11 +283,22 @@ namespace RealFuels
             {
                 p = propellants[i];
                 pName = KSPUtil.PrintModuleName(p.name);
-
-                output += "- <b>" + pName + "</b>: " + getMaxFuelFlow(p).ToString("0.0##") + "/sec. Max.\n";
+                string units = "L";
+                if(p.name == "ElectricCharger")
+                    units = "kW";
+                float unitsSec = getMaxFuelFlow(p);
+                string unitsUsed = unitsSec.ToString("N4") + units;
+                if (PartResourceLibrary.Instance != null)
+                {
+                    PartResourceDefinition def = PartResourceLibrary.Instance.GetDefinition(p.name);
+                    if (def != null && def.density > 0)
+                        unitsUsed += " (" + (unitsSec * def.density * 1000f).ToString("N4") + " kg)";
+                }
+                unitsUsed += " per second";
+                output += "- <b>" + pName + "</b>: " + unitsUsed + " maximum.\n";
                 output += p.GetFlowModeDescription();
             }
-            output += "<b>Flameout under: </b>" + (ignitionThreshold * 100f).ToString("0.#") + "%\n";
+            output += "<b>Flameout under: </b>" + (ignitionThreshold * 100f).ToString("0.#") + "% of requirement remaining.\n";
 
             if (!allowShutdown) output += "\n" + "<b><color=orange>Engine cannot be shut down!</color></b>";
             if (!allowRestart) output += "\n" + "<b><color=orange>If shutdown, engine cannot restart.</color></b>";
