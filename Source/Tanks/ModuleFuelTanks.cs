@@ -979,18 +979,13 @@ namespace RealFuels.Tanks
 
 		static bool IsEngine (Part p)
 		{
-			if (p.Modules.Contains ("ModuleEngines")) {
-				return true;
-			}
-			if (p.Modules.Contains ("ModuleEnginesFX")) {
-				return true;
-			}
-			if (p.Modules.Contains ("ModuleRCSFX")) {
-				return true;
-			}
-			if (p.Modules.Contains ("ModuleRCS")) {
-				return true;
-			}
+            int mC = p.Modules.Count;
+            for (int i = 0; i < mC; ++i)
+            {
+                PartModule m = p.Modules[mC];
+                if (m is ModuleEngines || m is ModuleRCS)
+                    return true;
+            }
 			return false;
 		}
 
