@@ -891,20 +891,10 @@ namespace RealFuels.Tanks
 
 		List<Propellant> GetEnginePropellants (PartModule engine)
 		{
-			string typename = engine.GetType ().ToString ();
-			if (typename.Equals ("ModuleEnginesFX")) {
-				ModuleEnginesFX e = (ModuleEnginesFX)engine;
-				return e.propellants;
-			} else if (typename.Equals ("ModuleEngines")) {
-				ModuleEngines e = (ModuleEngines)engine;
-				return e.propellants;
-			} else if (typename.Equals ("ModuleRCSFX")) {
-				ModuleRCS e = (ModuleRCS)engine;
-				return e.propellants;
-			} else if (typename.Equals ("ModuleRCS")) {
-				ModuleRCS e = (ModuleRCS)engine;
-				return e.propellants;
-			}
+            if (engine is ModuleEngines)
+                return (engine as ModuleEngines).propellants;
+            else if (engine is ModuleRCS)
+                return (engine as ModuleRCS).propellants;
 			return null;
 		}
 
