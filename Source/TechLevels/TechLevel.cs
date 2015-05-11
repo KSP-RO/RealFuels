@@ -415,19 +415,17 @@ namespace RealFuels.TechLevels
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
             FloatCurve newCurve = new FloatCurve();
-            ConfigNode tmp = new ConfigNode();
-            fc.Save(tmp);
-            newCurve.Load(tmp);
-            AnimationCurve ac = newCurve.Curve;
+            AnimationCurve ac = fc.Curve;
             int kCount = ac.keys.Length;
             for (int i = 0; i < kCount; ++i)
             {
                 Keyframe key = ac.keys[i];
                 float mult = Mathf.Lerp(vMult, sMult, key.time);
-                key.value *= mult;
-                key.inTangent *= mult;
-                key.outTangent *= mult;
-                ac.keys[i] = key;
+
+                newCurve.Add(key.time,
+                            key.value * mult,
+                            key.inTangent * mult,
+                            key.outTangent * mult);
             }
             return newCurve;
         }
