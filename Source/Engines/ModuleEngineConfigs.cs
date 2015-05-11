@@ -29,6 +29,17 @@ namespace RealFuels
 
             SetConfiguration(configuration);
         }
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+            if (!isMaster)
+            {
+                Actions["SwitchAction"].active = false;
+                Events["SwitchEngine"].guiActive = false;
+                Events["SwitchEngine"].guiActiveEditor = false;
+                Events["SwitchEngine"].guiActiveUnfocused = false;
+            }
+        }
 
         [KSPAction("Switch Engine Mode")]
         public void SwitchAction (KSPActionParam param)
@@ -108,7 +119,7 @@ namespace RealFuels
 
         // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
         [KSPField]
-        public string type = "ModuleEngines";
+        public string type = "ModuleEnginesRF";
 
         [KSPField]
         public string engineID = "";
@@ -207,7 +218,12 @@ namespace RealFuels
                 return;
             base.OnLoad (node);
             if (!isMaster)
+            {
                 Fields["showRFGUI"].guiActiveEditor = false;
+                Events["NextEngine"].guiActiveEditor = false;
+                Events["NextTech"].guiActiveEditor = false;
+            }
+
 
             if (techLevel != -1)
             {
@@ -244,7 +260,7 @@ namespace RealFuels
             foreach (ConfigNode n in tLs)
                 techNodes.AddNode(n);
 
-            ReloadFromPrefab();
+            ConfigSaveLoad();
 
             SetConfiguration(configuration);
         }
@@ -269,7 +285,7 @@ namespace RealFuels
                 return;
             this.enabled = true;
 
-            ReloadFromPrefab();
+            ConfigSaveLoad();
 
             SetConfiguration(configuration);
 
@@ -503,12 +519,14 @@ namespace RealFuels
                 if (part.Modules.Contains(type))
                 {
                     // get correct module
-                    if (type.Contains("ModuleEngines"))
+                    if (type.Contains("ModuleEngines") && (engineID != "" || moduleIndex >= 0))
                     {
                         pModule = GetSpecifiedModule(part, engineID, moduleIndex, type);
                     }
-                    if((object)pModule == null)
+                    if ((object)pModule == null)
+                    {
                         pModule = part.Modules[type];
+                    }
 
                     if ((object)pModule == null)
                     {
@@ -657,8 +675,9 @@ namespace RealFuels
                 UpdateTweakableMenu();
                 
                 // Finally, fire the modified event
-                if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
-                    GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
+                // more trouble than it is worth...
+                /*if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
+                    GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
             }
             SetupFX();
 
@@ -1019,7 +1038,7 @@ namespace RealFuels
             UpdateSymmetryCounterparts();
         }
 
-        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Show Engine "),
+        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Engine"),
          UI_Toggle(enabledText = "Hide GUI", disabledText = "Show GUI")]
         [NonSerialized]
         public bool showRFGUI;
@@ -1048,7 +1067,7 @@ namespace RealFuels
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
             EditorLogic editor = EditorLogic.fetch;
-            if (!HighLogic.LoadedSceneIsEditor || !editor)
+            if (!HighLogic.LoadedSceneIsEditor || !editor || !isMaster)
             {
                 return;
             }
@@ -1056,7 +1075,7 @@ namespace RealFuels
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
-            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part) && isMaster)
+            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
             {
                 if (offsetGUIPos == -1 && part.Modules.Contains("ModuleFuelTanks"))
                     posMult = 1;
@@ -1201,7 +1220,6 @@ namespace RealFuels
                 }
                 GUILayout.EndHorizontal();
             }
-
             GUILayout.BeginHorizontal();
             GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
             GUILayout.EndHorizontal();
@@ -1228,7 +1246,7 @@ namespace RealFuels
             {
                 if (part.symmetryCounterparts[j] == part)
                     continue;
-                ModuleEngineConfigs engine = GetSpecifiedModule(part.symmetryCounterparts[j], engineID, mIdx, this.GetType().Name) as ModuleEngineConfigs;
+                ModuleEngineConfigs engine = GetSpecifiedModule(part.symmetryCounterparts[j], engineID, mIdx, this.GetType().Name, false) as ModuleEngineConfigs;
                 engine.techLevel = techLevel;
                 engine.SetConfiguration(configuration);
                 ++i;
@@ -1244,7 +1262,7 @@ namespace RealFuels
                 int nCount = node.values.Count;
                 for (int i = 0; i < nCount; ++i)
                 {
-                    ModuleEngineConfigs otherM = GetSpecifiedModule(part, node.values[i].name, -1, this.GetType().Name) as ModuleEngineConfigs;
+                    ModuleEngineConfigs otherM = GetSpecifiedModule(part, node.values[i].name, -1, this.GetType().Name, false) as ModuleEngineConfigs;
                     if (otherM != null)
                     {
                         otherM.techLevel = techLevel;
@@ -1254,46 +1272,65 @@ namespace RealFuels
             }
         }
 
-        // run this to reload non-serialized data
-        protected void ReloadFromPrefab()
+        // run this to save/load non-serialized data
+        protected void ConfigSaveLoad()
         {
-            if (configs.Count == 0 && part.partInfo != null
-               && part.partInfo.partPrefab.Modules.Contains("ModuleEngineConfigs"))
+            string partName = part.name;
+            if(part.partInfo != null)
+                partName = part.partInfo.name;
+            if (configs.Count > 0)
             {
-                // get the correct prefab
-                ModuleEngineConfigs prefab = null;
-                if (part.partInfo != null && part.partInfo.partPrefab != null)
+                if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
+                    Debug.Log("*RFE* error: part already in database!");
+                else
+                    RFSettings.Instance.engineConfigs[partName] = configs;
+
+            }
+            else
+            {
+                if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
+                    configs = RFSettings.Instance.engineConfigs[partName];
+                else
+                    Debug.Log("*RFE* error: could not find configs definition for " + partName);
+            }
+            /*Type mType = this.GetType();
+            Debug.Log("Reloading from prefab, current count = " + configs.Count + ", our type " + mType.Name);
+            // get the correct prefab
+            ModuleEngineConfigs prefab = null;
+            if (part.partInfo != null && part.partInfo.partPrefab != null)
+            {
+                foreach (PartModule p in part.partInfo.partPrefab.Modules)
                 {
-                    foreach (PartModule p in part.partInfo.partPrefab.Modules)
+                    if (p.GetType() == mType)
                     {
-                        if (p is ModuleEngineConfigs)
+                        ModuleEngineConfigs m = (ModuleEngineConfigs)p;
+                        if (m != null && m.engineID == engineID && m.moduleIndex == moduleIndex)
                         {
-                            ModuleEngineConfigs m = (ModuleEngineConfigs)p;
-                            if (m != null && m.engineID == engineID && m.moduleIndex == moduleIndex)
-                            {
-                                prefab = m;
-                                break;
-                            }
+                            Debug.Log("found module in prefabs");
+                            prefab = m;
+                            break;
                         }
                     }
                 }
-                if ((object)prefab != null)
-                {
-                    configs = new List<ConfigNode>();
-                    foreach (ConfigNode subNode in prefab.configs)
-                    {
-                        ConfigNode newNode = new ConfigNode("CONFIG");
-                        subNode.CopyTo(newNode);
-                        configs.Add(newNode);
-                    }
-                    techNodes = new ConfigNode();
-                    foreach (ConfigNode n in prefab.techNodes.nodes)
-                        techNodes.AddNode(n);
-                }
             }
+            if ((object)prefab != null)
+            {
+                configs = new List<ConfigNode>();
+                Debug.Log("Prefab has configs count " + prefab.configs.Count);
+                foreach (ConfigNode subNode in prefab.configs)
+                {
+                    ConfigNode newNode = new ConfigNode("CONFIG");
+                    subNode.CopyTo(newNode);
+                    configs.Add(newNode);
+                }
+                techNodes = new ConfigNode();
+                Debug.Log("Prefab has technodes count " + prefab.techNodes.nodes.Count);
+                foreach (ConfigNode n in prefab.techNodes.nodes)
+                    techNodes.AddNode(n);
+            }*/
         }
 
-        protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType)
+        protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType = true)
         {
             int mCount = p.Modules.Count;
             if (eID != "")
@@ -1301,7 +1338,19 @@ namespace RealFuels
                 for(int m = 0; m < mCount; ++m)
                 {
                     PartModule pM = p.Modules[m];
-                    if (pM.GetType().Name.Equals(eType))
+                    
+                    bool test = false;
+                    if (weakType)
+                    {
+                        if (eType.Contains("ModuleEngines"))
+                            test = pM is ModuleEngines;
+                        else if (eType.Contains("ModuleRCS"))
+                            test = pM is ModuleRCS;
+                    }
+                    else
+                        test = pM.GetType().Name.Equals(eType);
+
+                    if (test)
                     {
                         string testID = "";
                         if (pM is ModuleEngines)
@@ -1318,11 +1367,24 @@ namespace RealFuels
                 int tmpIdx = 0;
                 for (int m = 0; m < mCount; ++m)
                 {
-                    if (p.Modules[m].GetType().Name.Equals(eType))
+                    PartModule pM = p.Modules[m];
+                    
+                    bool test = false;
+                    if (weakType)
+                    {
+                        if (eType.Contains("ModuleEngines"))
+                            test = pM is ModuleEngines;
+                        else if (eType.Contains("ModuleRCS"))
+                            test = pM is ModuleRCS;
+                    }
+                    else
+                        test = pM.GetType().Name.Equals(eType);
+
+                    if (test)
                     {
                         if (tmpIdx == mIdx)
                         {
-                            return p.Modules[m];
+                            return pM;
                         }
                         tmpIdx++;
                     }

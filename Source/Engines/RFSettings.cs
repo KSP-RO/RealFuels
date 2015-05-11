@@ -21,6 +21,8 @@ namespace RealFuels
 
         public List<string> instantThrottleProps;
 
+        public Dictionary<string, List<ConfigNode>> engineConfigs = null;
+
         public float EngineMassMultiplier
         {
             get { return useRealisticMass ? 1f : engineMassMultiplier; }
@@ -31,8 +33,8 @@ namespace RealFuels
         {
             get
             {
-                // Will get destroyed on scene load, which is what we want 
-                // because this means the DB will get reloaded.
+                // no longer destroy on scene reload
+                // because we need to store configuration data because of stupid serialization issues
                 if (_instance != null && _instance)
                     return _instance;
 
@@ -40,6 +42,8 @@ namespace RealFuels
 
                 GameObject gameObject = new GameObject(typeof(RFSettings).FullName);
                 _instance = gameObject.AddComponent<RFSettings>();
+                UnityEngine.Object.DontDestroyOnLoad(_instance);
+                UnityEngine.Object.DontDestroyOnLoad(gameObject);
                 return _instance;
             }
         }
@@ -60,6 +64,9 @@ namespace RealFuels
 
         internal void Awake()
         {
+            if(engineConfigs == null)
+                engineConfigs = new Dictionary<string, List<ConfigNode>>();
+
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("RFSETTINGS").Last();
             Debug.Log("*RF* Loading engine global settings");
 
