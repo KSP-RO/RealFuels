@@ -13,6 +13,8 @@ namespace RealFuels
         #region Fields
         [KSPField]
         public double chamberNominalTemp;
+        [KSPField]
+        public double extHeatkW = 0d;
 
         [KSPField]
         public bool usesAir = false;
@@ -31,6 +33,8 @@ namespace RealFuels
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
         public float thrustCurveRatio = 1f;
         #endregion
+
+
         protected bool instantThrottle = false;
         protected double throttleResponseRate;
         #endregion
@@ -60,7 +64,7 @@ namespace RealFuels
                     maxEngineTemp = 3600d;
                 if (chamberNominalTemp == 0)
                     chamberNominalTemp = 3500d;
-            }
+            } 
 
             (engineSolver as SolverRF).InitializeOverallEngineData(
                 minFuelFlow,
@@ -120,7 +124,7 @@ namespace RealFuels
                 throttleResponseRate = 10d / Math.Sqrt(Math.Sqrt(part.mass * maxThrust));
 
             // set fields
-            Fields[Inlet].guiActive = usesAir;
+            Fields["Inlet"].guiActive = usesAir;
         }
         public override void UpdateThrottle()
         {
@@ -146,32 +150,126 @@ namespace RealFuels
             base.UpdateThrottle();
         }
 
-        public override void UpdateFlightCondition(double altitude, double vel, double pressure, double temperature, bool oxygen)
+        public override void UpdateFlightCondition(double altitude, double vel, double pressure, double temperature, double rho, double mach, bool oxygen)
         {
-            if (useThrustCurve)
+            // do thrust curve
+            if (useThrustCurve && HighLogic.LoadedSceneIsFlight)
             {
                 thrustCurveRatio = (float)((propellants[curveProp].totalResourceAvailable / propellants[curveProp].totalResourceCapacity));
                 thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
                 (engineSolver as SolverRF).UpdateThrustRatio(thrustCurveDisplay);
                 thrustCurveDisplay *= 100f;
             }
-            base.UpdateFlightCondition(altitude, vel, pressure, temperature, oxygen);
+
+            // do heat
+            double tMass = part.mass * 800d;
+            if (part.thermalMass > 0)
+                tMass = part.thermalMass;
+            heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor / tMass);
+
+            // run base method
+            base.UpdateFlightCondition(altitude, vel, pressure, temperature, rho, mach, oxygen);
         }
         #endregion
 
         #region Info
+        protected string ThrottleString()
+        {
+            string output = "";
+            double throttleP = 0d;
+            if(minFuelFlow > 0d)
+                throttleP = minFuelFlow / maxFuelFlow * 100d;
+            if (minFuelFlow == maxFuelFlow)
+                throttleP = 100d;
+            if (!throttleLocked)
+            {
+                if (throttleP > 0d && throttleP < 100d)
+                    output += ", " + throttleP.ToString("N0") + "% min throttle";
+                else if(throttleP == 100d)
+                    output += ", unthrottleable";
+            }
+            else
+                output += ", throttle locked";
+
+            return output;
+        }
+        protected string GetThrustInfo()
+        {
+            string output = "";
+            //if (engineSolver == null || !(engineSolver is SolverRF))
+                CreateEngine();
+
+            // get stats
+            double pressure = 101.325d, temperature = 288.15d;
+            if (Planetarium.fetch != null)
+            {
+                CelestialBody home = Planetarium.fetch.Home;
+                if (home != null)
+                {
+                    pressure = home.GetPressure(0d);
+                    temperature = home.GetTemperature(0d);
+                }
+            }
+
+            currentThrottle = 1f;
+            OverallTPR = 1d;
+            lastPropellantFraction = 1d;
+            bool oldE = EngineIgnited;
+            EngineIgnited = true;
+            (engineSolver as SolverRF).UpdateThrustRatio(1d);
+            UpdateFlightCondition(0d, 0d, pressure, temperature, 1.225d, 0d, true);
+            double thrustASL = (engineSolver.GetThrust() * 0.001d);
+
+            if (atmChangeFlow) // If it's a jet
+            {
+                output += "<b>Static Thrust: </b>" + (thrustASL).ToString("0.0##") + " kN" + ThrottleString();
+                if (useVelCurve) // if thrust changes with mach
+                {
+                    float vMin, vMax, tMin, tMax;
+                    velCurve.FindMinMaxValue(out vMin, out vMax, out tMin, out tMax); // get the max mult, and thus report maximum thrust possible.
+                    output += "\n<b>Max. Thrust: </b>" + (thrustASL* vMax).ToString("0.0##") + " kN Mach " + tMax.ToString("0.#");
+                }
+            }
+            else
+            {
+                if (Planetarium.fetch != null)
+                {
+                    CelestialBody home = Planetarium.fetch.Home;
+                    if (home != null)
+                    {
+                        temperature = home.GetTemperature(home.atmosphereDepth + 1d);
+                    }
+                }
+                UpdateFlightCondition(0d, 0d, 0d, temperature, 0d, 0d, true);
+                double thrustVac = (engineSolver.GetThrust() * 0.001d);
+
+                if (thrustASL != thrustVac)
+                {
+                    output += (throttleLocked ? "<b>" : "<b>Max. ") + "Thrust (Vac.): </b>" + (thrustVac).ToString("0.0##") + " kN" + ThrottleString()
+                        + "\n" + (throttleLocked ? "<b>" : "<b>Max. ") + "Thrust (ASL): </b>" + (thrustASL).ToString("0.0##") + " kN";
+                }
+                else
+                {
+                    output += (throttleLocked ? "<b>" : "<b>Max. ") + "Thrust: </b>" + (thrustVac).ToString("0.0##") + " kN" + ThrottleString();
+                }
+            }
+            output += "\n";
+            EngineIgnited = oldE;
+            return output;
+        }
+
         public override string GetModuleTitle()
         {
             return "Engine (RealFuels)";
         }
         public override string GetPrimaryField()
         {
-            return GetInfoThrust(); // base ModuleEngines method
+            return GetThrustInfo();
         }
 
         public override string GetInfo()
         {
-            string output = GetInfoThrust(); // base ModuleEngines method
+            string output = GetThrustInfo();
 
             output += "<b>Engine Isp: </b>" + (atmosphereCurve.Evaluate(1f)).ToString("0.###") + " (ASL) - " + (atmosphereCurve.Evaluate(0f)).ToString("0.###") + " (Vac.)\n";
 

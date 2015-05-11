@@ -9,9 +9,8 @@ namespace RealFuels
     public class SolverRF : EngineSolver
     {
         // engine params
-        private FloatCurve atmosphereCurve, atmCurve, velCurve;
-        private double minFlow, maxFlow, thrustRatio, throttleResponseRate, machLimit, machMult;
-        private bool useAtmCurve, useVelCurve;
+        private FloatCurve atmosphereCurve = null, atmCurve = null, velCurve = null;
+        private double minFlow, maxFlow, thrustRatio = 1d, throttleResponseRate, machLimit, machMult;
 
         // temperature
         private double chamberTemp, chamberNominalTemp, chamberNominalTemp_recip;
@@ -35,8 +34,8 @@ namespace RealFuels
             minFlow = nMinFlow * 1000d; // to kg
             maxFlow = nMaxFlow * 1000d;
             atmosphereCurve = nAtmosphereCurve;
-            atmCurve = nAtmCurve; useAtmCurve = atmCurve == null;
-            velCurve = nVelCurve; useVelCurve = velCurve == null;
+            atmCurve = nAtmCurve;
+            velCurve = nVelCurve;
             throttleResponseRate = nThrottleResponseRate;
             chamberTemp = 288d;
             chamberNominalTemp = nChamberNominalTemp;
@@ -75,7 +74,7 @@ namespace RealFuels
             else
                 fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * fuelFlowMult;
 
-            double thrustOut = fuelFlow * exhaustVelocity;
+            thrust = fuelFlow * exhaustVelocity;
 
             // Calculate chamber temperature as ratio
             double desiredTempRatio = Math.Max(tempMin, commandedThrottle);
@@ -104,10 +103,10 @@ namespace RealFuels
         protected double FlowMult()
         {
             double flowMult = 1d;
-            if (useAtmCurve)
+            if ((object)atmCurve != null)
                 flowMult *= atmCurve.Evaluate((float)(rho / 1.225d));
 
-            if (useVelCurve)
+            if ((object)velCurve != null)
                 flowMult *= velCurve.Evaluate((float)mach);
             
             flowMult = Math.Max(flowMult, 1e-5);
