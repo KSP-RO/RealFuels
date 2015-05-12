@@ -59,7 +59,7 @@ namespace RealFuels
         override public void SetConfiguration(string newConfiguration = null)
         {
             if (ActiveEngine == null)
-                ActiveEngine = GetSpecifiedModule(part, engineID, moduleIndex, type) as ModuleEngines;
+                ActiveEngine = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType) as ModuleEngines;
 
             bool engineActive = ActiveEngine.getIgnitionState;
             ActiveEngine.EngineIgnited = false;
@@ -120,6 +120,8 @@ namespace RealFuels
         // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
         [KSPField]
         public string type = "ModuleEnginesRF";
+        [KSPField]
+        public bool useWeakType = true; // match any ModuleEngines*
 
         [KSPField]
         public string engineID = "";
@@ -522,7 +524,7 @@ namespace RealFuels
                     // get correct module
                     if (type.Contains("ModuleEngines") && (engineID != "" || moduleIndex >= 0))
                     {
-                        pModule = GetSpecifiedModule(part, engineID, moduleIndex, type);
+                        pModule = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType);
                     }
                     if ((object)pModule == null)
                     {
@@ -1285,7 +1287,7 @@ namespace RealFuels
             }
         }
 
-        protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType = true)
+        protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType)
         {
             int mCount = p.Modules.Count;
             if (eID != "")
