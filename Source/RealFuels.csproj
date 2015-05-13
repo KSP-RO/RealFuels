@@ -73,7 +73,9 @@
     <Compile Include="Tanks\TankDefinitionList.cs" />
     <Compile Include="Tanks\TankWindow.cs" />
     <Compile Include="TechLevels\TechLevel.cs" />
+    <Compile Include="Utilities\Utilities.cs" />
   </ItemGroup>
+  <ItemGroup />
   <PropertyGroup>
     <PreBuildEvent>cd $(ProjectDir)
 

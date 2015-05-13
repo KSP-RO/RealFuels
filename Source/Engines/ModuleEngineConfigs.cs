@@ -9,10 +9,10 @@ using KSP;
 using KSPAPIExtensions.Utils;
 using Debug = UnityEngine.Debug;
 using RealFuels.TechLevels;
+using SolverEngines;
 
 namespace RealFuels
 {
-
     public class ModuleHybridEngine : ModuleEngineConfigs
     {
         ModuleEngines ActiveEngine = null;
@@ -251,7 +251,7 @@ namespace RealFuels
                 configs.Clear();
 
             foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
-                Debug.Log("*RF* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
                 ConfigNode newNode = new ConfigNode("CONFIG");
                 subNode.CopyTo (newNode);
                 configs.Add (newNode);
@@ -486,6 +486,9 @@ namespace RealFuels
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
             if (!CanConfig(newConfig))
             {
+                if(newConfig == null)
+                    Debug.Log("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
+
                 foreach(ConfigNode cfg in configs)
                     if (CanConfig(cfg))
                     {
@@ -494,87 +497,71 @@ namespace RealFuels
                         break;
                     }
             }
-            if (newConfig != null) {
-
+            if (newConfig != null)
+            {
                 // for asmi
                 if (useConfigAsTitle)
                     part.partInfo.title = configuration;
 
                 configuration = newConfiguration;
-                config = new ConfigNode ("MODULE");
-                newConfig.CopyTo (config);
+                config = new ConfigNode("MODULE");
+                newConfig.CopyTo(config);
                 config.name = "MODULE";
 
-                // fix for ModuleRCSFX etc
-                if (type.Equals("ModuleRCS") && part.Modules.Contains("ModuleRCSFX") && !part.Modules.Contains("ModuleRCS"))
-                    type = "ModuleRCSFX";
-                if (type.Equals("ModuleRCSFX") && part.Modules.Contains("ModuleRCS") && !part.Modules.Contains("ModuleRCSFX"))
-                    type = "ModuleRCS";
-
-                config.SetValue("name", type);
-
-                #if DEBUG
+#if DEBUG
                 print ("replacing " + type + " with:");
                 print (newConfig.ToString ());
-                #endif
+#endif
 
                 pModule = null;
-                if (part.Modules.Contains(type))
-                {
-                    // get correct module
-                    if (type.Contains("ModuleEngines") && (engineID != "" || moduleIndex >= 0))
-                    {
-                        pModule = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType);
-                    }
-                    if ((object)pModule == null)
-                    {
-                        pModule = part.Modules[type];
-                    }
+                // get correct module
+                pModule = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType);
 
-                    if ((object)pModule == null)
+                if ((object)pModule == null)
+                {
+                    Debug.Log("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
+                    return;
+                }
+
+                Type mType = pModule.GetType();
+                config.SetValue("name", mType.Name);
+
+                // clear all FloatCurves we need to clear (i.e. if our config has one, or techlevels are enabled)
+                bool delAtmo = config.HasNode("atmosphereCurve") || techLevel >= 0;
+                bool delDens = config.HasNode("atmCurve") || techLevel >= 0;
+                bool delVel = config.HasNode("velCurve") || techLevel >= 0;
+                foreach (FieldInfo field in mType.GetFields())
+                {
+                    if (field.FieldType == typeof(FloatCurve) &&
+                        ((field.Name.Equals("atmosphereCurve") && delAtmo)
+                        || (field.Name.Equals("atmCurve") && delDens)
+                        || (field.Name.Equals("velCurve") && delVel)))
                     {
-                        Debug.Log("*RF* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
-                        return;
+                        field.SetValue(pModule, new FloatCurve());
                     }
-                    // clear all FloatCurves we need to clear (i.e. if our config has one, or techlevels are enabled)
-                    Type mType = pModule.GetType();
-                    bool delAtmo = config.HasNode("atmosphereCurve") || techLevel >= 0;
-                    bool delDens = config.HasNode("atmCurve") || techLevel >= 0;
-                    bool delVel = config.HasNode("velCurve") || techLevel >= 0;
-                    foreach (FieldInfo field in mType.GetFields())
+                }
+                // clear propellant gauges
+                foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
                     {
-                        if (field.FieldType == typeof(FloatCurve) && 
-                            ((field.Name.Equals("atmosphereCurve") && delAtmo)
-                            || (field.Name.Equals("atmCurve") && delDens)
-                            || (field.Name.Equals("velCurve") && delVel)))
+                        Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
+                        if (boxes == null)
+                            continue;
+                        foreach (VInfoBox v in boxes.Values)
                         {
-                            //print("*RFEng* resetting curve " + field.Name);
-                            field.SetValue(pModule, new FloatCurve());
-                        }
-                    }
-                    // clear propellant gauges
-                    foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
-                    {
-                        if (field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
-                        {
-                            Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
-                            if (boxes == null)
+                            if (v == null) //just in case...
                                 continue;
-                            foreach (VInfoBox v in boxes.Values)
+                            try
                             {
-                                if (v == null) //just in case...
-                                    continue;
-                                try
-                                {
-                                    part.stackIcon.RemoveInfo(v);
-                                }
-                                catch (Exception e)
-                                {
-                                    print("*RFEng* Trying to remove info box: " + e.Message);
-                                }
+                                part.stackIcon.RemoveInfo(v);
                             }
-                            boxes.Clear();
+                            catch (Exception e)
+                            {
+                                Debug.Log("*RFMEC* Trying to remove info box: " + e.Message);
+                            }
                         }
+                        boxes.Clear();
                     }
                 }
                 if (type.Equals("ModuleRCS") || type.Equals("ModuleRCSFX"))
@@ -602,8 +589,7 @@ namespace RealFuels
                     }
 
                     DoConfig(config);
-                    if(pModule != null)
-                        pModule.Load (config);
+                    pModule.Load(config);
 
                     // Handle Engine Ignitor
                     if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
@@ -633,7 +619,7 @@ namespace RealFuels
                         if (!HighLogic.LoadedSceneIsEditor && !(HighLogic.LoadedSceneIsFlight && vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
                         {
                             int remaining = (int)(part.Modules["ModuleEngineIgnitor"].GetType().GetField("ignitionsRemained").GetValue(part.Modules["ModuleEngineIgnitor"]));
-                            if(eiNode.HasValue("ignitionsRemained"))
+                            if (eiNode.HasValue("ignitionsRemained"))
                                 eiNode.SetValue("ignitionsRemained", remaining.ToString());
                             else
                                 eiNode.AddValue("ignitionsRemained", remaining.ToString());
@@ -676,15 +662,18 @@ namespace RealFuels
                 UpdateOtherModules(config);
 
                 UpdateTweakableMenu();
-                
+
                 // Finally, fire the modified event
                 // more trouble than it is worth...
                 /*if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
-            }
-            SetupFX();
 
-            UpdateTFInterops(); // update TestFlight if it's installed
+                SetupFX();
+
+                UpdateTFInterops(); // update TestFlight if it's installed
+            }
+            else
+                Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
         }
 
         virtual public void DoConfig(ConfigNode cfg)
@@ -753,7 +742,7 @@ namespace RealFuels
                     
                     // Mod the curve by the multipliers
                     FloatCurve newAtmoCurve = new FloatCurve();
-                    newAtmoCurve = TechLevel.Mod(cTL.AtmosphereCurve, ispSL, ispV);
+                    newAtmoCurve = Utilities.Mod(cTL.AtmosphereCurve, ispSL, ispV);
                     newAtmoCurve.Save(curve);
                     
                     cfg.AddNode(curve);
@@ -853,7 +842,7 @@ namespace RealFuels
                 ConfigNode newCurveNode = new ConfigNode("atmosphereCurve");
                 FloatCurve oldCurve = new FloatCurve();
                 oldCurve.Load(cfg.GetNode("atmosphereCurve"));
-                FloatCurve newCurve = TechLevel.Mod(oldCurve, ispSLMult, ispVMult);
+                FloatCurve newCurve = Utilities.Mod(oldCurve, ispSLMult, ispVMult);
                 newCurve.Save(newCurveNode);
                 cfg.RemoveNode("atmosphereCurve");
                 cfg.AddNode(newCurveNode);
@@ -880,13 +869,11 @@ namespace RealFuels
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
-            //print("*RFEng* For " + part.name + (part.parent!=null? " parent " + part.parent.name:"") + ", Setting new max thrust " + newThrust.ToString());
             foreach(ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust.ToString());
             }
             SetConfiguration(configuration);
-            //print("New max thrust: " + ((ModuleEngines)part.Modules["ModuleEngines"]).maxThrust);
         }
 
         // Used by ProceduralParts
@@ -900,7 +887,7 @@ namespace RealFuels
         private bool CanConfig(ConfigNode config)
         {
             if ((object)config == null)
-                return true;
+                return false;
             if (!config.HasValue("techRequired") || (object)HighLogic.CurrentGame == null)
                 return true;
             if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
@@ -1256,25 +1243,28 @@ namespace RealFuels
                 }
             }
         }
-
         // run this to save/load non-serialized data
         protected void ConfigSaveLoad()
         {
             string partName = part.name;
             if(part.partInfo != null)
                 partName = part.partInfo.name;
-            //Debug.Log("*RFCS* Part " + part.name + " has lookup name " + partName + " which is turned into " + partName.Replace(".", "-").Replace("_", "-"));
             partName = partName.Replace(".", "-");
             partName = partName.Replace("_", "-");
+            partName += moduleIndex + engineID;
 
             if (configs.Count > 0)
             {
-                if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
-                    Debug.Log("*RFCSL* error: part already in database!");
-                else
+                if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
                     RFSettings.Instance.engineConfigs[partName] = configs;
-                    Debug.Log("*RFCSL* for part " + part.name + " as " + partName + " stored " + configs.Count + " configs.");
+                }
+                else
+                {
+                    /*Debug.Log("*RFMEC* ERROR: part " + partName + " already in database! Current count = " + configs.Count + ", db count = " + RFSettings.Instance.engineConfigs[partName].Count);
+                    Debug.Log("DB nodes:" + Utilities.PrintConfigs(RFSettings.Instance.engineConfigs[partName]));
+                    Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
+                    configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
                 }
 
             }
@@ -1283,68 +1273,53 @@ namespace RealFuels
                 if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                     configs = RFSettings.Instance.engineConfigs[partName];
                 else
-                    Debug.Log("*RFCSL* error: could not find configs definition for " + partName);
+                    Debug.Log("*RFMEC* ERROR: could not find configs definition for " + partName);
             }
         }
 
         protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType)
         {
             int mCount = p.Modules.Count;
-            if (eID != "")
-            {
-                for(int m = 0; m < mCount; ++m)
-                {
-                    PartModule pM = p.Modules[m];
-                    
-                    bool test = false;
-                    if (weakType)
-                    {
-                        if (eType.Contains("ModuleEngines"))
-                            test = pM is ModuleEngines;
-                        else if (eType.Contains("ModuleRCS"))
-                            test = pM is ModuleRCS;
-                    }
-                    else
-                        test = pM.GetType().Name.Equals(eType);
+            int tmpIdx = 0;
 
-                    if (test)
-                    {
-                        string testID = "";
-                        if (pM is ModuleEngines)
-                            testID = (pM as ModuleEngines).engineID;
-                        else if (pM is ModuleEngineConfigs)
-                            testID = (pM as ModuleEngineConfigs).engineID;
-                        if (testID.Equals(eID))
-                            return pM;
-                    }
+            for(int m = 0; m < mCount; ++m)
+            {
+                PartModule pM = p.Modules[m];
+                bool test = false;
+                if (weakType)
+                {
+                    if (eType.Contains("ModuleEngines"))
+                        test = pM is ModuleEngines;
+                    else if (eType.Contains("ModuleRCS"))
+                        test = pM is ModuleRCS;
                 }
-            }
-            else if (mIdx >= 0)
-            {
-                int tmpIdx = 0;
-                for (int m = 0; m < mCount; ++m)
-                {
-                    PartModule pM = p.Modules[m];
-                    
-                    bool test = false;
-                    if (weakType)
-                    {
-                        if (eType.Contains("ModuleEngines"))
-                            test = pM is ModuleEngines;
-                        else if (eType.Contains("ModuleRCS"))
-                            test = pM is ModuleRCS;
-                    }
-                    else
-                        test = pM.GetType().Name.Equals(eType);
+                else
+                    test = pM.GetType().Name.Equals(eType);
 
-                    if (test)
+                if (test)
+                {
+                    if (mIdx >= 0)
                     {
                         if (tmpIdx == mIdx)
                         {
                             return pM;
                         }
                         tmpIdx++;
+                        continue; // skip the next test
                     }
+                    else if (eID != "")
+                    {
+                        string testID = "";
+                        if (pM is ModuleEngines)
+                            testID = (pM as ModuleEngines).engineID;
+                        else if (pM is ModuleEngineConfigs)
+                            testID = (pM as ModuleEngineConfigs).engineID;
+                        
+                        if (testID.Equals(eID))
+                            return pM;
+                    }
+                    else
+                        return pM;
                 }
             }
             return null;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using KSP;
+using SolverEngines;
 
 namespace RealFuels
 {
@@ -48,6 +49,7 @@ namespace RealFuels
         {
             // set base bits
             base.CalculatePerformance(airRatio, commandedThrottle, flowMult, ispMult);
+            M0 = mach;
 
             // Calculate Isp (before the shutdown check, so it displays even then)
             Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;

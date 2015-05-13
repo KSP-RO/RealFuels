@@ -68,7 +68,8 @@ namespace RealFuels
                 engineConfigs = new Dictionary<string, List<ConfigNode>>();
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("RFSETTINGS").Last();
-            Debug.Log("*RF* Loading engine global settings");
+            
+            Debug.Log("*RF* Loading RFSETTINGS global settings");
 
             if (node == null)
                 throw new UnityException("*RF* Could not find RF global settings!");

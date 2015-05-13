@@ -225,7 +225,7 @@ namespace RealFuels.TechLevels
             }
 
             // check global
-            //print("*RFEng* Fallback to global for type " + type + ", TL " + level);
+            //Debug.Log("*RFEng* Fallback to global for type " + type + ", TL " + level);
             return Load(type, level);
         }
 
@@ -410,24 +410,6 @@ namespace RealFuels.TechLevels
             if (!nTL.Load(cfg, mod, type, level))
                 return false;
             return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
-        }
-
-        public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
-        {
-            FloatCurve newCurve = new FloatCurve();
-            AnimationCurve ac = fc.Curve;
-            int kCount = ac.keys.Length;
-            for (int i = 0; i < kCount; ++i)
-            {
-                Keyframe key = ac.keys[i];
-                float mult = Mathf.Lerp(vMult, sMult, key.time);
-
-                newCurve.Add(key.time,
-                            key.value * mult,
-                            key.inTangent * mult,
-                            key.outTangent * mult);
-            }
-            return newCurve;
         }
     }
 }

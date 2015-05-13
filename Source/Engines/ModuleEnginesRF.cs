@@ -5,6 +5,7 @@ using System.Text;
 
 using UnityEngine;
 using KSP;
+using SolverEngines;
 
 namespace RealFuels
 {
@@ -20,9 +21,10 @@ namespace RealFuels
         public bool usesAir = false;
 
         #region Thrust Curve
+        [KSPField]
         public bool useThrustCurve = false;
         [KSPField]
-        public FloatCurve thrustCurve = null;
+        public FloatCurve thrustCurve;
         [KSPField]
         public string curveResource = "";
 
@@ -77,33 +79,48 @@ namespace RealFuels
                 machLimit,
                 machHeatMult);
         }
-
+        public override void OnAwake()
+        {
+            base.OnAwake();
+            if (thrustCurve == null)
+                thrustCurve = new FloatCurve();
+        }
         public override void OnLoad(ConfigNode node)
         {
+            if (thrustCurve == null)
+                thrustCurve = new FloatCurve();
+
             base.OnLoad(node);
             int pCount = propellants.Count;
             // thrust curve
             useThrustCurve = false;
-            Fields["thrustCurveDisplay"].guiActive = false;
             if (node.HasNode("thrustCurve") && node.HasValue("curveResource"))
             {
-                curveResource = node.GetValue("curveResource");
+                if (node.GetValue("curveResource") != curveResource)
+                {
+                    Debug.Log("*RFE* ERROR: curveResource doesn't match node's!");
+                    curveResource = node.GetValue("curveResource");
+                }
+                if (thrustCurve == null)
+                {
+                    Debug.Log("*RFE* ERROR: have curve node but thrustCurve is null!");
+                    thrustCurve.Load(node.GetNode("thrustCurve"));
+                }
+
                 if (curveResource != "")
                 {
-                    double ratio = 0.0;
+                    Utilities.PrintCurve(thrustCurve);
                     for (int i = 0; i < pCount; ++i)
                     {
                         if (propellants[i].name.Equals(curveResource))
                         {
                             curveProp = i;
-                            ratio = propellants[i].totalResourceAvailable / propellants[i].totalResourceCapacity;
                             break;
                         }
                     }
                     if (curveProp != -1)
                     {
                         useThrustCurve = true;
-                        Fields["thrustCurveDisplay"].guiActive = true;
                     }
                 }
             }
@@ -127,9 +144,20 @@ namespace RealFuels
 
             // set fields
             Fields["Inlet"].guiActive = usesAir;
+            Fields["thrustCurveDisplay"].guiActive = useThrustCurve;
+            CreateEngine();
+        }
+        public override void OnStart(PartModule.StartState state)
+        {
+            base.OnStart(state);
+            
+            Fields["thrustCurveDisplay"].guiActive = useThrustCurve && state != StartState.Editor;
         }
         public override void UpdateThrottle()
         {
+            if (throttleLocked)
+                requestedThrottle = 1f;
+
             if (instantThrottle)
                 currentThrottle = requestedThrottle * thrustPercentage * 0.01f;
             else
