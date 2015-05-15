@@ -180,8 +180,7 @@ namespace RealFuels
             }
             actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
         }
-
-        public override void UpdateFlightCondition(double altitude, double vel, double pressure, double temperature, double rho, double mach, bool oxygen)
+        public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, double vel, double mach, bool oxygen)
         {
             // do thrust curve
             if (useThrustCurve && HighLogic.LoadedSceneIsFlight)
@@ -199,7 +198,7 @@ namespace RealFuels
             heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor / tMass);
 
             // run base method
-            base.UpdateFlightCondition(altitude, vel, pressure, temperature, rho, mach, oxygen);
+            base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
         }
         #endregion
 
@@ -227,11 +226,11 @@ namespace RealFuels
         protected string GetThrustInfo()
         {
             string output = "";
-            //if (engineSolver == null || !(engineSolver is SolverRF))
+            if (engineSolver == null || !(engineSolver is SolverRF))
                 CreateEngine();
 
             // get stats
-            double pressure = 101.325d, temperature = 288.15d;
+            double pressure = 101.325d, temperature = 288.15d, density = 1.225d;
             if (Planetarium.fetch != null)
             {
                 CelestialBody home = Planetarium.fetch.Home;
@@ -239,16 +238,19 @@ namespace RealFuels
                 {
                     pressure = home.GetPressure(0d);
                     temperature = home.GetTemperature(0d);
+                    density = home.GetDensity(pressure, temperature);
                 }
             }
+            EngineThermodynamics staticTherm = new EngineThermodynamics();
+            staticTherm.FromAmbientConditions(pressure, temperature, density);
 
             currentThrottle = 1f;
-            OverallTPR = 1d;
             lastPropellantFraction = 1d;
             bool oldE = EngineIgnited;
             EngineIgnited = true;
-            (engineSolver as SolverRF).UpdateThrustRatio(1d);
-            UpdateFlightCondition(0d, 0d, pressure, temperature, 1.225d, 0d, true);
+            (engineSolver as SolverRF).UpdateThrustRatio(0.97d);
+
+            UpdateFlightCondition(staticTherm, 0d, 0d, 0d, true);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
 
             if (atmChangeFlow) // If it's a jet
@@ -263,15 +265,24 @@ namespace RealFuels
             }
             else
             {
+                // get stats again
+                double spaceHeight = 131000d;
+                pressure = 0d;
+                density = 0d;
                 if (Planetarium.fetch != null)
                 {
                     CelestialBody home = Planetarium.fetch.Home;
                     if (home != null)
                     {
                         temperature = home.GetTemperature(home.atmosphereDepth + 1d);
+                        spaceHeight = home.atmosphereDepth + 1000d;
                     }
                 }
-                UpdateFlightCondition(0d, 0d, 0d, temperature, 0d, 0d, true);
+                else
+                    temperature = PhysicsGlobals.SpaceTemperature;
+                staticTherm.FromAmbientConditions(pressure, temperature, density);
+
+                UpdateFlightCondition(staticTherm, spaceHeight, 0d, 0d, true);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
                 if (thrustASL != thrustVac)
