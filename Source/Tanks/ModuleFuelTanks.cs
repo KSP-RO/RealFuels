@@ -146,7 +146,7 @@ namespace RealFuels.Tanks
 			}
 			using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged))) {
 				if (isDatabaseLoad) {
-					overrideListNodes = node.GetNodes("TANK");
+					MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
 					ParseBaseMass(node);
 					ParseBaseCost(node);
 					typesAvailable = node.GetValues ("typeAvailable");
@@ -325,9 +325,6 @@ namespace RealFuels.Tanks
 		// The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
 		internal FuelTankList tankList = new FuelTankList ();
 
-		// List of override nodes as defined in the part file. This is here so that it can get reconstituted after a clone
-		public ConfigNode [] overrideListNodes;
-
 		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type"), UI_ChooseOption (scene = UI_Scene.Editor)]
 		public string type;
 		private string oldType;
@@ -342,12 +339,6 @@ namespace RealFuels.Tanks
 		public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool> ();
         [KSPField(guiActiveEditor = true, guiName = "Highly Pressurized?")]
         public bool highlyPressurized = false;
-
-		// Load the list of TANK overrides from the part file
-		private void LoadTankListOverrides (ConfigNode node)
-		{
-			overrideListNodes = node.GetNodes ("TANK");
-		}
 
 		private void InitializeTankType ()
 		{
@@ -446,10 +437,7 @@ namespace RealFuels.Tanks
 			for (int i = 0; i < def.tankList.Count; i++) {
 				FuelTank tank = def.tankList[i];
 				// Pull the override from the list of overrides
-				ConfigNode overNode = null;
-				if (overrideListNodes != null) {
-					overNode = overrideListNodes.FirstOrDefault (n => n.GetValue ("name") == tank.name);
-				}
+				ConfigNode overNode = MFSSettings.GetOverrideList(part).FirstOrDefault(n => n.GetValue("name") == tank.name);
 
 				tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
 			}

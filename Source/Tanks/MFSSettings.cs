@@ -22,6 +22,8 @@ namespace RealFuels
 
 		public static Dictionary<string, HashSet<string>> managedResources;
 
+        private static Dictionary<string, ConfigNode[]> overrides;
+
         static string version;
         public static string GetVersion ()
         {
@@ -45,11 +47,46 @@ namespace RealFuels
 			Destroy (this);
 		}
 
+        public static void SaveOverrideList(Part p, ConfigNode[] nodes)
+        {
+            string id = GetPartIdentifier(p);
+            if (overrides.ContainsKey(id))
+            {
+                Debug.Log("*MFT* ERROR: overrides already stored for " + id);
+            }
+            else
+            {
+                overrides[id] = nodes;
+            }
+        }
+
+        public static ConfigNode[] GetOverrideList(Part p)
+        {
+            string id = GetPartIdentifier(p);
+            if (overrides.ContainsKey(id))
+            {
+                return overrides[id];
+            }
+            Debug.Log("*MFT* WARNING: no entry in overrides for " + id);
+            return new ConfigNode[0];
+        }
+
+        private static string GetPartIdentifier(Part part)
+        {
+            string partName = part.name;
+            if (part.partInfo != null)
+                partName = part.partInfo.name;
+            partName = partName.Replace(".", "-");
+            partName = partName.Replace("_", "-");
+            return partName;
+        }
+
         public static void Initialize ()
         {
 			ignoreFuelsForFill = new HashSet<string> ();
 			tankDefinitions = new Tanks.TankDefinitionList ();
 			managedResources = new Dictionary<string,HashSet<string>> ();
+            overrides = new Dictionary<string, ConfigNode[]>();
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes ("MFSSETTINGS").LastOrDefault ();
             Debug.Log ("[MFS] Loading global settings");
