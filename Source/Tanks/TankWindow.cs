@@ -363,7 +363,7 @@ namespace RealFuels.Tanks
         {
 			if (tank_module.usedBy.Count > 0 && tank_module.AvailableVolume >= 0.001) {
 				GUILayout.BeginHorizontal ();
-				GUILayout.Label ("Configure remaining volume for " + tank_module.engineCount + " engines:");
+				GUILayout.Label ("Configure remaining volume for detected engines:");
 				GUILayout.EndHorizontal ();
 
 				foreach (FuelInfo info in tank_module.usedBy.Values)

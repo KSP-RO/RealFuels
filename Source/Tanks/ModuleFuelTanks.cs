@@ -990,5 +990,14 @@ namespace RealFuels.Tanks
 				}
 			}
 		}
+
+        List<Propellant> GetEnginePropellants(PartModule engine)
+        {
+            if (engine is ModuleEngines)
+                return (engine as ModuleEngines).propellants;
+            else if (engine is ModuleRCS)
+                return (engine as ModuleRCS).propellants;
+            return null;
+        }
 	}
 }
