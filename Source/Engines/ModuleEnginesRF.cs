@@ -241,8 +241,10 @@ namespace RealFuels
                     density = home.GetDensity(pressure, temperature);
                 }
             }
-            EngineThermodynamics staticTherm = new EngineThermodynamics();
-            staticTherm.FromAmbientConditions(pressure, temperature, density);
+            ambientTherm = new EngineThermodynamics();
+            ambientTherm.FromAmbientConditions(pressure, temperature, density);
+            inletTherm = new EngineThermodynamics();
+            inletTherm.CopyFrom(ambientTherm);
 
             currentThrottle = 1f;
             lastPropellantFraction = 1d;
@@ -250,7 +252,7 @@ namespace RealFuels
             EngineIgnited = true;
             (engineSolver as SolverRF).UpdateThrustRatio(0.97d);
 
-            UpdateFlightCondition(staticTherm, 0d, 0d, 0d, true);
+            UpdateFlightCondition(ambientTherm, 0d, 0d, 0d, true);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
 
             if (atmChangeFlow) // If it's a jet
@@ -280,9 +282,9 @@ namespace RealFuels
                 }
                 else
                     temperature = PhysicsGlobals.SpaceTemperature;
-                staticTherm.FromAmbientConditions(pressure, temperature, density);
+                ambientTherm.FromAmbientConditions(pressure, temperature, density);
 
-                UpdateFlightCondition(staticTherm, spaceHeight, 0d, 0d, true);
+                UpdateFlightCondition(ambientTherm, spaceHeight, 0d, 0d, true);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
                 if (thrustASL != thrustVac)
