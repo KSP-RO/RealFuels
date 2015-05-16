@@ -887,16 +887,19 @@ namespace RealFuels.Tanks
 		}
 
 		internal readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
-		internal int engineCount;
 
-		List<Propellant> GetEnginePropellants (PartModule engine)
-		{
-            if (engine is ModuleEngines)
-                return (engine as ModuleEngines).propellants;
-            else if (engine is ModuleRCS)
-                return (engine as ModuleRCS).propellants;
-			return null;
-		}
+        private void UpdateFuelInfo(FuelInfo f, string title)
+        {
+            FuelInfo found;
+            if (!usedBy.TryGetValue(f.Label, out found))
+            {
+                usedBy.Add(f.Label, f);
+            }
+            else if (!found.names.Contains(title))
+            {
+                found.names += ", " + title;
+            }
+        }
 
 		private void UpdateUsedBy ()
 		{
@@ -904,25 +907,36 @@ namespace RealFuels.Tanks
 
 			usedBy.Clear ();
 
-			List<Part> enginesList = GetEnginesFedBy (part);
-			engineCount = enginesList.Count;
-
-			foreach (Part engine in enginesList) {
-				foreach (PartModule engine_module in engine.Modules) {
-					List<Propellant> propellants = GetEnginePropellants (engine_module);
-					if ((object)propellants != null) {
-						FuelInfo f = new FuelInfo (propellants, this, engine.partInfo.title);
-						if (f.ratioFactor > 0.0) {
-							FuelInfo found;
-							if (!usedBy.TryGetValue (f.Label, out found)) {
-								usedBy.Add (f.Label, f);
-							} else if (!found.names.Contains (engine.partInfo.title)) {
-								found.names += ", " + engine.partInfo.title;
-							}
-						}
-					}
-				}
+			
+            Part ppart = part;
+			while (ppart.parent != null && ppart.parent != ppart) {
+				ppart = ppart.parent;
 			}
+
+            Part[] parts = ppart.FindChildParts<Part>(true);
+            FuelInfo f;
+            string title;
+            PartModule m;
+            for(int i = 0; i < parts.Length; ++i)
+            {
+                title = parts[i].partInfo.title;
+                for(int j = 0; j < parts[i].Modules.Count; ++j)
+                {
+                    m = parts[i].Modules[j];
+                    if (m is ModuleEngines)
+                    {
+                        f = new FuelInfo((m as ModuleEngines).propellants, this, title);
+                        if(f.ratioFactor > 0d)
+                            UpdateFuelInfo(f, title);
+                    }
+                    else if (m is ModuleRCS)
+                    {
+                        f = new FuelInfo((m as ModuleRCS).propellants, this, title);
+                        if (f.ratioFactor > 0d)
+                            UpdateFuelInfo(f, title);
+                    }
+                }
+            }
 
 			// Need to update the tweakable menu too
 			if (HighLogic.LoadedSceneIsEditor) {
@@ -975,28 +989,6 @@ namespace RealFuels.Tanks
 					}
 				}
 			}
-		}
-
-		static bool IsEngine (Part p)
-		{
-            int mC = p.Modules.Count;
-            for (int i = 0; i < mC; ++i)
-            {
-                PartModule m = p.Modules[i];
-                if (m is ModuleEngines || m is ModuleRCS)
-                    return true;
-            }
-			return false;
-		}
-
-		public static List<Part> GetEnginesFedBy (Part part)
-		{
-			Part ppart = part;
-			while (ppart.parent != null && ppart.parent != ppart) {
-				ppart = ppart.parent;
-			}
-
-			return new List<Part> (ppart.FindChildParts<Part> (true)).FindAll (p => IsEngine (p));
 		}
 	}
 }
