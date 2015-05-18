@@ -185,11 +185,11 @@ namespace RealFuels.Tanks
 
 			StringBuilder info = new StringBuilder ();
 			info.AppendLine ("Modular Fuel Tank:");
-			info.Append ("	Max Volume: ").Append (volume.ToStringSI (unit: MFSSettings.unitLabel));
+			info.Append ("	Max Volume: ").AppendLine (volume.ToStringSI (unit: MFSSettings.unitLabel));
 			info.AppendLine ("	Tank can hold:");
 			for (int i = 0; i < tankList.Count; i++) {
 				FuelTank tank = tankList[i];
-				info.Append ("	 ").Append (tank).Append (" ").AppendLine (tank.note);
+				info.Append ("		").Append (tank).Append (" ").AppendLine (tank.note);
 			}
 			return info.ToString ();
 		}
