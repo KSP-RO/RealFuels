@@ -75,6 +75,6 @@ install: all
 	mkdir -p ${PLUGINDIR}
 	cp ${TARGETS} ${PLUGINDIR}
 	mkdir -p ${TSINTERACT}
-	cp ${TSTARGETS} ${TSINTERACT}
+	cp ${TSTARGETS} ${PLUGINDIR}
 
 .PHONY: all clean info install
