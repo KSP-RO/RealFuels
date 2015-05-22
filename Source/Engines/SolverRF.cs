@@ -12,9 +12,14 @@ namespace RealFuels
         // engine params
         private FloatCurve atmosphereCurve = null, atmCurve = null, velCurve = null;
         private double minFlow, maxFlow, thrustRatio = 1d, throttleResponseRate, machLimit, machMult;
+        private double flowMultMin, flowMultCap, flowMultCapSharpness;
+        private bool multFlow;
 
         // temperature
         private double chamberTemp, chamberNominalTemp, chamberNominalTemp_recip;
+
+        // fx
+        private float fxPower;
 
         // FIXME hack values
         private double tempDeclineRate = 0.95d;
@@ -30,7 +35,11 @@ namespace RealFuels
             double nThrottleResponseRate,
             double nChamberNominalTemp,
             double nMachLimit,
-            double nMachMult)
+            double nMachMult,
+            double nFlowMultMin,
+            double nFlowMultCap,
+            double nFlowMultSharp,
+            bool nMultFlow)
         {
             minFlow = nMinFlow * 1000d; // to kg
             maxFlow = nMaxFlow * 1000d;
@@ -43,6 +52,10 @@ namespace RealFuels
             chamberNominalTemp_recip = 1d / chamberNominalTemp;
             machLimit = nMachLimit;
             machMult = nMachMult;
+            flowMultMin = nFlowMultMin;
+            flowMultCap = nFlowMultCap;
+            flowMultCapSharpness = nFlowMultSharp;
+            multFlow = nMultFlow;
         }
 
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
@@ -62,44 +75,67 @@ namespace RealFuels
                 shutdown = true;
                 statusString = "No propellants";
             }
+
+            // check flow mult
+            double fuelFlowMult = FlowMult();
+            if (fuelFlowMult < flowMultMin)
+            {
+                shutdown = true;
+                statusString = "Airflow outside specs";
+                ffFraction = 0d;
+            }
+
             if (shutdown || commandedThrottle <= 0d)
             {
                 double declinePow = Math.Pow(tempDeclineRate, TimeWarp.fixedDeltaTime);
                 chamberTemp = Math.Max(t0, chamberTemp * declinePow);
-                return;
+                fxPower = 0f;
             }
-
-            // get current flow, and thus thrust.
-            double fuelFlowMult = FlowMult();
-            if (fuelFlowMult < 0.05d)
-                fuelFlow = 0d;
-            else
-                fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * fuelFlowMult;
-
-            double exhaustVelocity = Isp * 9.80665d;
-            thrust = fuelFlow * exhaustVelocity;
-
-            // Calculate chamber temperature as ratio
-            double desiredTempRatio = Math.Max(tempMin, commandedThrottle);
-            double machTemp = MachTemp() * 0.05d;
-            desiredTempRatio = desiredTempRatio * (1d + machTemp) + machTemp;
-
-            // set based on desired
-            double desiredTemp = desiredTempRatio * chamberNominalTemp;
-            if (Math.Abs(desiredTemp - chamberTemp) < 1d)
-                chamberTemp = desiredTemp;
             else
             {
-                double lerpVal = Math.Min(1d, tempLerpRate * TimeWarp.fixedDeltaTime);
-                chamberTemp = UtilMath.LerpUnclamped(chamberTemp, desiredTemp, lerpVal);
+
+                // get current flow, and thus thrust.
+                fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle);
+                fxPower = (float)(fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
+
+                double exhaustVelocity = Isp * 9.80665d;
+                
+                // apply fuel flow multiplier
+                double ffMult = fuelFlow * fuelFlowMult;
+                if (multFlow) // do we apply the flow multiplier to fuel flow or thrust?
+                    fuelFlow = ffMult;
+                else
+                    Isp *= fuelFlowMult;
+                
+                thrust = ffMult * exhaustVelocity; // either way, thrust is base * mult * EV
+
+                // Calculate chamber temperature as ratio
+                double desiredTempRatio = Math.Max(tempMin, commandedThrottle);
+                double machTemp = MachTemp() * 0.05d;
+                desiredTempRatio = desiredTempRatio * (1d + machTemp) + machTemp;
+
+                // set temp based on desired
+                double desiredTemp = desiredTempRatio * chamberNominalTemp;
+                if (Math.Abs(desiredTemp - chamberTemp) < 1d)
+                    chamberTemp = desiredTemp;
+                else
+                {
+                    double lerpVal = Math.Min(1d, tempLerpRate * TimeWarp.fixedDeltaTime);
+                    chamberTemp = UtilMath.LerpUnclamped(chamberTemp, desiredTemp, lerpVal);
+                }
             }
         }
+        // engine status
         public override double GetEngineTemp() { return chamberTemp; }
         public override double GetArea() { return 0d; }
-        public override double GetEmissive()
-        {
-            return chamberTemp * chamberNominalTemp_recip;
-        }
+        // FX etc
+        public override double GetEmissive() { return chamberTemp * chamberNominalTemp_recip; }
+        public override float GetFXPower() { return fxPower; }
+        public override float GetFXRunning() { return fxPower; }
+        public override float GetFXThrottle() { return (running && ffFraction > 0d) ? (float)throttle : 0f; }
+        public override float GetFXSpool() { return (float)(chamberTemp * chamberNominalTemp_recip); }
+        
+        // new methods
         public void UpdateThrustRatio(double r) { thrustRatio = r; }
 
         // helpers
@@ -111,10 +147,14 @@ namespace RealFuels
 
             if ((object)velCurve != null)
                 flowMult *= velCurve.Evaluate((float)mach);
-            
-            flowMult = Math.Max(flowMult, 1e-5);
-            
-            return flowMult;
+
+            if (flowMult > flowMultCap)
+            {
+                double extra = flowMult - flowMultCap;
+                flowMult = flowMultCap + extra / (flowMultCapSharpness + extra / flowMultCap);
+            }
+
+            return Math.Max(flowMult, 1e-5);
         }
 
         protected double MachTemp()

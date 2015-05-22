@@ -18,6 +18,13 @@ namespace RealFuels
         public double extHeatkW = 0d;
 
         [KSPField]
+        public float flowMultCap = float.MaxValue;
+        [KSPField]
+        public float flowMultCapSharpness = 2f;
+        [KSPField]
+        public bool multFlow = true;
+
+        [KSPField]
         public bool usesAir = false;
 
         #region Thrust Curve
@@ -77,7 +84,11 @@ namespace RealFuels
                 throttleResponseRate,
                 chamberNominalTemp,
                 machLimit,
-                machHeatMult);
+                machHeatMult,
+                flameoutBar,
+                flowMultCap,
+                flowMultCapSharpness,
+                multFlow);
         }
         public override void OnAwake()
         {
