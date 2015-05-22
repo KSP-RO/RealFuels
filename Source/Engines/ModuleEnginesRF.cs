@@ -154,7 +154,6 @@ namespace RealFuels
                 throttleResponseRate = 1000000f;
 
             // set fields
-            Fields["Inlet"].guiActive = usesAir;
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve;
             CreateEngine();
         }
