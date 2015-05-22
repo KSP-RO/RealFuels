@@ -18,6 +18,9 @@ namespace RealFuels
         public double extHeatkW = 0d;
 
         [KSPField]
+        public float flowMultMin = 0.01f;
+
+        [KSPField]
         public float flowMultCap = float.MaxValue;
         [KSPField]
         public float flowMultCapSharpness = 2f;
@@ -85,7 +88,7 @@ namespace RealFuels
                 chamberNominalTemp,
                 machLimit,
                 machHeatMult,
-                flameoutBar,
+                flowMultMin,
                 flowMultCap,
                 flowMultCapSharpness,
                 multFlow);

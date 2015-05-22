@@ -20,6 +20,7 @@ namespace RealFuels
 
         // fx
         private float fxPower;
+        private float fxThrottle;
 
         // FIXME hack values
         private double tempDeclineRate = 0.95d;
@@ -82,11 +83,11 @@ namespace RealFuels
             {
                 shutdown = true;
                 statusString = "Airflow outside specs";
-                ffFraction = 0d;
             }
 
             if (shutdown || commandedThrottle <= 0d)
             {
+                shutdown = true; // for throttle FX
                 double declinePow = Math.Pow(tempDeclineRate, TimeWarp.fixedDeltaTime);
                 chamberTemp = Math.Max(t0, chamberTemp * declinePow);
                 fxPower = 0f;
@@ -124,6 +125,7 @@ namespace RealFuels
                     chamberTemp = UtilMath.LerpUnclamped(chamberTemp, desiredTemp, lerpVal);
                 }
             }
+            fxThrottle = shutdown ? 0f : (float)throttle;
         }
         // engine status
         public override double GetEngineTemp() { return chamberTemp; }
@@ -132,7 +134,7 @@ namespace RealFuels
         public override double GetEmissive() { return chamberTemp * chamberNominalTemp_recip; }
         public override float GetFXPower() { return fxPower; }
         public override float GetFXRunning() { return fxPower; }
-        public override float GetFXThrottle() { return (running && ffFraction > 0d) ? (float)throttle : 0f; }
+        public override float GetFXThrottle() { return fxThrottle; }
         public override float GetFXSpool() { return (float)(chamberTemp * chamberNominalTemp_recip); }
         
         // new methods
