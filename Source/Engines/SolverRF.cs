@@ -111,7 +111,7 @@ namespace RealFuels
                 thrust = ffMult * exhaustVelocity; // either way, thrust is base * mult * EV
 
                 // Calculate chamber temperature as ratio
-                double desiredTempRatio = Math.Max(tempMin, commandedThrottle);
+                double desiredTempRatio = Math.Max(tempMin, fxPower);
                 double machTemp = MachTemp() * 0.05d;
                 desiredTempRatio = desiredTempRatio * (1d + machTemp) + machTemp;
 
