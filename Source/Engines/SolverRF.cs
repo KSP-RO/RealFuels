@@ -57,6 +57,26 @@ namespace RealFuels
             flowMultCap = nFlowMultCap;
             flowMultCapSharpness = nFlowMultSharp;
             multFlow = nMultFlow;
+
+            // falloff at > sea level pressure.
+            if (atmosphereCurve.Curve.keys.Length == 2)
+            {
+                Keyframe k0 = atmosphereCurve.Curve.keys[0];
+                Keyframe k1 = atmosphereCurve.Curve.keys[1];
+                if(k0.time > k1.time)
+                {
+                    Keyframe t = k0;
+                    k0 = k1;
+                    k1 = t;
+                }
+                float minIsp = 0.0001f;
+                float maxP = k1.time + (minIsp - k1.value) / (k0.value - k1.value) * (k0.time - k1.time);
+
+                atmosphereCurve = new FloatCurve();
+                atmosphereCurve.Add(k0.time, k0.value, k0.inTangent, k0.outTangent);
+                atmosphereCurve.Add(k1.time, k1.value, k1.inTangent, k1.outTangent);
+                atmosphereCurve.Add(maxP, minIsp);
+            }
         }
 
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
