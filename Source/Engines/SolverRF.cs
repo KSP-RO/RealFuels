@@ -70,7 +70,8 @@ namespace RealFuels
                     k1 = t;
                 }
                 float minIsp = 0.0001f;
-                float maxP = k1.time + (minIsp - k1.value) / (k0.value - k1.value) * (k0.time - k1.time);
+                float invSlope = (k1.time - k0.time) / (k0.value - k1.value);
+                float maxP = k1.time + (k1.value - minIsp) * invSlope;
 
                 atmosphereCurve = new FloatCurve();
                 atmosphereCurve.Add(k0.time, k0.value, k0.inTangent, k0.outTangent);
