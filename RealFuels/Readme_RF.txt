@@ -20,17 +20,18 @@ Real Fuels does the following:
 *Engines can have limited throttling, and (via installation of the Engine Ignitor mod by HoneyFox) can have limited ignitions.
 
 INSTALL INSTRUCTIONS:
-1. Delete any existing ModularFuelTanks folder or RealFuels folder in your KSP/GameData folder. This is VITAL.
+1. Delete any existing ModularFuelTanks folder or RealFuels folder in your KSP/GameData folder. Remove CommunityResourcePack and SolverEngines if they exist as well. This is VITAL.
 2. Extract this archive to your KSP/GameData folder
-3. Download and install an engine pack. This probably means grabbing Realism Overhaul, which is HIGHLY recommended for use with RF. Also, now that most RCS fuels do not flow everywhere but instead flow like LF/Ox, you might want CrossFeedEnabler for radial RCS tanks.
+3. Download and install an engine pack. Your choices currently are Stockalike RF Configs or RealismOverhaul. See the second post in the RealFuels thread for information.
 
 USAGE:
 You can access RF-related GUIs ingame by tweakables, or by going to the Action Group Editor mode in the VAB/SPH (i.e. where you assign things to action groups) and clicking on a tank, engine, or RCS module. If supported, the GUI will appear.
 
 For tanks:
 At the top will appear the total tank mass (wet), the tank dry mass, the available, used, and total volume (in liters). Below appears the set of resources that may be added to the tank, and the current amounts and max amounts (if any).
-If there are engines on the vessel, and available volume in the tank, autoconfigure buttons will appear at the bottom of the list, one for each fuel mixture used by the engines on the vessel. When you hover the cursor over an autoconfigure button, a tooltip will appear showing the engines that use that mixture. Click an autoconfigure button to automatically configure remaining volume for that mixture.
+If there are engines on the vessel, and available volume in the tank, autoconfigure buttons will appear at the top of the list, one for each fuel mixture used by the engines on the vessel. When you hover the cursor over an autoconfigure button, a tooltip will appear showing the engines that use that mixture. Click an autoconfigure button to automatically configure remaining volume for that mixture.
 Note that gases and electric charge have multiple "units" per tank liter, since gases are given in liters at STP but stored under pressure, and electric charge is in kJ.
+When you right-click on a tank, you can also access the 'remove all' and the 'configure for' buttons.
 
 For engines/RCS:
 At the top are buttons for changing the current engine's configuration. Then there are the buttons for changing techlevel. They will have X if a change in that direction is unavailable. Below that are stats for the current config and TL. NOTE that if your RCS uses a fuel that is set to STACK_PRIORITY_SEARCH rather than ALL_VESSEL (anything except MonoPropellant) you need to have fuel feeding your RCS thrusters (i.e. treat them like radial engines). It is suggested you get CrossFeedEnabler to help with this.
@@ -40,6 +41,26 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW 
 
 ==========
 Changelog:
+v10.0
+* SAVE-BREAKING.
+* KSP 1.0 support.
+* Remove thermal fin and radiator.
+* Use Community Resource Pack for our resources, don't add resources in RF.
+* Xenon tank type is removed; all of these tanks use ElectricPropulsion now.
+* Now have multiple different solid fuel resources, and thus multiple different solid fuel tank types.
+* Add module info in the editor tooltip for tanks
+* Engine info / configuration info will only display for the master ModuleEngineConfigs on the part.
+* Disable MEC event firing on configuration change (was killing FAR).
+* Updating an engine config will properly propagate to symmetry counterparts.
+* Updating the engine config of an isMaster=true module can propagate changes to isMaster=false modules on the same part (and will propagate properly across symmetry counterparts). Example: Change the main engine config and the vernier config will auto-update. Done by, for each CONFIG, adding an OtherModules {} node. Inside are key-value pairs, where key = engineID of other module and value is config to switch to.
+* Separate settings for RF engines (RFSETTINGS) and tanks (still MFSSETTINGS).
+* Remove deprecated old version of hybrid engines (the one that is essentially MultiModeEngine).
+* Speed up ModuleEngineConfigs a lot, cut the excess bits from ModuleHybridEngines.
+* Fix issue with heat multiplier
+* Rewrite floatcurve-modder to respect tangents.
+* Massively refactor engines code. RealFuels, like AJE, will use an engine solver now. The new engine module (ModuleEnginesRF) handles thrust curves, throttle speed, emission and internal engine temperature, automatically extending Isp curves to 0 Isp, etc.
+* MEC (and MHE) default to using weak typing: type = ModuleEngines means apply to ModuleEngines or anything derived from it (same for ModuleRCS etc). You can disable this feature per-module if needed.
+
 v9.1
 * Fixed stock RCS and xenon tank volumes.
 * Don't pump into tanks if their flow has been turned off.
