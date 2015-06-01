@@ -305,21 +305,41 @@ namespace RealFuels.Tanks
 
 		private void CalculateTankLossFunction (double deltaTime)
 		{
-			for (int i = 0; i < tankList.Count; i++) {
-				FuelTank tank = tankList[i];
+            if (vessel.situation == Vessel.Situations.PRELAUNCH)
+            {
+                double minTemp = part.temperature;
+                for (int i = tankList.Count - 1; i >= 0; --i)
+                {
+                    FuelTank tank = tankList[i];
+                    if (tank.amount > 0d && tank.loss_rate > 0d)
+                        minTemp = Math.Min(minTemp, tank.temperature);
+                }
+                part.temperature = minTemp;
+            }
+            else
+            {
+                for (int i = tankList.Count - 1; i >= 0; --i)
+                {
+                    FuelTank tank = tankList[i];
 
-				if (tank.loss_rate > 0 && tank.amount > 0) {
-					double deltaTemp = part.temperature - tank.temperature;
-					if (deltaTemp > 0) {
-						double loss = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime; // loss_rate is calibrated to 300 degrees.
-						if (loss > tank.amount) {
-							tank.amount = 0;
-						} else {
-							tank.amount -= loss;
-						}
-					}
-				}
-			}
+                    if (tank.loss_rate > 0 && tank.amount > 0)
+                    {
+                        double deltaTemp = part.temperature - tank.temperature;
+                        if (deltaTemp > 0)
+                        {
+                            double newAmount = tank.amount - tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime; // loss_rate is calibrated to 300 degrees.
+                            if (newAmount >= 0d)
+                            {
+                                tank.amount = newAmount;
+                            }
+                            else
+                            {
+                                tank.amount = 0d;
+                            }
+                        }
+                    }
+                }
+            }
 		}
 
 		// The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
