@@ -55,41 +55,53 @@ namespace RealFuels
                 return;
 
             // now, let's look at what we're connected to.
-            foreach (Part p in vessel.Parts) // look through all parts
+            for (int i = vessel.parts.Count - 1; i >= 0; --i ) // look through all parts
             {
+                Part p = vessel.parts[i];
                 if (p.Modules.Contains("ModuleFuelTanks"))
                 {
                     Tanks.ModuleFuelTanks m = (Tanks.ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
+                    double minTemp = p.temperature;
                     // look through all tanks inside this part
-                    foreach (Tanks.FuelTank tank in m.tankList)
+                    for (int j = m.tankList.Count -1; j >= 0; --j)
                     {
+                        Tanks.FuelTank tank = m.tankList[j];
                         // if a tank isn't full, start filling it.
                         PartResource r = tank.resource;
-						if (r == null) {
-							continue;
-						}
-						PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(r.resourceName);
-						if (d == null) {
-							continue;
-						}
-                        if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
+                        if (r == null)
                         {
-							double amount = deltaTime * pump_rate;
-							var game = HighLogic.CurrentGame;
+                            continue;
+                        }
+                        PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(r.resourceName);
+                        if (d == null)
+                        {
+                            continue;
+                        }
+                        if (tank.maxAmount > 0d)
+                        {
+                            if (tank.loss_rate > 0d)
+                                minTemp = Math.Min(p.temperature, tank.temperature);
+                            if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
+                            {
+                                double amount = deltaTime * pump_rate;
+                                var game = HighLogic.CurrentGame;
 
-							if (d.unitCost > 0 && game.Mode == Game.Modes.CAREER && Funding.Instance != null) {
-								double funds = Funding.Instance.Funds;
-								double cost = amount * d.unitCost;
-								if (cost > funds)
-								{
-									amount = funds / d.unitCost;
-									cost = funds;
-								}
-								Funding.Instance.AddFunds (-cost, TransactionReasons.VesselRollout);
-							}
-                            tank.amount = tank.amount + amount;
+                                if (d.unitCost > 0 && game.Mode == Game.Modes.CAREER && Funding.Instance != null)
+                                {
+                                    double funds = Funding.Instance.Funds;
+                                    double cost = amount * d.unitCost;
+                                    if (cost > funds)
+                                    {
+                                        amount = funds / d.unitCost;
+                                        cost = funds;
+                                    }
+                                    Funding.Instance.AddFunds(-cost, TransactionReasons.VesselRollout);
+                                }
+                                tank.amount = tank.amount + amount;
+                            }
                         }
                     }
+                    p.temperature = minTemp;
                 }
             }
         }

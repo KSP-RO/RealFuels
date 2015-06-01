@@ -305,7 +305,7 @@ namespace RealFuels.Tanks
 
 		private void CalculateTankLossFunction (double deltaTime)
 		{
-            if (vessel.situation == Vessel.Situations.PRELAUNCH)
+            if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
                 double minTemp = part.temperature;
                 for (int i = tankList.Count - 1; i >= 0; --i)
