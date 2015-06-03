@@ -14,6 +14,7 @@ namespace RealFuels
         private double minFlow, maxFlow, thrustRatio = 1d, throttleResponseRate, machLimit, machMult;
         private double flowMultMin, flowMultCap, flowMultCapSharpness;
         private bool multFlow;
+        private bool combusting = true;
 
         // temperature
         private double chamberTemp, chamberNominalTemp, chamberNominalTemp_recip;
@@ -90,11 +91,11 @@ namespace RealFuels
             Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;
 
             // if we're not combusting, don't combust and start cooling off
-            bool shutdown = !running;
+            combusting = running;
             statusString = "Nominal";
             if (ffFraction <= 0d)
             {
-                shutdown = true;
+                combusting = false;
                 statusString = "No propellants";
             }
 
@@ -102,13 +103,13 @@ namespace RealFuels
             double fuelFlowMult = FlowMult();
             if (fuelFlowMult < flowMultMin)
             {
-                shutdown = true;
+                combusting = false;
                 statusString = "Airflow outside specs";
             }
 
-            if (shutdown || commandedThrottle <= 0d)
+            if (!combusting || commandedThrottle <= 0d)
             {
-                shutdown = true; // for throttle FX
+                combusting = false; // for throttle FX
                 double declinePow = Math.Pow(tempDeclineRate, TimeWarp.fixedDeltaTime);
                 chamberTemp = Math.Max(t0, chamberTemp * declinePow);
                 fxPower = 0f;
@@ -146,7 +147,7 @@ namespace RealFuels
                     chamberTemp = UtilMath.LerpUnclamped(chamberTemp, desiredTemp, lerpVal);
                 }
             }
-            fxThrottle = shutdown ? 0f : (float)throttle;
+            fxThrottle = combusting ? (float)throttle : 0f;
         }
         // engine status
         public override double GetEngineTemp() { return chamberTemp; }
@@ -157,6 +158,7 @@ namespace RealFuels
         public override float GetFXRunning() { return fxPower; }
         public override float GetFXThrottle() { return fxThrottle; }
         public override float GetFXSpool() { return (float)(chamberTemp * chamberNominalTemp_recip); }
+        public override bool GetRunning() { return combusting; }
         
         // new methods
         public void UpdateThrustRatio(double r) { thrustRatio = r; }
