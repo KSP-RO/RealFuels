@@ -41,6 +41,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW 
 
 ==========
 Changelog:
+v10.1
+* Added specific heats for most of the resources (thanks stratochief!).
+* Revised temperature gauge for rocket engines.
+* Set tanks with cryo propellants to their boiling points during prelaunch when pumps (i.e. launch clamps) are connected, so they don't start way above BP.
+* Make life support waste resources not fillable.
+* Compatibility with Ven's Stock Revamp for the RF cloned parts
+
 v10.0
 * SAVE-BREAKING.
 * KSP 1.0 support.
