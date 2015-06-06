@@ -75,7 +75,9 @@ namespace RealFuels
                 if (maxEngineTemp == 0)
                     maxEngineTemp = 3600d;
                 if (chamberNominalTemp == 0)
-                    chamberNominalTemp = 3500d;
+                    chamberNominalTemp = 3400d;
+                if (tempGaugeMin == 0.8d)
+                    tempGaugeMin = 0.95d;
             } 
 
             (engineSolver as SolverRF).InitializeOverallEngineData(
