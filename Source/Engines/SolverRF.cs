@@ -120,6 +120,8 @@ namespace RealFuels
                 // get current flow, and thus thrust.
                 fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 fxPower = (float)(fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
+                if (float.IsNaN(fxPower))
+                    fxPower = 0f;
 
                 double exhaustVelocity = Isp * 9.80665d;
                 
@@ -143,7 +145,7 @@ namespace RealFuels
                     chamberTemp = desiredTemp;
                 else
                 {
-                    double lerpVal = Math.Min(1d, tempLerpRate * TimeWarp.fixedDeltaTime);
+                    double lerpVal = UtilMath.Clamp01(tempLerpRate * TimeWarp.fixedDeltaTime);
                     chamberTemp = UtilMath.LerpUnclamped(chamberTemp, desiredTemp, lerpVal);
                 }
             }
@@ -153,11 +155,11 @@ namespace RealFuels
         public override double GetEngineTemp() { return chamberTemp; }
         public override double GetArea() { return 0d; }
         // FX etc
-        public override double GetEmissive() { return chamberTemp * chamberNominalTemp_recip; }
+        public override double GetEmissive() { return UtilMath.Clamp01(chamberTemp * chamberNominalTemp_recip); }
         public override float GetFXPower() { return fxPower; }
         public override float GetFXRunning() { return fxPower; }
         public override float GetFXThrottle() { return fxThrottle; }
-        public override float GetFXSpool() { return (float)(chamberTemp * chamberNominalTemp_recip); }
+        public override float GetFXSpool() { return (float)(UtilMath.Clamp01(chamberTemp * chamberNominalTemp_recip)); }
         public override bool GetRunning() { return combusting; }
         
         // new methods

@@ -13,7 +13,7 @@ namespace RealFuels
     {
         #region Fields
         [KSPField]
-        public double chamberNominalTemp;
+        public double chamberNominalTemp = 0d;
         [KSPField]
         public double extHeatkW = 0d;
 
@@ -70,16 +70,16 @@ namespace RealFuels
             // FIXME quick temp hax
             if (useAtmCurve)
             {
-                if (maxEngineTemp == 0)
+                if (maxEngineTemp == 0d)
                     maxEngineTemp = 2000d;
-                if (chamberNominalTemp == 0)
+                if (chamberNominalTemp == 0d)
                     chamberNominalTemp = 950d;
             }
             else
             {
-                if (maxEngineTemp == 0)
+                if (maxEngineTemp == 0d)
                     maxEngineTemp = 3600d;
-                if (chamberNominalTemp == 0)
+                if (chamberNominalTemp == 0d)
                     chamberNominalTemp = 3400d;
                 if (tempGaugeMin == 0.8d)
                     tempGaugeMin = 0.95d;
