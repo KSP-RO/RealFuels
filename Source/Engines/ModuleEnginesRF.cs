@@ -131,7 +131,6 @@ namespace RealFuels
 
                 if (curveResource != "")
                 {
-                    Utilities.PrintCurve(thrustCurve);
                     for (int i = 0; i < pCount; ++i)
                     {
                         if (propellants[i].name.Equals(curveResource))
