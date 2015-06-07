@@ -34,6 +34,8 @@ namespace RealFuels
         [KSPField]
         public bool useThrustCurve = false;
         [KSPField]
+        public bool thrustCurveUseTime = false;
+        [KSPField]
         public FloatCurve thrustCurve;
         [KSPField]
         public string curveResource = "";
@@ -44,6 +46,9 @@ namespace RealFuels
         public float thrustCurveDisplay = 100f;
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
         public float thrustCurveRatio = 1f;
+
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3")]
+        public float curveTime = 0f;
         #endregion
 
 
@@ -120,6 +125,7 @@ namespace RealFuels
                 if (thrustCurve == null)
                 {
                     Debug.Log("*RFE* ERROR: have curve node but thrustCurve is null!");
+                    thrustCurve = new FloatCurve();
                     thrustCurve.Load(node.GetNode("thrustCurve"));
                 }
 
@@ -201,7 +207,18 @@ namespace RealFuels
             if (useThrustCurve && HighLogic.LoadedSceneIsFlight)
             {
                 thrustCurveRatio = (float)((propellants[curveProp].totalResourceAvailable / propellants[curveProp].totalResourceCapacity));
-                thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
+                if (thrustCurveUseTime)
+                {
+                    thrustCurveDisplay = thrustCurve.Evaluate(curveTime);
+                    if (EngineIgnited)
+                    {
+                        curveTime += TimeWarp.fixedDeltaTime;
+                    }
+                }
+                else
+                {
+                    thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
+                }
                 (engineSolver as SolverRF).UpdateThrustRatio(thrustCurveDisplay);
                 thrustCurveDisplay *= 100f;
             }
