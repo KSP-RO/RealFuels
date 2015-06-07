@@ -142,7 +142,7 @@ namespace RealFuels.Tanks
 			if (node.HasValue ("totalVolume") && double.TryParse (node.GetValue ("totalVolume"), out totalVolume)) {
 				ChangeTotalVolume (totalVolume);
 			} else if (node.HasValue ("volume") && double.TryParse (node.GetValue ("volume"), out volume)) {
-				totalVolume = volume * 100 / utilization;
+				totalVolume = volume * 100d / utilization;
 			}
 			using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged))) {
 				if (isDatabaseLoad) {
@@ -571,7 +571,7 @@ namespace RealFuels.Tanks
 
 		public void ChangeTotalVolume (double newTotalVolume, bool propagate = false)
 		{
-			double newVolume = Math.Round (newTotalVolume * utilization / 100);
+			double newVolume = Math.Round (newTotalVolume * utilization * 0.01d, 4);
 			double volumeRatio = newVolume / volume;
 
 			bool doResources = false;
