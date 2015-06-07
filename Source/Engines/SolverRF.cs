@@ -118,7 +118,7 @@ namespace RealFuels
             {
 
                 // get current flow, and thus thrust.
-                fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle);
+                fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 fxPower = (float)(fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
 
                 double exhaustVelocity = Isp * 9.80665d;
