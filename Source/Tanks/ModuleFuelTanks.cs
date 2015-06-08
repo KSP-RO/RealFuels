@@ -710,7 +710,7 @@ namespace RealFuels.Tanks
 			}
 			massDirty = false;
 
-			double basemass = basemassConst + basemassPV * volume;
+			double basemass = basemassConst + basemassPV * (MFSSettings.basemassUseTotalVolume ? totalVolume : volume);
 
 			if (basemass >= 0) {
 				double tankDryMass = tankList

@@ -17,6 +17,8 @@ namespace RealFuels
         public static bool partUtilizationTweakable = false;
         public static string unitLabel = "u";
 
+        public static bool basemassUseTotalVolume = false;
+
         public static HashSet<string> ignoreFuelsForFill;
         public static Tanks.TankDefinitionList tankDefinitions;
 
@@ -113,6 +115,9 @@ namespace RealFuels
 				if (node.HasValue ("unitLabel")) {
 					unitLabel = node.GetValue ("unitLabel");
 				}
+                if (bool.TryParse(node.GetValue("basemassUseTotalVolume"), out tb)) {
+                    basemassUseTotalVolume = tb;
+                }
 
 				ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
 				if (ignoreNode != null) {
