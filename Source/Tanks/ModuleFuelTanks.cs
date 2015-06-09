@@ -327,14 +327,22 @@ namespace RealFuels.Tanks
                         double deltaTemp = part.temperature - tank.temperature;
                         if (deltaTemp > 0)
                         {
-                            double newAmount = tank.amount - tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime; // loss_rate is calibrated to 300 degrees.
-                            if (newAmount >= 0d)
+                            double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
+                            if(lossAmount > tank.amount)
                             {
-                                tank.amount = newAmount;
+                                lossAmount = -tank.amount;
+                                tank.amount = 0d;
                             }
                             else
                             {
-                                tank.amount = 0d;
+                                lossAmount = -lossAmount;
+                                tank.amount += lossAmount;
+                            }
+                            double vsp = 0d;
+                            if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
+                            {
+                                // subtract heat from boiloff
+                                part.AddThermalFlux(tank.density * lossAmount * vsp);
                             }
                         }
                     }

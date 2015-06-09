@@ -23,6 +23,7 @@ namespace RealFuels
         public static Tanks.TankDefinitionList tankDefinitions;
 
 		public static Dictionary<string, HashSet<string>> managedResources;
+        public static Dictionary<string, double> resourceVsps;
 
         private static Dictionary<string, ConfigNode[]> overrides;
 
@@ -89,6 +90,17 @@ namespace RealFuels
 			tankDefinitions = new Tanks.TankDefinitionList ();
 			managedResources = new Dictionary<string,HashSet<string>> ();
             overrides = new Dictionary<string, ConfigNode[]>();
+
+            // fill vsps
+            foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("RESOURCE_DEFINITION"))
+            {
+                if (n.HasValue("vsp"))
+                {
+                    double dtmp;
+                    if (double.TryParse(n.GetValue("vsp"), out dtmp))
+                        resourceVsps[n.GetValue("name")] = dtmp;
+                }
+            }
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes ("MFSSETTINGS").LastOrDefault ();
             Debug.Log ("[MFS] Loading global settings");

@@ -48,6 +48,8 @@ namespace RealFuels.Tanks
 
 		public bool propagate = true;
 
+        public double density = 0d;
+
 		public bool resourceAvailable;
 
 		internal string amountExpression;
@@ -298,6 +300,8 @@ namespace RealFuels.Tanks
 			maxAmountExpression = node.GetValue ("maxAmount") ?? maxAmountExpression;
 
 			resourceAvailable = PartResourceLibrary.Instance.GetDefinition (name) != null;
+
+            GetDensity();
 		}
 
 		public void Save (ConfigNode node)
@@ -379,7 +383,17 @@ namespace RealFuels.Tanks
 			} else {
 				clone.amountExpression = clone.maxAmountExpression = null;
 			}
+            clone.GetDensity();
 			return clone;
 		}
+
+        internal void GetDensity()
+        {
+            PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(name);
+            if (d != null)
+                density = d.density;
+            else
+                density = 0d;
+        }
 	}
 }
