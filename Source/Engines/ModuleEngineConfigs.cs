@@ -483,6 +483,9 @@ namespace RealFuels
 
             if (newConfiguration == null)
                 newConfiguration = configuration;
+            
+            ConfigSaveLoad();
+
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
             if (!CanConfig(newConfig))
             {
@@ -673,7 +676,10 @@ namespace RealFuels
                 UpdateTFInterops(); // update TestFlight if it's installed
             }
             else
+            {
                 Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
+                Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
+            }
         }
 
         virtual public void DoConfig(ConfigNode cfg)
@@ -1252,12 +1258,14 @@ namespace RealFuels
             partName = partName.Replace(".", "-");
             partName = partName.Replace("_", "-");
             partName += moduleIndex + engineID;
-
+            //Debug.Log("*RFMEC* Saveload " + partName);
             if (configs.Count > 0)
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
                     RFSettings.Instance.engineConfigs[partName] = configs;
+                    /*Debug.Log("*RFMEC* Saved " + configs.Count + " configs");
+                    Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
                 }
                 else
                 {
@@ -1271,7 +1279,11 @@ namespace RealFuels
             else
             {
                 if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
+                {
                     configs = RFSettings.Instance.engineConfigs[partName];
+                    /*Debug.Log("Found " + configs.Count + " configs!");
+                    Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
+                }
                 else
                     Debug.Log("*RFMEC* ERROR: could not find configs definition for " + partName);
             }
