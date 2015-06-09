@@ -347,7 +347,7 @@ namespace RealFuels.Tanks
 				return;
 			}
 
-			if (amountExpression.Equals ("full")) {
+			if (amountExpression.ToLowerInvariant().Equals ("full")) {
 				amount = maxAmount;
 			} else if (amountExpression.Contains ("%") && double.TryParse (amountExpression.Replace ("%", "").Trim (), out v)) {
 				amount = v * maxAmount * 0.01;
