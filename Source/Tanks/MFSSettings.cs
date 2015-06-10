@@ -92,6 +92,7 @@ namespace RealFuels
             overrides = new Dictionary<string, ConfigNode[]>();
 
             // fill vsps
+            resourceVsps = new Dictionary<string, double>();
             foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("RESOURCE_DEFINITION"))
             {
                 if (n.HasValue("vsp"))

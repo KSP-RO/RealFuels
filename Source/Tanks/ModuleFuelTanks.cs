@@ -318,6 +318,7 @@ namespace RealFuels.Tanks
             }
             else
             {
+                double deltaTimeRecip = 1d / deltaTime;
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
                     FuelTank tank = tankList[i];
@@ -342,7 +343,7 @@ namespace RealFuels.Tanks
                             if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
                             {
                                 // subtract heat from boiloff
-                                part.AddThermalFlux(tank.density * lossAmount * vsp);
+                                part.AddThermalFlux(tank.density * lossAmount * vsp * deltaTimeRecip);
                             }
                         }
                     }
