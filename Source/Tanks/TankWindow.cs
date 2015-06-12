@@ -206,9 +206,7 @@ namespace RealFuels.Tanks
 				counterTT = 0;
 			}
 			//print ("GT: " + GUI.tooltip);
-			if (!ActionGroupMode) {
-				GUI.DragWindow ();
-			}
+			GUI.DragWindow ();
         }
 
         private static void InitializeStyles ()
