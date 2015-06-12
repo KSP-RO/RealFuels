@@ -128,8 +128,10 @@ namespace RealFuels.Tanks
                 posMult = offsetGUIPos;
 			}
             if (ActionGroupMode) {
-                guiWindowRect = new Rect (430 * posMult, 365, 438, (Screen.height - 365));
-                tooltipRect = new Rect (430 * (posMult+1)+10, mousePos.y-5, 300, 20);
+                if (guiWindowRect.width == 0) {
+                    guiWindowRect = new Rect (430 * posMult, 365, 438, (Screen.height - 365));
+                }
+                tooltipRect = new Rect (guiWindowRect.xMin + 440, mousePos.y-5, 300, 20);
             } else {
                 if (guiWindowRect.width == 0) {
                     guiWindowRect = new Rect (Screen.width - 8 - 430 * (posMult+1), 365, 438, (Screen.height - 365));

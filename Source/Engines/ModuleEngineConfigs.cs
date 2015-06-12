@@ -458,7 +458,7 @@ namespace RealFuels
         public void StopFX()
         {
             //if(HighLogic.LoadedSceneIsFlight)
-                for (int i = 0; i < effectsToStop.Length; i++)
+                for (int i = effectsToStop.Length - 1; i >= 0 ; --i)
                     part.Effect(effectsToStop[i], 0f);
         }
         #endregion
@@ -1046,8 +1046,8 @@ namespace RealFuels
             {
                 if (offsetGUIPos == -1 && part.Modules.Contains("ModuleFuelTanks"))
                     posMult = 1;
-
-                guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
+                if (guiWindowRect.width == 0)
+                    guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
                 cursorInGUI = guiWindowRect.Contains(mousePos);
                 if (cursorInGUI)
                 {
@@ -1201,9 +1201,8 @@ namespace RealFuels
                 GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
                 GUILayout.EndHorizontal();
             }
-
-            if(showRFGUI)
-                GUI.DragWindow();
+            
+            GUI.DragWindow();
         }
 
         #endregion
