@@ -200,7 +200,7 @@ namespace RealFuels
             }
             actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
         }
-        public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, double vel, double mach, bool oxygen)
+        public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
             // do thrust curve
             if (useThrustCurve && HighLogic.LoadedSceneIsFlight)
@@ -283,7 +283,7 @@ namespace RealFuels
             EngineIgnited = true;
             (engineSolver as SolverRF).UpdateThrustRatio(0.97d);
 
-            UpdateFlightCondition(ambientTherm, 0d, 0d, 0d, true);
+            UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
 
             if (atmChangeFlow) // If it's a jet
@@ -315,7 +315,7 @@ namespace RealFuels
                     temperature = PhysicsGlobals.SpaceTemperature;
                 ambientTherm.FromAmbientConditions(pressure, temperature, density);
 
-                UpdateFlightCondition(ambientTherm, spaceHeight, 0d, 0d, true);
+                UpdateFlightCondition(ambientTherm, spaceHeight, Vector3d.zero, 0d, true);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
                 if (thrustASL != thrustVac)
