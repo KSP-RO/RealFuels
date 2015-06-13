@@ -72,5 +72,22 @@ namespace RealFuels
                 printStr += PrintNode(node, "");
             return printStr;
         }
+        
+        public static string GetPartName(Part part)
+        {
+            if (part.partInfo != null)
+                return GetPartName(part.partInfo);
+            return GetPartName(part.name);
+        }
+
+        public static string GetPartName(AvailablePart ap)
+        {
+            return GetPartName(ap.name);
+        }
+        public static string GetPartName(string partName)
+        {
+            partName = partName.Replace(".", "-");
+            return partName.Replace("_", "-");
+        }
     }
 }

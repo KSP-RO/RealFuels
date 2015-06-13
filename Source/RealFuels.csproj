@@ -59,10 +59,13 @@
     <Compile Include="assembly\AssemblyInfoRF.cs" />
     <Compile Include="assembly\Checkers.cs" />
     <Compile Include="assembly\VersionReport.cs" />
+    <Compile Include="Engines\EngineConfigUpgrade.cs" />
     <Compile Include="Engines\ModuleEngineConfigs.cs" />
     <Compile Include="Engines\RFSettings.cs" />
     <Compile Include="Engines\ModuleEnginesRF.cs" />
     <Compile Include="Engines\SolverRF.cs" />
+    <Compile Include="Engines\TLUpgrade.cs" />
+    <Compile Include="Engines\UpgradeManager.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
     <Compile Include="Tanks\FuelTank.cs" />

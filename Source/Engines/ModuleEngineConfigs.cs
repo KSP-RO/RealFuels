@@ -27,7 +27,7 @@ namespace RealFuels
             if (!compatible)
                 return;
 
-            SetConfiguration(configuration);
+            SetConfiguration();
         }
         public override void OnLoad(ConfigNode node)
         {
@@ -56,7 +56,7 @@ namespace RealFuels
             // TODO: Does Engine Ignitor get switched here?
         }
 
-        override public void SetConfiguration(string newConfiguration = null)
+        override public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
             if (ActiveEngine == null)
                 ActiveEngine = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType) as ModuleEngines;
@@ -64,7 +64,7 @@ namespace RealFuels
             bool engineActive = ActiveEngine.getIgnitionState;
             ActiveEngine.EngineIgnited = false;
 
-            base.SetConfiguration(newConfiguration);
+            base.SetConfiguration(newConfiguration, resetTechLevels);
 
             if (engineActive)
                 ActiveEngine.Actions["ActivateAction"].Invoke(new KSPActionParam(KSPActionGroup.None, KSPActionType.Activate));
@@ -96,6 +96,9 @@ namespace RealFuels
         public float gimbalMult = 1f;
         [KSPField]
         public bool useGimbalAnyway = false;
+
+        [KSPField]
+        public bool autoUnlock = true;
 
         [KSPField]
         public int maxTechLevel = -1;
@@ -265,7 +268,7 @@ namespace RealFuels
 
             ConfigSaveLoad();
 
-            SetConfiguration(configuration);
+            SetConfiguration();
         }
 
         public override void OnSave (ConfigNode node)
@@ -290,7 +293,7 @@ namespace RealFuels
 
             ConfigSaveLoad();
 
-            SetConfiguration(configuration);
+            SetConfiguration();
 
             if (part.Modules.Contains("ModuleEngineIgnitor"))
                 part.Modules["ModuleEngineIgnitor"].OnStart(state);
@@ -301,7 +304,7 @@ namespace RealFuels
             if (!compatible)
                 return;
 
-            SetConfiguration(configuration);
+            SetConfiguration();
         }
         #endregion
 
@@ -478,7 +481,7 @@ namespace RealFuels
         #region Configuration
         public PartModule pModule = null;
 
-        virtual public void SetConfiguration(string newConfiguration = null)
+        virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
 
             if (newConfiguration == null)
@@ -487,13 +490,13 @@ namespace RealFuels
             ConfigSaveLoad();
 
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
-            if (!CanConfig(newConfig))
+            if (!UnlockedConfig(newConfig))
             {
                 if(newConfig == null)
                     Debug.Log("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
 
                 foreach(ConfigNode cfg in configs)
-                    if (CanConfig(cfg))
+                    if (UnlockedConfig(cfg))
                     {
                         newConfig = cfg;
                         newConfiguration = cfg.GetValue("name");
@@ -502,6 +505,9 @@ namespace RealFuels
             }
             if (newConfig != null)
             {
+                if (configuration != newConfiguration && resetTechLevels)
+                    techLevel = origTechLevel;
+
                 // for asmi
                 if (useConfigAsTitle)
                     part.partInfo.title = configuration;
@@ -664,7 +670,7 @@ namespace RealFuels
 
                 UpdateOtherModules(config);
 
-                UpdateTweakableMenu();
+                // GUI disabled for now - UpdateTweakableMenu();
 
                 // Finally, fire the modified event
                 // more trouble than it is worth...
@@ -890,7 +896,20 @@ namespace RealFuels
         }
 
         #region TechLevel and Required
-        private bool CanConfig(ConfigNode config)
+        /// <summary>
+        /// Is this config unlocked? Note: Is the same as CanConfig when not CAREER and no upgrade manager instance.
+        /// </summary>
+        /// <param name="config"></param>
+        /// <returns></returns>
+        public static bool UnlockedConfig(ConfigNode config)
+        {
+            if (!config.HasValue("name"))
+                return false;
+            if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER && RFUpgradeManager.Instance != null)
+                return RFUpgradeManager.Instance.ConfigUnlocked(config.GetValue("name"));
+            return true;
+        }
+        public static bool CanConfig(ConfigNode config)
         {
             if ((object)config == null)
                 return false;
@@ -899,6 +918,12 @@ namespace RealFuels
             if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
                 return true;
             return false;
+        }
+        public static bool UnlockedTL(string tlName, int newTL)
+        {
+            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame.Mode == Game.Modes.CAREER && RFUpgradeManager.Instance != null)
+                return RFUpgradeManager.Instance.TLUnlocked(tlName) >= newTL;
+            return true;
         }
 
         private double ThrustTL(ConfigNode cfg = null)
@@ -969,7 +994,7 @@ namespace RealFuels
         #endregion
 
         #region GUI
-        [KSPEvent(guiActive = false, guiActiveEditor = true, name = "NextEngine", guiName = "Current Configuration")]
+        /*[KSPEvent(guiActive = false, guiActiveEditor = true, name = "NextEngine", guiName = "Current Configuration")]
         public void NextEngine()
         {
             bool nextEngine = false;
@@ -1003,7 +1028,7 @@ namespace RealFuels
                 }
             SetConfiguration(configuration);
             UpdateSymmetryCounterparts();
-        }
+        }*/
 
         [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Engine"),
          UI_Toggle(enabledText = "Hide GUI", disabledText = "Show GUI")]
@@ -1084,7 +1109,7 @@ namespace RealFuels
             guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title);
         }
 
-        private int oldTechLevel = -1;
+        /*private int oldTechLevel = -1;
         private string oldConfiguration;
         public void UpdateTweakableMenu()
         {
@@ -1118,7 +1143,7 @@ namespace RealFuels
                 oldConfiguration = configuration;
                 oldTechLevel = techLevel;
             }
-        }
+        }*/
 
         private void engineManagerGUI(int WindowID)
         {
@@ -1137,24 +1162,67 @@ namespace RealFuels
                     {
                         curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
                     }
-                    costString = " (" + ((curCost < 0) ? "" : "+") + curCost.ToString("0") + "f)";
+                    costString = " (" + ((curCost < 0) ? "" : "+") + curCost.ToString("N0") + "f)";
                 }
 
                 if (nName.Equals(configuration))
                 {
                     GUILayout.Label("Current config: " + nName + costString);
                 }
-                else if (CanConfig(node))
-                {
-                    if (GUILayout.Button("Switch to " + nName + costString))
-                    {
-                        SetConfiguration(nName);
-                        UpdateSymmetryCounterparts();
-                    }
-                }
                 else
                 {
-                    GUILayout.Label("Lack tech for " + nName);
+                    if (CanConfig(node))
+                    {
+                        if (UnlockedConfig(node))
+                        {
+                            if (GUILayout.Button("Switch to " + nName + costString))
+                            {
+                                SetConfiguration(nName, true);
+                                UpdateSymmetryCounterparts();
+                            }
+                        }
+                        else
+                        {
+                            double upgradeCost = RFUpgradeManager.Instance.ConfigEntryCost(nName);
+                            double sciCost = RFUpgradeManager.Instance.ConfigSciEntryCost(nName);
+                            costString = "";
+                            bool foundCost = false;
+                            if (upgradeCost > 0d)
+                            {
+                                costString = "(" + upgradeCost.ToString("N0") + "f";
+                                foundCost = true;
+                            }
+                            if (sciCost > 0d)
+                            {
+                                if (foundCost)
+                                    costString += "/";
+                                costString += sciCost.ToString("N1") + "s";
+                                foundCost = true;
+                            }
+                            if (foundCost)
+                            {
+                                costString += ")";
+                                if (GUILayout.Button("Purchase " + nName + costString))
+                                {
+                                    RFUpgradeManager.Instance.PurchaseConfig(nName);
+                                }
+                            }
+                            else
+                            {
+                                // autobuy
+                                RFUpgradeManager.Instance.PurchaseConfig(nName);
+                                if (GUILayout.Button("Switch to " + nName + costString))
+                                {
+                                    SetConfiguration(nName, true);
+                                    UpdateSymmetryCounterparts();
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        GUILayout.Label("Lack tech for " + nName);
+                    }
                 }
                 GUILayout.EndHorizontal();
             }
@@ -1174,22 +1242,62 @@ namespace RealFuels
                 if (GUILayout.Button(minusStr) && canMinus)
                 {
                     techLevel--;
-                    SetConfiguration(configuration);
+                    SetConfiguration();
                     UpdateSymmetryCounterparts();
                 }
                 GUILayout.Label(techLevel.ToString());
                 string plusStr = "X";
                 bool canPlus = false;
+                bool canBuy = false;
+                string tlName = Utilities.GetPartName(part) + configuration;
                 if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
                 {
-                    plusStr = "+";
-                    canPlus = true;
+                    if (UnlockedTL(tlName, techLevel + 1))
+                    {
+                        plusStr = "+";
+                        canPlus = true;
+                    }
+                    else
+                    {
+                        double cost = RFUpgradeManager.Instance.TLEntryCost(tlName) * (double)(techLevel + 1 - origTechLevel);
+                        double sciCost = RFUpgradeManager.Instance.TLSciEntryCost(tlName) * (double)(techLevel + 1 - origTechLevel);
+                        bool autobuy = true;
+                        plusStr = "";
+                        if (cost > 0d)
+                        {
+                            plusStr += cost.ToString("N0") + "f";
+                            autobuy = false;
+                            canBuy = true;
+                        }
+                        if (sciCost > 0d)
+                        {
+                            if (cost > 0d)
+                                plusStr += "/";
+                            autobuy = false;
+                            canBuy = true;
+                            plusStr += sciCost.ToString("N1") + "s";
+                        }
+                        if (autobuy)
+                        {
+                            // auto-upgrade
+                            RFUpgradeManager.Instance.SetTLUnlocked(tlName, techLevel + 1);
+                            plusStr = "+";
+                            canPlus = true;
+                        }
+                    }
                 }
-                if (GUILayout.Button(plusStr) && canPlus)
+                if (GUILayout.Button(plusStr) && (canPlus || canBuy))
                 {
-                    techLevel++;
-                    SetConfiguration(configuration);
-                    UpdateSymmetryCounterparts();
+                    if (canPlus)
+                    {
+                        techLevel++;
+                        SetConfiguration();
+                        UpdateSymmetryCounterparts();
+                    }
+                    else
+                    {
+                        RFUpgradeManager.Instance.SetTLUnlocked(tlName, techLevel + 1);
+                    }
                 }
                 GUILayout.EndHorizontal();
             }
@@ -1248,14 +1356,15 @@ namespace RealFuels
                 }
             }
         }
+        virtual public void CheckConfigs()
+        {
+            if(configs.Count == 0)
+                ConfigSaveLoad();
+        }
         // run this to save/load non-serialized data
         protected void ConfigSaveLoad()
         {
-            string partName = part.name;
-            if(part.partInfo != null)
-                partName = part.partInfo.name;
-            partName = partName.Replace(".", "-");
-            partName = partName.Replace("_", "-");
+            string partName = Utilities.GetPartName(part);
             partName += moduleIndex + engineID;
             //Debug.Log("*RFMEC* Saveload " + partName);
             if (configs.Count > 0)

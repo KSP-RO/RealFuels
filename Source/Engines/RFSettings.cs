@@ -17,6 +17,14 @@ namespace RealFuels
         
         public bool useRealisticMass = true;
 
+        public double configEntryCostMultiplier = 20d;
+        public double configScienceCostMultiplier = 0d;
+
+        public double techLevelEntryCostFraction = 0.1d;
+        public double techLevelScienceEntryCostFraction = 0d;
+
+        public double configCostToScienceMultiplier = 0.1d;
+
         public ConfigNode techLevels = null;
 
         public List<string> instantThrottleProps;
@@ -91,6 +99,21 @@ namespace RealFuels
             if (node.HasNode("instantThrottleProps"))
                 foreach (ConfigNode.Value val in node.GetNode("instantThrottleProps").values)
                     instantThrottleProps.Add(val.value);
+
+            if (node.HasValue("configEntryCostMultiplier"))
+                double.TryParse(node.GetValue("configEntryCostMultiplier"), out configEntryCostMultiplier);
+
+            if (node.HasValue("techLevelEntryCostFraction"))
+                double.TryParse(node.GetValue("techLevelEntryCostFraction"), out techLevelEntryCostFraction);
+
+            if (node.HasValue("configScienceCostMultiplier"))
+                double.TryParse(node.GetValue("configScienceCostMultiplier"), out configScienceCostMultiplier);
+
+            if (node.HasValue("techLevelScienceEntryCostFraction"))
+                double.TryParse(node.GetValue("techLevelScienceEntryCostFraction"), out techLevelScienceEntryCostFraction);
+
+            if (node.HasValue("configCostToScienceMultiplier"))
+                double.TryParse(node.GetValue("configCostToScienceMultiplier"), out configCostToScienceMultiplier);
         }
     }
 
