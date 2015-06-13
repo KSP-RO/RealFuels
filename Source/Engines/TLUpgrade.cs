@@ -30,9 +30,12 @@ namespace RealFuels
         {
             techLevelEntryCost = 0d;
             techLevelSciEntryCost = 0d;
+
             if (node.HasValue("name"))
             {
                 bool calc = true;
+                string cfgName = node.GetValue("name");
+
                 if (node.HasValue("entryCost"))
                     if (double.TryParse(node.GetValue("entryCost"), out techLevelEntryCost))
                         calc = false;
@@ -52,6 +55,9 @@ namespace RealFuels
                 techLevelEntryCost *= RFSettings.Instance.techLevelEntryCostFraction;
 
                 Load(node); // override the values if we have the real values.
+
+                currentTL = mec.techLevel;
+                name = Utilities.GetPartName(mec.part) + cfgName;
             }
         }
         public void Load(ConfigNode node)

@@ -26,8 +26,10 @@ namespace RealFuels
         #endregion
 
         #region Overrides and Monobehaviour methods
-        public void Awake()
+        public override void OnAwake()
         {
+            base.OnAwake();
+
             if (_instance != null)
             {
                 Object.Destroy(this);
@@ -52,11 +54,8 @@ namespace RealFuels
                     if (n.HasValue("name"))
                     {
                         string cfgName = n.GetValue("name");
-                        configUpgrades.TryGetValue(cfgName, out eCfg);
-                        if (eCfg != null)
-                        {
+                        if (configUpgrades.TryGetValue(cfgName, out eCfg))
                             eCfg.Load(n);
-                        }
                         else
                         {
                             eCfg = new EngineConfigUpgrade(n);
@@ -70,8 +69,7 @@ namespace RealFuels
                     if (n.HasValue("name"))
                     {
                         string tlName = n.GetValue("name");
-                        techLevelUpgrades.TryGetValue(tlName, out tU);
-                        if (tU != null)
+                        if (techLevelUpgrades.TryGetValue(tlName, out tU))
                             tU.Load(n);
                         else
                         {
@@ -110,12 +108,24 @@ namespace RealFuels
         #region Methods
         public void FillUpgrades()
         {
+            if (PartLoader.Instance == null || PartLoader.LoadedPartsList == null)
+            {
+                Debug.LogError("*RFUM: ERROR: Partloader instance null or list null!");
+                return;
+            }
             for(int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
             {
                 AvailablePart ap = PartLoader.LoadedPartsList[a];
+                if (ap == null)
+                {
+                    continue;
+                }
                 Part part = ap.partPrefab;
                 if(part != null)
                 {
+                    if (part.Modules == null)
+                        continue;
+
                     for(int i = part.Modules.Count - 1; i >= 0; --i)
                     {
                         PartModule m = part.Modules[i];
@@ -129,31 +139,39 @@ namespace RealFuels
                                 if(cfg.HasValue("name"))
                                 {
                                     string cfgName = cfg.GetValue("name");
-
+                                    if (RFSettings.Instance.usePartNameInConfigUnlock)
+                                        cfgName = Utilities.GetPartName(ap) + cfgName;
                                     // config upgrades
-                                    EngineConfigUpgrade eConfig = new EngineConfigUpgrade(cfg);
+                                    EngineConfigUpgrade eConfig = new EngineConfigUpgrade(cfg, cfgName);
                                     configUpgrades[cfgName] = eConfig;
-                                    ProtoTechNode techState = ResearchAndDevelopment.Instance.GetTechState(ap.TechRequired);
-                                    if (techState.partsPurchased.Contains(ap))
+                                    if (ResearchAndDevelopment.Instance != null && ap.TechRequired != null)
                                     {
-                                        // now do config
-                                        if (cfg.HasValue("techRequired"))
+                                        if(ResearchAndDevelopment.PartModelPurchased(ap))
                                         {
-                                            string tech = cfg.GetValue("techRequired");
-                                            if (tech != "" && tech != ap.TechRequired)
-                                                continue;
+                                            if (cfg.HasValue("techRequired"))
+                                            {
+                                                string tech = cfg.GetValue("techRequired");
+                                                if (tech != "" && tech != ap.TechRequired)
+                                                    continue;
+                                            }
+
+                                            bool unlocked = false;
+                                            if (cfg.HasValue("unlocked"))
+                                                bool.TryParse(cfg.GetValue("unlocked"), out unlocked);
+
+                                            if (mec.autoUnlock || unlocked)
+                                                eConfig.unlocked = true;
                                         }
+                                        else
+                                            eConfig.unlocked = false;
+
                                         // TL upgrades
                                         if (mec.techLevel >= 0)
                                         {
                                             TLUpgrade tU = new TLUpgrade(cfg, mec);
                                             techLevelUpgrades[tU.name] = tU;
                                         }
-                                        if(mec.autoUnlock)
-                                            eConfig.unlocked = true;
                                     }
-                                    else
-                                        eConfig.unlocked = false;
                                 }
                             }
                         }
@@ -300,12 +318,12 @@ namespace RealFuels
             Debug.LogError("*RFUM: ERROR: TL " + tUName + " does not exist!");
             return 0d;
         }
-        public bool PurchaseTL(string tUName, int tl)
+        public bool PurchaseTL(string tUName, int tl, double multiplier)
         {
             if (TLUnlocked(tUName) >= tl)
                 return false;
 
-            double tuCost = TLEntryCost(tUName);
+            double tuCost = TLEntryCost(tUName) * multiplier;
             if (!HighLogic.CurrentGame.Parameters.Difficulty.BypassEntryPurchaseAfterResearch)
             {
                 if (Funding.Instance.Funds < tuCost)
@@ -313,7 +331,7 @@ namespace RealFuels
 
                 Funding.Instance.AddFunds(-tuCost, TransactionReasons.RnDPartPurchase);
             }
-            float sciCost = (float)TLSciEntryCost(tUName);
+            float sciCost = (float)(TLSciEntryCost(tUName) * multiplier);
             if (sciCost > 0f && ResearchAndDevelopment.Instance != null)
             {
                 if (!ResearchAndDevelopment.CanAfford(sciCost))

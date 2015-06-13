@@ -18,16 +18,11 @@ namespace RealFuels
         #endregion
 
         #region Constructors
-        public EngineConfigUpgrade(string n, double c, string tech = "")
+        public EngineConfigUpgrade(ConfigNode node, string Name = "")
         {
-            name = n;
-            entryCost = c;
-            techRequired = tech;
-            unlocked = false;
-        }
-        public EngineConfigUpgrade(ConfigNode n)
-        {
-            Load(n);
+            Load(node);
+            if(Name != "")
+                name = Name;
         }
         #endregion
 

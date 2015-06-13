@@ -25,6 +25,8 @@ namespace RealFuels
 
         public double configCostToScienceMultiplier = 0.1d;
 
+        public bool usePartNameInConfigUnlock = true;
+
         public ConfigNode techLevels = null;
 
         public List<string> instantThrottleProps;
@@ -114,6 +116,9 @@ namespace RealFuels
 
             if (node.HasValue("configCostToScienceMultiplier"))
                 double.TryParse(node.GetValue("configCostToScienceMultiplier"), out configCostToScienceMultiplier);
+
+            if (node.HasValue("usePartNameInConfigUnlock"))
+                bool.TryParse(node.GetValue("usePartNameInConfigUnlock"), out usePartNameInConfigUnlock);
         }
     }
 

@@ -490,13 +490,13 @@ namespace RealFuels
             ConfigSaveLoad();
 
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
-            if (!UnlockedConfig(newConfig))
+            if (!UnlockedConfig(newConfig, part))
             {
                 if(newConfig == null)
                     Debug.Log("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
 
                 foreach(ConfigNode cfg in configs)
-                    if (UnlockedConfig(cfg))
+                    if (UnlockedConfig(cfg, part))
                     {
                         newConfig = cfg;
                         newConfiguration = cfg.GetValue("name");
@@ -874,8 +874,8 @@ namespace RealFuels
             }
         }
 
-        [PartMessageEvent]
-        public event PartEngineConfigChanged EngineConfigChanged;
+        /*[PartMessageEvent]
+        public event PartEngineConfigChanged EngineConfigChanged;*/
 
 
         //called by StretchyTanks StretchySRB and ProcedrualParts
@@ -901,12 +901,12 @@ namespace RealFuels
         /// </summary>
         /// <param name="config"></param>
         /// <returns></returns>
-        public static bool UnlockedConfig(ConfigNode config)
+        public static bool UnlockedConfig(ConfigNode config, Part p)
         {
             if (!config.HasValue("name"))
                 return false;
-            if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER && RFUpgradeManager.Instance != null)
-                return RFUpgradeManager.Instance.ConfigUnlocked(config.GetValue("name"));
+            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
+                return RFUpgradeManager.Instance.ConfigUnlocked((RFSettings.Instance.usePartNameInConfigUnlock ? Utilities.GetPartName(p) : "") + config.GetValue("name"));
             return true;
         }
         public static bool CanConfig(ConfigNode config)
@@ -921,7 +921,7 @@ namespace RealFuels
         }
         public static bool UnlockedTL(string tlName, int newTL)
         {
-            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame.Mode == Game.Modes.CAREER && RFUpgradeManager.Instance != null)
+            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
                 return RFUpgradeManager.Instance.TLUnlocked(tlName) >= newTL;
             return true;
         }
@@ -1173,7 +1173,7 @@ namespace RealFuels
                 {
                     if (CanConfig(node))
                     {
-                        if (UnlockedConfig(node))
+                        if (UnlockedConfig(node, part))
                         {
                             if (GUILayout.Button("Switch to " + nName + costString))
                             {
@@ -1205,6 +1205,8 @@ namespace RealFuels
                                 if (GUILayout.Button("Purchase " + nName + costString))
                                 {
                                     RFUpgradeManager.Instance.PurchaseConfig(nName);
+                                    SetConfiguration(nName, true);
+                                    UpdateSymmetryCounterparts();
                                 }
                             }
                             else
@@ -1250,6 +1252,7 @@ namespace RealFuels
                 bool canPlus = false;
                 bool canBuy = false;
                 string tlName = Utilities.GetPartName(part) + configuration;
+                double tlIncrMult = (double)(techLevel + 1 - origTechLevel);
                 if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
                 {
                     if (UnlockedTL(tlName, techLevel + 1))
@@ -1259,8 +1262,8 @@ namespace RealFuels
                     }
                     else
                     {
-                        double cost = RFUpgradeManager.Instance.TLEntryCost(tlName) * (double)(techLevel + 1 - origTechLevel);
-                        double sciCost = RFUpgradeManager.Instance.TLSciEntryCost(tlName) * (double)(techLevel + 1 - origTechLevel);
+                        double cost = RFUpgradeManager.Instance.TLEntryCost(tlName) * tlIncrMult;
+                        double sciCost = RFUpgradeManager.Instance.TLSciEntryCost(tlName) * tlIncrMult;
                         bool autobuy = true;
                         plusStr = "";
                         if (cost > 0d)
@@ -1283,21 +1286,18 @@ namespace RealFuels
                             RFUpgradeManager.Instance.SetTLUnlocked(tlName, techLevel + 1);
                             plusStr = "+";
                             canPlus = true;
+                            canBuy = false;
                         }
                     }
                 }
                 if (GUILayout.Button(plusStr) && (canPlus || canBuy))
                 {
-                    if (canPlus)
-                    {
-                        techLevel++;
-                        SetConfiguration();
-                        UpdateSymmetryCounterparts();
-                    }
-                    else
-                    {
-                        RFUpgradeManager.Instance.SetTLUnlocked(tlName, techLevel + 1);
-                    }
+                    if (canBuy)
+                        RFUpgradeManager.Instance.PurchaseTL(tlName, techLevel + 1, tlIncrMult);
+
+                    techLevel++;
+                    SetConfiguration();
+                    UpdateSymmetryCounterparts();
                 }
                 GUILayout.EndHorizontal();
             }
@@ -1358,7 +1358,7 @@ namespace RealFuels
         }
         virtual public void CheckConfigs()
         {
-            if(configs.Count == 0)
+            if(configs == null || configs.Count == 0)
                 ConfigSaveLoad();
         }
         // run this to save/load non-serialized data
@@ -1367,6 +1367,8 @@ namespace RealFuels
             string partName = Utilities.GetPartName(part);
             partName += moduleIndex + engineID;
             //Debug.Log("*RFMEC* Saveload " + partName);
+            if (configs == null)
+                configs = new List<ConfigNode>();
             if (configs.Count > 0)
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
