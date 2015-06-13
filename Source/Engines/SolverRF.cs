@@ -17,7 +17,7 @@ namespace RealFuels
         private bool combusting = true;
 
         // temperature
-        private double chamberTemp, chamberNominalTemp, chamberNominalTemp_recip;
+        private double chamberTemp, chamberNominalTemp, chamberNominalTemp_recip, partTemperature = 288d;
 
         // fx
         private float fxPower;
@@ -81,6 +81,11 @@ namespace RealFuels
             }
         }
 
+        public void SetPartTemp(double tmp)
+        {
+            partTemperature = tmp;
+        }
+
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
         {
             // set base bits
@@ -111,7 +116,7 @@ namespace RealFuels
             {
                 combusting = false; // for throttle FX
                 double declinePow = Math.Pow(tempDeclineRate, TimeWarp.fixedDeltaTime);
-                chamberTemp = Math.Max(t0, chamberTemp * declinePow);
+                chamberTemp = Math.Max(Math.Max(t0, partTemperature), chamberTemp * declinePow);
                 fxPower = 0f;
             }
             else

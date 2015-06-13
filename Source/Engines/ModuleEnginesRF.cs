@@ -54,12 +54,13 @@ namespace RealFuels
 
         protected bool instantThrottle = false;
         protected float throttleResponseRate;
+        protected SolverRF rfSolver = null;
         #endregion
 
         #region Overrides
         public override void CreateEngine()
         {
-            engineSolver = new SolverRF();
+            rfSolver = new SolverRF();
             if(!useAtmCurve)
                 atmCurve = null;
             if(!useVelCurve)
@@ -85,7 +86,7 @@ namespace RealFuels
                     tempGaugeMin = 0.95d;
             } 
 
-            (engineSolver as SolverRF).InitializeOverallEngineData(
+            rfSolver.InitializeOverallEngineData(
                 minFuelFlow,
                 maxFuelFlow,
                 atmosphereCurve,
@@ -99,6 +100,8 @@ namespace RealFuels
                 flowMultCap,
                 flowMultCapSharpness,
                 multFlow);
+
+            engineSolver = rfSolver;
         }
         public override void OnAwake()
         {
@@ -218,15 +221,15 @@ namespace RealFuels
                 {
                     thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
                 }
-                (engineSolver as SolverRF).UpdateThrustRatio(thrustCurveDisplay);
+                rfSolver.UpdateThrustRatio(thrustCurveDisplay);
                 thrustCurveDisplay *= 100f;
             }
 
+            // Set part temp
+            rfSolver.SetPartTemp(part.temperature);
+
             // do heat
-            double tMass = part.mass * 800d;
-            if (part.thermalMass > 0)
-                tMass = part.thermalMass;
-            heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor / tMass);
+            heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
             // run base method
             base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
@@ -281,7 +284,7 @@ namespace RealFuels
             lastPropellantFraction = 1d;
             bool oldE = EngineIgnited;
             EngineIgnited = true;
-            (engineSolver as SolverRF).UpdateThrustRatio(0.97d);
+            rfSolver.UpdateThrustRatio(0.97d);
 
             UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
