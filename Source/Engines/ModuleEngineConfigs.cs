@@ -225,8 +225,8 @@ namespace RealFuels
             if (!isMaster)
             {
                 Fields["showRFGUI"].guiActiveEditor = false;
-                Events["NextEngine"].guiActiveEditor = false;
-                Events["NextTech"].guiActiveEditor = false;
+                //Events["NextEngine"].guiActiveEditor = false;
+                //Events["NextTech"].guiActiveEditor = false;
             }
 
 
