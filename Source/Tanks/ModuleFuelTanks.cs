@@ -930,11 +930,13 @@ namespace RealFuels.Tanks
 				ppart = ppart.parent;
 			}
 
-            Part[] parts = ppart.FindChildParts<Part>(true);
+            List<Part> parts = ppart.FindChildParts<Part>(true).ToList();
+            if (!parts.Contains(part))
+                parts.Add(part);
             FuelInfo f;
             string title;
             PartModule m;
-            for(int i = 0; i < parts.Length; ++i)
+            for(int i = 0; i < parts.Count; ++i)
             {
                 title = parts[i].partInfo.title;
                 for(int j = 0; j < parts[i].Modules.Count; ++j)
