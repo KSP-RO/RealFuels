@@ -67,7 +67,7 @@ namespace RealFuels
             seed = nSeed;
 
             // falloff at > sea level pressure.
-            if (atmosphereCurve.Curve.keys.Length == 2)
+            if (atmosphereCurve.Curve.keys.Length == 2 && atmosphereCurve.Curve.keys[0].value != atmosphereCurve.Curve.keys[1].value)
             {
                 Keyframe k0 = atmosphereCurve.Curve.keys[0];
                 Keyframe k1 = atmosphereCurve.Curve.keys[1];
