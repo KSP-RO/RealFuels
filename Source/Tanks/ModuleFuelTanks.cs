@@ -671,9 +671,8 @@ namespace RealFuels.Tanks
 					basemassConst = 0;
 					return;
 				}
-			} else if (float.TryParse (baseMass.Trim (), out basemassPV)) {
-				basemassPV = (float) (basemassPV / volume);
-				basemassConst = 0;
+			} else if (float.TryParse (baseMass.Trim (), out basemassConst)) {
+				basemassPV = 0f;
 				return;
 			}
 			Debug.LogWarning ("[MFT] Unable to parse basemass \"" + baseMass + "\"");
@@ -697,12 +696,11 @@ namespace RealFuels.Tanks
 			}
 			if (baseCost.Contains ("*") && baseCost.Contains ("volume")) {
 				if (float.TryParse (baseCost.Replace ("volume", "").Replace ("*", "").Trim (), out baseCostPV)) {
-					baseCostConst = 0;
+					baseCostConst = 0f;
 					return;
 				}
-			} else if (float.TryParse (baseCost.Trim (), out baseCostPV)) {
-				baseCostPV = (float) (baseCostPV / volume);
-				baseCostConst = 0;
+			} else if (float.TryParse (baseCost.Trim (), out baseCostConst)) {
+				baseCostPV = 0f;
 				return;
 			}
 			if (baseCost != "") {
