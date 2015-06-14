@@ -30,6 +30,9 @@ namespace RealFuels
         [KSPField]
         public bool usesAir = false;
 
+        [KSPField]
+        public double varyThrust = 1d;
+
         #region Thrust Curve
         [KSPField]
         public bool useThrustCurve = false;
@@ -84,7 +87,9 @@ namespace RealFuels
                     chamberNominalTemp = 3400d;
                 if (tempGaugeMin == 0.8d)
                     tempGaugeMin = 0.95d;
-            } 
+            }
+            double thrustVariation = varyThrust * RFSettings.Instance.varyThrust;
+            chamberNominalTemp *= (1d - varyThrust);
 
             rfSolver.InitializeOverallEngineData(
                 minFuelFlow,
@@ -99,7 +104,9 @@ namespace RealFuels
                 flowMultMin,
                 flowMultCap,
                 flowMultCapSharpness,
-                multFlow);
+                multFlow,
+                thrustVariation,
+                (float)part.name.GetHashCode());
 
             engineSolver = rfSolver;
         }

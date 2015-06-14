@@ -15,6 +15,9 @@ namespace RealFuels
         private double flowMultMin, flowMultCap, flowMultCapSharpness;
         private bool multFlow;
         private bool combusting = true;
+        private double varyThrust = 0d;
+
+        private float seed = 0f;
 
         // temperature
         private double chamberTemp, chamberNominalTemp, chamberNominalTemp_recip, partTemperature = 288d;
@@ -41,7 +44,9 @@ namespace RealFuels
             double nFlowMultMin,
             double nFlowMultCap,
             double nFlowMultSharp,
-            bool nMultFlow)
+            bool nMultFlow,
+            double nVaryThrust,
+            float nSeed)
         {
             minFlow = nMinFlow * 1000d; // to kg
             maxFlow = nMaxFlow * 1000d;
@@ -58,6 +63,8 @@ namespace RealFuels
             flowMultCap = nFlowMultCap;
             flowMultCapSharpness = nFlowMultSharp;
             multFlow = nMultFlow;
+            varyThrust = nVaryThrust;
+            seed = nSeed;
 
             // falloff at > sea level pressure.
             if (atmosphereCurve.Curve.keys.Length == 2)
@@ -124,6 +131,10 @@ namespace RealFuels
 
                 // get current flow, and thus thrust.
                 fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
+                
+                if (varyThrust > 0d && fuelFlow > 0d)
+                    fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);
+
                 fxPower = (float)(fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
                 if (float.IsNaN(fxPower))
                     fxPower = 0f;

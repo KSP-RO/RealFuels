@@ -25,6 +25,8 @@ namespace RealFuels
 
         public double configCostToScienceMultiplier = 0.1d;
 
+        public double varyThrust = 0d;
+
         public bool usePartNameInConfigUnlock = true;
 
         public ConfigNode techLevels = null;
@@ -119,6 +121,9 @@ namespace RealFuels
 
             if (node.HasValue("usePartNameInConfigUnlock"))
                 bool.TryParse(node.GetValue("usePartNameInConfigUnlock"), out usePartNameInConfigUnlock);
+
+            if (node.HasValue("varyThrust"))
+                double.TryParse(node.GetValue("varyThrust"), out varyThrust);
         }
     }
 
