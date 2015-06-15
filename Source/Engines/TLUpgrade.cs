@@ -33,26 +33,34 @@ namespace RealFuels
 
             if (node.HasValue("name"))
             {
-                bool calc = true;
+                bool calc = true, sciCalc = true;
                 string cfgName = node.GetValue("name");
 
                 if (node.HasValue("entryCost"))
                     if (double.TryParse(node.GetValue("entryCost"), out techLevelEntryCost))
                         calc = false;
+                if (node.HasValue("sciEntryCost"))
+                    if (double.TryParse(node.GetValue("sciEntryCost"), out techLevelSciEntryCost))
+                        sciCalc = false;
                 if (mec.part.partInfo != null)
                 {
+                    double configCost = 0d;
+                    if (node.HasValue("cost"))
+                        double.TryParse(node.GetValue("cost"), out configCost);
                     if (calc)
                     {
                         // calculate from what we know
-                        double configEntryCost = 0d;
-                        if (node.HasValue("cost"))
-                            double.TryParse(node.GetValue("cost"), out configEntryCost);
-                        techLevelEntryCost += configEntryCost * RFSettings.Instance.configEntryCostMultiplier;
+                        techLevelEntryCost += configCost * RFSettings.Instance.configEntryCostMultiplier;
+                    }
+                    if (sciCalc)
+                    {
+                        techLevelSciEntryCost += configCost * RFSettings.Instance.configScienceCostMultiplier;
                     }
                     techLevelEntryCost += mec.part.partInfo.entryCost;
+                    techLevelSciEntryCost += mec.part.partInfo.entryCost * RFSettings.Instance.configScienceCostMultiplier;
                 }
-                techLevelSciEntryCost = RFSettings.Instance.techLevelScienceEntryCostFraction * techLevelEntryCost;
-                techLevelEntryCost *= RFSettings.Instance.techLevelEntryCostFraction;
+                techLevelEntryCost = Math.Max(0d, techLevelEntryCost * RFSettings.Instance.techLevelEntryCostFraction);
+                techLevelSciEntryCost = Math.Max(0d, techLevelSciEntryCost * RFSettings.Instance.techLevelScienceEntryCostFraction);
 
                 Load(node); // override the values if we have the real values.
 

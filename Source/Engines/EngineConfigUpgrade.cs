@@ -73,7 +73,7 @@ namespace RealFuels
             }
             else
             {
-                entryCost = cost * RFSettings.Instance.configEntryCostMultiplier;
+                entryCost = Math.Max(0d, cost * RFSettings.Instance.configEntryCostMultiplier);
             }
             if (node.HasValue("sciEntryCost"))
             {
@@ -82,7 +82,7 @@ namespace RealFuels
             }
             else
             {
-                sciEntryCost = cost * RFSettings.Instance.configScienceCostMultiplier;
+                sciEntryCost = Math.Max(0d, cost * RFSettings.Instance.configScienceCostMultiplier);
             }
 
             if (node.HasValue("unlocked"))
