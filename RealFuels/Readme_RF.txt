@@ -37,10 +37,20 @@ For engines/RCS:
 At the top are buttons for changing the current engine's configuration. Then there are the buttons for changing techlevel. They will have X if a change in that direction is unavailable. Below that are stats for the current config and TL. NOTE that if your RCS uses a fuel that is set to STACK_PRIORITY_SEARCH rather than ALL_VESSEL (anything except MonoPropellant) you need to have fuel feeding your RCS thrusters (i.e. treat them like radial engines). It is suggested you get CrossFeedEnabler to help with this.
 
 
-AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES ARE BELOW THE CHANGELOG
+AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRADE COSTS ARE BELOW THE CHANGELOG
 
 ==========
 Changelog:
+v10.3
+* Added cost to unlock new configurations and new TLs for engines. Cost can be fully configured both globally and per part config, and can take from funds and/or science. See UPGRADE COSTS below.
+* Add hsp for Furfurfyl Alcohol.
+* Make the GUI draggable in action editor too.
+* Update for latest SolverEngines.
+* Clamp chamber temp to be no lower than part internal temp.
+* Allow random variation in fuel flow (defaults to 0 variation, set varyThrust to a >0 number to enable). Thrust variation is multiplicative, and will be in the range +/- (global varyThrust * ModuleEnginesRF.varyThrust). ModuleEnginesRF.varyThrust defaults to 1.0. Example: you set global varyThrust (in RFSETTINGS) to 0.008. Then all engines that use ModuleEnginesRF will have +/- 0.8% variation in their thrust during flight.
+* Fix a bug in detecting engines to autoconfigure for: let's check ourselves too.
+* Fix issues in basemass / basecost overrides in ModuleFuelTank nodes.
+
 v10.2
 * Allow time-based thrust curves.
 * Fix thrust curves to actually work.
@@ -509,3 +519,22 @@ TL4: 1968+, Late Apollo
 TL5: 1973+, Apollo Applications Program, etc.
 TL6: 1980+, the Shuttle era
 Tl7: 1995+, the present day.
+
+
+=========================
+UPGRADE COSTS
+It can cost funds or science to unlock an engine config and/or increase the tech level. Upgrade costs are controlled by global settings and by per-part settings. In general, it costs a fixed amount of funds and/or science to unlock an engine config, and it costs a fixed amount of funds and/or science, times (desired new tech level - original engine tech level) to unlock a new tech level (so going from TL3->4 is less expensive than 4->5 for a starts-at-TL3 engine).
+
+CONFIG settings:
+If a CONFIG has an entryCost, that will be its cost in funds to unlock. If it has a sciEntryCost, that will be its cost in science to unlock. If it has a techLevelEntryCost, that will be the base cost in funds to unlock a new TL (see above re the per-TL costs changing), and same for techLevelSciEntryCost. Per-config entry costs can also have multipliers and subtractors. This means if one CONFIG is very similar to another CONFIG (on that or another engine), you can get a reduction in cost if you've unlocked the other CONFIG. You can add a entryCostMultipliers {} node to the CONFIG and have a list of the other config(s)' names and their multipliers, like LR89-NA-6 = 0.5 (which will mean the current config costs only half as much to unlock if LR89-NA-6 is unlocked). This applies to both funds and science. You can do the same with the entryCostSubtractors {} node, except in this case, the value is subtracted from the final cost, rather than the final cost being multiplied by the value. In this case, the subtractive value will be multiplied by configCostToScienceMultiplier if the cost is a science cost (see below for configCostToScienceMultiplier).
+
+Global settings (configs):
+configEntryCostMultiplier: if no specific costs are set, then config entry cost will be (this * config.cost). So if the config has no extra cost (or a negative cost), the entrycost will be 0. Default 20.
+configScienceCostMultiplier: Works like above for creating the science entry cost. Default 0.
+configCostToScienceMultiplier: Used when subtracting from a config unlock science cost based on other unlocked configs. See above. Default 0.1.
+
+Global settings (techlevels):
+techLevelEntryCostFraction: The fixed cost in funds for unlocking a new techlevel for a CONFIG, if it is not specified in the CONFIG (see above), is based on the this times the sum of the config entry cost and the part's entry cost. Default 0.1.
+techLevelScienceEntryCostFraction: The fixed cost in science for unlocking a new techlevel for a CONFIG, if it is not specified in the CONFIG (see above), is based on the this times the sum of the config's science entry cost and (the part's entry cost times configScienceCostMultiplier). Default 0.
+
+usePartNameInConfigUnlock: If true, the part name will be prepended to the config name when checking for whether configs are unlocked. If you tend to use the same name for configs across multiple engines (i.e. both Mainsail and Poodle have `LqdOxygen+LqdHydrogen` configs) you want this true. If you are RO and each CONFIG represents a specific engine (and multiple parts may implement the same engine) you want this false. Default true (but RO sets it to false).
