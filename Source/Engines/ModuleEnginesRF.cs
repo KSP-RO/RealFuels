@@ -31,6 +31,15 @@ namespace RealFuels
         public bool usesAir = false;
 
         [KSPField]
+        public bool pressureFed = false;
+
+        [KSPField]
+        public bool ullage = false;
+
+        [KSPField]
+        public int ignitions = -1;
+
+        [KSPField]
         public double varyThrust = 1d;
 
         #region Thrust Curve

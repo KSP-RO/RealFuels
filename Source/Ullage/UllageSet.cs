@@ -15,37 +15,105 @@ namespace RealFuels.Ullage
 
         Vector3d centerOfMass, position, acceleration, velocity, angularVelocity;
 
-        public UllageSet(ModuleEnginesRF engine)
+        bool pressureFed = false;
+        bool tankHighlyPressurized = false;
+        bool ullageEnabled = true;
+
+        public UllageSet(UllageManager manager, ModuleEnginesRF engine)
         {
             ullageSim = new UllageSimulator();
             tanks = new List<Part>();
             rfTanks = new Dictionary<Part, Tanks.ModuleFuelTanks>();
 
-            foreach (Propellant p in engine.propellants)
+            pressureFed = engine.pressureFed;
+            ullageEnabled = engine.ullage;
+
+            // set tanks
+            tankHighlyPressurized = true; // will be set false if any propellant has no highly-pres tank feeding it
+            bool foundPTank = false;
+            for(int i = engine.propellants.Count - 1; i >= 0; --i)
             {
-                List<Part> feedParts = new List<Part>();
-                List<PartResource> feedPartRes = new List<PartResource>();
-                engine.part.GetConnectedResources(p.id, p.GetFlowMode(), feedPartRes);
-                foreach (PartResource r in feedPartRes)
+                Propellant p = engine.propellants[i];
+                bool noPresTank = true;
+                for(int j = p.connectedResources.Count - 1; j >= 0; --j)
                 {
+                    PartResource r = p.connectedResources[j];
                     Part part = r.part;
+                    Tanks.ModuleFuelTanks tank = null;
                     if (!tanks.Contains(part))
                     {
                         tanks.Add(part);
-                        foreach (PartModule m in part.Modules)
+                        for(int k = part.Modules.Count - 1; k >= 0; --k)
+                        {
+                            PartModule m = part.Modules[k];
                             if (m is Tanks.ModuleFuelTanks)
-                                rfTanks[part] = (m as Tanks.ModuleFuelTanks);
+                            {
+                                tank = m as Tanks.ModuleFuelTanks;
+                                rfTanks[part] = tank;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        rfTanks.TryGetValue(part, out tank);
+                    }
+                    if (tank != null)
+                    {
+                        bool pressurized = tank.pressurizedFuels[r.resourceName];
+                        noPresTank &= !pressurized; // stay true only if pressurized always false
                     }
                 }
+                tankHighlyPressurized &= !noPresTank; // i.e. if no tank, set false.
             }
-            // Update must be run by creator.
         }
-        public void Update(Vector3d pos, Vector3d acc, Vector3d vel, Vector3d angVel)
+        public bool AddEngine(ModuleEnginesRF engine)
+        {
+            if (engines.Count == 0)
+                return false;
+            if (engine.pressureFed != pressureFed)
+                return false;
+
+            List<Part> tankList = new List<Part>();
+            for (int i = engine.propellants.Count - 1; i >= 0; --i)
+            {
+                Propellant p = engine.propellants[i];
+                for (int j = p.connectedResources.Count - 1; j >= 0; --j)
+                {
+                    PartResource r = p.connectedResources[j];
+                    Part part = r.part;
+                    if (!tankList.Contains(part))
+                        tankList.Add(part);
+                    if (!tanks.Contains(part))
+                        return false;
+                }
+            }
+            if (tankList.Count != tanks.Count)
+                return false;
+
+            engines.Add(engine);
+            return true;
+        }
+        public void Update(Vector3d pos, Vector3d acc, Vector3d vel, Vector3d angVel, double timeDelta, double ventingAcc)
         {
             position = pos;
             velocity = vel;
             acceleration = acc;
             angularVelocity = angVel;
+            double fuelRatio = 1d;
+            if(HighLogic.LoadedSceneIsFlight)
+            {
+                int pCount = engines[0].propellants.Count;
+                double sumRatio = 0d;
+                for(int i = pCount - 1; i >= 0; --i)
+                {
+                    Propellant p = engines[0].propellants[i];
+                    sumRatio += p.totalResourceAvailable / p.totalResourceCapacity;
+                }
+                sumRatio /= (double)pCount;
+                // do pressure-fed tests?
+            }
+            if(ullageEnabled)
+                ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
         }
         public string GetUllageState()
         {
@@ -54,6 +122,10 @@ namespace RealFuels.Ullage
         public double GetUllageStability()
         {
             return ullageSim.GetFuelFlowStability();
+        }
+        public bool PressureOK()
+        {
+            return pressureFed ? tankHighlyPressurized : true;
         }
         /*public void UpdateCoM()
         {
