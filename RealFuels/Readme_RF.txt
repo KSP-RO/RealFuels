@@ -471,7 +471,7 @@ TANK TYPES
 
 * ServiceModule: Used for service modules and other pressure-fed tanks. You need this for pressure-fed engines (RCS are pressure-fed engines). Due to supporting up to 200atm of pressure rather for resources than just the 1.8 or so that non-highly-pressurized tanks do, it's much heavier. Also can store electricity and life support resources. Features more insulation for the cryogenic resources. Examples: Able/Delta upper stage, Apollo Service Module.
 
-* Fuselage: A heavier version of ServiceModule, used for aircraft/spaceplanes (or to simulate old, massive tanks). Examples: the electronics and life support section of a spaceplane.
+* Fuselage: A heavier version of ServiceModule, used for aircraft/spaceplanes (or to simulate old, massive tanks). Examples: the electronics and life support section of a spaceplane, the WAC Corporal sustainer.
 
 * Cryogenic: Highly insulated tank. Has the level of insulation (and low boiloff) of a modern cryogenic tank. Slightly heavier than Default due to the increased insulation. Example: Delta IV Common Core Booster.
 
@@ -488,15 +488,15 @@ Terms: SL = sea level, TWR = thrust to weight ratio. Note that in RF, all engine
 
 So, first RF classifies each engine it supports by type. The types are:
 
-O = Orbital maneuvering system. Designed for tons and tons of restarts, and vacuum-only use. Pressure-Fed. High vac Isp, very poor SL isp, lowest TWR. Usually hypergolic. Real life examples: Apollo SPS, Shuttle OME. KSP examples: LV-1, LV-909, Poodle.
+O = Orbital maneuvering system. Designed for tons and tons of restarts, and vacuum-only use. Pressure-Fed. High vac Isp, very poor SL isp, lowest TWR. Usually hypergolic. Real life examples: Apollo SPS, Shuttle OME. KSP example: LV-1
 
-U = Upper stage. At most a couple restarts. Same Vac Isp as O, better SL Isp, better TWR. Real life example: the Titan's LR-91. KSP doesn't really have any of these, they'd be somewhere between the LV-909 and the LV-T45. Given the way it's shaped, I made the Skipper one, for example.
+U = Upper stage. At most a couple restarts. Same Vac Isp as O, better SL Isp, better TWR. Real life example: the Titan's LR-91. KSP example: KR-2L Rhino.
 
-U+ = Upper stage optimized for vac use. Aka "O with a turbopump." Highest Vac Isp (higher than O). Lower TWR than U. That's what + means, higher vac, lower SL, lower TWR. Real life examples: the Centaur's RL-10. KSP doesn't have any examples, but KW's Apollo-SPS lookalike performs like one (though it is properly made type O by me, given what the real SPS was). Hydrolox is the fuel mode of choice.
+U+ = Upper stage optimized for vac use. Aka "O with a turbopump." Highest Vac Isp (higher than O). Lower TWR than U. That's what + means, higher vac, lower SL, lower TWR. Real life examples: the Centaur's RL-10. KSP examples: LV-909, Poodle.
 
-L = lower stage. No restarts. Lowest Vac Isp, highest SL Isp barring Aerospike, highest TWR. Real life examples: RD-170 and 180 on Zenit and Atlas V. KSP example: the Mainsail, obviously. (Although with its Isp unchanged, it's really an L+, so that's how I rate it.) Fuel is usually kerolox, though could be hypergolic or even hydrolox.
+L = lower stage. No restarts. Lowest Vac Isp, highest SL Isp barring Aerospike, highest TWR. Real life examples: RD-170 and 180 on Zenit and Atlas V. Fuel is usually kerolox, though could be hypergolic or even hydrolox. KSP example: the Mainsail, obviously.
 
-L+ = same changes as U+: higher IspV, lower IspSL, lower TWR. Designed for a single-stage-to-orbit stack (or at least an engine that's never staged away even if boosters are). Real life example: Space Shuttle SSME. KSP example: LV-T45. Note that in real life most rockets have large lower stages and small upper stages, so most real life lower stage engines are somewhere between L and L+, if not outright L+.
+L+ = same changes as U+: higher IspV, lower IspSL, lower TWR. Designed for a single-stage-to-orbit stack (or at least an engine that's never staged away even if boosters are). Real life example: Space Shuttle SSME. Note that in real life most rockets have large lower stages and small upper stages, so most real life lower stage engines are somewhere between L and L+, if not outright L+. KSP example: LV-T45, Skipper.
 
 A = Aerospike. Note that in real life nozzle losses are only 15% or so, and most of the efficiency loss at sea level is because there's air there, not because the nozzle is the wrong shape. For now they have the Isp of a U in vacuum, and 0.9x that at sea level. Real life examples: J-2T-250k (plug nozzle mod of the Saturn V J-2), the linear aerospike on the X-33. KSP Examples: obvious.
 
@@ -506,20 +506,21 @@ S+ = Solid for vac use, lower SL, higher Vac Isp.
 
 N = Nuclear Thermal. Approximately same ratio of IspV to IspSL as U. Uses a solid core reactor to heat reaction mass. Very low TWR, very high Isp. Real life examples: the various Project NERVA engines, RD-0410. KSP example: LV-N.
 
+NOTE: RCS uses type 'L' for the Isp and TWR multipliers; in terms of actual performance it's like O.
+
 What Isp an engine has is determind by grabbing its type, checking its tech level, and getting the appropriate entry in the TLTIsps area of RealSettings.cfg. Then any appropriate multipliers are applied (in the engine CONFIG).
 
 Engines have minimum tech levels; they aren't available before that. You can, however, upgrade past that. In fact, you are HIGHLY encouraged to upgrade any engine, after placing it in the VAB, to your maximum available TL. Engines default to the lowest TL they can.
 
 Rough TL to year table:
-TL0: 1945+, WW2 and immediate postwar
-TL1: 1955+, early Space Age rockets (Redstone, R-5, Vanguard)
-TL2: 1960+, Mercury, Vostok (Sputnik is halfway between TL1 and TL2)
-TL3: 1963+, Gemini, early Apollo stuff
-TL4: 1968+, Late Apollo
-TL5: 1973+, Apollo Applications Program, etc.
-TL6: 1980+, the Shuttle era
-Tl7: 1995+, the present day.
-
+TL0: 1945-1955, WW2 and early rocketry.
+TL1: 1957+, early Space Age rockets (straddles the divide between Redstone/Vanguard/R-5, and Atlas/R-7).
+TL2: 1962+, Gemini and Saturn I (not IB), Voskhod/Molniya.
+TL3: 1967+, Apollo
+TL4: 1968+, Apollo Applications Program, N1, etc.
+TL5: 1978+, Shuttle etc.
+TL6: 1985+, the Shuttle era, 80s and 90s LVs.
+Tl7: 2005+, the present day.
 
 =========================
 UPGRADE COSTS
