@@ -922,15 +922,14 @@ namespace RealFuels.Tanks
 
 			usedBy.Clear ();
 
-			
-            Part ppart = part;
-			while (ppart.parent != null && ppart.parent != ppart) {
-				ppart = ppart.parent;
-			}
+            // Get part list
+            List<Part> parts;
+            if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
+                parts = EditorLogic.fetch.ship.parts;
+            else if (HighLogic.LoadedSceneIsFlight && vessel != null)
+                parts = vessel.parts;
+            else parts = new List<Part>();
 
-            List<Part> parts = ppart.FindChildParts<Part>(true).ToList();
-            if (!parts.Contains(part))
-                parts.Add(part);
             FuelInfo f;
             string title;
             PartModule m;
