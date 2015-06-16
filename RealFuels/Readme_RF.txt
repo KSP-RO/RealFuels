@@ -41,6 +41,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.3.1
+* Readme update,
+* Fixed an NRE that killed loading under certain circumstances.
+* Do a better search for which engines are on a ship.
+
 v10.3
 * Added cost to unlock new configurations and new TLs for engines. Cost can be fully configured both globally and per part config, and can take from funds and/or science. See UPGRADE COSTS below.
 * Add hsp for Furfurfyl Alcohol.
