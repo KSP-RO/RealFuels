@@ -903,9 +903,11 @@ namespace RealFuels
         /// <returns></returns>
         public static bool UnlockedConfig(ConfigNode config, Part p)
         {
+            if ((object)config == null)
+                return false;
             if (!config.HasValue("name"))
                 return false;
-            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
+            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
                 return RFUpgradeManager.Instance.ConfigUnlocked((RFSettings.Instance.usePartNameInConfigUnlock ? Utilities.GetPartName(p) : "") + config.GetValue("name"));
             return true;
         }
@@ -921,7 +923,7 @@ namespace RealFuels
         }
         public static bool UnlockedTL(string tlName, int newTL)
         {
-            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
+            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
                 return RFUpgradeManager.Instance.TLUnlocked(tlName) >= newTL;
             return true;
         }
