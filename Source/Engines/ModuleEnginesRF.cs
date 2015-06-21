@@ -30,17 +30,11 @@ namespace RealFuels
         [KSPField]
         public bool usesAir = false;
 
-        [KSPField]
-        public bool pressureFed = false;
-
-        [KSPField]
-        public bool ullage = false;
-
-        [KSPField]
-        public int ignitions = -1;
 
         [KSPField]
         public double varyThrust = 1d;
+
+        
 
         #region Thrust Curve
         [KSPField]
@@ -67,6 +61,25 @@ namespace RealFuels
         protected bool instantThrottle = false;
         protected float throttleResponseRate;
         protected SolverRF rfSolver = null;
+
+        #region Ullage
+        [KSPField]
+        public Vector3 thrustAxis;
+
+        [KSPField]
+        public bool pressureFed = false;
+
+        [KSPField]
+        public bool ullage = false;
+
+        [KSPField(guiName = "Ignitions Remaining")]
+        public int ignitions = -1;
+
+        [KSPField(guiName = "Propellant Status")]
+        string propellantStatus = "Stable";
+
+        public Ullage.UllageSet ullageSet;
+        #endregion
         #endregion
 
         #region Overrides
@@ -185,6 +198,49 @@ namespace RealFuels
             // set fields
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve;
             CreateEngine();
+
+            // Get thrust axis (only on create prefabs)
+            if (part.partInfo == null || part.partInfo.partPrefab == null)
+            {
+                Debug.Log("Created thrust axis for " + part.name);
+                thrustAxis = Vector3.zero;
+                int tCount = 0;
+                foreach(Transform t in part.FindModelTransforms(thrustVectorTransformName))
+                {
+                    thrustAxis += t.forward;
+                    ++tCount;
+                }
+                thrustAxis /= (float)tCount;
+            }
+
+            // ullage
+            if (node.HasNode("Ullage"))
+            {
+                if (ullageSet == null)
+                    ullageSet = new Ullage.UllageSet(this);
+                ullageSet.Load(node.GetNode("Ullage"));
+            }
+        }
+        public override void OnSave(ConfigNode node)
+        {
+            base.OnSave(node);
+            if (ullageSet != null)
+            {
+                ConfigNode ullageNode = new ConfigNode("Ullage");
+                ullageSet.Save(ullageNode);
+                node.AddNode(ullageNode);
+            }
+        }
+        public override void Start()
+        {
+            base.Start();
+            if (ullageSet == null)
+                ullageSet = new Ullage.UllageSet(this);
+
+            Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0);
+            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || ullage);
+            
+
         }
         public override void OnStart(PartModule.StartState state)
         {

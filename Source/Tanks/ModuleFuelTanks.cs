@@ -303,7 +303,7 @@ namespace RealFuels.Tanks
 			}
 		}
         double boiloffMass = 0d;
-        public double BoiloffMass { get { return boiloffMass; } }
+        public double BoiloffMassRate { get { return boiloffMass; } }
 
 		private void CalculateTankLossFunction (double deltaTime)
 		{

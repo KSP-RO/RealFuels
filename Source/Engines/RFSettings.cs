@@ -33,6 +33,31 @@ namespace RealFuels
 
         public List<string> instantThrottleProps;
 
+        #region Ullage
+        public bool simulateUllage = true;
+        public bool shutdownEngineWhenUnstable = true;
+        public bool explodeEngineWhenTooUnstable = false;
+
+        public double naturalDiffusionRateX = 0.02d;
+        public double naturalDiffusionRateY = 0.03d;
+
+        public double translateAxialCoefficientX = 0.06d;
+        public double translateAxialCoefficientY = 0.06d;
+
+        public double translateSidewayCoefficientX = 0.04d;
+        public double translateSidewayCoefficientY = 0.02d;
+
+        public double rotateYawPitchCoefficientX = 0.003d;
+        public double rotateYawPitchCoefficientY = 0.004d;
+
+        public double rotateRollCoefficientX = 0.005d;
+        public double rotateRollCoefficientY = 0.006d;
+
+        public double ventingVelocity = 100.0d;
+        public double ventingAccThreshold = 0.00000004d;
+        #endregion
+
+        // storage
         public Dictionary<string, List<ConfigNode>> engineConfigs = null;
 
         public float EngineMassMultiplier
@@ -87,14 +112,10 @@ namespace RealFuels
                 throw new UnityException("*RF* Could not find RF global settings!");
 
             // parse values
-            if (node.HasValue("engineMassMultiplier"))
-                float.TryParse(node.GetValue("engineMassMultiplier"), out engineMassMultiplier);
-
-            if (node.HasValue("heatMultiplier"))
-                float.TryParse(node.GetValue("heatMultiplier"), out heatMultiplier);
-
-            if (node.HasValue("useRealisticMass"))
-                bool.TryParse(node.GetValue("useRealisticMass"), out useRealisticMass);
+            node.TryGetValue("engineMassMultiplier", out engineMassMultiplier);
+            node.TryGetValue("heatMultiplier", out heatMultiplier);
+            node.TryGetValue("useRealisticMass", out useRealisticMass);
+            node.TryGetValue("varyThrust", out varyThrust);
 
             if (node.HasNode("RF_TECHLEVELS"))
                 techLevels = node.GetNode("RF_TECHLEVELS");
@@ -103,27 +124,42 @@ namespace RealFuels
             if (node.HasNode("instantThrottleProps"))
                 foreach (ConfigNode.Value val in node.GetNode("instantThrottleProps").values)
                     instantThrottleProps.Add(val.value);
+            
+            // Upgrade costs
+            node.TryGetValue("configEntryCostMultiplier", out configEntryCostMultiplier);
+            node.TryGetValue("techLevelEntryCostFraction", out techLevelEntryCostFraction);
+            node.TryGetValue("configScienceCostMultiplier", out configScienceCostMultiplier);
+            node.TryGetValue("techLevelScienceEntryCostFraction", out techLevelScienceEntryCostFraction);
+            node.TryGetValue("configCostToScienceMultiplier", out configCostToScienceMultiplier);
+            node.TryGetValue("usePartNameInConfigUnlock", out usePartNameInConfigUnlock);
 
-            if (node.HasValue("configEntryCostMultiplier"))
-                double.TryParse(node.GetValue("configEntryCostMultiplier"), out configEntryCostMultiplier);
+            #region Ullage
+            if (node.HasNode("Ullage"))
+            {
+                ConfigNode n2 = node.GetNode("Ullage");
+                n2.TryGetValue("simulateUllage", ref simulateUllage);
+                n2.TryGetValue("shutdownEngineWhenUnstable", ref shutdownEngineWhenUnstable);
+                n2.TryGetValue("explodeEngineWhenTooUnstable", ref explodeEngineWhenTooUnstable);
 
-            if (node.HasValue("techLevelEntryCostFraction"))
-                double.TryParse(node.GetValue("techLevelEntryCostFraction"), out techLevelEntryCostFraction);
+                n2.TryGetValue("naturalDiffusionRateX", ref naturalDiffusionRateX);
+                n2.TryGetValue("naturalDiffusionRateY", ref naturalDiffusionRateY);
 
-            if (node.HasValue("configScienceCostMultiplier"))
-                double.TryParse(node.GetValue("configScienceCostMultiplier"), out configScienceCostMultiplier);
+                n2.TryGetValue("translateAxialCoefficientX", ref translateAxialCoefficientX);
+                n2.TryGetValue("translateAxialCoefficientY", ref translateAxialCoefficientY);
 
-            if (node.HasValue("techLevelScienceEntryCostFraction"))
-                double.TryParse(node.GetValue("techLevelScienceEntryCostFraction"), out techLevelScienceEntryCostFraction);
+                n2.TryGetValue("translateSidewayCoefficientX", ref translateSidewayCoefficientX);
+                n2.TryGetValue("translateSidewayCoefficientY", ref translateSidewayCoefficientY);
 
-            if (node.HasValue("configCostToScienceMultiplier"))
-                double.TryParse(node.GetValue("configCostToScienceMultiplier"), out configCostToScienceMultiplier);
+                n2.TryGetValue("rotateYawPitchCoefficientX", ref rotateYawPitchCoefficientX);
+                n2.TryGetValue("rotateYawPitchCoefficientY", ref rotateYawPitchCoefficientY);
 
-            if (node.HasValue("usePartNameInConfigUnlock"))
-                bool.TryParse(node.GetValue("usePartNameInConfigUnlock"), out usePartNameInConfigUnlock);
+                n2.TryGetValue("rotateRollCoefficientX", ref rotateRollCoefficientX);
+                n2.TryGetValue("rotateRollCoefficientY", ref rotateRollCoefficientY);
 
-            if (node.HasValue("varyThrust"))
-                double.TryParse(node.GetValue("varyThrust"), out varyThrust);
+                n2.TryGetValue("ventingVelocity", ref ventingVelocity);
+                n2.TryGetValue("ventingAccThreshold", ref ventingAccThreshold);
+            }
+            #endregion
         }
     }
 

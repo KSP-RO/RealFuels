@@ -2,40 +2,61 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using UnityEngine;
 
 namespace RealFuels.Ullage
 {
-    public class UllageSet
+    public class UllageSet : IConfigNode
     {
-        List<ModuleEnginesRF> engines;
+        #region Fields
+        ModuleEnginesRF engine;
         List<Part> tanks;
         Dictionary<Part, Tanks.ModuleFuelTanks> rfTanks;
 
         UllageSimulator ullageSim;
+        UllageModule module;
 
-        Vector3d centerOfMass, position, acceleration, velocity, angularVelocity;
+        Vector3d acceleration, velocity, angularVelocity;
 
         bool pressureFed = false;
-        bool tankHighlyPressurized = false;
+        bool tanksHighlyPressurized = false;
         bool ullageEnabled = true;
+        QuaternionD rotationFromPart = QuaternionD.identity;
+        #endregion
 
-        public UllageSet(UllageManager manager, ModuleEnginesRF engine)
+        #region Setup
+        public UllageSet(ModuleEnginesRF eng)
         {
+            engine = eng;
             ullageSim = new UllageSimulator();
-            tanks = new List<Part>();
-            rfTanks = new Dictionary<Part, Tanks.ModuleFuelTanks>();
+            if (engine.vessel != null)
+                module = engine.vessel.GetComponent<UllageModule>();
+            else
+                module = null;
 
+            // set engine fields
             pressureFed = engine.pressureFed;
             ullageEnabled = engine.ullage;
+            
+            // create orientaiton
+            if (engine.thrustAxis != Vector3.zero)
+                rotationFromPart = QuaternionD.FromToRotation(engine.thrustAxis, Vector3.up);
 
+            SetTanks(); // fill tank lists, find pressurization, etc.
+        }
+
+        public void SetTanks()
+        {
             // set tanks
-            tankHighlyPressurized = true; // will be set false if any propellant has no highly-pres tank feeding it
-            bool foundPTank = false;
-            for(int i = engine.propellants.Count - 1; i >= 0; --i)
+            tanks = new List<Part>();
+            rfTanks = new Dictionary<Part, Tanks.ModuleFuelTanks>();
+            tanksHighlyPressurized = true; // will be set false if any propellant has no highly-pres tank feeding it
+
+            for (int i = engine.propellants.Count - 1; i >= 0; --i)
             {
                 Propellant p = engine.propellants[i];
                 bool noPresTank = true;
-                for(int j = p.connectedResources.Count - 1; j >= 0; --j)
+                for (int j = p.connectedResources.Count - 1; j >= 0; --j)
                 {
                     PartResource r = p.connectedResources[j];
                     Part part = r.part;
@@ -43,7 +64,7 @@ namespace RealFuels.Ullage
                     if (!tanks.Contains(part))
                     {
                         tanks.Add(part);
-                        for(int k = part.Modules.Count - 1; k >= 0; --k)
+                        for (int k = part.Modules.Count - 1; k >= 0; --k)
                         {
                             PartModule m = part.Modules[k];
                             if (m is Tanks.ModuleFuelTanks)
@@ -59,54 +80,48 @@ namespace RealFuels.Ullage
                     }
                     if (tank != null)
                     {
-                        bool pressurized = tank.pressurizedFuels[r.resourceName];
-                        noPresTank &= !pressurized; // stay true only if pressurized always false
+                        // noPresTank will stay true only if no pressurized tank found.
+                        noPresTank &= !tank.pressurizedFuels[r.resourceName];
                     }
                 }
-                tankHighlyPressurized &= !noPresTank; // i.e. if no tank, set false.
+                tanksHighlyPressurized &= !noPresTank; // i.e. if no tank, set false.
             }
         }
-        public bool AddEngine(ModuleEnginesRF engine)
-        {
-            if (engines.Count == 0)
-                return false;
-            if (engine.pressureFed != pressureFed)
-                return false;
+        #endregion
 
-            List<Part> tankList = new List<Part>();
-            for (int i = engine.propellants.Count - 1; i >= 0; --i)
+        #region Load/Save
+        public void Load(ConfigNode node)
+        {
+            if (node.HasNode("UllageSim"))
+                ullageSim.Load(node.GetNode("UllageSim"));
+        }
+        public void Save(ConfigNode node)
+        {
+            if (ullageSim != null)
             {
-                Propellant p = engine.propellants[i];
-                for (int j = p.connectedResources.Count - 1; j >= 0; --j)
-                {
-                    PartResource r = p.connectedResources[j];
-                    Part part = r.part;
-                    if (!tankList.Contains(part))
-                        tankList.Add(part);
-                    if (!tanks.Contains(part))
-                        return false;
-                }
+                ConfigNode simNode = new ConfigNode("UllageSim");
+                ullageSim.Save(simNode);
+                node.AddNode(simNode);
             }
-            if (tankList.Count != tanks.Count)
-                return false;
-
-            engines.Add(engine);
-            return true;
         }
-        public void Update(Vector3d pos, Vector3d acc, Vector3d vel, Vector3d angVel, double timeDelta, double ventingAcc)
+        #endregion
+
+        #region Interface
+        public void Update(Vector3 acc, Vector3 angVel, double timeDelta, double ventingAcc)
         {
-            position = pos;
-            velocity = vel;
-            acceleration = acc;
-            angularVelocity = angVel;
+            acceleration = rotationFromPart * engine.transform.InverseTransformDirection(acc);
+            acceleration.y += ventingAcc;
+
+            angularVelocity = rotationFromPart * engine.transform.InverseTransformDirection(angVel);
+
             double fuelRatio = 1d;
             if(HighLogic.LoadedSceneIsFlight)
             {
-                int pCount = engines[0].propellants.Count;
+                int pCount = engine.propellants.Count;
                 double sumRatio = 0d;
                 for(int i = pCount - 1; i >= 0; --i)
                 {
-                    Propellant p = engines[0].propellants[i];
+                    Propellant p = engine.propellants[i];
                     sumRatio += p.totalResourceAvailable / p.totalResourceCapacity;
                 }
                 sumRatio /= (double)pCount;
@@ -114,6 +129,15 @@ namespace RealFuels.Ullage
             }
             if(ullageEnabled)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
+
+            if (pressureFed && !tanksHighlyPressurized)
+            {
+                engine.Flameout("Pressure too low!");
+            }
+            else if (ullageSim.GetFuelFlowStability() < 0.95d)
+            {
+                engine.Flameout("Vapor in feedlines!");
+            }
         }
         public string GetUllageState()
         {
@@ -125,33 +149,8 @@ namespace RealFuels.Ullage
         }
         public bool PressureOK()
         {
-            return pressureFed ? tankHighlyPressurized : true;
+            return pressureFed ? tanksHighlyPressurized : true;
         }
-        /*public void UpdateCoM()
-        {
-            if(tanks.Count == 0 || !HighLogic.LoadedSceneIsFlight)
-                return;
-
-            Vector3d com, ang, vel;
-            com = vel = ang = Vector3d.zero;
-            double mass = 0d;
-            for (int i = tanks.Count - 1; i >= 0; --i)
-            {
-                Part part = tanks[i];
-                if (part.rb != null)
-                {
-                    double pMass = part.rb.mass;
-                    com += (Vector3d)part.rb.worldCenterOfMass * pMass;
-                    
-                    mass += pMass;
-                }
-            }
-            if (mass > 0)
-            {
-                centerOfMass = com / mass;
-            }
-            else
-                centerOfMass = tanks[0].rigidbody.worldCenterOfMass;
-        }*/
+        #endregion
     }
 }
