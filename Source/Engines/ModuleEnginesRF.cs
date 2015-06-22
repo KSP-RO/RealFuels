@@ -75,12 +75,13 @@ namespace RealFuels
         [KSPField(guiName = "Ignitions Remaining")]
         public int ignitions = -1;
 
-        [KSPField(guiName = "Propellant Status")]
+        [KSPField(guiName = "Propellant")]
         string propellantStatus = "Stable";
 
         public Ullage.UllageSet ullageSet;
         protected bool oldIgnitionState = false;
         protected bool propellantsOK = true;
+        protected List<ModuleResource> ignitionResources;
         #endregion
         #endregion
 
@@ -139,6 +140,8 @@ namespace RealFuels
             base.OnAwake();
             if (thrustCurve == null)
                 thrustCurve = new FloatCurve();
+            if (ignitionResources == null)
+                ignitionResources = new List<ModuleResource>();
         }
         public override void OnLoad(ConfigNode node)
         {
@@ -222,6 +225,10 @@ namespace RealFuels
                     ullageSet = new Ullage.UllageSet(this);
                 ullageSet.Load(node.GetNode("Ullage"));
             }
+            if (node.HasNode("IgnitionResources"))
+            {
+                // do later.
+            }
         }
         public override void OnSave(ConfigNode node)
         {
@@ -249,6 +256,22 @@ namespace RealFuels
             base.OnStart(state);
             
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve && state != StartState.Editor;
+        }
+        public override void FixedUpdate()
+        {
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                if (ullageSet != null && pressureFed)
+                {
+                    if (ullageSet.PressureOK())
+                        propellantStatus = "Feed pressure OK";
+                    else
+                        propellantStatus = "Feed pressure too low";
+                }
+                else
+                    propellantStatus = "OK";
+            }
+            base.FixedUpdate();
         }
         public override void UpdateThrottle()
         {
@@ -306,75 +329,72 @@ namespace RealFuels
                 oldIgnitionState = false;
 
             // handle ignition
-            if (EngineIgnited && throttledUp)
+            if (HighLogic.LoadedSceneIsFlight)
             {
-                if (!oldIgnitionState && propellantsOK)
+                if (EngineIgnited && throttledUp)
                 {
-                    if (ignitions == 0)
+                    if (!oldIgnitionState && propellantsOK)
                     {
-                        EngineIgnited = false; // don't play shutdown FX, just fail.
-                    }
-                    else
-                    {
-                        if (ignitions > 0)
-                            ignitions--;
+                        if (ignitions == 0)
+                        {
+                            EngineIgnited = false; // don't play shutdown FX, just fail.
+                        }
+                        else
+                        {
+                            if (ignitions > 0)
+                                ignitions--;
 
-                        PlayEngageFX();    
-                    }   
-                }
-            }
-            else
-                propellantsOK = true; // reset
-
-            // Ullage
-            bool ullageOK = true;
-            bool pressureOK = ullageSet.PressureOK();
-
-            if (ullage)
-            {
-                propellantStatus = ullageSet.GetUllageState();
-                if (EngineIgnited && propellantsOK && throttledUp)
-                {
-                    double state = ullageSet.GetUllageStability();
-                    double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
-                    if (UnityEngine.Random.value > testValue)
-                    {
-                        FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " had vapor in its feed line and shut down.");
-                        ullageOK = false;
-                    }
-                }
-            }
-            if(pressureFed)
-            {
-                if (!pressureOK)
-                {
-                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
-                }
-                else if (!HighLogic.LoadedSceneIsFlight) // ullage always ok in editor, so safe to override
-                    propellantStatus = "Feed pressure OK";
-            }
-            rfSolver.SetPropellantStatus(pressureOK, ullageOK);
-            oldIgnitionState = throttledUp && EngineIgnited && pressureOK && ullageOK; // if one fails, we're not ignited anymore
-            propellantsOK &= pressureOK && ullageOK; // set false once we're not ignited, but don't set true.
-
-            // do thrust curve
-            if (oldIgnitionState && useThrustCurve && HighLogic.LoadedSceneIsFlight)
-            {
-                thrustCurveRatio = (float)((propellants[curveProp].totalResourceAvailable / propellants[curveProp].totalResourceCapacity));
-                if (thrustCurveUseTime)
-                {
-                    thrustCurveDisplay = thrustCurve.Evaluate(curveTime);
-                    if (EngineIgnited)
-                    {
-                        curveTime += TimeWarp.fixedDeltaTime;
+                            PlayEngageFX();
+                        }
                     }
                 }
                 else
+                    propellantsOK = true; // reset
+
+                // Ullage
+                bool ullageOK = true;
+                bool pressureOK = ullageSet.PressureOK();
+
+                if (ullage)
                 {
-                    thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
+                    propellantStatus = ullageSet.GetUllageState();
+                    if (EngineIgnited && propellantsOK && throttledUp)
+                    {
+                        double state = ullageSet.GetUllageStability();
+                        double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
+                        if (UnityEngine.Random.value > testValue)
+                        {
+                            FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " had vapor in its feed line and shut down.");
+                            ullageOK = false;
+                        }
+                    }
                 }
-                rfSolver.UpdateThrustRatio(thrustCurveDisplay);
-                thrustCurveDisplay *= 100f;
+                if (pressureFed && !pressureOK)
+                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
+
+                rfSolver.SetPropellantStatus(pressureOK, ullageOK);
+                oldIgnitionState = throttledUp && EngineIgnited && pressureOK && ullageOK; // if one fails, we're not ignited anymore
+                propellantsOK &= pressureOK && ullageOK; // set false once we're not ignited, but don't set true.
+
+                // do thrust curve
+                if (oldIgnitionState && useThrustCurve)
+                {
+                    thrustCurveRatio = (float)((propellants[curveProp].totalResourceAvailable / propellants[curveProp].totalResourceCapacity));
+                    if (thrustCurveUseTime)
+                    {
+                        thrustCurveDisplay = thrustCurve.Evaluate(curveTime);
+                        if (EngineIgnited)
+                        {
+                            curveTime += TimeWarp.fixedDeltaTime;
+                        }
+                    }
+                    else
+                    {
+                        thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
+                    }
+                    rfSolver.UpdateThrustRatio(thrustCurveDisplay);
+                    thrustCurveDisplay *= 100f;
+                }
             }
 
             // Set part temp
@@ -383,13 +403,8 @@ namespace RealFuels
             // do heat
             heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
-            // Manually run base method code
-            // In flight, these are the same and this will just return
-            this.ambientTherm.CopyFrom(ambientTherm);
-
-            engineSolver.SetEngineState(EngineIgnited, lastPropellantFraction);
-            engineSolver.SetFreestreamAndInlet(ambientTherm, inletTherm, altitude, mach, vel, oxygen);
-            engineSolver.CalculatePerformance(areaRatio, currentThrottle, flowMult, ispMult);
+            // run base method code
+            base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
         }
         #endregion
 
