@@ -21,7 +21,7 @@ namespace RealFuels.Ullage
         bool pressureFed = false;
         bool tanksHighlyPressurized = false;
         bool ullageEnabled = true;
-        QuaternionD rotationFromPart = QuaternionD.identity;
+        Quaternion rotationFromPart = Quaternion.identity;
         #endregion
 
         #region Setup
@@ -40,7 +40,7 @@ namespace RealFuels.Ullage
             
             // create orientaiton
             if (engine.thrustAxis != Vector3.zero)
-                rotationFromPart = QuaternionD.FromToRotation(engine.thrustAxis, Vector3.up);
+                rotationFromPart = Quaternion.FromToRotation(engine.thrustAxis, Vector3.up);
 
             SetTanks(); // fill tank lists, find pressurization, etc.
         }
