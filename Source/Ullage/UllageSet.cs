@@ -34,6 +34,9 @@ namespace RealFuels.Ullage
             else
                 module = null;
 
+            tanks = new List<Part>();
+            rfTanks = new Dictionary<Part, Tanks.ModuleFuelTanks>();
+
             // set engine fields
             pressureFed = engine.pressureFed;
             ullageEnabled = engine.ullage;
@@ -47,14 +50,17 @@ namespace RealFuels.Ullage
 
         public void SetTanks()
         {
-            // set tanks
-            tanks = new List<Part>();
-            rfTanks = new Dictionary<Part, Tanks.ModuleFuelTanks>();
+            tanks.Clear();
+            rfTanks.Clear();
+
             tanksHighlyPressurized = true; // will be set false if any propellant has no highly-pres tank feeding it
 
+            // iterate through all propellants.
             for (int i = engine.propellants.Count - 1; i >= 0; --i)
             {
                 Propellant p = engine.propellants[i];
+                p.UpdateConnectedResources(engine.part);
+
                 bool noPresTank = true;
                 for (int j = p.connectedResources.Count - 1; j >= 0; --j)
                 {
@@ -81,7 +87,10 @@ namespace RealFuels.Ullage
                     if (tank != null)
                     {
                         // noPresTank will stay true only if no pressurized tank found.
-                        noPresTank &= !tank.pressurizedFuels[r.resourceName];
+                        bool resourcePres;
+                        tank.pressurizedFuels.TryGetValue(r.resourceName, out resourcePres);
+                        resourcePres |= tank.highlyPressurized;
+                        noPresTank &= !resourcePres;
                     }
                 }
                 tanksHighlyPressurized &= !noPresTank; // i.e. if no tank, set false.
@@ -112,7 +121,10 @@ namespace RealFuels.Ullage
             acceleration = rotationFromPart * engine.transform.InverseTransformDirection(acc);
             acceleration.y += ventingAcc;
 
-            angularVelocity = rotationFromPart * engine.transform.InverseTransformDirection(angVel);
+            if (engine.part.rb != null)
+                angularVelocity = engine.transform.InverseTransformDirection(engine.part.rb.angularVelocity);
+            else
+                angularVelocity = engine.transform.InverseTransformDirection(angVel);
 
             double fuelRatio = 1d;
             if(HighLogic.LoadedSceneIsFlight)
@@ -141,6 +153,13 @@ namespace RealFuels.Ullage
         public bool PressureOK()
         {
             return pressureFed ? tanksHighlyPressurized : true;
+        }
+        public bool EditorPressurized()
+        {
+
+            SetTanks();
+
+            return tanksHighlyPressurized;
         }
         #endregion
     }
