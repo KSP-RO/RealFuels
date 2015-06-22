@@ -37,7 +37,7 @@ namespace RealFuels.Ullage
 
         public void Update(Vector3d localAcceleration, Vector3d rotation, double deltaTime, double ventingAcc, double fuelRatio)
         {
-            double fuelRatioFactor = (0.5d + fuelRatio) * (1d/ 1.4d);
+            double fuelRatioFactor = (0.5d + fuelRatio) * (1d / 1.4d);
             double fuelRatioFactorRecip = 1.0d / fuelRatioFactor;
 
             //if (ventingAcc != 0.0f) Debug.Log("BoilOffAcc: " + ventingAcc.ToString("F8"));

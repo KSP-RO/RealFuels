@@ -82,6 +82,7 @@ namespace RealFuels
         protected bool oldIgnitionState = false;
         protected bool propellantsOK = true;
         protected List<ModuleResource> ignitionResources;
+        ScreenMessage igniteFail;
         #endregion
         #endregion
 
@@ -248,8 +249,8 @@ namespace RealFuels
 
             Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0);
             Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || ullage);
-            
 
+            igniteFail = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!", 5f, ScreenMessageStyle.UPPER_CENTER);
         }
         public override void OnStart(PartModule.StartState state)
         {
@@ -338,6 +339,7 @@ namespace RealFuels
                         if (ignitions == 0)
                         {
                             EngineIgnited = false; // don't play shutdown FX, just fail.
+                            ScreenMessages.PostScreenMessage(igniteFail);
                         }
                         else
                         {
