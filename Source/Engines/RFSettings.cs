@@ -37,6 +37,7 @@ namespace RealFuels
         public bool simulateUllage = true;
         public bool shutdownEngineWhenUnstable = true;
         public bool explodeEngineWhenTooUnstable = false;
+        public double stabilityPower = 0.03d;
 
         public double naturalDiffusionRateX = 0.02d;
         public double naturalDiffusionRateY = 0.03d;
@@ -136,28 +137,30 @@ namespace RealFuels
             #region Ullage
             if (node.HasNode("Ullage"))
             {
-                ConfigNode n2 = node.GetNode("Ullage");
-                n2.TryGetValue("simulateUllage", ref simulateUllage);
-                n2.TryGetValue("shutdownEngineWhenUnstable", ref shutdownEngineWhenUnstable);
-                n2.TryGetValue("explodeEngineWhenTooUnstable", ref explodeEngineWhenTooUnstable);
+                ConfigNode ullageNode = node.GetNode("Ullage");
 
-                n2.TryGetValue("naturalDiffusionRateX", ref naturalDiffusionRateX);
-                n2.TryGetValue("naturalDiffusionRateY", ref naturalDiffusionRateY);
+                ullageNode.TryGetValue("simulateUllage", ref simulateUllage);
+                ullageNode.TryGetValue("shutdownEngineWhenUnstable", ref shutdownEngineWhenUnstable);
+                ullageNode.TryGetValue("explodeEngineWhenTooUnstable", ref explodeEngineWhenTooUnstable);
+                ullageNode.TryGetValue("stabilityPower", ref stabilityPower);
 
-                n2.TryGetValue("translateAxialCoefficientX", ref translateAxialCoefficientX);
-                n2.TryGetValue("translateAxialCoefficientY", ref translateAxialCoefficientY);
+                ullageNode.TryGetValue("naturalDiffusionRateX", ref naturalDiffusionRateX);
+                ullageNode.TryGetValue("naturalDiffusionRateY", ref naturalDiffusionRateY);
 
-                n2.TryGetValue("translateSidewayCoefficientX", ref translateSidewayCoefficientX);
-                n2.TryGetValue("translateSidewayCoefficientY", ref translateSidewayCoefficientY);
+                ullageNode.TryGetValue("translateAxialCoefficientX", ref translateAxialCoefficientX);
+                ullageNode.TryGetValue("translateAxialCoefficientY", ref translateAxialCoefficientY);
 
-                n2.TryGetValue("rotateYawPitchCoefficientX", ref rotateYawPitchCoefficientX);
-                n2.TryGetValue("rotateYawPitchCoefficientY", ref rotateYawPitchCoefficientY);
+                ullageNode.TryGetValue("translateSidewayCoefficientX", ref translateSidewayCoefficientX);
+                ullageNode.TryGetValue("translateSidewayCoefficientY", ref translateSidewayCoefficientY);
 
-                n2.TryGetValue("rotateRollCoefficientX", ref rotateRollCoefficientX);
-                n2.TryGetValue("rotateRollCoefficientY", ref rotateRollCoefficientY);
+                ullageNode.TryGetValue("rotateYawPitchCoefficientX", ref rotateYawPitchCoefficientX);
+                ullageNode.TryGetValue("rotateYawPitchCoefficientY", ref rotateYawPitchCoefficientY);
 
-                n2.TryGetValue("ventingVelocity", ref ventingVelocity);
-                n2.TryGetValue("ventingAccThreshold", ref ventingAccThreshold);
+                ullageNode.TryGetValue("rotateRollCoefficientX", ref rotateRollCoefficientX);
+                ullageNode.TryGetValue("rotateRollCoefficientY", ref rotateRollCoefficientY);
+
+                ullageNode.TryGetValue("ventingVelocity", ref ventingVelocity);
+                ullageNode.TryGetValue("ventingAccThreshold", ref ventingAccThreshold);
             }
             #endregion
         }

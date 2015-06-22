@@ -16,6 +16,7 @@ namespace RealFuels
         private bool multFlow;
         private bool combusting = true;
         private double varyThrust = 0d;
+        private bool pressure = true, ullage = true;
 
         private float seed = 0f;
 
@@ -93,6 +94,12 @@ namespace RealFuels
             partTemperature = tmp;
         }
 
+        public void SetPropellantStatus(bool pressureOK, bool ullageOK)
+        {
+            pressure = pressureOK;
+            ullage = ullageOK;
+        }
+
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
         {
             // set base bits
@@ -105,10 +112,25 @@ namespace RealFuels
             // if we're not combusting, don't combust and start cooling off
             combusting = running;
             statusString = "Nominal";
+
+            // ullage check first, overwrite if bad pressure or no propellants
+            if (!ullage)
+            {
+                combusting = false;
+                statusString = "Vapor in feed line";
+            }
+            
+            // check fuel flow fraction
             if (ffFraction <= 0d)
             {
                 combusting = false;
                 statusString = "No propellants";
+            }
+            // check pressure
+            if (!pressure)
+            {
+                combusting = false;
+                statusString = "Lack of pressure";
             }
 
             // check flow mult

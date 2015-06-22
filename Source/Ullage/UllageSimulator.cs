@@ -11,7 +11,8 @@ namespace RealFuels.Ullage
         double ullageHeightMin, ullageHeightMax;
         double ullageRadialMin, ullageRadialMax;
 
-        string fuelFlowState = "";
+        double propellantStability = 1d;
+        string propellantStatus = "";
 
         public void Load(ConfigNode node)
         {
@@ -93,10 +94,7 @@ namespace RealFuels.Ullage
             ullageRadialMax = UtilMath.Clamp(ullageRadialMax - Math.Abs(rotation.y) * RFSettings.Instance.rotateRollCoefficientX * fuelRatioFactor, 0.1d, 1.0d);
 
             //Debug.Log("Ullage: Height: (" + ullageHeightMin.ToString("F2") + " - " + ullageHeightMax.ToString("F2") + ") Radius: (" + ullageRadialMin.ToString("F2") + " - " + ullageRadialMax.ToString("F2") + ")");
-        }
 
-        public double GetFuelFlowStability(double fuelRatio = 0.9d)
-        {
             double bLevel = UtilMath.Clamp((ullageHeightMax - ullageHeightMin) * (ullageRadialMax - ullageRadialMin) * 10d * UtilMath.Clamp(8.2d - 8d * fuelRatio, 0.0d, 8.2d) - 1.0d, 0.0d, 15.0d);
             //Debug.Log("Ullage: bLevel: " + bLevel.ToString("F3"));
 
@@ -110,27 +108,30 @@ namespace RealFuels.Ullage
             pHorizontal = UtilMath.Clamp01(pHorizontal);
             //Debug.Log("Ullage: pHorizontal: " + pHorizontal.ToString("F3"));
 
-            double successProbability = Math.Max(0.0d, 1.0d - (pVertical * pHorizontal * (0.75d + Math.Sqrt(bLevel))));
+            propellantStability = Math.Max(0.0d, 1.0d - (pVertical * pHorizontal * (0.75d + Math.Sqrt(bLevel))));
 
-            if (successProbability >= 0.996d)
-                fuelFlowState = "Very Stable";
-            else if (successProbability >= 0.95d)
-                fuelFlowState = "Stable";
-            else if (successProbability >= 0.75d)
-                fuelFlowState = "Risky";
-            else if (successProbability >= 0.50d)
-                fuelFlowState = "Very Risky";
-            else if (successProbability >= 0.30d)
-                fuelFlowState = "Unstable";
+            if (propellantStability >= 0.996d)
+                propellantStatus = "Very Stable";
+            else if (propellantStability >= 0.95d)
+                propellantStatus = "Stable";
+            else if (propellantStability >= 0.75d)
+                propellantStatus = "Risky";
+            else if (propellantStability >= 0.50d)
+                propellantStatus = "Very Risky";
+            else if (propellantStability >= 0.30d)
+                propellantStatus = "Unstable";
             else
-                fuelFlowState = "Very Unstable";
-
-            return successProbability;
+                propellantStatus = "Very Unstable";
         }
 
-        public string GetFuelFlowState()
+        public double GetPropellantStability()
         {
-            return fuelFlowState;
+            return propellantStability;
+        }
+
+        public string GetPropellantStatus()
+        {
+            return propellantStatus;
         }
 
     }

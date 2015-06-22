@@ -16,7 +16,7 @@ namespace RealFuels.Ullage
         UllageSimulator ullageSim;
         UllageModule module;
 
-        Vector3d acceleration, velocity, angularVelocity;
+        Vector3d acceleration, angularVelocity;
 
         bool pressureFed = false;
         bool tanksHighlyPressurized = false;
@@ -118,34 +118,25 @@ namespace RealFuels.Ullage
             if(HighLogic.LoadedSceneIsFlight)
             {
                 int pCount = engine.propellants.Count;
-                double sumRatio = 0d;
+                fuelRatio = 0d;
                 for(int i = pCount - 1; i >= 0; --i)
                 {
                     Propellant p = engine.propellants[i];
-                    sumRatio += p.totalResourceAvailable / p.totalResourceCapacity;
+                    fuelRatio += p.totalResourceAvailable / p.totalResourceCapacity;
                 }
-                sumRatio /= (double)pCount;
+                fuelRatio /= (double)pCount;
                 // do pressure-fed tests?
             }
             if(ullageEnabled)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
-
-            if (pressureFed && !tanksHighlyPressurized)
-            {
-                engine.Flameout("Pressure too low!");
-            }
-            else if (ullageSim.GetFuelFlowStability() < 0.95d)
-            {
-                engine.Flameout("Vapor in feedlines!");
-            }
         }
         public string GetUllageState()
         {
-            return ullageSim.GetFuelFlowState();
+            return ullageSim.GetPropellantStatus();
         }
         public double GetUllageStability()
         {
-            return ullageSim.GetFuelFlowStability();
+            return ullageSim.GetPropellantStability();
         }
         public bool PressureOK()
         {

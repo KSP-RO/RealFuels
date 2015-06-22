@@ -79,6 +79,8 @@ namespace RealFuels
         string propellantStatus = "Stable";
 
         public Ullage.UllageSet ullageSet;
+        protected bool oldIgnitionState = false;
+        protected bool propellantsOK = true;
         #endregion
         #endregion
 
@@ -275,10 +277,88 @@ namespace RealFuels
             }
             actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
         }
+        
+        // from SolverEngines but we don't play FX here.
+        [KSPEvent(guiActive = true, guiName = "Activate Engine")]
+        public override void Activate()
+        {
+            if (!allowRestart && engineShutdown)
+            {
+                return; // If the engines were shutdown previously and restarting is not allowed, prevent restart of engines
+            }
+            if (noShieldedStart && part.ShieldedFromAirstream)
+            {
+                ScreenMessages.PostScreenMessage("<color=orange>[" + part.partInfo.title + "]: Cannot activate while stowed!</color>", 6f, ScreenMessageStyle.UPPER_LEFT);
+                return;
+            }
+
+            EngineIgnited = true;
+            if (allowShutdown) Events["Shutdown"].active = true;
+            else Events["Shutdown"].active = false;
+            Events["Activate"].active = false;
+        }
         public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
+            bool throttledUp = false;
+            if (currentThrottle > 0f)
+                throttledUp = true;
+            else
+                oldIgnitionState = false;
+
+            // handle ignition
+            if (EngineIgnited && throttledUp)
+            {
+                if (!oldIgnitionState && propellantsOK)
+                {
+                    if (ignitions == 0)
+                    {
+                        EngineIgnited = false; // don't play shutdown FX, just fail.
+                    }
+                    else
+                    {
+                        if (ignitions > 0)
+                            ignitions--;
+
+                        PlayEngageFX();    
+                    }   
+                }
+            }
+            else
+                propellantsOK = true; // reset
+
+            // Ullage
+            bool ullageOK = true;
+            bool pressureOK = ullageSet.PressureOK();
+
+            if (ullage)
+            {
+                propellantStatus = ullageSet.GetUllageState();
+                if (EngineIgnited && propellantsOK && throttledUp)
+                {
+                    double state = ullageSet.GetUllageStability();
+                    double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
+                    if (UnityEngine.Random.value > testValue)
+                    {
+                        FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " had vapor in its feed line and shut down.");
+                        ullageOK = false;
+                    }
+                }
+            }
+            if(pressureFed)
+            {
+                if (!pressureOK)
+                {
+                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
+                }
+                else if (!HighLogic.LoadedSceneIsFlight) // ullage always ok in editor, so safe to override
+                    propellantStatus = "Feed pressure OK";
+            }
+            rfSolver.SetPropellantStatus(pressureOK, ullageOK);
+            oldIgnitionState = throttledUp && EngineIgnited && pressureOK && ullageOK; // if one fails, we're not ignited anymore
+            propellantsOK &= pressureOK && ullageOK; // set false once we're not ignited, but don't set true.
+
             // do thrust curve
-            if (useThrustCurve && HighLogic.LoadedSceneIsFlight)
+            if (oldIgnitionState && useThrustCurve && HighLogic.LoadedSceneIsFlight)
             {
                 thrustCurveRatio = (float)((propellants[curveProp].totalResourceAvailable / propellants[curveProp].totalResourceCapacity));
                 if (thrustCurveUseTime)
@@ -303,8 +383,13 @@ namespace RealFuels
             // do heat
             heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
-            // run base method
-            base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+            // Manually run base method code
+            // In flight, these are the same and this will just return
+            this.ambientTherm.CopyFrom(ambientTherm);
+
+            engineSolver.SetEngineState(EngineIgnited, lastPropellantFraction);
+            engineSolver.SetFreestreamAndInlet(ambientTherm, inletTherm, altitude, mach, vel, oxygen);
+            engineSolver.CalculatePerformance(areaRatio, currentThrottle, flowMult, ispMult);
         }
         #endregion
 

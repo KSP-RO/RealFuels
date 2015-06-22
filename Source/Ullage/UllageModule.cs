@@ -19,13 +19,26 @@ namespace RealFuels.Ullage
         {
             vessel = GetComponent<Vessel>();
             ullageSets = new List<UllageSet>();
+            tanks = new List<Tanks.ModuleFuelTanks>();
+            partCount = vessel.parts.Count;
             Reset();
         }
 
         public void FixedUpdate()
         {
             if (vessel == null)
+            {
+                partCount = -1;
                 return;
+            }
+
+            int newPartCount = vessel.Parts.Count;
+            if (newPartCount != partCount)
+            {
+                partCount = newPartCount;
+                Reset();
+            }
+
             Vector3 accel;
             Vector3 angVel;
             if (TimeWarp.WarpMode == TimeWarp.Modes.HIGH && TimeWarp.CurrentRate > TimeWarp.MaxPhysicsRate)
@@ -74,8 +87,9 @@ namespace RealFuels.Ullage
         public void Reset()
         {
             ullageSets.Clear();
+            tanks.Clear();
 
-            for (int i = vessel.Parts.Count - 1; i >= 0; --i)
+            for (int i = partCount - 1; i >= 0; --i)
             {
                 Part part = vessel.Parts[i];
                 for (int j = part.Modules.Count - 1; j >= 0; --j)
