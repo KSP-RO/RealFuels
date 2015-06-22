@@ -441,7 +441,7 @@ namespace RealFuels
             lastPropellantFraction = 1d;
             bool oldE = EngineIgnited;
             EngineIgnited = true;
-            rfSolver.UpdateThrustRatio(0.97d);
+            rfSolver.UpdateThrustRatio(1d);
 
             UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
