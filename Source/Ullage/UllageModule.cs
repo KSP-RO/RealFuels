@@ -18,9 +18,12 @@ namespace RealFuels.Ullage
         public void Start()
         {
             vessel = GetComponent<Vessel>();
+            
             ullageSets = new List<UllageSet>();
             tanks = new List<Tanks.ModuleFuelTanks>();
+            
             partCount = vessel.parts.Count;
+
             Reset();
         }
 
@@ -52,9 +55,10 @@ namespace RealFuels.Ullage
             }
             else
             {
-                accel = (Vector3)(vessel.acceleration - FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D()));
+                accel = (Vector3)(vessel.perturbation);
                 angVel = vessel.angularVelocity;
             }
+
 
             // get boiloff accel
             double massRate = 0d;
@@ -74,7 +78,7 @@ namespace RealFuels.Ullage
                     if (p.rb != null)
                         vesselMass += p.rb.mass;
                 }
-                ventingAcceleration = massRate / vesselMass * RFSettings.Instance.ventingVelocity;
+                ventingAcceleration = RFSettings.Instance.ventingVelocity * massRate / vesselMass;
             }
 
             // Update ullage sims
@@ -107,6 +111,8 @@ namespace RealFuels.Ullage
                         
                         if (engine.ullageSet == null) // just in case
                             engine.ullageSet = new UllageSet(engine);
+                        else
+                            engine.ullageSet.SetTanks();
 
                         ullageSets.Add(engine.ullageSet);
                     }
