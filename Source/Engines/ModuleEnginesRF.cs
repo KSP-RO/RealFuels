@@ -212,7 +212,7 @@ namespace RealFuels
                 int tCount = 0;
                 foreach(Transform t in part.FindModelTransforms(thrustVectorTransformName))
                 {
-                    thrustAxis += t.forward;
+                    thrustAxis -= t.forward;
                     ++tCount;
                 }
                 thrustAxis /= (float)tCount;
@@ -263,7 +263,7 @@ namespace RealFuels
             {
                 if (ullageSet != null && pressureFed)
                 {
-                    if (ullageSet.PressureOK())
+                    if (ullageSet.EditorPressurized()) // we need to recheck each frame. Expensive, but short of messages....
                         propellantStatus = "Feed pressure OK";
                     else
                         propellantStatus = "Feed pressure too low";
