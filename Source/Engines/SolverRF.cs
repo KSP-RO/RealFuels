@@ -17,6 +17,7 @@ namespace RealFuels
         private bool combusting = true;
         private double varyThrust = 0d;
         private bool pressure = true, ullage = true, ignited = false;
+        private double scale = 1d; // scale for tweakscale
 
         private float seed = 0f;
 
@@ -100,6 +101,10 @@ namespace RealFuels
             ullage = ullageOK;
             ignited = nIgnited;
         }
+        public void SetScale(double newScale)
+        {
+            scale = newScale;
+        }
 
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
         {
@@ -153,7 +158,7 @@ namespace RealFuels
             {
 
                 // get current flow, and thus thrust.
-                fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
+                fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 
                 if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
                     fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);

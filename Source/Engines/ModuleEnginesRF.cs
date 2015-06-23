@@ -57,6 +57,11 @@ namespace RealFuels
         public float curveTime = 0f;
         #endregion
 
+        #region TweakScale
+        protected double scale = 1d;
+        protected double scaleRecip = 1d;
+        #endregion
+
 
         protected bool instantThrottle = false;
         protected float throttleResponseRate;
@@ -393,10 +398,18 @@ namespace RealFuels
             rfSolver.SetPartTemp(part.temperature);
 
             // do heat
-            heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
+            heatProduction = (float)(scaleRecip * extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
             // run base method code
             base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+        }
+        #endregion
+
+        #region Interface
+        public void SetScale(double newScale)
+        {
+            scale = newScale;
+            scaleRecip = 1d / scale;
         }
         #endregion
 
