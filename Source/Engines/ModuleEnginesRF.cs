@@ -229,14 +229,11 @@ namespace RealFuels
                     ullageSet = new Ullage.UllageSet(this);
                 ullageSet.Load(node.GetNode("Ullage"));
             }
-            if (node.HasNode("IgnitionResources"))
+            foreach (ConfigNode n in node.GetNodes("IGNITOR_RESOURCE"))
             {
-                foreach (ConfigNode n in node.GetNode("IgnitionResources").GetNodes("RESOURCE"))
-                {
-                    ModuleResource res = new ModuleResource();
-                    res.Load(n);
-                    ignitionResources.Add(res);
-                }
+                ModuleResource res = new ModuleResource();
+                res.Load(n);
+                ignitionResources.Add(res);
             }
         }
         public override void OnSave(ConfigNode node)
