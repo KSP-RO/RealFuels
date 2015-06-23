@@ -48,16 +48,15 @@ namespace RealFuels.Ullage
             {
                 // Time warping... (5x -> 100000x)
                 angVel = Vector3.zero; // FIXME support rotation in timewarp!
-                if (vessel.LandedOrSplashed)
-                    accel = -(Vector3)FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D());
-                else
-                    accel = Vector3.zero;
+                accel = Vector3.zero;
             }
             else
             {
                 accel = (Vector3)(vessel.perturbation);
                 angVel = vessel.angularVelocity;
             }
+            if (vessel.LandedOrSplashed)
+                accel = -(Vector3)FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D());
 
 
             // get boiloff accel
@@ -108,11 +107,16 @@ namespace RealFuels.Ullage
                     else if (m is ModuleEnginesRF)
                     {
                         ModuleEnginesRF engine = m as ModuleEnginesRF;
-                        
+
                         if (engine.ullageSet == null) // just in case
+                        {
                             engine.ullageSet = new UllageSet(engine);
+                        }
                         else
+                        {
                             engine.ullageSet.SetTanks();
+                            engine.ullageSet.SetModule(this);
+                        }
 
                         ullageSets.Add(engine.ullageSet);
                     }

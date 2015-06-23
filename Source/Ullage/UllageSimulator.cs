@@ -108,6 +108,10 @@ namespace RealFuels.Ullage
 
             propellantStability = Math.Max(0.0d, 1.0d - (pVertical * pHorizontal * (0.75d + Math.Sqrt(bLevel))));
 
+            SetStateString();
+        }
+        private void SetStateString()
+        {
             if (propellantStability >= 0.996d)
                 propellantStatus = "Very Stable";
             else if (propellantStability >= 0.95d)
@@ -121,10 +125,14 @@ namespace RealFuels.Ullage
             else
                 propellantStatus = "Very Unstable";
         }
-
         public double GetPropellantStability()
         {
             return propellantStability;
+        }
+        public void SetPropellantStability(double newStab)
+        {
+            propellantStability = newStab;
+            SetStateString();
         }
 
         public string GetPropellantStatus()

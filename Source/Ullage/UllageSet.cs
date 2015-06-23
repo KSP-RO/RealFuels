@@ -142,6 +142,10 @@ namespace RealFuels.Ullage
             if(ullageEnabled)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
         }
+        public void SetUllageStability(double newStability)
+        {
+            ullageSim.SetPropellantStability(newStability);
+        }
         public string GetUllageState()
         {
             return ullageSim.GetPropellantStatus();
@@ -156,10 +160,13 @@ namespace RealFuels.Ullage
         }
         public bool EditorPressurized()
         {
-
             SetTanks();
 
             return tanksHighlyPressurized;
+        }
+        public void SetModule(UllageModule newModule)
+        {
+            module = newModule;
         }
         #endregion
     }
