@@ -16,6 +16,8 @@ namespace RealFuels
         private bool multFlow;
         private bool combusting = true;
         private double varyThrust = 0d;
+        private bool pressure = true, ullage = true, ignited = false;
+        private double scale = 1d; // scale for tweakscale
 
         private float seed = 0f;
 
@@ -93,6 +95,17 @@ namespace RealFuels
             partTemperature = tmp;
         }
 
+        public void SetEngineStatus(bool pressureOK, bool ullageOK, bool nIgnited)
+        {
+            pressure = pressureOK;
+            ullage = ullageOK;
+            ignited = nIgnited;
+        }
+        public void SetScale(double newScale)
+        {
+            scale = newScale;
+        }
+
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
         {
             // set base bits
@@ -103,12 +116,27 @@ namespace RealFuels
             Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;
 
             // if we're not combusting, don't combust and start cooling off
-            combusting = running;
+            combusting = running && ignited;
             statusString = "Nominal";
+
+            // ullage check first, overwrite if bad pressure or no propellants
+            if (!ullage)
+            {
+                combusting = false;
+                statusString = "Vapor in feed line";
+            }
+            
+            // check fuel flow fraction
             if (ffFraction <= 0d)
             {
                 combusting = false;
                 statusString = "No propellants";
+            }
+            // check pressure
+            if (!pressure)
+            {
+                combusting = false;
+                statusString = "Lack of pressure";
             }
 
             // check flow mult
@@ -130,7 +158,7 @@ namespace RealFuels
             {
 
                 // get current flow, and thus thrust.
-                fuelFlow = flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
+                fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 
                 if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
                     fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);

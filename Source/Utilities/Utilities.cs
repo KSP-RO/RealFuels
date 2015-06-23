@@ -89,5 +89,15 @@ namespace RealFuels
             partName = partName.Replace(".", "-");
             return partName.Replace("_", "-");
         }
+
+        public static bool CompareLists<T>(List<T> a, List<T> b)
+        {
+            if (a.Count != b.Count)
+                return false;
+            for (int i = a.Count - 1; i >= 0; --i)
+                if (!b.Contains(a[i]))
+                    return false;
+            return true;
+        }
     }
 }

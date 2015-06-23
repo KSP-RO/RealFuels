@@ -302,9 +302,12 @@ namespace RealFuels.Tanks
 				CalculateTankLossFunction (TimeWarp.fixedDeltaTime);
 			}
 		}
+        double boiloffMass = 0d;
+        public double BoiloffMassRate { get { return boiloffMass; } }
 
 		private void CalculateTankLossFunction (double deltaTime)
 		{
+            boiloffMass = 0d;
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
                 double minTemp = part.temperature;
@@ -340,10 +343,12 @@ namespace RealFuels.Tanks
                                 tank.amount += lossAmount;
                             }
                             double vsp = 0d;
+                            double massLost = tank.density * lossAmount;
+                            boiloffMass += massLost;
                             if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
                             {
                                 // subtract heat from boiloff
-                                part.AddThermalFlux(tank.density * lossAmount * vsp * deltaTimeRecip);
+                                part.AddThermalFlux(massLost * vsp * deltaTimeRecip);
                             }
                         }
                     }

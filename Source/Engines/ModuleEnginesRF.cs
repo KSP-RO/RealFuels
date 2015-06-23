@@ -30,8 +30,11 @@ namespace RealFuels
         [KSPField]
         public bool usesAir = false;
 
+
         [KSPField]
         public double varyThrust = 1d;
+
+        
 
         #region Thrust Curve
         [KSPField]
@@ -54,10 +57,41 @@ namespace RealFuels
         public float curveTime = 0f;
         #endregion
 
+        #region TweakScale
+        protected double scale = 1d;
+        protected double scaleRecip = 1d;
+        #endregion
+
 
         protected bool instantThrottle = false;
         protected float throttleResponseRate;
         protected SolverRF rfSolver = null;
+
+        #region Ullage/Ignition
+        [KSPField]
+        public Vector3 thrustAxis;
+
+        [KSPField]
+        public bool pressureFed = false;
+
+        [KSPField]
+        public bool ullage = false;
+
+        [KSPField(guiName = "Ignitions Remaining")]
+        public int ignitions = -1;
+
+        [KSPField(guiName = "Propellant")]
+        public string propellantStatus = "Stable";
+
+        public Ullage.UllageSet ullageSet;
+        protected bool ignited = false;
+        protected bool reignitable = true;
+        protected bool throttledUp = false;
+        [SerializeField]
+        public List<ModuleResource> ignitionResources;
+        ScreenMessage igniteFailIgnitions;
+        ScreenMessage igniteFailResources;
+        #endregion
         #endregion
 
         #region Overrides
@@ -115,6 +149,8 @@ namespace RealFuels
             base.OnAwake();
             if (thrustCurve == null)
                 thrustCurve = new FloatCurve();
+            if (ignitionResources == null)
+                ignitionResources = new List<ModuleResource>();
         }
         public override void OnLoad(ConfigNode node)
         {
@@ -176,12 +212,82 @@ namespace RealFuels
             // set fields
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve;
             CreateEngine();
+
+            // Get thrust axis (only on create prefabs)
+            if (part.partInfo == null || part.partInfo.partPrefab == null)
+            {
+                //Debug.Log("Created thrust axis for " + part.name);
+                thrustAxis = Vector3.zero;
+                int tCount = 0;
+                foreach(Transform t in part.FindModelTransforms(thrustVectorTransformName))
+                {
+                    thrustAxis -= t.forward;
+                    ++tCount;
+                }
+                thrustAxis /= (float)tCount;
+            }
+
+            // ullage
+            if (node.HasNode("Ullage"))
+            {
+                if (ullageSet == null)
+                    ullageSet = new Ullage.UllageSet(this);
+                ullageSet.Load(node.GetNode("Ullage"));
+            }
+
+            // load ignition resources
+            if (node.HasNode("IGNITOR_RESOURCE"))
+                ignitionResources.Clear();
+            foreach (ConfigNode n in node.GetNodes("IGNITOR_RESOURCE"))
+            {
+                ModuleResource res = new ModuleResource();
+                res.Load(n);
+                ignitionResources.Add(res);
+            }
+        }
+        public override void OnSave(ConfigNode node)
+        {
+            base.OnSave(node);
+            if (ullageSet != null)
+            {
+                ConfigNode ullageNode = new ConfigNode("Ullage");
+                ullageSet.Save(ullageNode);
+                node.AddNode(ullageNode);
+            }
+        }
+        public override void Start()
+        {
+            base.Start();
+            if (ullageSet == null)
+                ullageSet = new Ullage.UllageSet(this);
+
+            Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0);
+            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || ullage);
+
+            igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!", 5f, ScreenMessageStyle.UPPER_CENTER);
+            igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources!", 5f, ScreenMessageStyle.UPPER_CENTER);
         }
         public override void OnStart(PartModule.StartState state)
         {
             base.OnStart(state);
             
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve && state != StartState.Editor;
+        }
+        public override void FixedUpdate()
+        {
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                if (ullageSet != null && pressureFed)
+                {
+                    if (ullageSet.EditorPressurized()) // we need to recheck each frame. Expensive, but short of messages....
+                        propellantStatus = "Feed pressure OK";
+                    else
+                        propellantStatus = "Feed pressure too low";
+                }
+                else
+                    propellantStatus = "OK";
+            }
+            base.FixedUpdate();
         }
         public override void UpdateThrottle()
         {
@@ -210,36 +316,100 @@ namespace RealFuels
             }
             actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
         }
+        
+        // from SolverEngines but we don't play FX here.
+        [KSPEvent(guiActive = true, guiName = "Activate Engine")]
+        public override void Activate()
+        {
+            if (!allowRestart && engineShutdown)
+            {
+                return; // If the engines were shutdown previously and restarting is not allowed, prevent restart of engines
+            }
+            if (noShieldedStart && part.ShieldedFromAirstream)
+            {
+                ScreenMessages.PostScreenMessage("<color=orange>[" + part.partInfo.title + "]: Cannot activate while stowed!</color>", 6f, ScreenMessageStyle.UPPER_LEFT);
+                return;
+            }
+
+            EngineIgnited = true;
+            if (allowShutdown) Events["Shutdown"].active = true;
+            else Events["Shutdown"].active = false;
+            Events["Activate"].active = false;
+        }
         public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
-            // do thrust curve
-            if (useThrustCurve && HighLogic.LoadedSceneIsFlight)
+            throttledUp = false;
+            if (currentThrottle > 0f)
+                throttledUp = true;
+            else
+                ignited = false;
+
+            // handle ignition
+            if (HighLogic.LoadedSceneIsFlight)
             {
-                thrustCurveRatio = (float)((propellants[curveProp].totalResourceAvailable / propellants[curveProp].totalResourceCapacity));
-                if (thrustCurveUseTime)
+                IgnitionUpdate();
+
+                // Ullage
+                bool pressureOK = ullageSet.PressureOK();
+                bool ullageOK = true;
+                if (ullage)
                 {
-                    thrustCurveDisplay = thrustCurve.Evaluate(curveTime);
-                    if (EngineIgnited)
+                    propellantStatus = ullageSet.GetUllageState();
+                    if (EngineIgnited && ignited && throttledUp)
                     {
-                        curveTime += TimeWarp.fixedDeltaTime;
+                        double state = ullageSet.GetUllageStability();
+                        double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
+                        if (UnityEngine.Random.value > testValue)
+                        {
+                            FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " had vapor in its feed line and shut down.");
+                            reignitable = false;
+                            ullageOK = false;
+                            ignited = false;
+                        }
                     }
                 }
-                else
+                if (pressureFed && !pressureOK)
+                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
+
+                rfSolver.SetEngineStatus(pressureOK, ullageOK, ignited);
+
+                // do thrust curve
+                if (ignited && useThrustCurve)
                 {
-                    thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
+                    thrustCurveRatio = (float)((propellants[curveProp].totalResourceAvailable / propellants[curveProp].totalResourceCapacity));
+                    if (thrustCurveUseTime)
+                    {
+                        thrustCurveDisplay = thrustCurve.Evaluate(curveTime);
+                        if (EngineIgnited)
+                        {
+                            curveTime += TimeWarp.fixedDeltaTime;
+                        }
+                    }
+                    else
+                    {
+                        thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
+                    }
+                    rfSolver.UpdateThrustRatio(thrustCurveDisplay);
+                    thrustCurveDisplay *= 100f;
                 }
-                rfSolver.UpdateThrustRatio(thrustCurveDisplay);
-                thrustCurveDisplay *= 100f;
             }
 
             // Set part temp
             rfSolver.SetPartTemp(part.temperature);
 
             // do heat
-            heatProduction = (float)(extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
+            heatProduction = (float)(scaleRecip * extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
-            // run base method
+            // run base method code
             base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+        }
+        #endregion
+
+        #region Interface
+        public void SetScale(double newScale)
+        {
+            scale = newScale;
+            scaleRecip = 1d / scale;
         }
         #endregion
 
@@ -291,7 +461,7 @@ namespace RealFuels
             lastPropellantFraction = 1d;
             bool oldE = EngineIgnited;
             EngineIgnited = true;
-            rfSolver.UpdateThrustRatio(0.97d);
+            rfSolver.UpdateThrustRatio(1d);
 
             UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
@@ -388,6 +558,50 @@ namespace RealFuels
             currentThrottle = 0f;
 
             return output;
+        }
+        #endregion
+
+        #region Helpers
+        protected void IgnitionUpdate()
+        {
+            if (EngineIgnited && throttledUp)
+            {
+                if (!ignited && reignitable)
+                {
+
+                    if (ignitions == 0)
+                    {
+                        EngineIgnited = false; // don't play shutdown FX, just fail.
+                        ScreenMessages.PostScreenMessage(igniteFailIgnitions);
+                        return;
+                    }
+                    else
+                    {
+                        if (ignitions > 0)
+                            ignitions--;
+
+                        // try to ignite
+                        int count = ignitionResources.Count - 1;
+                        if (count >= 0)
+                        {
+                            float minResource = 1f;
+                            for (int i = count; i >= 0; --i)
+                                minResource = Mathf.Min(minResource, (float)part.RequestResource(ignitionResources[i].id, ignitionResources[i].amount));
+
+                            if (UnityEngine.Random.value > (float)minResource)
+                            {
+                                EngineIgnited = false; // don't play shutdown FX, just fail.
+                                ScreenMessages.PostScreenMessage(igniteFailResources);
+                                return;
+                            }
+                        }
+                        ignited = true;
+                        PlayEngageFX();
+                    }
+                }
+            }
+            else
+                reignitable = true; // reset
         }
         #endregion
     }
