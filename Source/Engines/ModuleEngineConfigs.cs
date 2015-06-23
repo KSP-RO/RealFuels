@@ -640,32 +640,44 @@ namespace RealFuels
                             tNode.SetValue("name", "ModuleEngineIgnitor");
                             part.Modules["ModuleEngineIgnitor"].Load(tNode);
                         }
-                        else
+                        else // backwards compatible with EI nodes when using RF ullage etc.
                         {
                             ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
                             int ignitions = -1;
-                            if (eiNode.HasValue("ignitionsAvailable"))
+                            string ignitionsString = "";
+                            bool writeIgnitions = false;
+                            if (config.HasValue("ignitions"))
                             {
-                                if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
-                                {
-                                    if (ignitions < 0)
-                                    {
-                                        ignitions = techLevel + ignitions;
-                                        if (ignitions < 1)
-                                            ignitions = 1;
-                                    }
-                                    else if (ignitions == 0)
-                                        ignitions = -1;
-                                }
-                                else
-                                    ignitions = -1;
+                                ignitionsString = config.GetValue("ignitions");
+                                config.RemoveValue("ignitions");
                             }
-                            if (eiNode.HasValue("useUllageSimulation"))
+                            else if (eiNode.HasValue("ignitionsAvailable"))
+                            {
+                                ignitionsString = eiNode.GetValue("ignitionsAvailable");
+                            }
+                            if (!string.IsNullOrEmpty(ignitionsString) && int.TryParse(ignitionsString, out ignitions))
+                            {
+                                if (ignitions < 0)
+                                {
+                                    ignitions = techLevel + ignitions;
+                                    if (ignitions < 1)
+                                        ignitions = 1;
+                                }
+                                else if (ignitions == 0)
+                                    ignitions = -1;
+                                writeIgnitions = true;
+                            }
+                            if (eiNode.HasValue("useUllageSimulation") && !config.HasValue("ullage"))
                                 config.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
-                            if (eiNode.HasValue("isPressureFed"))
+                            if (eiNode.HasValue("isPressureFed") && !config.HasValue("pressureFed"))
                                 config.AddValue("pressureFed", eiNode.GetValue("isPressureFed"));
-                            foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
-                                config.AddNode(resNode);
+                            if(!config.HasNode("IGNITOR_RESOURCE"))
+                                foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
+                                    config.AddNode(resNode);
+
+                            if (writeIgnitions && (!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
+                                config.AddValue("ignitions", ignitions);
+                                
                         }
                     }
                 }
