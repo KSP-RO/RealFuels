@@ -439,7 +439,7 @@ namespace RealFuels
             string output = "";
             if (engineSolver == null || !(engineSolver is SolverRF))
                 CreateEngine();
-
+            rfSolver.SetEngineStatus(true, true, true);
             // get stats
             double pressure = 101.325d, temperature = 288.15d, density = 1.225d;
             if (Planetarium.fetch != null)
@@ -536,8 +536,12 @@ namespace RealFuels
                 p = propellants[i];
                 pName = KSPUtil.PrintModuleName(p.name);
                 string units = "L";
-                if(p.name == "ElectricCharger")
+                string rate = " per second";
+                if (p.name == "ElectricCharge")
+                {
                     units = "kW";
+                    rate = "";
+                }
                 float unitsSec = getMaxFuelFlow(p);
                 string unitsUsed = unitsSec.ToString("N4") + units;
                 if (PartResourceLibrary.Instance != null)
@@ -546,7 +550,7 @@ namespace RealFuels
                     if (def != null && def.density > 0)
                         unitsUsed += " (" + (unitsSec * def.density * 1000f).ToString("N4") + " kg)";
                 }
-                unitsUsed += " per second";
+                unitsUsed += rate;
                 output += "- <b>" + pName + "</b>: " + unitsUsed + " maximum.\n";
                 output += p.GetFlowModeDescription();
             }
