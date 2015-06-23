@@ -601,42 +601,72 @@ namespace RealFuels
                     pModule.Load(config);
 
                     // Handle Engine Ignitor
-                    if (config.HasNode("ModuleEngineIgnitor") && part.Modules.Contains("ModuleEngineIgnitor"))
+                    if (config.HasNode("ModuleEngineIgnitor"))
                     {
-                        ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
-                        if (eiNode.HasValue("ignitionsAvailable"))
+                        if (part.Modules.Contains("ModuleEngineIgnitor"))
                         {
-                            int ignitions;
-                            if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
+                            ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
+                            if (eiNode.HasValue("ignitionsAvailable"))
                             {
-                                if (ignitions < 0)
+                                int ignitions;
+                                if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
                                 {
-                                    ignitions = techLevel + ignitions;
-                                    if (ignitions < 1)
-                                        ignitions = 1;
-                                }
-                                else if (ignitions == 0)
-                                    ignitions = -1;
+                                    if (ignitions < 0)
+                                    {
+                                        ignitions = techLevel + ignitions;
+                                        if (ignitions < 1)
+                                            ignitions = 1;
+                                    }
+                                    else if (ignitions == 0)
+                                        ignitions = -1;
 
-                                eiNode.SetValue("ignitionsAvailable", ignitions.ToString());
-                                if (eiNode.HasValue("ignitionsRemained"))
-                                    eiNode.SetValue("ignitionsRemained", ignitions.ToString());
-                                else
-                                    eiNode.AddValue("ignitionsRemained", ignitions.ToString());
+                                    eiNode.SetValue("ignitionsAvailable", ignitions.ToString());
+                                    if (eiNode.HasValue("ignitionsRemained"))
+                                        eiNode.SetValue("ignitionsRemained", ignitions.ToString());
+                                    else
+                                        eiNode.AddValue("ignitionsRemained", ignitions.ToString());
+                                }
                             }
+                            if (!HighLogic.LoadedSceneIsEditor && !(HighLogic.LoadedSceneIsFlight && vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
+                            {
+                                int remaining = (int)(part.Modules["ModuleEngineIgnitor"].GetType().GetField("ignitionsRemained").GetValue(part.Modules["ModuleEngineIgnitor"]));
+                                if (eiNode.HasValue("ignitionsRemained"))
+                                    eiNode.SetValue("ignitionsRemained", remaining.ToString());
+                                else
+                                    eiNode.AddValue("ignitionsRemained", remaining.ToString());
+                            }
+                            ConfigNode tNode = new ConfigNode("MODULE");
+                            eiNode.CopyTo(tNode);
+                            tNode.SetValue("name", "ModuleEngineIgnitor");
+                            part.Modules["ModuleEngineIgnitor"].Load(tNode);
                         }
-                        if (!HighLogic.LoadedSceneIsEditor && !(HighLogic.LoadedSceneIsFlight && vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
+                        else
                         {
-                            int remaining = (int)(part.Modules["ModuleEngineIgnitor"].GetType().GetField("ignitionsRemained").GetValue(part.Modules["ModuleEngineIgnitor"]));
-                            if (eiNode.HasValue("ignitionsRemained"))
-                                eiNode.SetValue("ignitionsRemained", remaining.ToString());
-                            else
-                                eiNode.AddValue("ignitionsRemained", remaining.ToString());
+                            ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
+                            int ignitions = -1;
+                            if (eiNode.HasValue("ignitionsAvailable"))
+                            {
+                                if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
+                                {
+                                    if (ignitions < 0)
+                                    {
+                                        ignitions = techLevel + ignitions;
+                                        if (ignitions < 1)
+                                            ignitions = 1;
+                                    }
+                                    else if (ignitions == 0)
+                                        ignitions = -1;
+                                }
+                                else
+                                    ignitions = -1;
+                            }
+                            if (eiNode.HasValue("useUllageSimulation"))
+                                config.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
+                            if (eiNode.HasValue("isPressureFed"))
+                                config.AddValue("pressureFed", eiNode.GetValue("isPressureFed"));
+                            foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
+                                config.AddNode(resNode);
                         }
-                        ConfigNode tNode = new ConfigNode("MODULE");
-                        eiNode.CopyTo(tNode);
-                        tNode.SetValue("name", "ModuleEngineIgnitor");
-                        part.Modules["ModuleEngineIgnitor"].Load(tNode);
                     }
                 }
                 // fix for editor NaN
