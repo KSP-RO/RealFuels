@@ -34,6 +34,7 @@
   </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
+    <Compile Include="tweakscale\TweakScale_ModularEngines.cs" />
     <Compile Include="tweakscale\TweakScale_ModularFuelSystem.cs" />
     <Compile Include="tweakscale\TweakScale_ModuleEnginesRF.cs" />
   </ItemGroup>

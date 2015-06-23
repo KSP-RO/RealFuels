@@ -410,6 +410,7 @@ namespace RealFuels
         {
             scale = newScale;
             scaleRecip = 1d / scale;
+            rfSolver.SetScale(newScale);
         }
         #endregion
 

@@ -157,7 +157,7 @@ namespace RealFuels
         public float configMassMult = 1.0f;
         public float configHeat = 0.0f;
         public float configCost = 0f;
-
+        public float scale = 1f;
         #endregion
 
         #region TestFlight
@@ -370,11 +370,12 @@ namespace RealFuels
                 if(!config.GetValue ("name").Equals (configuration)) {
                     info += "   " + config.GetValue ("name") + "\n";
                     if(config.HasValue (thrustRating))
-                        info += "    (" + ThrustTL(config.GetValue (thrustRating), config).ToString("0.00") + " Thrust";
+                        info += "    (" + (scale * ThrustTL(config.GetValue (thrustRating), config)).ToString("0.00") + " Thrust";
                     else
                         info += "    (Unknown Thrust";
-                    if(config.HasValue("cost"))
-                        info += "    (" + config.GetValue("cost") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
+                    float cst;
+                    if(config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
+                        info += "    (" + (scale*cst).ToString("N0") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
                     // because it will always be the cost for the original TL, and thus unmodified.
 
                     FloatCurve isp = new FloatCurve();
@@ -598,6 +599,8 @@ namespace RealFuels
                     }
 
                     DoConfig(config);
+                    if (pModule is ModuleEnginesRF)
+                        (pModule as ModuleEnginesRF).SetScale(1d);
                     pModule.Load(config);
 
                     // Handle Engine Ignitor
@@ -706,7 +709,7 @@ namespace RealFuels
                     }
                 }
                 if (config.HasValue("cost"))
-                    configCost = float.Parse(config.GetValue("cost"));
+                    configCost = scale * float.Parse(config.GetValue("cost"));
                 else
                     configCost = 0f;
 
@@ -738,13 +741,13 @@ namespace RealFuels
             {
                 float thr;
                 if (float.TryParse(config.GetValue(thrustRating), out thr))
-                    configMaxThrust = thr;
+                    configMaxThrust = scale * thr;
             }
             if (config.HasValue("minThrust"))
             {
                 float thr;
                 if (float.TryParse(config.GetValue("minThrust"), out thr))
-                    configMinThrust = thr;
+                    configMinThrust = scale * thr;
             }
 
             // Get, multiply heat
@@ -771,7 +774,7 @@ namespace RealFuels
 
             float cost = 0f;
             if (cfg.HasValue("cost"))
-                cost = float.Parse(cfg.GetValue("cost"));
+                cost = scale * float.Parse(cfg.GetValue("cost"));
 
             if (techLevel != -1)
             {
@@ -853,7 +856,7 @@ namespace RealFuels
                 }
 
                 // Cost (multiplier will be 1.0 if unspecified)
-                cost = CostTL(cost, cfg);
+                cost = scale * CostTL(cost, cfg);
             }
             else
             {
@@ -878,10 +881,10 @@ namespace RealFuels
             if (origMass > 0)
             {
                 float ftmp;
-                configMassMult = 1.0f;
+                configMassMult = scale;
                 if (cfg.HasValue("massMult"))
                     if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
-                        configMassMult = ftmp;
+                        configMassMult *= ftmp;
 
                 part.mass = origMass * configMassMult * RFSettings.Instance.EngineMassMultiplier * TLMassMult;
                 massDelta = 0;
@@ -1200,7 +1203,7 @@ namespace RealFuels
                 string costString = "";
                 if (node.HasValue("cost"))
                 {
-                    float curCost = float.Parse(node.GetValue("cost"));
+                    float curCost = scale * float.Parse(node.GetValue("cost"));
 
                     if (techLevel != -1)
                     {
