@@ -62,7 +62,7 @@ namespace RealFuels
         protected float throttleResponseRate;
         protected SolverRF rfSolver = null;
 
-        #region Ullage
+        #region Ullage/Ignition
         [KSPField]
         public Vector3 thrustAxis;
 
@@ -229,6 +229,10 @@ namespace RealFuels
                     ullageSet = new Ullage.UllageSet(this);
                 ullageSet.Load(node.GetNode("Ullage"));
             }
+
+            // load ignition resources
+            if (node.HasNode("IGNITOR_RESOURCE"))
+                ignitionResources.Clear();
             foreach (ConfigNode n in node.GetNodes("IGNITOR_RESOURCE"))
             {
                 ModuleResource res = new ModuleResource();
