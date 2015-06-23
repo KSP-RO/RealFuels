@@ -16,7 +16,7 @@ namespace RealFuels
         private bool multFlow;
         private bool combusting = true;
         private double varyThrust = 0d;
-        private bool pressure = true, ullage = true;
+        private bool pressure = true, ullage = true, ignited = false;
 
         private float seed = 0f;
 
@@ -94,10 +94,11 @@ namespace RealFuels
             partTemperature = tmp;
         }
 
-        public void SetPropellantStatus(bool pressureOK, bool ullageOK)
+        public void SetEngineStatus(bool pressureOK, bool ullageOK, bool nIgnited)
         {
             pressure = pressureOK;
             ullage = ullageOK;
+            ignited = nIgnited;
         }
 
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
@@ -110,7 +111,7 @@ namespace RealFuels
             Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;
 
             // if we're not combusting, don't combust and start cooling off
-            combusting = running;
+            combusting = running && ignited;
             statusString = "Nominal";
 
             // ullage check first, overwrite if bad pressure or no propellants
