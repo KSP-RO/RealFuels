@@ -42,10 +42,9 @@ namespace RealFuels.Ullage
             ullageEnabled = engine.ullage;
             
             // create orientaiton
-            if (engine.thrustAxis != Vector3.zero)
-                rotationFromPart = Quaternion.FromToRotation(engine.thrustAxis, Vector3.up);
-
-            SetTanks(); // fill tank lists, find pressurization, etc.
+            SetThrustAxis(engine.thrustAxis);
+            if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
+                SetTanks(); // fill tank lists, find pressurization, etc.
         }
 
         public void SetTanks()
@@ -96,6 +95,13 @@ namespace RealFuels.Ullage
                 tanksHighlyPressurized &= !noPresTank; // i.e. if no tank, set false.
             }
         }
+        public void SetThrustAxis(Vector3 thrustAxis)
+        {
+            if (thrustAxis != Vector3.zero)
+                rotationFromPart = Quaternion.FromToRotation(thrustAxis, Vector3.up);
+            else
+                rotationFromPart = Quaternion.identity;
+        }
         #endregion
 
         #region Load/Save
@@ -141,6 +147,10 @@ namespace RealFuels.Ullage
             }
             if(ullageEnabled)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
+        }
+        public void SetUllageEnabled(bool enabled)
+        {
+            ullageEnabled = enabled;
         }
         public void SetUllageStability(double newStability)
         {

@@ -21,10 +21,7 @@ namespace RealFuels.Ullage
             
             ullageSets = new List<UllageSet>();
             tanks = new List<Tanks.ModuleFuelTanks>();
-            
-            partCount = vessel.parts.Count;
-
-            Reset();
+            // will reset on first update
         }
 
         public void FixedUpdate()
@@ -55,6 +52,7 @@ namespace RealFuels.Ullage
                 accel = (Vector3)(vessel.perturbation);
                 angVel = vessel.angularVelocity;
             }
+            // are we stopped but the fuel is under gravity?
             if (vessel.LandedOrSplashed)
                 accel = -(Vector3)FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D());
 

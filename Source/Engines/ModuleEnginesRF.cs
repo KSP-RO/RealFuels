@@ -69,7 +69,7 @@ namespace RealFuels
 
         #region Ullage/Ignition
         [KSPField]
-        public Vector3 thrustAxis;
+        public Vector3 thrustAxis = Vector3.zero;
 
         [KSPField]
         public bool pressureFed = false;
@@ -213,27 +213,28 @@ namespace RealFuels
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve;
             CreateEngine();
 
+            if (ullageSet == null)
+                ullageSet = new Ullage.UllageSet(this);
+
             // Get thrust axis (only on create prefabs)
             if (part.partInfo == null || part.partInfo.partPrefab == null)
             {
-                //Debug.Log("Created thrust axis for " + part.name);
                 thrustAxis = Vector3.zero;
-                int tCount = 0;
                 foreach(Transform t in part.FindModelTransforms(thrustVectorTransformName))
                 {
                     thrustAxis -= t.forward;
-                    ++tCount;
                 }
-                thrustAxis /= (float)tCount;
+                thrustAxis = thrustAxis.normalized;
             }
+            ullageSet.SetThrustAxis(thrustAxis);
 
             // ullage
             if (node.HasNode("Ullage"))
             {
-                if (ullageSet == null)
-                    ullageSet = new Ullage.UllageSet(this);
                 ullageSet.Load(node.GetNode("Ullage"));
             }
+
+            ullageSet.SetUllageEnabled(ullage);
 
             // load ignition resources
             if (node.HasNode("IGNITOR_RESOURCE"))

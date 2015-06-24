@@ -14,6 +14,11 @@ namespace RealFuels.Ullage
         double propellantStability = 1d;
         string propellantStatus = "";
 
+        public UllageSimulator()
+        {
+            Reset();
+        }
+
         public void Load(ConfigNode node)
         {
             node.TryGetValue("ullageHeightMin", ref ullageHeightMin);
@@ -60,40 +65,49 @@ namespace RealFuels.Ullage
             }
 
             // Translate forward/backward.
-            double absAccY = Math.Abs(localAccelerationAmount.y);
-            ullageHeightMin = UtilMath.Clamp(ullageHeightMin + localAccelerationAmount.y * RFSettings.Instance.translateAxialCoefficientY * fuelRatioFactor, 0.0d, 0.9d);
-            ullageHeightMax = UtilMath.Clamp(ullageHeightMax + localAccelerationAmount.y * RFSettings.Instance.translateAxialCoefficientY * fuelRatioFactor, 0.1d, 1.0d);
-            ullageRadialMin = UtilMath.Clamp(ullageRadialMin - absAccY * RFSettings.Instance.translateAxialCoefficientX * fuelRatioFactor, 0.0d, 0.9d);
-            ullageRadialMax = UtilMath.Clamp(ullageRadialMax + absAccY * RFSettings.Instance.translateAxialCoefficientX * fuelRatioFactor, 0.1d, 1.0d);
+            double radialFac = Math.Abs(localAccelerationAmount.y) * RFSettings.Instance.translateAxialCoefficientX * fuelRatioFactor;
+            double heightFac = localAccelerationAmount.y * RFSettings.Instance.translateAxialCoefficientY * fuelRatioFactor;
+            ullageHeightMin = UtilMath.Clamp(ullageHeightMin + heightFac, 0.0d, 0.9d);
+            ullageHeightMax = UtilMath.Clamp(ullageHeightMax + heightFac, 0.1d, 1.0d);
+            ullageRadialMin = UtilMath.Clamp(ullageRadialMin - radialFac, 0.0d, 0.9d);
+            ullageRadialMax = UtilMath.Clamp(ullageRadialMax + radialFac, 0.1d, 1.0d);
 
             // Translate up/down/left/right.
             Vector3d sideAcc = new Vector3d(localAccelerationAmount.x, 0.0d, localAccelerationAmount.z);
-            ullageHeightMin = UtilMath.Clamp(ullageHeightMin - sideAcc.magnitude * RFSettings.Instance.translateSidewayCoefficientY * fuelRatioFactor, 0.0d, 0.9d);
-            ullageHeightMax = UtilMath.Clamp(ullageHeightMax + sideAcc.magnitude * RFSettings.Instance.translateSidewayCoefficientY * fuelRatioFactor, 0.1d, 1.0d);
-            ullageRadialMin = UtilMath.Clamp(ullageRadialMin + sideAcc.magnitude * RFSettings.Instance.translateSidewayCoefficientX * fuelRatioFactor, 0.0d, 0.9d);
-            ullageRadialMax = UtilMath.Clamp(ullageRadialMax + sideAcc.magnitude * RFSettings.Instance.translateSidewayCoefficientX * fuelRatioFactor, 0.1d, 1.0d);
+            double sideFactor = sideAcc.magnitude * fuelRatioFactor;
+            double sideY = sideFactor * RFSettings.Instance.translateSidewayCoefficientY;
+            double sideX = sideFactor * RFSettings.Instance.translateSidewayCoefficientX;
+            ullageHeightMin = UtilMath.Clamp(ullageHeightMin - sideY, 0.0d, 0.9d);
+            ullageHeightMax = UtilMath.Clamp(ullageHeightMax + sideY, 0.1d, 1.0d);
+            ullageRadialMin = UtilMath.Clamp(ullageRadialMin + sideX, 0.0d, 0.9d);
+            ullageRadialMax = UtilMath.Clamp(ullageRadialMax + sideX, 0.1d, 1.0d);
 
             // Rotate yaw/pitch.
             Vector3d rotateYawPitch = new Vector3d(rotation.x, 0.0d, rotation.z);
+            double mag = rotateYawPitch.magnitude;
+            double ypY = mag * RFSettings.Instance.rotateYawPitchCoefficientY;
+            double ypX = mag * RFSettings.Instance.rotateYawPitchCoefficientX;
             if (ullageHeightMin < 0.45d)
-                ullageHeightMin = UtilMath.Clamp(ullageHeightMin + rotateYawPitch.magnitude * RFSettings.Instance.rotateYawPitchCoefficientY, 0.0d, 0.45d);
+                ullageHeightMin = UtilMath.Clamp(ullageHeightMin + ypY, 0.0d, 0.45d);
             else
-                ullageHeightMin = UtilMath.Clamp(ullageHeightMin - rotateYawPitch.magnitude * RFSettings.Instance.rotateYawPitchCoefficientY, 0.45d, 0.9d);
+                ullageHeightMin = UtilMath.Clamp(ullageHeightMin - ypY, 0.45d, 0.9d);
 
             if (ullageHeightMax < 0.55d)
-                ullageHeightMax = UtilMath.Clamp(ullageHeightMax + rotateYawPitch.magnitude * RFSettings.Instance.rotateYawPitchCoefficientY, 0.1d, 0.55d);
+                ullageHeightMax = UtilMath.Clamp(ullageHeightMax + ypY, 0.1d, 0.55d);
             else
-                ullageHeightMax = UtilMath.Clamp(ullageHeightMax - rotateYawPitch.magnitude * RFSettings.Instance.rotateYawPitchCoefficientY, 0.55d, 1.0d);
+                ullageHeightMax = UtilMath.Clamp(ullageHeightMax - ypY, 0.55d, 1.0d);
 
-            ullageRadialMin = UtilMath.Clamp(ullageRadialMin - rotateYawPitch.magnitude * RFSettings.Instance.rotateYawPitchCoefficientX, 0.0d, 0.9d);
-            ullageRadialMax = UtilMath.Clamp(ullageRadialMax + rotateYawPitch.magnitude * RFSettings.Instance.rotateYawPitchCoefficientX, 0.1d, 1.0d);
+            ullageRadialMin = UtilMath.Clamp(ullageRadialMin - ypX, 0.0d, 0.9d);
+            ullageRadialMax = UtilMath.Clamp(ullageRadialMax + ypX, 0.1d, 1.0d);
 
             // Rotate roll.
-            double absRotY = Math.Abs(rotation.y);
-            ullageHeightMin = UtilMath.Clamp(ullageHeightMin - absRotY * RFSettings.Instance.rotateRollCoefficientY * fuelRatioFactor, 0.0d, 0.9d);
-            ullageHeightMax = UtilMath.Clamp(ullageHeightMax + absRotY * RFSettings.Instance.rotateRollCoefficientY * fuelRatioFactor, 0.1d, 1.0d);
-            ullageRadialMin = UtilMath.Clamp(ullageRadialMin - absRotY * RFSettings.Instance.rotateRollCoefficientX * fuelRatioFactor, 0.0d, 0.9d);
-            ullageRadialMax = UtilMath.Clamp(ullageRadialMax - absRotY * RFSettings.Instance.rotateRollCoefficientX * fuelRatioFactor, 0.1d, 1.0d);
+            double absRot = Math.Abs(rotation.y) * fuelRatioFactor;
+            double absRotX = absRot * RFSettings.Instance.rotateRollCoefficientX;
+            double absRotY = absRot * RFSettings.Instance.rotateRollCoefficientY;
+            ullageHeightMin = UtilMath.Clamp(ullageHeightMin - absRotY, 0.0d, 0.9d);
+            ullageHeightMax = UtilMath.Clamp(ullageHeightMax + absRotY, 0.1d, 1.0d);
+            ullageRadialMin = UtilMath.Clamp(ullageRadialMin - absRotX, 0.0d, 0.9d);
+            ullageRadialMax = UtilMath.Clamp(ullageRadialMax - absRotX, 0.1d, 1.0d);
 
             //Debug.Log("Ullage: Height: (" + ullageHeightMin.ToString("F2") + " - " + ullageHeightMax.ToString("F2") + ") Radius: (" + ullageRadialMin.ToString("F2") + " - " + ullageRadialMax.ToString("F2") + ")");
 
