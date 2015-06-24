@@ -142,7 +142,9 @@ namespace RealFuels
                 multFlow,
                 thrustVariation,
                 (float)part.name.GetHashCode());
-
+            
+            rfSolver.SetScale(scale);
+            
             engineSolver = rfSolver;
         }
         public override void OnAwake()
@@ -414,7 +416,8 @@ namespace RealFuels
         {
             scale = newScale;
             scaleRecip = 1d / scale;
-            rfSolver.SetScale(newScale);
+            if(rfSolver != null)
+                rfSolver.SetScale(scale);
         }
         #endregion
 
