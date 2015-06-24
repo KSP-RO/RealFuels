@@ -91,6 +91,7 @@ namespace RealFuels
         public List<ModuleResource> ignitionResources;
         ScreenMessage igniteFailIgnitions;
         ScreenMessage igniteFailResources;
+        ScreenMessage ullageFail;
         #endregion
         #endregion
 
@@ -266,7 +267,8 @@ namespace RealFuels
             Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || ullage);
 
             igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!", 5f, ScreenMessageStyle.UPPER_CENTER);
-            igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources!", 5f, ScreenMessageStyle.UPPER_CENTER);
+            igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources to ignite!", 5f, ScreenMessageStyle.UPPER_CENTER);
+            ullageFail = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: vapor in feedlines, shut down!", 5f, ScreenMessageStyle.UPPER_CENTER);
         }
         public override void OnStart(PartModule.StartState state)
         {
@@ -362,7 +364,8 @@ namespace RealFuels
                         double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
                         if (UnityEngine.Random.value > testValue)
                         {
-                            FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " had vapor in its feed line and shut down.");
+                            ScreenMessages.PostScreenMessage(ullageFail);
+                            FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + ullageFail.message);
                             reignitable = false;
                             ullageOK = false;
                             ignited = false;
@@ -579,6 +582,8 @@ namespace RealFuels
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
+                        FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailIgnitions.message);
+
                         return;
                     }
                     else
@@ -590,14 +595,20 @@ namespace RealFuels
                         int count = ignitionResources.Count - 1;
                         if (count >= 0)
                         {
-                            float minResource = 1f;
+                            double minResource = 1f;
                             for (int i = count; i >= 0; --i)
-                                minResource = Mathf.Min(minResource, (float)part.RequestResource(ignitionResources[i].id, ignitionResources[i].amount));
+                            {
+                                double req = ignitionResources[i].amount;
+                                double amt = (float)part.RequestResource(ignitionResources[i].id, req);
+                                if(amt < req)
+                                    minResource = Math.Min(minResource, (amt / req));
+                            }
 
                             if (UnityEngine.Random.value > (float)minResource)
                             {
                                 EngineIgnited = false; // don't play shutdown FX, just fail.
                                 ScreenMessages.PostScreenMessage(igniteFailResources);
+                                FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
                                 return;
                             }
                         }

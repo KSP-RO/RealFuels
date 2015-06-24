@@ -12,7 +12,7 @@ namespace RealFuels.Ullage
         List<Tanks.ModuleFuelTanks> tanks;
 
         Vessel vessel;
-
+        bool packed = true;
         int partCount = -1;
 
         public void Start()
@@ -26,17 +26,18 @@ namespace RealFuels.Ullage
 
         public void FixedUpdate()
         {
-            if (vessel == null)
+            if (vessel == null || !FlightGlobals.ready)
             {
                 partCount = -1;
                 return;
             }
 
             int newPartCount = vessel.Parts.Count;
-            if (newPartCount != partCount)
+            if (packed != vessel.packed || newPartCount != partCount)
             {
                 partCount = newPartCount;
                 Reset();
+                packed = vessel.packed;
             }
 
             Vector3 accel;

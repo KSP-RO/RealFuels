@@ -13,6 +13,7 @@ namespace RealFuels.Ullage
 
         double propellantStability = 1d;
         string propellantStatus = "";
+        double UT = double.MinValue;
 
         public UllageSimulator()
         {
@@ -42,6 +43,15 @@ namespace RealFuels.Ullage
 
         public void Update(Vector3d localAcceleration, Vector3d rotation, double deltaTime, double ventingAcc, double fuelRatio)
         {
+            if (Planetarium.fetch)
+            {
+                double newUT = Planetarium.GetUniversalTime();
+                if(UT == double.MinValue) // or if UT != newUT? but how to make it true normally?
+                    // will UT + deltaTime == newUT? it should but it might not.
+                    Reset();
+                UT = newUT;
+            }
+
             double fuelRatioFactor = (0.5d + fuelRatio) * (1d / 1.4d);
             double fuelRatioFactorRecip = 1.0d / fuelRatioFactor;
 
@@ -148,7 +158,6 @@ namespace RealFuels.Ullage
             propellantStability = newStab;
             SetStateString();
         }
-
         public string GetPropellantStatus()
         {
             return propellantStatus;
