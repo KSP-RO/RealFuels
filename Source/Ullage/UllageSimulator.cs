@@ -26,6 +26,7 @@ namespace RealFuels.Ullage
             node.TryGetValue("ullageHeightMax", ref ullageHeightMax);
             node.TryGetValue("ullageRadialMin", ref ullageRadialMin);
             node.TryGetValue("ullageRadialMax", ref ullageRadialMax);
+            node.TryGetValue("UT", ref UT);
         }
         public void Save(ConfigNode node)
         {
@@ -33,6 +34,7 @@ namespace RealFuels.Ullage
             node.AddValue("ullageHeightMax", ullageHeightMax.ToString("G17"));
             node.AddValue("ullageRadialMin", ullageRadialMin.ToString("G17"));
             node.AddValue("ullageRadialMax", ullageRadialMax.ToString("G17"));
+            node.AddValue("UT", UT.ToString("G17"));
         }
 
         public void Reset()
@@ -43,12 +45,11 @@ namespace RealFuels.Ullage
 
         public void Update(Vector3d localAcceleration, Vector3d rotation, double deltaTime, double ventingAcc, double fuelRatio)
         {
+            double utTimeDelta = deltaTime;
             if (Planetarium.fetch)
             {
                 double newUT = Planetarium.GetUniversalTime();
-                if(UT == double.MinValue) // or if UT != newUT? but how to make it true normally?
-                    // will UT + deltaTime == newUT? it should but it might not.
-                    Reset();
+                utTimeDelta = newUT - UT;
                 UT = newUT;
             }
 
@@ -67,11 +68,11 @@ namespace RealFuels.Ullage
             //Debug.Log("Ullage: LocalAcc: " + localAcceleration.ToString());
             if (ventingAcc <= RFSettings.Instance.ventingAccThreshold)
             {
-                double ventingConst = (1d - ventingAcc / RFSettings.Instance.ventingAccThreshold) * fuelRatioFactorRecip * deltaTime;
-                ullageHeightMin = UtilMath.Lerp(ullageHeightMin, 0.05d, RFSettings.Instance.naturalDiffusionRateY * ventingConst);
-                ullageHeightMax = UtilMath.Lerp(ullageHeightMax, 0.95d, RFSettings.Instance.naturalDiffusionRateY * ventingConst);
-                ullageRadialMin = UtilMath.Lerp(ullageRadialMin, 0.00d, RFSettings.Instance.naturalDiffusionRateX * ventingConst);
-                ullageRadialMax = UtilMath.Lerp(ullageRadialMax, 0.95d, RFSettings.Instance.naturalDiffusionRateX * ventingConst);
+                double ventingConst = Math.Min(1d, (1d - ventingAcc / RFSettings.Instance.ventingAccThreshold) * fuelRatioFactorRecip * utTimeDelta);
+                ullageHeightMin = UtilMath.LerpUnclamped(ullageHeightMin, 0.05d, RFSettings.Instance.naturalDiffusionRateY * ventingConst);
+                ullageHeightMax = UtilMath.LerpUnclamped(ullageHeightMax, 0.95d, RFSettings.Instance.naturalDiffusionRateY * ventingConst);
+                ullageRadialMin = UtilMath.LerpUnclamped(ullageRadialMin, 0.00d, RFSettings.Instance.naturalDiffusionRateX * ventingConst);
+                ullageRadialMax = UtilMath.LerpUnclamped(ullageRadialMax, 0.95d, RFSettings.Instance.naturalDiffusionRateX * ventingConst);
             }
 
             // Translate forward/backward.
