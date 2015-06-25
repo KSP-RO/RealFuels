@@ -21,13 +21,6 @@ namespace RealFuels
         public float flowMultMin = 0.01f;
 
         [KSPField]
-        public float flowMultCap = float.MaxValue;
-        [KSPField]
-        public float flowMultCapSharpness = 2f;
-        [KSPField]
-        public bool multFlow = true;
-
-        [KSPField]
         public bool usesAir = false;
 
 
@@ -77,7 +70,7 @@ namespace RealFuels
         [KSPField]
         public bool ullage = false;
 
-        [KSPField(guiName = "Ignitions Remaining")]
+        [KSPField(guiName = "Ignitions Remaining", isPersistant = true)]
         public int ignitions = -1;
 
         [KSPField(guiName = "Propellant")]
@@ -298,27 +291,32 @@ namespace RealFuels
         {
             if (throttleLocked)
                 requestedThrottle = 1f;
-
-            if (instantThrottle)
-                currentThrottle = requestedThrottle * thrustPercentage * 0.01f;
-            else
+            if (ignited)
             {
-                
-                float requiredThrottle = requestedThrottle * thrustPercentage * 0.01f;
-                float deltaT = TimeWarp.fixedDeltaTime;
-
-                float d = requiredThrottle - currentThrottle;
-                float thisTick = throttleResponseRate * deltaT;
-                if (Math.Abs((double)d) > thisTick)
-                {
-                    if (d > 0f)
-                        currentThrottle += thisTick;
-                    else
-                        currentThrottle -= thisTick;
-                }
+                if (instantThrottle)
+                    currentThrottle = requestedThrottle * thrustPercentage * 0.01f;
                 else
-                    currentThrottle = requiredThrottle;
+                {
+
+                    float requiredThrottle = requestedThrottle * thrustPercentage * 0.01f;
+                    float deltaT = TimeWarp.fixedDeltaTime;
+
+                    float d = requiredThrottle - currentThrottle;
+                    float thisTick = throttleResponseRate * deltaT;
+                    if (Math.Abs((double)d) > thisTick)
+                    {
+                        if (d > 0f)
+                            currentThrottle += thisTick;
+                        else
+                            currentThrottle -= thisTick;
+                    }
+                    else
+                        currentThrottle = requiredThrottle;
+                }
             }
+            else
+                currentThrottle = 0f;
+
             actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
         }
         
@@ -344,14 +342,15 @@ namespace RealFuels
         public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
             throttledUp = false;
-            if (currentThrottle > 0f)
-                throttledUp = true;
-            else
-                ignited = false;
 
             // handle ignition
             if (HighLogic.LoadedSceneIsFlight)
             {
+                if (requestedThrottle > 0f)
+                    throttledUp = true;
+                else
+                    ignited = false;
+
                 IgnitionUpdate();
 
                 // Ullage
@@ -371,6 +370,7 @@ namespace RealFuels
                             reignitable = false;
                             ullageOK = false;
                             ignited = false;
+                            currentThrottle = 0f;
                         }
                     }
                 }
@@ -603,7 +603,7 @@ namespace RealFuels
                             {
                                 double req = ignitionResources[i].amount;
                                 double amt = (float)part.RequestResource(ignitionResources[i].id, req);
-                                if(amt < req)
+                                if (amt < req)
                                     minResource = Math.Min(minResource, (amt / req));
                             }
 
@@ -621,7 +621,11 @@ namespace RealFuels
                 }
             }
             else
+            {
+                currentThrottle = 0f;
                 reignitable = true; // reset
+                UnFlameout();
+            }
         }
         #endregion
     }
