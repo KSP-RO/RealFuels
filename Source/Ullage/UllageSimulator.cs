@@ -15,6 +15,12 @@ namespace RealFuels.Ullage
         string propellantStatus = "";
         double UT = double.MinValue;
 
+        static double veryStable = 0.996d; // will be clamped above this.
+        static double stable = 0.95d;
+        static double risky = 0.75d;
+        static double veryRisky = 0.3d;
+        static double unstable = 0.15d;
+
         public UllageSimulator()
         {
             Reset();
@@ -132,20 +138,24 @@ namespace RealFuels.Ullage
             //Debug.Log("Ullage: pHorizontal: " + pHorizontal.ToString("F3"));
 
             propellantStability = Math.Max(0.0d, 1.0d - (pVertical * pHorizontal * (0.75d + Math.Sqrt(bLevel))));
+                
 
             SetStateString();
         }
         private void SetStateString()
         {
-            if (propellantStability >= 0.996d)
+            if (propellantStability >= veryStable)
+            {
+                propellantStability = 1d;
                 propellantStatus = "Very Stable";
-            else if (propellantStability >= 0.95d)
+            }
+            else if (propellantStability >= stable)
                 propellantStatus = "Stable";
-            else if (propellantStability >= 0.75d)
+            else if (propellantStability >= risky)
                 propellantStatus = "Risky";
-            else if (propellantStability >= 0.50d)
+            else if (propellantStability >= veryRisky)
                 propellantStatus = "Very Risky";
-            else if (propellantStability >= 0.30d)
+            else if (propellantStability >= unstable)
                 propellantStatus = "Unstable";
             else
                 propellantStatus = "Very Unstable";
