@@ -6,18 +6,26 @@ ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the Rea
 License remains CC-BY-SA as modified by ialdabaoth.
 Source: https://github.com/NathanKell/ModularFuelSystem (shared repository between RF and Modular Fuel Tanks).
 
-Also included: Module Manager (by sarbian, swamp_ig, and ialdabaoth). See the Module Manager thread for details and license and source: http://forum.kerbalspaceprogram.com/threads/55219
-Module Manager is required for RF to work.
+Also included (all are required)
+* Module Manager by sarbian, swamp_ig, and ialdabaoth. See thread for details: http://forum.kerbalspaceprogram.com/threads/55219
+* Community Resource Pack: See thread for details: http://forum.kerbalspaceprogram.com/threads/91998
+* SolverEngines by NathanKell and blowfish. See thread for details: http://forum.kerbalspaceprogram.com/threads/122976
+
+
+Includes ullage simulation code based on that by HoneyFox in EngineIgnitor, reused under MIT License. See end of readme for license details.
+Includes ConfigNodeExtensions by stupid_chris, license CC-BY-SA.
 
 DESCRIPTION:
 Real Fuels does the following:
-*It converts resources to use 1 unit = 1 liter at STP, and changes tank capacity to accord with that.
-*It allows any supported tank to be filled with exactly how much or how little fuel you want, of whatever type you want (though different tanks may allow or disallow certain fuels; jet fuel tanks won't take oxidizer for instance). Tank dry masses are set to replicate real-world rocket stages.
-*Real world fuels are added, and engines/RCS can use them, with realistic stats (NOTE: You NEED an engine pack in order for engines/RCS to use the new fuels).
-*Engine/RCS thrust scales with Isp, just like in real life.
-*Engines/RCS can have multiple configurations (for example, an upper stage could support a kerosene + liquid oxygen mode, and a liquid hydrogen + liquid oxygen mode). These modes have different thrust, Isp, etc.
-*Engines/RCS can have varying techlevels: different performance characteristics for the same part, based on the techlevel you select (techlevels can be tied to R&D nodes for career games).
-*Engines can have limited throttling, and (via installation of the Engine Ignitor mod by HoneyFox) can have limited ignitions.
+* It converts resources to use 1 unit = 1 liter at STP, and changes tank capacity to accord with that.
+* It allows any supported tank to be filled with exactly how much or how little fuel you want, of whatever type you want (though different tanks may allow or disallow certain fuels; jet fuel tanks won't take oxidizer for instance). Tank dry masses are set to replicate real-world rocket stages.
+* Real world fuels are added, and engines/RCS can use them, with realistic stats (NOTE: You NEED an engine pack in order for engines/RCS to use the new fuels).
+* Engines/RCS can have multiple configurations (for example, an upper stage could support a kerosene + liquid oxygen mode, and a liquid hydrogen + liquid oxygen mode). These modes have different thrust, Isp, etc.
+* Engines/RCS can have varying techlevels: different performance characteristics for the same part, based on the techlevel you select (techlevels can be tied to R&D nodes for career games).
+* Configs and techlevels can have their own unlock costs
+* Engines can have limited throttling, and can have limited ignitions.
+* Engines can be subject to ullage requirements.
+* For advanced features, engines use ModuleEnginesRF (powered by SolverEngines).
 
 INSTALL INSTRUCTIONS:
 1. Delete any existing ModularFuelTanks folder or RealFuels folder in your KSP/GameData folder. Remove CommunityResourcePack and SolverEngines if they exist as well. This is VITAL.
@@ -41,6 +49,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4
+* Update for KSP 1.0.4.
+* Ullage and limited ignitions now included, works like EngineIgnitor though the module configuration is different. If you set EI configs in your ModuleEngineConfigs CONFIG nodes, however, those will be read just fine by RF.
+* Spaceplane part volumes and tank types tweaked for better utility.
+* TweakScale support for engines.
+
 v10.3.1
 * Readme update,
 * Fixed an NRE that killed loading under certain circumstances.
@@ -544,3 +558,42 @@ techLevelEntryCostFraction: The fixed cost in funds for unlocking a new techleve
 techLevelScienceEntryCostFraction: The fixed cost in science for unlocking a new techlevel for a CONFIG, if it is not specified in the CONFIG (see above), is based on the this times the sum of the config's science entry cost and (the part's entry cost times configScienceCostMultiplier). Default 0.
 
 usePartNameInConfigUnlock: If true, the part name will be prepended to the config name when checking for whether configs are unlocked. If you tend to use the same name for configs across multiple engines (i.e. both Mainsail and Poodle have `LqdOxygen+LqdHydrogen` configs) you want this true. If you are RO and each CONFIG represents a specific engine (and multiple parts may implement the same engine) you want this false. Default true (but RO sets it to false).
+
+=========================
+ULLAGE AND LIMITED IGNITIONS
+RealFuels now integrates limited ignitions and support for ullage and pressure-fed engines.
+* To start an engine, you must have the resources it requires to start, and you must have ignitions remaining.
+* If ullage is enabled for the engine, and your propellant stability is not "Very Stable", there is a chance that vapor can get in the feed lines and the engine will flame out. You will need to set the throttle to 0 to reset things, then stabilize your propellants. Some forward RCS thrust, or thrust from ullage motors like small SRBs (solids and RCS aren't subject to ullage issues) will do that. Then you can try throttling the engine up again to restart it.
+* If the engine is pressure-fed, it requires highly-pressurized tanks (see above for tank descriptions). It will not ignite and run without such tanks.
+
+New parameters in ModuleEnginesRF:
+ullage: Whether ullage simulation is enabled. Defaults to false.
+pressureFed: Whether the engine is pressure-fed. Defaults to false.
+ignitions: the number of ignitions the engine has. Defaults to -1 (unlimited).
+IGNITOR_RESOURCE nodes: If you specify limited ignitions, an engine will consume these resources when it ignites, and will fail to ignite (but still use up an ignition) if they are not available. name defines the resource name (like ElectricCharge) and amount defines the amount required (just like EngineIgnitor).
+
+Note that if you used to configure Engine Ignitor per-CONFIG in RF, those configs are still compatible. You only need to worry about the above parameters if you don't have ModuleEngineIgnitor {} nodes in you CONFIG nodes.
+
+
+*********************
+RealFuels contains code based on that of HoneyFox in EngineIgnitor. Original MIT license follows.
+The MIT License (MIT)
+
+Copyright (c) 2013 HoneyFox
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
