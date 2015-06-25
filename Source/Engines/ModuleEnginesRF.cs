@@ -79,6 +79,7 @@ namespace RealFuels
         public Ullage.UllageSet ullageSet;
         protected bool ignited = false;
         protected bool reignitable = true;
+        protected bool ullageOK = true;
         protected bool throttledUp = false;
         [SerializeField]
         public List<ModuleResource> ignitionResources;
@@ -117,7 +118,7 @@ namespace RealFuels
                     tempGaugeMin = 0.95d;
             }
             double thrustVariation = varyThrust * RFSettings.Instance.varyThrust;
-            chamberNominalTemp *= (1d - varyThrust);
+            chamberNominalTemp *= (1d - thrustVariation);
 
             rfSolver.InitializeOverallEngineData(
                 minFuelFlow,
@@ -261,9 +262,9 @@ namespace RealFuels
             Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0);
             Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || ullage);
 
-            igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!", 5f, ScreenMessageStyle.UPPER_CENTER);
-            igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources to ignite!", 5f, ScreenMessageStyle.UPPER_CENTER);
-            ullageFail = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: vapor in feedlines, shut down!", 5f, ScreenMessageStyle.UPPER_CENTER);
+            igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
+            igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources to ignite!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
+            ullageFail = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: vapor in feedlines, shut down!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
         }
         public override void OnStart(PartModule.StartState state)
         {
@@ -339,6 +340,15 @@ namespace RealFuels
             else Events["Shutdown"].active = false;
             Events["Activate"].active = false;
         }
+
+        // set ignited in shutdown
+        [KSPEvent(guiActive = true, guiName = "Shutdown Engine")]
+        public override void Shutdown()
+        {
+            base.Shutdown();
+            ignited = false;
+        }
+
         public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
             throttledUp = false;
@@ -346,16 +356,14 @@ namespace RealFuels
             // handle ignition
             if (HighLogic.LoadedSceneIsFlight)
             {
-                if (requestedThrottle > 0f)
+                if (vessel.ctrlState.mainThrottle > 0f)
                     throttledUp = true;
                 else
                     ignited = false;
-
                 IgnitionUpdate();
 
                 // Ullage
                 bool pressureOK = ullageSet.PressureOK();
-                bool ullageOK = true;
                 if (ullage)
                 {
                     propellantStatus = ullageSet.GetUllageState();
@@ -370,12 +378,17 @@ namespace RealFuels
                             reignitable = false;
                             ullageOK = false;
                             ignited = false;
-                            currentThrottle = 0f;
+                            Flameout("Vapor in feed line");
                         }
                     }
                 }
-                if (pressureFed && !pressureOK)
+                if (!pressureOK)
+                {
+                    ignited = false;
+                    reignitable = false;
                     propellantStatus = "Feed pressure too low"; // override ullage status indicator
+                    Flameout("Lack of pressure");
+                }
 
                 rfSolver.SetEngineStatus(pressureOK, ullageOK, ignited);
 
@@ -580,13 +593,13 @@ namespace RealFuels
             {
                 if (!ignited && reignitable)
                 {
-
+                    reignitable = false;
                     if (ignitions == 0)
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
                         FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailIgnitions.message);
-
+                        Flameout("Ignition failed");
                         return;
                     }
                     else
@@ -612,6 +625,7 @@ namespace RealFuels
                                 EngineIgnited = false; // don't play shutdown FX, just fail.
                                 ScreenMessages.PostScreenMessage(igniteFailResources);
                                 FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
+                                Flameout("Ignition failed");
                                 return;
                             }
                         }
@@ -624,7 +638,9 @@ namespace RealFuels
             {
                 currentThrottle = 0f;
                 reignitable = true; // reset
+                ullageOK = true;
                 UnFlameout();
+                ignited = false; // just in case
             }
         }
         #endregion
