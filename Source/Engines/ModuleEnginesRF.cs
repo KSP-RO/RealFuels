@@ -356,7 +356,7 @@ namespace RealFuels
             // handle ignition
             if (HighLogic.LoadedSceneIsFlight)
             {
-                if (vessel.ctrlState.mainThrottle > 0f)
+                if (vessel.ctrlState.mainThrottle > 0f || throttleLocked)
                     throttledUp = true;
                 else
                     ignited = false;
@@ -364,6 +364,7 @@ namespace RealFuels
 
                 // Ullage
                 bool pressureOK = ullageSet.PressureOK();
+                propellantStatus = "Nominal";
                 if (ullage)
                 {
                     propellantStatus = ullageSet.GetUllageState();
