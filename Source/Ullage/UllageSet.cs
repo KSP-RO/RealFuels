@@ -59,8 +59,7 @@ namespace RealFuels.Ullage
             {
                 Propellant p = engine.propellants[i];
                 p.UpdateConnectedResources(engine.part);
-
-                bool noPresTank = true;
+                bool presTank = false;
                 for (int j = p.connectedResources.Count - 1; j >= 0; --j)
                 {
                     PartResource r = p.connectedResources[j];
@@ -88,11 +87,10 @@ namespace RealFuels.Ullage
                         // noPresTank will stay true only if no pressurized tank found.
                         bool resourcePres;
                         tank.pressurizedFuels.TryGetValue(r.resourceName, out resourcePres);
-                        resourcePres |= tank.highlyPressurized;
-                        noPresTank &= !resourcePres;
+                        presTank |= resourcePres || tank.highlyPressurized;
                     }
                 }
-                tanksHighlyPressurized &= !noPresTank; // i.e. if no tank, set false.
+                tanksHighlyPressurized &= presTank; // i.e. if no tank, set false.
             }
         }
         public void SetThrustAxis(Vector3 thrustAxis)
