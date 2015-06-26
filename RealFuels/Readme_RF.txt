@@ -49,6 +49,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.1
+* Fix throttle/ignition for throttle-locked (solids).
+* Fix to report nominal propellant status when pressurefed OK and ullage disabled.
+
 v10.4
 * Update for KSP 1.0.4.
 * Ullage and limited ignitions now included, works like EngineIgnitor though the module configuration is different. If you set EI configs in your ModuleEngineConfigs CONFIG nodes, however, those will be read just fine by RF.
