@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.2
+* Repack to include correct KSPAPIExtensions
+
 v10.4.1
 * Fix throttle/ignition for throttle-locked (solids).
 * Fix to report nominal propellant status when pressurefed OK and ullage disabled.
