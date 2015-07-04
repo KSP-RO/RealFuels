@@ -58,7 +58,17 @@ namespace RealFuels.Ullage
             for (int i = engine.propellants.Count - 1; i >= 0; --i)
             {
                 Propellant p = engine.propellants[i];
-                p.UpdateConnectedResources(engine.part);
+                try
+                {
+                    p.UpdateConnectedResources(engine.part);
+                }
+                catch
+                {
+                    if (p.connectedResources != null)
+                        p.connectedResources.Clear();
+                    else
+                        p.connectedResources = new List<PartResource>();
+                }
                 bool presTank = false;
                 for (int j = p.connectedResources.Count - 1; j >= 0; --j)
                 {
