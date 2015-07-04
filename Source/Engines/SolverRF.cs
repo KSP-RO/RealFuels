@@ -166,8 +166,6 @@ namespace RealFuels
                 fxPower = (float)(fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
                 if (float.IsNaN(fxPower))
                     fxPower = 0f;
-
-                double exhaustVelocity = Isp * 9.80665d;
                 
                 // apply fuel flow multiplier
                 double ffMult = fuelFlow * fuelFlowMult;
@@ -175,6 +173,9 @@ namespace RealFuels
                     fuelFlow = ffMult;
                 else
                     Isp *= fuelFlowMult;
+
+                double exhaustVelocity = Isp * 9.80665d;
+                SFC = 3600d / Isp;
                 
                 thrust = ffMult * exhaustVelocity; // either way, thrust is base * mult * EV
 

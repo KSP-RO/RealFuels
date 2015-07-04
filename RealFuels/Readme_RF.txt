@@ -49,6 +49,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.3
+* Fix an NRE in ullage code in editor.
+* Fix a bug with multFlow not being used correctly.
+
 v10.4.2
 * Repack to include correct KSPAPIExtensions
 
