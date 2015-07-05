@@ -54,9 +54,8 @@ namespace RealFuels.Ullage
                 angVel = vessel.angularVelocity;
             }
             // are we stopped but the fuel is under gravity?
-            if (vessel.LandedOrSplashed)
+            if (vessel.LandedOrSplashed || vessel.situation == Vessel.Situations.PRELAUNCH) // catch the launch clamp case
                 accel = -(Vector3)FlightGlobals.getGeeForceAtPosition(vessel.GetWorldPos3D());
-
 
             // get boiloff accel
             double massRate = 0d;
