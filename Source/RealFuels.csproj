@@ -34,23 +34,25 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\..\Games\KSP_win1\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="KSPAPIExtensions, Version=1.7.2.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\RealFuels\Plugins\KSPAPIExtensions.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\GameData\RealFuels\Plugins\KSPAPIExtensions.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Scale_Redist">
+      <HintPath>E:\Games\KSPDev1.0.4\GameData\RealFuels\Plugins\Scale_Redist.dll</HintPath>
+    </Reference>
     <Reference Include="SolverEngines">
-      <HintPath>..\..\SolverEngines\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>E:\Games\KSPDev1.0.4\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
     </Reference>
     <Reference Include="System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\Games\KSP_win1\KSP_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\KSP_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>

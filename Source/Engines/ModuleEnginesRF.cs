@@ -14,8 +14,6 @@ namespace RealFuels
         #region Fields
         [KSPField]
         public double chamberNominalTemp = 0d;
-        [KSPField]
-        public double extHeatkW = 0d;
 
         [KSPField]
         public float flowMultMin = 0.01f;
@@ -418,7 +416,7 @@ namespace RealFuels
             rfSolver.SetPartTemp(part.temperature);
 
             // do heat
-            heatProduction = (float)(scaleRecip * extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
+            heatProduction = (float)(scaleRecip * rfSolver.GetHeat() / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
             // run base method code
             base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);

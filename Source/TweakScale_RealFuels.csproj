@@ -40,20 +40,22 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\..\Games\KSP_090clean\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Scale_Redist">
-      <HintPath>..\RealFuels\Plugins\Scale_Redist.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\GameData\RealFuels\Plugins\Scale_Redist.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="SolverEngines">
       <HintPath>..\..\SolverEngines\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="System" />
+    <Reference Include="System">
+      <Private>False</Private>
+    </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\Games\KSP_090clean\KSP_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\KSP_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -64,4 +66,7 @@
       <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
+  <PropertyGroup>
+    <PostBuildEvent>del "System.Core.dll"</PostBuildEvent>
+  </PropertyGroup>
 </Project>
