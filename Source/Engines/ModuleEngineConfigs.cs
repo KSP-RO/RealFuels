@@ -599,9 +599,6 @@ namespace RealFuels
                     }
 
                     DoConfig(config);
-                    if (pModule is ModuleEnginesRF)
-                        (pModule as ModuleEnginesRF).SetScale(1d);
-                    pModule.Load(config);
 
                     // Handle Engine Ignitor
                     if (config.HasNode("ModuleEngineIgnitor"))
@@ -674,15 +671,19 @@ namespace RealFuels
                                 config.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
                             if (eiNode.HasValue("isPressureFed") && !config.HasValue("pressureFed"))
                                 config.AddValue("pressureFed", eiNode.GetValue("isPressureFed"));
-                            if(!config.HasNode("IGNITOR_RESOURCE"))
+                            if (!config.HasNode("IGNITOR_RESOURCE"))
                                 foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
                                     config.AddNode(resNode);
 
                             if (writeIgnitions && (!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
                                 config.AddValue("ignitions", ignitions);
-                                
+
                         }
                     }
+
+                    if (pModule is ModuleEnginesRF)
+                        (pModule as ModuleEnginesRF).SetScale(1d);
+                    pModule.Load(config);
                 }
                 // fix for editor NaN
                 if (part.Resources.Contains("ElectricCharge") && part.Resources["ElectricCharge"].maxAmount < 0.1)
