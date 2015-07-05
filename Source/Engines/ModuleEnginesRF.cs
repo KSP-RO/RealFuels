@@ -541,7 +541,15 @@ namespace RealFuels
         }
         public override string GetPrimaryField()
         {
-            return GetThrustInfo();
+            string output = GetThrustInfo();
+            if (pressureFed)
+                output += "Pressure-fed";
+            if (ignitions >= 0)
+                output += (pressureFed ? ", " : "") + ignitions + " ignitions";
+            if (pressureFed || ignitions >= 0)
+                output += "\n";
+
+            return output;
         }
 
         public override string GetInfo()
