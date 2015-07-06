@@ -17,6 +17,7 @@ namespace RealFuels.Ullage
         UllageModule module;
 
         Vector3d acceleration, angularVelocity;
+        double fuelRatio;
 
         bool pressureFed = false;
         bool tanksHighlyPressurized = false;
@@ -53,26 +54,21 @@ namespace RealFuels.Ullage
             rfTanks.Clear();
 
             tanksHighlyPressurized = true; // will be set false if any propellant has no highly-pres tank feeding it
+            fuelRatio = 1d;
 
             // iterate through all propellants.
             for (int i = engine.propellants.Count - 1; i >= 0; --i)
             {
                 Propellant p = engine.propellants[i];
-                try
-                {
-                    p.UpdateConnectedResources(engine.part);
-                }
-                catch
-                {
-                    if (p.connectedResources != null)
-                        p.connectedResources.Clear();
-                    else
-                        p.connectedResources = new List<PartResource>();
-                }
+                List<PartResource> resources = Utilities.FindResources(engine.part, p);
+                double propAmt = 0d, propMax = 0d;
                 bool presTank = false;
-                for (int j = p.connectedResources.Count - 1; j >= 0; --j)
+                for (int j = resources.Count - 1; j >= 0; --j)
                 {
-                    PartResource r = p.connectedResources[j];
+                    PartResource r = resources[j];
+                    propAmt += r.amount;
+                    propMax += r.maxAmount;
+
                     Part part = r.part;
                     Tanks.ModuleFuelTanks tank = null;
                     if (!tanks.Contains(part))
@@ -101,6 +97,9 @@ namespace RealFuels.Ullage
                     }
                 }
                 tanksHighlyPressurized &= presTank; // i.e. if no tank, set false.
+
+                // set ratio
+                fuelRatio = Math.Min(fuelRatio, propAmt / propMax);
             }
         }
         public void SetThrustAxis(Vector3 thrustAxis)
@@ -140,17 +139,15 @@ namespace RealFuels.Ullage
             else
                 angularVelocity = engine.transform.InverseTransformDirection(angVel);
 
-            double fuelRatio = 1d;
-            if(HighLogic.LoadedSceneIsFlight)
+            if(HighLogic.LoadedSceneIsFlight && engine.EngineIgnited)
             {
+                fuelRatio = 1d;
                 int pCount = engine.propellants.Count;
-                fuelRatio = 0d;
                 for(int i = pCount - 1; i >= 0; --i)
                 {
                     Propellant p = engine.propellants[i];
-                    fuelRatio += p.totalResourceAvailable / p.totalResourceCapacity;
+                    fuelRatio = Math.Min(fuelRatio, p.totalResourceAvailable / p.totalResourceCapacity);
                 }
-                fuelRatio /= (double)pCount;
                 // do pressure-fed tests?
             }
             if(ullageEnabled)
