@@ -545,7 +545,7 @@ namespace RealFuels
             if (pressureFed)
                 output += "Pressure-fed";
             if (ignitions >= 0)
-                output += (pressureFed ? ", " : "") + ignitions + " ignitions";
+                output += (pressureFed ? ", " : "") + "Ignitions: " + ignitions;
             if (pressureFed || ignitions >= 0)
                 output += "\n";
 
