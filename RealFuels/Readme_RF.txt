@@ -49,6 +49,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.4
+* Fix bug where tanks that had flow disabled in partactionmenu were not counted for pressure-fed checks.
+* Fix bug where legacy EI configs were not being applied.
+* Fix issues with fuel ratio for ullage.
+* Show ignitions and pressure-fed-ness in Editor tooltips.
+
 v10.4.3
 * Fix an NRE in ullage code in editor.
 * Fix a bug with multFlow not being used correctly.
