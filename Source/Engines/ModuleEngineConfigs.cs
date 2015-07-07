@@ -611,14 +611,7 @@ namespace RealFuels
                                 int ignitions;
                                 if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
                                 {
-                                    if (ignitions < 0)
-                                    {
-                                        ignitions = techLevel + ignitions;
-                                        if (ignitions < 1)
-                                            ignitions = 1;
-                                    }
-                                    else if (ignitions == 0)
-                                        ignitions = -1;
+                                    ignitions = ConfigIgnitions(ignitions);
 
                                     eiNode.SetValue("ignitionsAvailable", ignitions.ToString());
                                     if (eiNode.HasValue("ignitionsRemained"))
@@ -645,7 +638,6 @@ namespace RealFuels
                             ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
                             int ignitions = -1;
                             string ignitionsString = "";
-                            bool writeIgnitions = false;
                             if (config.HasValue("ignitions"))
                             {
                                 ignitionsString = config.GetValue("ignitions");
@@ -657,15 +649,9 @@ namespace RealFuels
                             }
                             if (!string.IsNullOrEmpty(ignitionsString) && int.TryParse(ignitionsString, out ignitions))
                             {
-                                if (ignitions < 0)
-                                {
-                                    ignitions = techLevel + ignitions;
-                                    if (ignitions < 1)
-                                        ignitions = 1;
-                                }
-                                else if (ignitions == 0)
-                                    ignitions = -1;
-                                writeIgnitions = true;
+                                ignitions = ConfigIgnitions(ignitions);
+                                if ((!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
+                                    config.AddValue("ignitions", ignitions);
                             }
                             if (eiNode.HasValue("useUllageSimulation") && !config.HasValue("ullage"))
                                 config.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
@@ -674,9 +660,6 @@ namespace RealFuels
                             if (!config.HasNode("IGNITOR_RESOURCE"))
                                 foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
                                     config.AddNode(resNode);
-
-                            if (writeIgnitions && (!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
-                                config.AddValue("ignitions", ignitions);
 
                         }
                     }
@@ -732,6 +715,19 @@ namespace RealFuels
                 Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
                 Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
             }
+        }
+
+        virtual protected int ConfigIgnitions(int ignitions)
+        {
+            if (ignitions < 0)
+            {
+                ignitions = techLevel + ignitions;
+                if (ignitions < 1)
+                    ignitions = 1;
+            }
+            else if (ignitions == 0)
+                ignitions = -1;
+            return ignitions;
         }
 
         virtual public void DoConfig(ConfigNode cfg)
