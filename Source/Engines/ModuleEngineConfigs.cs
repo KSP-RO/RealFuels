@@ -84,7 +84,7 @@ namespace RealFuels
         public int techLevel = -1; // default: disable
 
         [KSPField]
-        public int origTechLevel = 1; // default TL
+        public int origTechLevel = -1; // default TL, starts disabled
 
         [KSPField]
         public float origMass = -1;
