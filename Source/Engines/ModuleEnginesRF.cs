@@ -368,7 +368,7 @@ namespace RealFuels
                 if (ullage)
                 {
                     propellantStatus = ullageSet.GetUllageState();
-                    if (EngineIgnited && ignited && throttledUp)
+                    if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
                     {
                         double state = ullageSet.GetUllageStability();
                         double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
