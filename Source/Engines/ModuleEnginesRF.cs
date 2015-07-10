@@ -230,7 +230,6 @@ namespace RealFuels
             {
                 ullageSet.Load(node.GetNode("Ullage"));
             }
-
             ullageSet.SetUllageEnabled(ullage);
 
             // load ignition resources
@@ -260,7 +259,7 @@ namespace RealFuels
                 ullageSet = new Ullage.UllageSet(this);
 
             Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0);
-            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || ullage);
+            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || (ullage && RFSettings.Instance.simulateUllage));
 
             igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
             igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources to ignite!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
@@ -365,7 +364,7 @@ namespace RealFuels
                 // Ullage
                 bool pressureOK = ullageSet.PressureOK();
                 propellantStatus = "Nominal";
-                if (ullage)
+                if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState();
                     if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
@@ -391,7 +390,7 @@ namespace RealFuels
                     Flameout("Lack of pressure");
                 }
 
-                rfSolver.SetEngineStatus(pressureOK, ullageOK, ignited);
+                rfSolver.SetEngineStatus(pressureOK, (ullageOK || !RFSettings.Instance.simulateUllage), ignited);
 
                 // do thrust curve
                 if (ignited && useThrustCurve)

@@ -35,7 +35,7 @@ namespace RealFuels.Ullage
         double ullageRadialMin, ullageRadialMax;
 
         double propellantStability = 1d;
-        string propellantStatus = "";
+        string propellantStatus = "Very Stable";
         double UT = double.MinValue;
 
         static double veryStable = 0.996d; // will be clamped above this.

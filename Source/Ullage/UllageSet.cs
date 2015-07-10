@@ -150,7 +150,7 @@ namespace RealFuels.Ullage
                 }
                 // do pressure-fed tests?
             }
-            if(ullageEnabled)
+            if(ullageEnabled && RFSettings.Instance.simulateUllage)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
         }
         public void SetUllageEnabled(bool enabled)
