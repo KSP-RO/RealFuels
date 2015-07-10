@@ -49,6 +49,15 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.5
+* Update to CRP 4.3. Remove no-longer-needed hsp changes.
+* Add a fix to TEATEB flow mode until next CRP.
+* Clean up behavior when igntions are specified in a CONFIG.
+* Make the simulateUllage setting be respected.
+* Add a limitedIgnitions setting (which can be set to false).
+* Default origTechLevel to -1 to avoid an issue on engine configuration change.
+* SolverEngines update fixes "can't activate when shielded" issue.
+
 v10.4.4
 * Fix bug where tanks that had flow disabled in partactionmenu were not counted for pressure-fed checks.
 * Fix bug where legacy EI configs were not being applied.
