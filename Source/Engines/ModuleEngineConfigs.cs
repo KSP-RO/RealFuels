@@ -707,7 +707,8 @@ namespace RealFuels
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
 
                 // fire config modified event
-                EngineConfigChanged();
+                if(HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
+                    EngineConfigChanged();
 
                 SetupFX();
 
