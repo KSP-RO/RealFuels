@@ -706,6 +706,9 @@ namespace RealFuels
                 /*if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
 
+                // fire config modified event
+                EngineConfigChanged();
+
                 SetupFX();
 
                 UpdateTFInterops(); // update TestFlight if it's installed
@@ -916,8 +919,8 @@ namespace RealFuels
             }
         }
 
-        /*[PartMessageEvent]
-        public event PartEngineConfigChanged EngineConfigChanged;*/
+        [PartMessageEvent]
+        public event PartEngineConfigChanged EngineConfigChanged;
 
 
         //called by StretchyTanks StretchySRB and ProcedrualParts
