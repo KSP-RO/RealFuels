@@ -35,6 +35,7 @@ namespace RealFuels
 
         #region Ullage
         public bool simulateUllage = true;
+        public bool limitedIgnitions = true;
         public bool shutdownEngineWhenUnstable = true;
         public bool explodeEngineWhenTooUnstable = false;
         public double stabilityPower = 0.03d;
@@ -140,6 +141,7 @@ namespace RealFuels
                 ConfigNode ullageNode = node.GetNode("Ullage");
 
                 ullageNode.TryGetValue("simulateUllage", ref simulateUllage);
+                ullageNode.TryGetValue("limitedIgnitions", ref limitedIgnitions);
                 ullageNode.TryGetValue("shutdownEngineWhenUnstable", ref shutdownEngineWhenUnstable);
                 ullageNode.TryGetValue("explodeEngineWhenTooUnstable", ref explodeEngineWhenTooUnstable);
                 ullageNode.TryGetValue("stabilityPower", ref stabilityPower);

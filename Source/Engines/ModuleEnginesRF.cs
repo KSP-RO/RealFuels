@@ -258,7 +258,7 @@ namespace RealFuels
             if (ullageSet == null)
                 ullageSet = new Ullage.UllageSet(this);
 
-            Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0);
+            Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0 && RFSettings.Instance.limitedIgnitions);
             Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || (ullage && RFSettings.Instance.simulateUllage));
 
             igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
@@ -543,9 +543,9 @@ namespace RealFuels
             string output = GetThrustInfo();
             if (pressureFed)
                 output += "Pressure-fed";
-            if (ignitions >= 0)
+            if (ignitions >= 0 && RFSettings.Instance.limitedIgnitions)
                 output += (pressureFed ? ", " : "") + "Ignitions: " + ignitions;
-            if (pressureFed || ignitions >= 0)
+            if (pressureFed || (ignitions >= 0 && RFSettings.Instance.limitedIgnitions))
                 output += "\n";
 
             return output;
@@ -602,7 +602,7 @@ namespace RealFuels
                 if (!ignited && reignitable)
                 {
                     reignitable = false;
-                    if (ignitions == 0)
+                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions)
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
@@ -612,29 +612,32 @@ namespace RealFuels
                     }
                     else
                     {
-                        if (ignitions > 0)
-                            ignitions--;
-
-                        // try to ignite
-                        int count = ignitionResources.Count - 1;
-                        if (count >= 0)
+                        if (RFSettings.Instance.limitedIgnitions)
                         {
-                            double minResource = 1f;
-                            for (int i = count; i >= 0; --i)
-                            {
-                                double req = ignitionResources[i].amount;
-                                double amt = (float)part.RequestResource(ignitionResources[i].id, req);
-                                if (amt < req)
-                                    minResource = Math.Min(minResource, (amt / req));
-                            }
+                            if (ignitions > 0)
+                                ignitions--;
 
-                            if (UnityEngine.Random.value > (float)minResource)
+                            // try to ignite
+                            int count = ignitionResources.Count - 1;
+                            if (count >= 0)
                             {
-                                EngineIgnited = false; // don't play shutdown FX, just fail.
-                                ScreenMessages.PostScreenMessage(igniteFailResources);
-                                FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
-                                Flameout("Ignition failed");
-                                return;
+                                double minResource = 1f;
+                                for (int i = count; i >= 0; --i)
+                                {
+                                    double req = ignitionResources[i].amount;
+                                    double amt = (float)part.RequestResource(ignitionResources[i].id, req);
+                                    if (amt < req)
+                                        minResource = Math.Min(minResource, (amt / req));
+                                }
+
+                                if (UnityEngine.Random.value > (float)minResource)
+                                {
+                                    EngineIgnited = false; // don't play shutdown FX, just fail.
+                                    ScreenMessages.PostScreenMessage(igniteFailResources);
+                                    FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
+                                    Flameout("Ignition failed");
+                                    return;
+                                }
                             }
                         }
                         ignited = true;
