@@ -53,7 +53,7 @@ namespace RealFuels
             double nMachLimit,
             double nMachMult,
             bool nMultFlow,
-            double nVaryThrust)
+            double nVaryThrust)//TODO:Other type of engine?
         {
             double gamma_t = CalculateGamma(mTcns, mFF);
             double inv_gamma_t = 1 / gamma_t;
@@ -110,7 +110,7 @@ namespace RealFuels
                 return;
             }
             if (!combusting) desiredTemp = t0; else if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight){
-                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);
+                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 196883f) * 2d - 1d) * varyThrust);
             }
             if (Math.Abs(desiredTemp - Tcns) < 1d)
                 Tcns = desiredTemp;
@@ -184,6 +184,8 @@ namespace RealFuels
             }
             else
             {
+                // get current flow, and thus thrust.
+                fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
                     fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);
 
@@ -199,26 +201,24 @@ namespace RealFuels
                          (Math.Pow(2 / (gamma_c + 1), (gamma_c + 1) * inv_gamma_cm1))
                          * inv_gamma_cm1
                     );
-                double Ct2= nozzleExpansionRatio * (Pe - p0 / 1000) / Pcns;
+                double Ct2= nozzleExpansionRatio * (Pe - p0 / 1000d) / Pcns;
                 Ct = pR_Frac * Ct1_per_pR_Frac + Ct2;
-                // get current flow, and thus thrust.
-                fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 double pR_e = Pe * 1000d / p0;
                 statusString = "";
                 if (Pcns > chamberMaxPressure) {
                     float overPressureRatio = (float)(Pcns / chamberMaxPressure - 1);
                     heatMult *= 1 + overPressureRatio * 2;
                     //stability /= (1 + 0.0001f * overPressureRatio);/*MAGIC*/
-                    statusString = "OVPR";//Over pressure
+                    statusString = "OVPR ";//Over pressure
                 }
                 if (Tcns > chamberMaxTemp) {//chamberMaxTemp should be maxEngineTemp * 0.8 ,for the overheat box in SolverEngine
                     float overHeatRatio = (float)(Tcns / (chamberMaxTemp));
                     heatMult *= 1 + overHeatRatio * 2;
                     //stability /= (1 + 0.0001f * overHeatRatio);/*MAGIC*/
-                    statusString += " OVHT";//Over Temprature
+                    statusString += "OVHT ";//Over Temprature
                 }
-                if (pR_e < 0.3 && pR_e >= 0.1) { Ct = Ct * Math.Sqrt(pR_e * 5 - 0.50f); statusString += " Jet Sepration"; }//TODO:Actually jet sepration wouldn't cost so much
-                    else if (pR_e < 0.10001) { Ct = 0; statusString += " Unstable Jet Sepration"; }
+                if (pR_e < 0.3 && pR_e >= 0.1) { Ct = Ct * Math.Sqrt(pR_e * 5 - 0.50f); statusString += "Shockwave in Nozzle"; }//TODO:Actually jet sepration wouldn't cost so much
+                    else if (pR_e < 0.10001) { Ct = 0; statusString += "Jet Sepration"; }
                 if (statusString == "") { statusString = "Nominal"; }
                 Isp = Cstar * Ct / 9.80665d;
                 Isp *= ispMult;
@@ -234,15 +234,16 @@ namespace RealFuels
             UpdateTc();
         }
         // engine status
-        public override double GetEngineTemp() { return Tcns; }
-        public override double GetArea() { return 0d; }
+        public override double  GetEngineTemp() { return Tcns; }
+        public double           GetEnginePressure() { return Pcns; }
+        public override double  GetArea() { return 0d; }
         // FX etc
-        public override double GetEmissive() { return UtilMath.Clamp01(Tcns * chamberNominalTemp_recip); }
-        public override float GetFXPower() { return fxPower; }
-        public override float GetFXRunning() { return fxPower; }
-        public override float GetFXThrottle() { return fxThrottle; }
-        public override float GetFXSpool() { return (float)(UtilMath.Clamp01(Tcns * chamberNominalTemp_recip)); }
-        public override bool GetRunning() { return combusting; }
+        public override double  GetEmissive() { return UtilMath.Clamp01(Tcns * chamberNominalTemp_recip); }
+        public override float   GetFXPower() { return fxPower; }
+        public override float   GetFXRunning() { return fxPower; }
+        public override float   GetFXThrottle() { return fxThrottle; }
+        public override float   GetFXSpool() { return (float)(UtilMath.Clamp01(Tcns * chamberNominalTemp_recip)); }
+        public override bool    GetRunning() { return combusting; }
         public double GetHeat() {return (Tcns - t0) * 0.05 * heatMult;/*MAGIC*/}
         // new methods
         public void UpdateThrustRatio(double r) { thrustRatio = r; }

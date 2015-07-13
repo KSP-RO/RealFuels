@@ -84,7 +84,7 @@ namespace RealFuels
         public int techLevel = -1; // default: disable
 
         [KSPField]
-        public int origTechLevel = 1; // default TL
+        public int origTechLevel = -1; // default TL
 
         [KSPField]
         public float origMass = -1;
@@ -599,9 +599,6 @@ namespace RealFuels
                     }
 
                     DoConfig(config);
-                    if (pModule is ModuleEnginesRF)
-                        (pModule as ModuleEnginesRF).SetScale(1d);
-                    pModule.Load(config);
 
                     // Handle Engine Ignitor
                     if (config.HasNode("ModuleEngineIgnitor"))
@@ -614,14 +611,7 @@ namespace RealFuels
                                 int ignitions;
                                 if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
                                 {
-                                    if (ignitions < 0)
-                                    {
-                                        ignitions = techLevel + ignitions;
-                                        if (ignitions < 1)
-                                            ignitions = 1;
-                                    }
-                                    else if (ignitions == 0)
-                                        ignitions = -1;
+                                    ignitions = ConfigIgnitions(ignitions);
 
                                     eiNode.SetValue("ignitionsAvailable", ignitions.ToString());
                                     if (eiNode.HasValue("ignitionsRemained"))
@@ -660,15 +650,9 @@ namespace RealFuels
                             }
                             if (!string.IsNullOrEmpty(ignitionsString) && int.TryParse(ignitionsString, out ignitions))
                             {
-                                if (ignitions < 0)
-                                {
-                                    ignitions = techLevel + ignitions;
-                                    if (ignitions < 1)
-                                        ignitions = 1;
-                                }
-                                else if (ignitions == 0)
-                                    ignitions = -1;
-                                writeIgnitions = true;
+                                ignitions = ConfigIgnitions(ignitions);
+                                if ((!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
+                                    config.AddValue("ignitions", ignitions);
                             }
                             if (eiNode.HasValue("useUllageSimulation") && !config.HasValue("ullage"))
                                 config.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
@@ -683,6 +667,9 @@ namespace RealFuels
                                 
                         }
                     }
+                    if (pModule is ModuleEnginesRF)
+                        (pModule as ModuleEnginesRF).SetScale(1d);
+                    pModule.Load(config);
                 }
                 // fix for editor NaN
                 if (part.Resources.Contains("ElectricCharge") && part.Resources["ElectricCharge"].maxAmount < 0.1)
@@ -721,7 +708,9 @@ namespace RealFuels
                 // more trouble than it is worth...
                 /*if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
-
+                // fire config modified event
+                if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
+                    EngineConfigChanged();
                 SetupFX();
 
                 UpdateTFInterops(); // update TestFlight if it's installed
@@ -732,7 +721,16 @@ namespace RealFuels
                 Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
             }
         }
-
+        virtual protected int ConfigIgnitions(int ignitions)
+        {
+            if (ignitions < 0) {
+                ignitions = techLevel + ignitions;
+                if (ignitions < 1)
+                    ignitions = 1;
+            } else if (ignitions == 0)
+                ignitions = -1;
+            return ignitions;
+        }
         virtual public void DoConfig(ConfigNode cfg)
         {
             configMaxThrust = configMinThrust = configHeat = -1f;
@@ -919,8 +917,8 @@ namespace RealFuels
             }
         }
 
-        /*[PartMessageEvent]
-        public event PartEngineConfigChanged EngineConfigChanged;*/
+        [PartMessageEvent]
+        public event PartEngineConfigChanged EngineConfigChanged;
 
 
         //called by StretchyTanks StretchySRB and ProcedrualParts

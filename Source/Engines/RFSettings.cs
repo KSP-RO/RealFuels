@@ -10,11 +10,11 @@ namespace RealFuels
     // ReSharper disable once InconsistentNaming
     public class RFSettings : MonoBehaviour
     {
-        
+
         private float engineMassMultiplier = 1;
-        
+
         public float heatMultiplier = 1;
-        
+
         public bool useRealisticMass = true;
 
         public double configEntryCostMultiplier = 20d;
@@ -35,6 +35,7 @@ namespace RealFuels
 
         #region Ullage
         public bool simulateUllage = true;
+        public bool limitedIgnitions = true;
         public bool shutdownEngineWhenUnstable = true;
         public bool explodeEngineWhenTooUnstable = false;
         public double stabilityPower = 0.03d;
@@ -93,20 +94,20 @@ namespace RealFuels
                 return version;
             }
 
-            var asm = Assembly.GetCallingAssembly ();
-            var title = SystemUtils.GetAssemblyTitle (asm);
-            version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
+            var asm = Assembly.GetCallingAssembly();
+            var title = SystemUtils.GetAssemblyTitle(asm);
+            version = title + " " + SystemUtils.GetAssemblyVersionString(asm);
 
             return version;
         }
 
         internal void Awake()
         {
-            if(engineConfigs == null)
+            if (engineConfigs == null)
                 engineConfigs = new Dictionary<string, List<ConfigNode>>();
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("RFSETTINGS").Last();
-            
+
             Debug.Log("*RF* Loading RFSETTINGS global settings");
 
             if (node == null)
@@ -125,7 +126,7 @@ namespace RealFuels
             if (node.HasNode("instantThrottleProps"))
                 foreach (ConfigNode.Value val in node.GetNode("instantThrottleProps").values)
                     instantThrottleProps.Add(val.value);
-            
+
             // Upgrade costs
             node.TryGetValue("configEntryCostMultiplier", out configEntryCostMultiplier);
             node.TryGetValue("techLevelEntryCostFraction", out techLevelEntryCostFraction);
@@ -135,11 +136,11 @@ namespace RealFuels
             node.TryGetValue("usePartNameInConfigUnlock", out usePartNameInConfigUnlock);
 
             #region Ullage
-            if (node.HasNode("Ullage"))
-            {
+            if (node.HasNode("Ullage")) {
                 ConfigNode ullageNode = node.GetNode("Ullage");
 
                 ullageNode.TryGetValue("simulateUllage", ref simulateUllage);
+                ullageNode.TryGetValue("limitedIgnitions", ref limitedIgnitions);
                 ullageNode.TryGetValue("shutdownEngineWhenUnstable", ref shutdownEngineWhenUnstable);
                 ullageNode.TryGetValue("explodeEngineWhenTooUnstable", ref explodeEngineWhenTooUnstable);
                 ullageNode.TryGetValue("stabilityPower", ref stabilityPower);

@@ -35,7 +35,7 @@ namespace RealFuels.Ullage
         double ullageRadialMin, ullageRadialMax;
 
         double propellantStability = 1d;
-        string propellantStatus = "";
+        string propellantStatus = "Very Stable";
         double UT = double.MinValue;
 
         static double veryStable = 0.996d; // will be clamped above this.
@@ -75,8 +75,7 @@ namespace RealFuels.Ullage
         public void Update(Vector3d localAcceleration, Vector3d rotation, double deltaTime, double ventingAcc, double fuelRatio)
         {
             double utTimeDelta = deltaTime;
-            if (Planetarium.fetch)
-            {
+            if (Planetarium.fetch) {
                 double newUT = Planetarium.GetUniversalTime();
                 utTimeDelta = newUT - UT;
                 UT = newUT;
@@ -87,7 +86,7 @@ namespace RealFuels.Ullage
 
             //if (ventingAcc != 0.0f) Debug.Log("BoilOffAcc: " + ventingAcc.ToString("F8"));
             //else Debug.Log("BoilOffAcc: No boiloff.");
-            
+
             Vector3d localAccelerationAmount = localAcceleration * deltaTime;
             Vector3d rotationAmount = rotation * deltaTime;
 
@@ -95,8 +94,7 @@ namespace RealFuels.Ullage
 
             // Natural diffusion.
             //Debug.Log("Ullage: LocalAcc: " + localAcceleration.ToString());
-            if (ventingAcc <= RFSettings.Instance.ventingAccThreshold)
-            {
+            if (ventingAcc <= RFSettings.Instance.ventingAccThreshold) {
                 double ventingConst = Math.Min(1d, (1d - ventingAcc / RFSettings.Instance.ventingAccThreshold) * fuelRatioFactorRecip * utTimeDelta);
                 ullageHeightMin = UtilMath.LerpUnclamped(ullageHeightMin, 0.05d, RFSettings.Instance.naturalDiffusionRateY * ventingConst);
                 ullageHeightMax = UtilMath.LerpUnclamped(ullageHeightMax, 0.95d, RFSettings.Instance.naturalDiffusionRateY * ventingConst);
@@ -161,18 +159,16 @@ namespace RealFuels.Ullage
             //Debug.Log("Ullage: pHorizontal: " + pHorizontal.ToString("F3"));
 
             propellantStability = Math.Max(0.0d, 1.0d - (pVertical * pHorizontal * (0.75d + Math.Sqrt(bLevel))));
-                
+
 
             SetStateString();
         }
         private void SetStateString()
         {
-            if (propellantStability >= veryStable)
-            {
+            if (propellantStability >= veryStable) {
                 propellantStability = 1d;
                 propellantStatus = "Very Stable";
-            }
-            else if (propellantStability >= stable)
+            } else if (propellantStability >= stable)
                 propellantStatus = "Stable";
             else if (propellantStability >= risky)
                 propellantStatus = "Risky";
