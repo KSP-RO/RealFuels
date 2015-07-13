@@ -707,8 +707,17 @@ namespace RealFuels
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
 
                 // fire config modified event
-                if(HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
-                    EngineConfigChanged();
+                /*if(HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
+                    EngineConfigChanged();*/
+                // do it manually
+                List<Part> parts;
+                if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
+                    parts = EditorLogic.fetch.ship.parts;
+                else if (HighLogic.LoadedSceneIsFlight && vessel != null)
+                    parts = vessel.parts;
+                else parts = new List<Part>();
+                for (int i = parts.Count - 1; i >= 0; --i)
+                    parts[i].SendMessage("UpdateUsedBy");
 
                 SetupFX();
 
@@ -920,8 +929,8 @@ namespace RealFuels
             }
         }
 
-        [PartMessageEvent]
-        public event PartEngineConfigChanged EngineConfigChanged;
+        /*[PartMessageEvent]
+        public event PartEngineConfigChanged EngineConfigChanged;*/
 
 
         //called by StretchyTanks StretchySRB and ProcedrualParts
