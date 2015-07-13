@@ -900,11 +900,11 @@ namespace RealFuels.Tanks
 			UpdateUsedBy ();
 		}
 
-		[PartMessageListener (typeof (PartEngineConfigChanged), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
+		/*[PartMessageListener (typeof (PartEngineConfigChanged), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
 		public void EngineConfigsChanged ()
 		{
 			UpdateUsedBy ();
-		}
+		}*/
 
 		internal readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
 
@@ -921,7 +921,7 @@ namespace RealFuels.Tanks
             }
         }
 
-		private void UpdateUsedBy ()
+		public void UpdateUsedBy ()
 		{
 			//print ("*RK* Updating UsedBy");
 
