@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.6
+* Hotfix for PP Proc SRB interaction.
+
 v10.4.5
 * Update to CRP 4.3. Remove no-longer-needed hsp changes.
 * Add a fix to TEATEB flow mode until next CRP.
