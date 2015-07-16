@@ -114,10 +114,10 @@ namespace RealFuels
                 throw new UnityException("*RF* Could not find RF global settings!");
 
             // parse values
-            node.TryGetValue("engineMassMultiplier", out engineMassMultiplier);
-            node.TryGetValue("heatMultiplier", out heatMultiplier);
-            node.TryGetValue("useRealisticMass", out useRealisticMass);
-            node.TryGetValue("varyThrust", out varyThrust);
+            node.TryGetValue("engineMassMultiplier", ref engineMassMultiplier);
+            node.TryGetValue("heatMultiplier", ref heatMultiplier);
+            node.TryGetValue("useRealisticMass", ref useRealisticMass);
+            node.TryGetValue("varyThrust", ref varyThrust);
 
             if (node.HasNode("RF_TECHLEVELS"))
                 techLevels = node.GetNode("RF_TECHLEVELS");
@@ -128,12 +128,12 @@ namespace RealFuels
                     instantThrottleProps.Add(val.value);
             
             // Upgrade costs
-            node.TryGetValue("configEntryCostMultiplier", out configEntryCostMultiplier);
-            node.TryGetValue("techLevelEntryCostFraction", out techLevelEntryCostFraction);
-            node.TryGetValue("configScienceCostMultiplier", out configScienceCostMultiplier);
-            node.TryGetValue("techLevelScienceEntryCostFraction", out techLevelScienceEntryCostFraction);
-            node.TryGetValue("configCostToScienceMultiplier", out configCostToScienceMultiplier);
-            node.TryGetValue("usePartNameInConfigUnlock", out usePartNameInConfigUnlock);
+            node.TryGetValue("configEntryCostMultiplier", ref configEntryCostMultiplier);
+            node.TryGetValue("techLevelEntryCostFraction", ref techLevelEntryCostFraction);
+            node.TryGetValue("configScienceCostMultiplier", ref configScienceCostMultiplier);
+            node.TryGetValue("techLevelScienceEntryCostFraction", ref techLevelScienceEntryCostFraction);
+            node.TryGetValue("configCostToScienceMultiplier", ref configCostToScienceMultiplier);
+            node.TryGetValue("usePartNameInConfigUnlock", ref usePartNameInConfigUnlock);
 
             #region Ullage
             if (node.HasNode("Ullage"))
