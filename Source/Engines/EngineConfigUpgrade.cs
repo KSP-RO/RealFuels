@@ -59,6 +59,9 @@ namespace RealFuels
             bool btmp;
             unlocked = false;
 
+            if (node.HasValue("name"))
+                name = node.GetValue("name");
+
             double cost = 0d;
             if (node.HasValue("cost"))
                 double.TryParse(node.GetValue("cost"), out cost);
