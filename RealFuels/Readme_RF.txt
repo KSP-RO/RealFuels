@@ -49,6 +49,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.7
+* Tellion: add NF Spacecraft and Construction tank configs.
+* Un-break the cost of CONFIG upgrades (and a bunch of other settings).
+
 v10.4.6
 * Hotfix for PP Proc SRB interaction.
 
