@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.8
+* Hotfix for duplicated actions on engines (requires SolverEngines 1.7).
+
 v10.4.7
 * Tellion: add NF Spacecraft and Construction tank configs.
 * Un-break the cost of CONFIG upgrades (and a bunch of other settings).
