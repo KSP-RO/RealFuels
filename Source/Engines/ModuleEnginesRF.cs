@@ -321,8 +321,7 @@ namespace RealFuels
         }
         
         // from SolverEngines but we don't play FX here.
-        [KSPEvent(guiActive = true, guiName = "Activate Engine")]
-        public override void Activate()
+        public override void vActivate()
         {
             if (!allowRestart && engineShutdown)
             {
@@ -335,14 +334,15 @@ namespace RealFuels
             }
 
             EngineIgnited = true;
-            if (allowShutdown) Events["Shutdown"].active = true;
-            else Events["Shutdown"].active = false;
-            Events["Activate"].active = false;
+            if (allowShutdown)
+                Events["vShutdown"].active = true;
+            else
+                Events["vShutdown"].active = false;
+            Events["vActivate"].active = false;
         }
 
         // set ignited in shutdown
-        [KSPEvent(guiActive = true, guiName = "Shutdown Engine")]
-        public override void Shutdown()
+        public override void vShutdown()
         {
             base.Shutdown();
             ignited = false;

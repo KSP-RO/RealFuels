@@ -153,6 +153,12 @@ namespace RealFuels.Ullage
             if(ullageEnabled && RFSettings.Instance.simulateUllage)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
         }
+        public string Engine()
+        {
+            if (engine != null)
+                return engine.part.partInfo.title;
+            return "No valid engine";
+        }
         public void SetUllageEnabled(bool enabled)
         {
             ullageEnabled = enabled;
