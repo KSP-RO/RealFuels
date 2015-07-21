@@ -120,9 +120,18 @@ namespace RealFuels
         // the master module on a part.
 
 
-        // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
-        [KSPField]
+        [KSPField(isPersistant = true)]
         public string type = "ModuleEnginesRF";
+
+        [KSPField(isPersistant = true)]
+        public bool useEngineDev = false;
+
+        [KSPField(isPersistant = true)]
+        public string nozzle = "";
+
+        [KSPField(isPersistant = true)]
+        public string chamber = "";
+
         [KSPField]
         public bool useWeakType = true; // match any ModuleEngines*
 
@@ -209,6 +218,9 @@ namespace RealFuels
                 compatible = false;
                 return;
             }
+            if (useEngineDev) {
+                type = "ModuleEnginesDEV";
+            }
             PartMessageService.Register(this);
             if(HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
@@ -228,7 +240,9 @@ namespace RealFuels
                 //Events["NextEngine"].guiActiveEditor = false;
                 //Events["NextTech"].guiActiveEditor = false;
             }
-
+            if (useEngineDev) {
+                type = "ModuleEnginesDEV";
+            }
 
             if (techLevel != -1)
             {
@@ -290,7 +304,9 @@ namespace RealFuels
             if (!compatible)
                 return;
             this.enabled = true;
-
+            if (useEngineDev) {
+                type = "ModuleEnginesDEV";
+            }
             ConfigSaveLoad();
 
             SetConfiguration();
@@ -517,7 +533,10 @@ namespace RealFuels
                 config = new ConfigNode("MODULE");
                 newConfig.CopyTo(config);
                 config.name = "MODULE";
-
+                if (useEngineDev) {
+                    nozzle = config.GetValue("nozzle");
+                    chamber = config.GetValue("chamber");
+                }
 #if DEBUG
                 print ("replacing " + type + " with:");
                 print (newConfig.ToString ());
@@ -665,6 +684,33 @@ namespace RealFuels
                             if (writeIgnitions && (!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
                                 config.AddValue("ignitions", ignitions);
                                 
+                        }
+                    }
+                    if (config.HasValue("useEngineDEV")&& bool.Parse(config.GetValue("useEngineDEV"))) {
+                        List<ConfigNode> chambers = new List<ConfigNode>();
+                        List<ConfigNode> nozzles = new List<ConfigNode>();
+                        foreach (ConfigNode subNode in config.GetNodes("ModuleChamber")) {
+                            //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                            ConfigNode newNode = new ConfigNode("ModuleChamber");
+                            subNode.CopyTo(newNode);
+                            chambers.Add(newNode);
+                        }
+                        foreach (ConfigNode subNode in config.GetNodes("ModuleNozzle")) {
+                            //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                            ConfigNode newNode = new ConfigNode("ModuleChamber");
+                            subNode.CopyTo(newNode);
+                            nozzles.Add(newNode);
+                        }
+                        ConfigNode chamberConfig = configs.Find(c => c.GetValue("name").Equals(chamber));
+                        ConfigNode nozzleConfig = configs.Find(c => c.GetValue("name").Equals(nozzle));
+                        if (pModule is ModuleEnginesDEV) {
+                            ModuleEnginesDEV pMDEV = (pModule as ModuleEnginesDEV);
+                            pMDEV.nominalPcns   = float.Parse(chamberConfig.GetValue("nominalPcns"));
+                            pMDEV.maxMassFlow   = float.Parse(chamberConfig.GetValue("maxMassFlow"));
+                            pMDEV.nominalPcns   = float.Parse(nozzleConfig.GetValue("At"));
+                            pMDEV.nominalPe     = float.Parse(nozzleConfig.GetValue("nominalPe"));
+                            pMDEV.nozzleType    = nozzleConfig.GetValue("type");
+                            pMDEV.chamberType   = chamberConfig.GetValue("type");
                         }
                     }
                     if (pModule is ModuleEnginesRF)
@@ -863,10 +909,11 @@ namespace RealFuels
                     configMinThrust = configThrottle * configMaxThrust;
                 }
             }
-            
+
+
             // Now update the cfg from what we did.
             // thrust updates
-            if(configMaxThrust >= 0f)
+            if (configMaxThrust >= 0f)
                 cfg.SetValue(thrustRating, configMaxThrust.ToString("0.0000"));
             if(configMinThrust >= 0f)
                 cfg.SetValue("minThrust", configMinThrust.ToString("0.0000")); // will be ignored by RCS, so what.

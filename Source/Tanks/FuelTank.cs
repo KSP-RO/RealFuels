@@ -215,9 +215,6 @@ namespace RealFuels.Tanks
 			node.AddValue ("name", name);
 			node.AddValue ("amount", value);
 			node.AddValue ("maxAmount", value);
-#if DEBUG
-			print (node.ToString ());
-#endif
 			partResource = part.AddResource (node);
 			partResource.enabled = true;
 
