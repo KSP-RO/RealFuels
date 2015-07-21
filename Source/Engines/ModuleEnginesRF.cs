@@ -334,17 +334,19 @@ namespace RealFuels
             }
 
             EngineIgnited = true;
+
             if (allowShutdown)
                 Events["vShutdown"].active = true;
             else
                 Events["vShutdown"].active = false;
+
             Events["vActivate"].active = false;
         }
 
         // set ignited in shutdown
         public override void vShutdown()
         {
-            base.Shutdown();
+            base.vShutdown();
             ignited = false;
         }
 
