@@ -49,6 +49,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.4.9
+* Hotfix for the hotfix.
+* Don't load/save ullage sim data in editor.
+* NOTE: You may have to detach and reattach your engines in saved craft. Also, action groups involving engines will need to be remade.
+
 v10.4.8
 * Hotfix for duplicated actions on engines (requires SolverEngines 1.7).
 
