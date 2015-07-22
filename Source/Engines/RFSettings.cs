@@ -42,6 +42,7 @@ namespace RealFuels
 
         public double naturalDiffusionRateX = 0.02d;
         public double naturalDiffusionRateY = 0.03d;
+        public double naturalDiffusionAccThresh = 0.01d;
 
         public double translateAxialCoefficientX = 0.06d;
         public double translateAxialCoefficientY = 0.06d;
@@ -148,6 +149,7 @@ namespace RealFuels
 
                 ullageNode.TryGetValue("naturalDiffusionRateX", ref naturalDiffusionRateX);
                 ullageNode.TryGetValue("naturalDiffusionRateY", ref naturalDiffusionRateY);
+                ullageNode.TryGetValue("naturalDiffusionAccThresh", ref naturalDiffusionAccThresh);
 
                 ullageNode.TryGetValue("translateAxialCoefficientX", ref translateAxialCoefficientX);
                 ullageNode.TryGetValue("translateAxialCoefficientY", ref translateAxialCoefficientY);

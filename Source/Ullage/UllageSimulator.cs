@@ -85,6 +85,10 @@ namespace RealFuels.Ullage
             double fuelRatioFactor = (0.5d + fuelRatio) * (1d / 1.4d);
             double fuelRatioFactorRecip = 1.0d / fuelRatioFactor;
 
+            double accSqrMag = localAcceleration.sqrMagnitude;
+            double accThreshSqr = RFSettings.Instance.naturalDiffusionAccThresh;
+            accThreshSqr *= accThreshSqr; // square it to compare to sqrMag.
+
             //if (ventingAcc != 0.0f) Debug.Log("BoilOffAcc: " + ventingAcc.ToString("F8"));
             //else Debug.Log("BoilOffAcc: No boiloff.");
             
@@ -95,7 +99,7 @@ namespace RealFuels.Ullage
 
             // Natural diffusion.
             //Debug.Log("Ullage: LocalAcc: " + localAcceleration.ToString());
-            if (ventingAcc <= RFSettings.Instance.ventingAccThreshold)
+            if (ventingAcc <= RFSettings.Instance.ventingAccThreshold && accSqrMag < accThreshSqr)
             {
                 double ventingConst = Math.Min(1d, (1d - ventingAcc / RFSettings.Instance.ventingAccThreshold) * fuelRatioFactorRecip * utTimeDelta);
                 ullageHeightMin = UtilMath.LerpUnclamped(ullageHeightMin, 0.05d, RFSettings.Instance.naturalDiffusionRateY * ventingConst);
