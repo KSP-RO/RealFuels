@@ -386,10 +386,10 @@ namespace RealFuels
                 }
                 if (!pressureOK)
                 {
+                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
+                    vFlameout("Lack of pressure", false, ignited);
                     ignited = false;
                     reignitable = false;
-                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
-                    Flameout("Lack of pressure");
                 }
 
                 rfSolver.SetEngineStatus(pressureOK, (ullageOK || !RFSettings.Instance.simulateUllage), ignited);
