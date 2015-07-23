@@ -145,7 +145,7 @@ namespace RealFuels.Ullage
             ullageRadialMax = UtilMath.Clamp(ullageRadialMax + ypX, 0.1d, 1.0d);
 
             // Rotate roll.
-            double absRot = Math.Abs(rotation.y) * fuelRatioFactor;
+            double absRot = Math.Abs(rotationAmount.y) * fuelRatioFactor;
             double absRotX = absRot * RFSettings.Instance.rotateRollCoefficientX;
             double absRotY = absRot * RFSettings.Instance.rotateRollCoefficientY;
             ullageHeightMin = UtilMath.Clamp(ullageHeightMin - absRotY, 0.0d, 0.9d);
