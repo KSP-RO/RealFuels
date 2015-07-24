@@ -114,12 +114,12 @@ namespace RealFuels.Ullage
         #region Load/Save
         public void Load(ConfigNode node)
         {
-            if (node.HasNode("UllageSim"))
+            if (!HighLogic.LoadedSceneIsEditor && node.HasNode("UllageSim"))
                 ullageSim.Load(node.GetNode("UllageSim"));
         }
         public void Save(ConfigNode node)
         {
-            if (ullageSim != null)
+            if (ullageSim != null && !HighLogic.LoadedSceneIsEditor)
             {
                 ConfigNode simNode = new ConfigNode("UllageSim");
                 ullageSim.Save(simNode);
