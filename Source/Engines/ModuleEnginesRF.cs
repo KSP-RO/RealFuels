@@ -549,12 +549,18 @@ namespace RealFuels
         }
         public override string GetPrimaryField()
         {
-            string output = GetThrustInfo();
+            return GetThrustInfo() + GetUllageIgnition();
+        }
+        public string GetUllageIgnition()
+        {
+            string output = "";
             if (pressureFed)
                 output += "Pressure-fed";
             if (ignitions >= 0 && RFSettings.Instance.limitedIgnitions)
-                output += (pressureFed ? ", " : "") + "Ignitions: " + ignitions;
-            if (pressureFed || (ignitions >= 0 && RFSettings.Instance.limitedIgnitions))
+                output += (output != "" ? ", " : "") + "Ignitions: " + ignitions;
+            if (!ullage)
+                output += (output != "" ? ", " : "") + "Not subject to ullage";
+            if (output != "")
                 output += "\n";
 
             return output;
@@ -565,6 +571,8 @@ namespace RealFuels
             string output = GetThrustInfo();
 
             output += "<b>Engine Isp: </b>" + (atmosphereCurve.Evaluate(1f)).ToString("0.###") + " (ASL) - " + (atmosphereCurve.Evaluate(0f)).ToString("0.###") + " (Vac.)\n";
+
+            output += GetUllageIgnition();
 
             output += "\n<b><color=#99ff00ff>Propellants:</color></b>\n";
             Propellant p;
