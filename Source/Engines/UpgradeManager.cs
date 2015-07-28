@@ -87,15 +87,13 @@ namespace RealFuels
             {
                 foreach (EngineConfigUpgrade eCfg in configUpgrades.Values)
                 {
-                    ConfigNode n = new ConfigNode("EngineConfigUpgrade");
+                    ConfigNode n = node.AddNode("EngineConfigUpgrade");
                     eCfg.Save(n);
-                    node.AddNode(n);
                 }
                 foreach (TLUpgrade tU in techLevelUpgrades.Values)
                 {
-                    ConfigNode n = new ConfigNode("TLUpgrade");
+                    ConfigNode n = node.AddNode("TLUpgrade");
                     tU.Save(n);
-                    node.AddNode(n);    
                 }
             }
         }
