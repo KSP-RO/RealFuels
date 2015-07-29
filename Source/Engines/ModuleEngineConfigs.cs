@@ -408,6 +408,23 @@ namespace RealFuels
                     }*/
                     if (gimbalR != -1f)
                         info += ", Gimbal " + gimbalR.ToString("N1");
+
+                    if (config.HasValue("ullage"))
+                        info += ", " + (config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
+                    if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
+                        info += ", pfed";
+
+                    if (config.HasValue("ignitions"))
+                    {
+                        int ignitions;
+                        if (int.TryParse(config.GetValue("ignitions"), out ignitions))
+                        {
+                            if (ignitions > 0)
+                                info += ", " + ignitions + " ignition" + (ignitions > 1 ? "s" : "");
+                            else
+                                info += ", unl. ignitions";
+                        }
+                    }
                     info += ")\n";
                 }
 
