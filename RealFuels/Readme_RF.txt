@@ -49,6 +49,21 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.5
+* Update to SolverEngines v1.9.
+* Auto-remove Interstellar Fuel Switch or FS Fuel Switch modules on parts that have RF tank modules on them too.
+* Add a new setting to disable natural diffusion when there is acceleration greater than (this threshold). Makes ullaging stages easier since only minimal acceleration is needed (it just can take a while).
+* Fix some flameout issues (and the 'flameout' sound on load with a pressure-fed engine).
+* Fix issue with a typo in ullage sim's rotation bit. Spinning axially will no longer cause ullage-outs so rapidly.
+* Attempt to load/save 'ignited' property.
+* Added other solid fuels to 'instant throttling' list.
+* Tellion: more NF Propulsion support, MkIV support.
+* Update engine/TL upgrade tracking to not keep the costs persistent (i.e. changing files no longer needs starting a new save).
+* Support maxSubtraction for entryCostSubtractors, do all subtraction(s) before all multiplications.
+* Update all heat animations on ModuleEnginesRF parts to use new animation module from SolverEngines.
+* Fix a big bug with ignition in CONFIG nodes. Now tracked properly.
+* Display pressure/ullage/ignitions info in GetInfo for ModuleEnginesRF and for MEC's alternate configs info text (if it differs from default config).
+
 v10.4.9
 * Hotfix for the hotfix.
 * Don't load/save ullage sim data in editor.
