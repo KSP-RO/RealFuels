@@ -235,7 +235,7 @@ namespace RealFuels
                 if (maxTechLevel < 0)
                     maxTechLevel = TechLevel.MaxTL(node, engineType);
                 if (minTechLevel < 0)
-                    minTechLevel = origTechLevel;
+                    minTechLevel = (origTechLevel < techLevel ? origTechLevel : techLevel);
             }
 
             if(origMass >= 0)
