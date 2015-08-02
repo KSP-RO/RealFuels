@@ -11,8 +11,8 @@ namespace RealFuels
         public string name;
         public string techRequired = "";
         public bool unlocked = false;
-        public double entryCost = 0d;
-        public double sciEntryCost = 0d;
+        public double entryCost = double.NaN;
+        public double sciEntryCost = double.NaN;
         public double maxSubtraction = double.MaxValue;
         public Dictionary<string, double> entryCostMultipliers = new Dictionary<string, double>();
         public Dictionary<string, double> entryCostSubtractors = new Dictionary<string, double>();
@@ -63,10 +63,12 @@ namespace RealFuels
             double cost = 0d;
             node.TryGetValue("cost", ref cost);
 
-            if (!node.TryGetValue("entryCost", ref entryCost))
+            node.TryGetValue("entryCost", ref entryCost);
+            if(double.IsNaN(entryCost))
                 entryCost = Math.Max(0d, cost * RFSettings.Instance.configEntryCostMultiplier);
 
-            if (!node.TryGetValue("sciEntryCost", ref sciEntryCost))
+            node.TryGetValue("sciEntryCost", ref sciEntryCost);
+            if(double.IsNaN(sciEntryCost))
                 sciEntryCost = Math.Max(0d, cost * RFSettings.Instance.configScienceCostMultiplier);
 
             node.TryGetValue("unlocked", ref unlocked);

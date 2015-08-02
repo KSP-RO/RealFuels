@@ -7,12 +7,20 @@ using KSPAPIExtensions;
 
 namespace RealFuels
 {
+    [KSPAddon(KSPAddon.Startup.MainMenu, true)]
+    public class RFUpgradeFiller : MonoBehaviour
+    {
+        public void Start()
+        {
+            RFUpgradeManager.FillUpgrades();
+        }
+    }
     [KSPScenario(ScenarioCreationOptions.AddToAllGames, new GameScenes[] { GameScenes.EDITOR, GameScenes.SPACECENTER })]
     public class RFUpgradeManager : ScenarioModule
     {
         #region Fields
-        protected Dictionary<string, EngineConfigUpgrade> configUpgrades;
-        protected Dictionary<string, TLUpgrade> techLevelUpgrades;
+        protected static Dictionary<string, EngineConfigUpgrade> configUpgrades;
+        protected static Dictionary<string, TLUpgrade> techLevelUpgrades;
         #region Instance
         private static RFUpgradeManager _instance = null;
         public static RFUpgradeManager Instance
@@ -37,9 +45,9 @@ namespace RealFuels
             }
             _instance = this;
 
-            configUpgrades = new Dictionary<string, EngineConfigUpgrade>();
-            techLevelUpgrades = new Dictionary<string, TLUpgrade>();
-            FillUpgrades();
+            if (configUpgrades == null) // just in case
+                FillUpgrades();
+
             GameEvents.OnPartPurchased.Add(new EventData<AvailablePart>.OnEvent(onPartPurchased));
         }
 
@@ -104,13 +112,17 @@ namespace RealFuels
         #endregion
 
         #region Methods
-        public void FillUpgrades()
+        public static void FillUpgrades()
         {
             if (PartLoader.Instance == null || PartLoader.LoadedPartsList == null)
             {
                 Debug.LogError("*RFUM: ERROR: Partloader instance null or list null!");
                 return;
             }
+            
+            configUpgrades = new Dictionary<string, EngineConfigUpgrade>();
+            techLevelUpgrades = new Dictionary<string, TLUpgrade>();
+
             for(int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
             {
                 AvailablePart ap = PartLoader.LoadedPartsList[a];
@@ -139,36 +151,17 @@ namespace RealFuels
                                     string cfgName = cfg.GetValue("name");
                                     if (RFSettings.Instance.usePartNameInConfigUnlock)
                                         cfgName = Utilities.GetPartName(ap) + cfgName;
+                                    
                                     // config upgrades
                                     EngineConfigUpgrade eConfig = new EngineConfigUpgrade(cfg, cfgName);
                                     configUpgrades[cfgName] = eConfig;
-                                    if (ResearchAndDevelopment.Instance != null && ap.TechRequired != null)
+                                    eConfig.unlocked = false;
+
+                                    // TL upgrades
+                                    if (mec.techLevel >= 0)
                                     {
-                                        if(ResearchAndDevelopment.PartModelPurchased(ap))
-                                        {
-                                            if (cfg.HasValue("techRequired"))
-                                            {
-                                                string tech = cfg.GetValue("techRequired");
-                                                if (tech != "" && tech != ap.TechRequired)
-                                                    continue;
-                                            }
-
-                                            bool unlocked = false;
-                                            if (cfg.HasValue("unlocked"))
-                                                bool.TryParse(cfg.GetValue("unlocked"), out unlocked);
-
-                                            if (mec.autoUnlock || unlocked)
-                                                eConfig.unlocked = true;
-                                        }
-                                        else
-                                            eConfig.unlocked = false;
-
-                                        // TL upgrades
-                                        if (mec.techLevel >= 0)
-                                        {
-                                            TLUpgrade tU = new TLUpgrade(cfg, mec);
-                                            techLevelUpgrades[tU.name] = tU;
-                                        }
+                                        TLUpgrade tU = new TLUpgrade(cfg, mec);
+                                        techLevelUpgrades[tU.name] = tU;
                                     }
                                 }
                             }
@@ -195,12 +188,7 @@ namespace RealFuels
                             if(cfg.HasValue("name"))
                             {
                                 string cfgName = cfg.GetValue("name");
-                                if(cfg.HasValue("techRequired"))
-                                {
-                                    string tech = cfg.GetValue("techRequired");
-                                    if(tech != "" && tech != ap.TechRequired)
-                                        continue;
-                                }
+                                
                                 // TL upgrades
                                 if (mec.techLevel >= 0)
                                 {
@@ -208,10 +196,17 @@ namespace RealFuels
                                     SetTLUnlocked(tUName, mec.techLevel);
                                 }
                                 // unlock the config if it defaults to unlocked, or if autoUnlock is on.
+                                bool auto = mec.autoUnlock;
+                                if (cfg.HasValue("techRequired"))
+                                {
+                                    string tech = cfg.GetValue("techRequired");
+                                    if (tech != "" && tech != ap.TechRequired)
+                                        auto = false;
+                                }
                                 bool unlocked = false;
                                 if (cfg.HasValue("unlocked"))
                                     bool.TryParse(cfg.GetValue("unlocked"), out unlocked);
-                                if (mec.autoUnlock || unlocked)
+                                if (auto || unlocked)
                                     SetConfigUnlock(cfgName, true);
                             }
                         }
