@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.5.1
+* Fix issue with CONFIG entry costs being lost.
+
 v10.5
 * Update to SolverEngines v1.9.
 * Auto-remove Interstellar Fuel Switch or FS Fuel Switch modules on parts that have RF tank modules on them too.
