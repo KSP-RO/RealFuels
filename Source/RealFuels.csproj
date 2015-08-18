@@ -63,8 +63,8 @@
     <Compile Include="Engines\EngineConfigUpgrade.cs" />
     <Compile Include="Engines\ModuleEngineConfigs.cs" />
     <Compile Include="Engines\ModuleEnginesRF.cs" />
-    <Compile Include="Engines\RFSettings.cs" />
     <Compile Include="Engines\ModuleEnginesDEV.cs" />
+    <Compile Include="Engines\RFSettings.cs" />
     <Compile Include="Engines\SolverDEV.cs" />
     <Compile Include="Engines\SolverRF.cs" />
     <Compile Include="Engines\TLUpgrade.cs" />

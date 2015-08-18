@@ -43,15 +43,12 @@
       <HintPath>E:\Games\KSPDev1.0.4\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="RealFuels">
-      <HintPath>E:\Games\KSPDev1.0.4\GameData\RealFuels\Plugins\RealFuels.dll</HintPath>
-    </Reference>
     <Reference Include="Scale_Redist">
-      <HintPath>E:\Games\KSPDev1.0.4\GameData\RealFuels\Plugins\Scale_Redist.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\GameData\TweakScale\plugins\Scale_Redist.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="SolverEngines">
-      <HintPath>..\..\SolverEngines\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
+      <HintPath>E:\Games\KSPDev1.0.4\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System">
@@ -61,6 +58,13 @@
       <HintPath>E:\Games\KSPDev1.0.4\KSP_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="RealFuels.csproj">
+      <Project>{0041813d-dcd1-4ac7-8327-85765bf924a3}</Project>
+      <Name>RealFuels</Name>
+      <Private>False</Private>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup>
     <PostBuildEvent>del "System.Core.dll"</PostBuildEvent>

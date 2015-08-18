@@ -10,9 +10,7 @@ namespace RealFuels
     public class SolverDEV : EngineSolver
     {
         // engine params
-        private double minFlow, maxFlow, thrustRatio = 1d, machLimit, machMult;
-        private double flowMultMin, flowMultCap, flowMultCapSharpness;
-        private bool multFlow;
+        private double minFlow, maxFlow, thrustRatio = 1d;
         private bool combusting = true;
         private double varyThrust = 0d;
         private bool pressure = true, ullage = true, ignited = false;
@@ -22,7 +20,7 @@ namespace RealFuels
         // temperature
         private double Tcns, chamberNominalTemp, chamberMaxTemp, partTemperature = 288d;
         private double Pcns, chamberNominalPressure, chamberMaxPressure;
-        private double Pe,nozzleThroatArea, nozzleNominalExitPressure, nozzleExitArea,  nozzleExpansionRatio;
+        private double Pe, nozzleThroatArea, nozzleNominalExitPressure, nozzleExitArea, nozzleExpansionRatio;
         private double R;
         private double pR;
         private double fuelFraction;
@@ -30,15 +28,36 @@ namespace RealFuels
         private float fxPower;
         private float fxThrottle;
 
+
         // FIXME hack values
-        private double tempDeclineRate = 0.95d;
-        private double tempMin = 0.8d;
-        private double tempLerpRate = 1.0d;
+        private const double tempMin = 0.8d;
+        private const double tempLerpRate = 1.0d;
 
-        public double Cstar = -1;
-        public double Ct = -1;
+        public float overTempRatio=1, overPressureRatio=1;
+        public double Cstar { get; private set; } = -1;
+        public double Ct { get; private set; } = -1;
+        private float stability = 1;
+        public float Stability {
+            get {
+                if (useStablity) return stability; else return 1;
+            }
+            private set { stability = value; }
+        }
+        public bool useStablity = true;
         protected float heatMult = 1;
-
+        public enum isFailed : short
+        {
+            PART_TEMP = 1 << 8,
+            CHAMBER_TEMP = 1 << 7,
+            GAMMA = 1 << 6,
+            FUELFLOW = 1 << 5,
+            OVPR = 1 << 4,
+            OVHT = 1 << 3,
+            THRUST = 1 << 2,
+            IGNITION = 1,
+            NONE = 0
+        }
+        public isFailed failed = isFailed.NONE;
         public void InitializeOverallEngineData(
             double mTcns,
             double mPcns,
@@ -50,9 +69,6 @@ namespace RealFuels
             double mR,
             double mmaxFuelFlow,
             double mminFuelFlow,
-            double nMachLimit,
-            double nMachMult,
-            bool nMultFlow,
             double nVaryThrust,
             string nozzleType,
             string chamberType)//For Liquid+Bipropellant and deLaval now
@@ -79,7 +95,6 @@ namespace RealFuels
             maxFlow = mmaxFuelFlow;
             minFlow = mminFuelFlow;
 
-            multFlow = nMultFlow;
             varyThrust = nVaryThrust;
         }
 
@@ -102,9 +117,7 @@ namespace RealFuels
         private void UpdateTc()
         {
             // Calculate chamber temperature as ratio
-            double desiredTempRatio = Math.Max(tempMin, fxPower);
-            double machTemp = MachTemp() * 0.05d;
-            desiredTempRatio = desiredTempRatio * (1d + machTemp) + machTemp;
+            double desiredTempRatio = Math.Max(tempMin, 1);/*MAGIC*/
 
             // set temp based on desired
             double desiredTemp = desiredTempRatio * chamberNominalTemp;
@@ -112,14 +125,17 @@ namespace RealFuels
                 Tcns = desiredTemp;
                 return;
             }
-            if (!combusting) desiredTemp = t0; else if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight){
-                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 196883f) * 2d - 1d) * varyThrust);
+            if (!combusting) desiredTemp = t0; else if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight) {
+                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 196883f) * 2d - 1d) * (varyThrust+ (overPressureRatio-1) * 10));/*MAGIC*/
             }
             if (Math.Abs(desiredTemp - Tcns) < 1d)
                 Tcns = desiredTemp;
             else {
                 double lerpVal = UtilMath.Clamp01(tempLerpRate * TimeWarp.fixedDeltaTime);
                 Tcns = UtilMath.LerpUnclamped(Tcns, desiredTemp, lerpVal);
+            }
+            if ((failed & isFailed.CHAMBER_TEMP) != isFailed.NONE) {
+                Tcns /= Stability;
             }
             //if (GetRunning()) {
             //    designTemp = designChamberTemp;
@@ -144,6 +160,10 @@ namespace RealFuels
             base.CalculatePerformance(airRatio, commandedThrottle, flowMult, ispMult);
             M0 = mach;
             gamma_c = CalculateGamma(Tcns, fuelFraction);
+            if ((failed & isFailed.GAMMA) != isFailed.NONE) {
+                gamma_c *= Stability;
+                gamma_c = gamma_c < 1 ? 1 : gamma_c;
+            }
             inv_gamma_c = 1 / gamma_c;
             inv_gamma_cm1 = 1 / (gamma_c - 1);
             double sqrtT = Math.Sqrt(Tcns);
@@ -153,21 +173,18 @@ namespace RealFuels
             statusString = "Nominal";
 
             // ullage check first, overwrite if bad pressure or no propellants
-            if (!ullage)
-            {
+            if (!ullage) {
                 combusting = false;
                 statusString = "Vapor in feed line";
             }
-            
+
             // check fuel flow fraction
-            if (ffFraction <= 0d)
-            {
+            if (ffFraction <= 0d) {
                 combusting = false;
                 statusString = "No propellants";
             }
             // check pressure
-            if (!pressure)
-            {
+            if (!pressure) {
                 combusting = false;
                 statusString = "Lack of pressure";
             }
@@ -180,17 +197,14 @@ namespace RealFuels
             //    statusString = "Airflow outside specs";
             //}
 
-            if (!combusting || commandedThrottle <= 0d)
-            {
+            if (!combusting || commandedThrottle <= 0d) {
                 combusting = false; // for throttle FX
                 fxPower = 0f;
-            }
-            else
-            {
+            } else {
                 // get current flow, and thus thrust.
                 fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
-                if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
-                    fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);
+                if ((overTempRatio>1||varyThrust > 0d) && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
+                    fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * (varyThrust + (overTempRatio - 1) * 10));
 
                 Cstar = (Math.Sqrt(gamma_c * R) * sqrtT)
                             /
@@ -204,22 +218,26 @@ namespace RealFuels
                          (Math.Pow(2 / (gamma_c + 1), (gamma_c + 1) * inv_gamma_cm1))
                          * inv_gamma_cm1
                     );
-                double Ct2= nozzleExpansionRatio * (Pe - p0 / 1000d) / Pcns;
+                double Ct2 = nozzleExpansionRatio * (Pe - p0 / 1000d) / Pcns;
                 Ct = pR_Frac * Ct1_per_pR_Frac + Ct2;
                 double pR_e = Pe * 1000d / p0;
                 statusString = "";
                 if (Pcns > chamberMaxPressure) {
-                    float overPressureRatio = (float)(Pcns / chamberMaxPressure - 1);
-                    heatMult *= 1 + overPressureRatio * 2;
-                    //stability /= (1 + 0.0001f * overPressureRatio);/*MAGIC*/
+                    overPressureRatio = (float)(Pcns / chamberMaxPressure - 1);
+                    if ((failed & isFailed.OVPR) != isFailed.NONE) {
+                        overPressureRatio /= Stability;
+                    }
+                    Stability /= (1 + 0.0001f * overPressureRatio);/*MAGIC*/
                     statusString = "OVPR ";//Over pressure
-                }
+                } else overPressureRatio = 1;
                 if (Tcns > chamberMaxTemp) {//chamberMaxTemp should be maxEngineTemp * 0.8 ,for the overheat box in SolverEngine
-                    float overHeatRatio = (float)(Tcns / (chamberMaxTemp));
-                    heatMult *= 1 + overHeatRatio * 2;
-                    //stability /= (1 + 0.0001f * overHeatRatio);/*MAGIC*/
+                    overTempRatio = (float)(Tcns / (chamberMaxTemp));
+                    if ((failed & isFailed.OVHT) != isFailed.NONE) {
+                        overTempRatio /= Stability;
+                    }
+                    Stability /= (1 + 0.0001f * overTempRatio);/*MAGIC*/
                     statusString += "OVHT ";//Over Temprature
-                }
+                } else overTempRatio = 1;
                 if (pR_e < 0.3 && pR_e >= 0.1) { Ct = Ct * Math.Sqrt(pR_e * 5 - 0.50f); statusString += "Shockwave in Nozzle"; }//TODO:Actually jet sepration wouldn't cost so much
                     else if (pR_e < 0.10001) { Ct = 0; statusString += "Jet Sepration"; }
                 if (statusString == "") { statusString = "Nominal"; }
@@ -228,35 +246,43 @@ namespace RealFuels
 
                 SFC = 3600d / Isp;
 
-
-                fxPower = (float)((Ct > 1.5f ? 1 : Ct / 1.5f)*fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
+                fxThrottle = (float)commandedThrottle;
+                fxPower = (float)((Ct > 1.5f ? 1 : Ct / 1.5f) * fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
                 if (float.IsNaN(fxPower))
                     fxPower = 0f;
-                thrust = Cstar * Ct * fuelFlow;
+                thrust = ispMult * Cstar * Ct * fuelFlow;
+                if ((failed & isFailed.THRUST) != isFailed.NONE) {
+                    thrust *= 1 - (1 - Stability) * UnityEngine.Random.value;
+                }
+
+                if ((failed & isFailed.FUELFLOW) != isFailed.NONE) {
+                    fuelFlow /= UnityEngine.Mathf.Pow(Stability, 3);
+                }
             }
             UpdateTc();
         }
         // engine status
-        public override double  GetEngineTemp() { return Tcns; }
-        public double           GetEnginePressure() { return Pcns; }
-        public override double  GetArea() { return 0d; }
+        public override double GetEngineTemp() => Tcns;
+        public double GetEnginePressure() => Pcns;
+        public override double GetArea() => 0d;
         // FX etc
-        public override double  GetEmissive() { return UtilMath.Clamp01(Tcns / chamberNominalTemp); }
-        public override float   GetFXPower() { return fxPower; }
-        public override float   GetFXRunning() { return fxPower; }
-        public override float   GetFXThrottle() { return fxThrottle; }
-        public override float   GetFXSpool() { return (float)(UtilMath.Clamp01(Tcns / chamberNominalTemp)); }
-        public override bool    GetRunning() { return combusting; }
-        public double GetHeat() {return (Tcns - t0) * 0.05 * heatMult;/*MAGIC*/}
+        public override double GetEmissive() => UtilMath.Clamp01(Tcns / chamberNominalTemp);
+        public override float GetFXPower() => fxPower;
+        public override float GetFXRunning() => fxPower;
+        public override float GetFXThrottle() => fxThrottle;
+        public override float GetFXSpool() => (float)(UtilMath.Clamp01(Tcns / chamberNominalTemp));
+        public override bool GetRunning() => combusting;
+        public double GetHeat() {
+            double heat = (Tcns - t0) * 0.05 * heatMult;/*MAGIC*/
+            if ((failed & isFailed.PART_TEMP)!=isFailed.NONE) {
+                heat /= UnityEngine.Mathf.Pow(Stability, 2);
+            }
+            return heat;
+        }
+        public void             SetDamageFrac(float frac) 
+                                                    => Stability /= frac;
         // new methods
         public void UpdateThrustRatio(double r) { thrustRatio = r; }
 
-
-        protected double MachTemp()
-        {
-            if (mach < machLimit)
-                return 0d;
-            return (mach - machLimit) * machMult;
-        }
     }
 }

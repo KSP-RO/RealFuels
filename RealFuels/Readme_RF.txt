@@ -49,6 +49,58 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.5.1
+* Fix issue with CONFIG entry costs being lost.
+
+v10.5
+* Update to SolverEngines v1.9.
+* Auto-remove Interstellar Fuel Switch or FS Fuel Switch modules on parts that have RF tank modules on them too.
+* Add a new setting to disable natural diffusion when there is acceleration greater than (this threshold). Makes ullaging stages easier since only minimal acceleration is needed (it just can take a while).
+* Fix some flameout issues (and the 'flameout' sound on load with a pressure-fed engine).
+* Fix issue with a typo in ullage sim's rotation bit. Spinning axially will no longer cause ullage-outs so rapidly.
+* Attempt to load/save 'ignited' property.
+* Added other solid fuels to 'instant throttling' list.
+* Tellion: more NF Propulsion support, MkIV support.
+* Update engine/TL upgrade tracking to not keep the costs persistent (i.e. changing files no longer needs starting a new save).
+* Support maxSubtraction for entryCostSubtractors, do all subtraction(s) before all multiplications.
+* Update all heat animations on ModuleEnginesRF parts to use new animation module from SolverEngines.
+* Fix a big bug with ignition in CONFIG nodes. Now tracked properly.
+* Display pressure/ullage/ignitions info in GetInfo for ModuleEnginesRF and for MEC's alternate configs info text (if it differs from default config).
+
+v10.4.9
+* Hotfix for the hotfix.
+* Don't load/save ullage sim data in editor.
+* NOTE: You may have to detach and reattach your engines in saved craft. Also, action groups involving engines will need to be remade.
+
+v10.4.8
+* Hotfix for duplicated actions on engines (requires SolverEngines 1.7).
+
+v10.4.7
+* Tellion: add NF Spacecraft and Construction tank configs.
+* Un-break the cost of CONFIG upgrades (and a bunch of other settings).
+
+v10.4.6
+* Hotfix for PP Proc SRB interaction.
+
+v10.4.5
+* Update to CRP 4.3. Remove no-longer-needed hsp changes.
+* Add a fix to TEATEB flow mode until next CRP.
+* Clean up behavior when igntions are specified in a CONFIG.
+* Make the simulateUllage setting be respected.
+* Add a limitedIgnitions setting (which can be set to false).
+* Default origTechLevel to -1 to avoid an issue on engine configuration change.
+* SolverEngines update fixes "can't activate when shielded" issue.
+
+v10.4.4
+* Fix bug where tanks that had flow disabled in partactionmenu were not counted for pressure-fed checks.
+* Fix bug where legacy EI configs were not being applied.
+* Fix issues with fuel ratio for ullage.
+* Show ignitions and pressure-fed-ness in Editor tooltips.
+
+v10.4.3
+* Fix an NRE in ullage code in editor.
+* Fix a bug with multFlow not being used correctly.
+
 v10.4.2
 * Repack to include correct KSPAPIExtensions
 

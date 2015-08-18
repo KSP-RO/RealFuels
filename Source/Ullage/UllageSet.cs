@@ -41,7 +41,7 @@ namespace RealFuels.Ullage
             // set engine fields
             pressureFed = engine.pressureFed;
             ullageEnabled = engine.ullage;
-
+            
             // create orientaiton
             SetThrustAxis(engine.thrustAxis);
             if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
@@ -57,31 +57,39 @@ namespace RealFuels.Ullage
             fuelRatio = 1d;
 
             // iterate through all propellants.
-            for (int i = engine.propellants.Count - 1; i >= 0; --i) {
+            for (int i = engine.propellants.Count - 1; i >= 0; --i)
+            {
                 Propellant p = engine.propellants[i];
                 List<PartResource> resources = Utilities.FindResources(engine.part, p);
                 double propAmt = 0d, propMax = 0d;
                 bool presTank = false;
-                for (int j = resources.Count - 1; j >= 0; --j) {
+                for (int j = resources.Count - 1; j >= 0; --j)
+                {
                     PartResource r = resources[j];
                     propAmt += r.amount;
                     propMax += r.maxAmount;
 
                     Part part = r.part;
                     Tanks.ModuleFuelTanks tank = null;
-                    if (!tanks.Contains(part)) {
+                    if (!tanks.Contains(part))
+                    {
                         tanks.Add(part);
-                        for (int k = part.Modules.Count - 1; k >= 0; --k) {
+                        for (int k = part.Modules.Count - 1; k >= 0; --k)
+                        {
                             PartModule m = part.Modules[k];
-                            if (m is Tanks.ModuleFuelTanks) {
+                            if (m is Tanks.ModuleFuelTanks)
+                            {
                                 tank = m as Tanks.ModuleFuelTanks;
                                 rfTanks[part] = tank;
                             }
                         }
-                    } else {
+                    }
+                    else
+                    {
                         rfTanks.TryGetValue(part, out tank);
                     }
-                    if (tank != null) {
+                    if (tank != null)
+                    {
                         // noPresTank will stay true only if no pressurized tank found.
                         bool resourcePres;
                         tank.pressurizedFuels.TryGetValue(r.resourceName, out resourcePres);
@@ -106,12 +114,13 @@ namespace RealFuels.Ullage
         #region Load/Save
         public void Load(ConfigNode node)
         {
-            if (node.HasNode("UllageSim"))
+            if (!HighLogic.LoadedSceneIsEditor && node.HasNode("UllageSim"))
                 ullageSim.Load(node.GetNode("UllageSim"));
         }
         public void Save(ConfigNode node)
         {
-            if (ullageSim != null) {
+            if (ullageSim != null && !HighLogic.LoadedSceneIsEditor)
+            {
                 ConfigNode simNode = new ConfigNode("UllageSim");
                 ullageSim.Save(simNode);
                 node.AddNode(simNode);
@@ -130,17 +139,25 @@ namespace RealFuels.Ullage
             else
                 angularVelocity = engine.transform.InverseTransformDirection(angVel);
 
-            if (HighLogic.LoadedSceneIsFlight && engine.EngineIgnited) {
+            if(HighLogic.LoadedSceneIsFlight && engine.EngineIgnited)
+            {
                 fuelRatio = 1d;
                 int pCount = engine.propellants.Count;
-                for (int i = pCount - 1; i >= 0; --i) {
+                for(int i = pCount - 1; i >= 0; --i)
+                {
                     Propellant p = engine.propellants[i];
                     fuelRatio = Math.Min(fuelRatio, p.totalResourceAvailable / p.totalResourceCapacity);
                 }
                 // do pressure-fed tests?
             }
-            if (ullageEnabled && RFSettings.Instance.simulateUllage)
+            if(ullageEnabled && RFSettings.Instance.simulateUllage)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
+        }
+        public string Engine()
+        {
+            if (engine != null)
+                return engine.part.partInfo.title;
+            return "No valid engine";
         }
         public void SetUllageEnabled(bool enabled)
         {

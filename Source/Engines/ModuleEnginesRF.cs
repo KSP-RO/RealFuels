@@ -155,6 +155,9 @@ namespace RealFuels
                 thrustCurve = new FloatCurve();
 
             base.OnLoad(node);
+            // Manually reload ignitions if not in editor
+            if(!HighLogic.LoadedSceneIsEditor)
+                node.TryGetValue("ignited", ref ignited);
             int pCount = propellants.Count;
             // thrust curve
             useThrustCurve = false;
@@ -245,6 +248,10 @@ namespace RealFuels
         public override void OnSave(ConfigNode node)
         {
             base.OnSave(node);
+            // manually save ignited if not editor
+            if (!HighLogic.LoadedSceneIsEditor)
+                node.AddValue("ignited", ignited);
+
             if (ullageSet != null)
             {
                 ConfigNode ullageNode = new ConfigNode("Ullage");
@@ -321,8 +328,7 @@ namespace RealFuels
         }
         
         // from SolverEngines but we don't play FX here.
-        [KSPEvent(guiActive = true, guiName = "Activate Engine")]
-        public override void Activate()
+        public override void vActivate()
         {
             if (!allowRestart && engineShutdown)
             {
@@ -335,16 +341,19 @@ namespace RealFuels
             }
 
             EngineIgnited = true;
-            if (allowShutdown) Events["Shutdown"].active = true;
-            else Events["Shutdown"].active = false;
-            Events["Activate"].active = false;
+
+            if (allowShutdown)
+                Events["vShutdown"].active = true;
+            else
+                Events["vShutdown"].active = false;
+
+            Events["vActivate"].active = false;
         }
 
         // set ignited in shutdown
-        [KSPEvent(guiActive = true, guiName = "Shutdown Engine")]
-        public override void Shutdown()
+        public override void vShutdown()
         {
-            base.Shutdown();
+            base.vShutdown();
             ignited = false;
         }
 
@@ -384,10 +393,10 @@ namespace RealFuels
                 }
                 if (!pressureOK)
                 {
+                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
+                    vFlameout("Lack of pressure", false, ignited);
                     ignited = false;
                     reignitable = false;
-                    propellantStatus = "Feed pressure too low"; // override ullage status indicator
-                    Flameout("Lack of pressure");
                 }
 
                 rfSolver.SetEngineStatus(pressureOK, (ullageOK || !RFSettings.Instance.simulateUllage), ignited);
@@ -540,12 +549,18 @@ namespace RealFuels
         }
         public override string GetPrimaryField()
         {
-            string output = GetThrustInfo();
+            return GetThrustInfo() + GetUllageIgnition();
+        }
+        public string GetUllageIgnition()
+        {
+            string output = "";
             if (pressureFed)
                 output += "Pressure-fed";
             if (ignitions >= 0 && RFSettings.Instance.limitedIgnitions)
-                output += (pressureFed ? ", " : "") + "Ignitions: " + ignitions;
-            if (pressureFed || (ignitions >= 0 && RFSettings.Instance.limitedIgnitions))
+                output += (output != "" ? ", " : "") + "Ignitions: " + ignitions;
+            if (!ullage)
+                output += (output != "" ? ", " : "") + "Not subject to ullage";
+            if (output != "")
                 output += "\n";
 
             return output;
@@ -556,6 +571,8 @@ namespace RealFuels
             string output = GetThrustInfo();
 
             output += "<b>Engine Isp: </b>" + (atmosphereCurve.Evaluate(1f)).ToString("0.###") + " (ASL) - " + (atmosphereCurve.Evaluate(0f)).ToString("0.###") + " (Vac.)\n";
+
+            output += GetUllageIgnition();
 
             output += "\n<b><color=#99ff00ff>Propellants:</color></b>\n";
             Propellant p;
@@ -635,7 +652,7 @@ namespace RealFuels
                                     EngineIgnited = false; // don't play shutdown FX, just fail.
                                     ScreenMessages.PostScreenMessage(igniteFailResources);
                                     FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
-                                    Flameout("Ignition failed");
+                                    Flameout("Ignition failed"); // yes play FX
                                     return;
                                 }
                             }
@@ -650,7 +667,7 @@ namespace RealFuels
                 currentThrottle = 0f;
                 reignitable = true; // reset
                 ullageOK = true;
-                UnFlameout();
+                vUnFlameout(false);
                 ignited = false; // just in case
             }
         }

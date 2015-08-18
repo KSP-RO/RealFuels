@@ -84,7 +84,7 @@ namespace RealFuels
         public int techLevel = -1; // default: disable
 
         [KSPField]
-        public int origTechLevel = -1; // default TL
+        public int origTechLevel = -1; // default TL, starts disabled
 
         [KSPField]
         public float origMass = -1;
@@ -123,7 +123,7 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         public string type = "ModuleEnginesRF";
 
-        [KSPField(isPersistant = true)]
+        [KSPField]
         public bool useEngineDev = false;
 
         [KSPField(isPersistant = true)]
@@ -153,6 +153,11 @@ namespace RealFuels
         public List<ConfigNode> configs;
         public ConfigNode config;
 
+        public List<ConfigNode> chambers ;
+        public List<ConfigNode> nozzles ;
+
+        public ConfigNode chamberConfig;
+        public ConfigNode nozzleConfig;
         // KIDS integration
         public static float ispSLMult = 1.0f;
         public static float ispVMult = 1.0f;
@@ -185,7 +190,7 @@ namespace RealFuels
                     tfFound = true;
             }
             // update TestFlight if its installed
-            if (tfFound)
+            if (tfFound)//TODO:DEV ver. Testflight
             {
                 try
                 {
@@ -249,7 +254,7 @@ namespace RealFuels
                 if (maxTechLevel < 0)
                     maxTechLevel = TechLevel.MaxTL(node, engineType);
                 if (minTechLevel < 0)
-                    minTechLevel = origTechLevel;
+                    minTechLevel = (origTechLevel < techLevel ? origTechLevel : techLevel);
             }
 
             if(origMass >= 0)
@@ -376,58 +381,71 @@ namespace RealFuels
                 moduleTLInfo.Load(techNodes, techLevel);
             else
                 moduleTLInfo = null;*/
+            if (!useEngineDev) {
+                foreach (ConfigNode config in configs) {
 
-            foreach (ConfigNode config in configs) {
-                
-                TechLevel cTL = new TechLevel();
-                if (!cTL.Load(config, techNodes, engineType, techLevel))
-                    cTL = null;
+                    TechLevel cTL = new TechLevel();
+                    if (!cTL.Load(config, techNodes, engineType, techLevel))
+                        cTL = null;
 
-                if(!config.GetValue ("name").Equals (configuration)) {
-                    info += "   " + config.GetValue ("name") + "\n";
-                    if(config.HasValue (thrustRating))
-                        info += "    (" + (scale * ThrustTL(config.GetValue (thrustRating), config)).ToString("0.00") + " Thrust";
-                    else
-                        info += "    (Unknown Thrust";
-                    float cst;
-                    if(config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
-                        info += "    (" + (scale*cst).ToString("N0") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
-                    // because it will always be the cost for the original TL, and thus unmodified.
+                    if (!config.GetValue("name").Equals(configuration)) {
+                        info += "   " + config.GetValue("name") + "\n";
+                        if (config.HasValue(thrustRating))
+                            info += "    (" + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.00") + " Thrust";
+                        else
+                            info += "    (Unknown Thrust";
+                        float cst;
+                        if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
+                            info += "    (" + (scale * cst).ToString("N0") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
+                                                                                             // because it will always be the cost for the original TL, and thus unmodified.
 
-                    FloatCurve isp = new FloatCurve();
-                    if(config.HasNode ("atmosphereCurve")) {
-                        isp.Load (config.GetNode ("atmosphereCurve"));
-                        info  += ", "
-                            + isp.Evaluate (isp.maxTime).ToString() + "-"
-                              + isp.Evaluate (isp.minTime).ToString() + "Isp";
-                    }
-                    else if (config.HasValue("IspSL") && config.HasValue("IspV"))
-                    {
-                        float ispSL = 1.0f, ispV = 1.0f;
-                        float.TryParse(config.GetValue("IspSL"), out ispSL);
-                        float.TryParse(config.GetValue("IspV"), out ispV);
-                        if (cTL != null)
-                        {
-                            ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
-                            ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                            info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
+                        FloatCurve isp = new FloatCurve();
+                        if (config.HasNode("atmosphereCurve")) {
+                            isp.Load(config.GetNode("atmosphereCurve"));
+                            info += ", "
+                                + isp.Evaluate(isp.maxTime).ToString() + "-"
+                                  + isp.Evaluate(isp.minTime).ToString() + "Isp";
+                        } else if (config.HasValue("IspSL") && config.HasValue("IspV")) {
+                            float ispSL = 1.0f, ispV = 1.0f;
+                            float.TryParse(config.GetValue("IspSL"), out ispSL);
+                            float.TryParse(config.GetValue("IspV"), out ispV);
+                            if (cTL != null) {
+                                ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
+                                ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
+                                info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
+                            }
                         }
+                        float gimbalR = -1f;
+                        if (config.HasValue("gimbalRange"))
+                            gimbalR = float.Parse(config.GetValue("gimbalRange"));
+                        // Don't do per-TL checks here, they're misleading.
+                        /*else if (!gimbalTransform.Equals("") || useGimbalAnyway)
+                        {
+                            if (cTL != null)
+                                gimbalR = cTL.GimbalRange;
+                        }*/
+                        if (gimbalR != -1f)
+                            info += ", Gimbal " + gimbalR.ToString("N1");
+
+                        if (config.HasValue("ullage"))
+                            info += ", " + (config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
+                        if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
+                            info += ", pfed";
+
+                        if (config.HasValue("ignitions")) {
+                            int ignitions;
+                            if (int.TryParse(config.GetValue("ignitions"), out ignitions)) {
+                                if (ignitions > 0)
+                                    info += ", " + ignitions + " ignition" + (ignitions > 1 ? "s" : "");
+                                else
+                                    info += ", unl. ignitions";
+                            }
+                        }
+                        info += ")\n";
                     }
-                    float gimbalR = -1f;
-                    if (config.HasValue("gimbalRange"))
-                        gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                    // Don't do per-TL checks here, they're misleading.
-                    /*else if (!gimbalTransform.Equals("") || useGimbalAnyway)
-                    {
-                        if (cTL != null)
-                            gimbalR = cTL.GimbalRange;
-                    }*/
-                    if (gimbalR != -1f)
-                        info += ", Gimbal " + gimbalR.ToString("N1");
-                    info += ")\n";
                 }
-
-
+            } else {
+                //TODO
             }
             return info;
         }
@@ -497,7 +515,67 @@ namespace RealFuels
 
         #region Configuration
         public PartModule pModule = null;
+        virtual public void UpdateDEVConfiguration() {
+            chambers = new List<ConfigNode>();
+            nozzles = new List<ConfigNode>();
+            foreach (ConfigNode subNode in config.GetNodes("ModuleChamber")) {
+                //Debug.Log("*RFMEC* Load ModuleChamber Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                ConfigNode newNode = new ConfigNode("ModuleChamber");
+                subNode.CopyTo(newNode);
+                chambers.Add(newNode);
+            }
+            foreach (ConfigNode subNode in config.GetNodes("ModuleNozzle")) {
+                //Debug.Log("*RFMEC* Load ModuleNozzle Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                ConfigNode newNode = new ConfigNode("ModuleChamber");
+                subNode.CopyTo(newNode);
+                nozzles.Add(newNode);
+            }
+            chamber = config.GetValue("chamber");
+            nozzle = config.GetValue("nozzle");
+            if (pModule is ModuleEnginesDEV) {
+                ModuleEnginesDEV pMDEV = (pModule as ModuleEnginesDEV);
+                pMDEV.maxRunTime = float.Parse(config.GetValue("maxRunTime"));
+                pMDEV.Mexh = float.Parse(config.GetValue("Mexh"));
+                pMDEV.fuelFraction = float.Parse(config.GetValue("fuelFraction"));
+                pMDEV.nominalTcns = float.Parse(config.GetValue("nominalTcns"));
+                
+            }
+            SetDevConfiguration(chamber, nozzle);
+        }
 
+        virtual public void SetDevConfiguration(string newChamber, string newNozzle) {
+            
+            chamberConfig = chambers.Find(c => c.GetValue("name").Equals(newChamber));
+            nozzleConfig = nozzles.Find(c => c.GetValue("name").Equals(newNozzle));
+            string s = "";
+            bool validate = chamberConfig.TryGetValue("type", ref s)&&nozzleConfig.TryGetValue("type", ref s);
+            try
+            {
+	            if (!validate) {
+	                Debug.Log("*RFMEC*DEV£º ERROR could not find configuration of name " + newChamber+"&" + newNozzle);
+	                chamberConfig = chambers.First();
+	                nozzleConfig = nozzles.First();
+                }
+                chamber = chamberConfig.GetValue("name");
+                nozzle = nozzleConfig.GetValue("name");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.Log("*RFMEC*DEV£º ERROR no configuration availble " + newChamber + "&" + newNozzle+",params unchanged");
+                Debug.LogException(ex);
+                return;
+            }
+            if (pModule is ModuleEnginesDEV) {
+                ModuleEnginesDEV pMDEV = (pModule as ModuleEnginesDEV);
+                pMDEV.nominalPcns      = float.Parse(chamberConfig.GetValue("nominalPcns"));
+                pMDEV.maxMassFlow      = float.Parse(chamberConfig.GetValue("maxMassFlow"));
+                pMDEV.minMassFlow      = float.Parse(chamberConfig.GetValue("minMassFlow"));
+                pMDEV.At               = float.Parse(nozzleConfig.GetValue("At"));
+                pMDEV.nominalPe        = float.Parse(nozzleConfig.GetValue("nominalPe"));
+                pMDEV.nozzleType       = nozzleConfig.GetValue("type");
+                pMDEV.chamberType      = chamberConfig.GetValue("type");
+            }
+        }
         virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
 
@@ -533,10 +611,6 @@ namespace RealFuels
                 config = new ConfigNode("MODULE");
                 newConfig.CopyTo(config);
                 config.name = "MODULE";
-                if (useEngineDev) {
-                    nozzle = config.GetValue("nozzle");
-                    chamber = config.GetValue("chamber");
-                }
 #if DEBUG
                 print ("replacing " + type + " with:");
                 print (newConfig.ToString ());
@@ -617,7 +691,7 @@ namespace RealFuels
                         }
                     }
 
-                    DoConfig(config);
+                    if (!useEngineDev) DoConfig(config); else DoConfigDEV(config);
 
                     // Handle Engine Ignitor
                     if (config.HasNode("ModuleEngineIgnitor"))
@@ -655,23 +729,9 @@ namespace RealFuels
                         else // backwards compatible with EI nodes when using RF ullage etc.
                         {
                             ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
-                            int ignitions = -1;
-                            string ignitionsString = "";
-                            bool writeIgnitions = false;
-                            if (config.HasValue("ignitions"))
+                            if (eiNode.HasValue("ignitionsAvailable") && !config.HasValue("ignitions"))
                             {
-                                ignitionsString = config.GetValue("ignitions");
-                                config.RemoveValue("ignitions");
-                            }
-                            else if (eiNode.HasValue("ignitionsAvailable"))
-                            {
-                                ignitionsString = eiNode.GetValue("ignitionsAvailable");
-                            }
-                            if (!string.IsNullOrEmpty(ignitionsString) && int.TryParse(ignitionsString, out ignitions))
-                            {
-                                ignitions = ConfigIgnitions(ignitions);
-                                if ((!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
-                                    config.AddValue("ignitions", ignitions);
+                                config.AddValue("ignitions", eiNode.GetValue("ignitionsAvailable"));
                             }
                             if (eiNode.HasValue("useUllageSimulation") && !config.HasValue("ullage"))
                                 config.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
@@ -680,38 +740,25 @@ namespace RealFuels
                             if(!config.HasNode("IGNITOR_RESOURCE"))
                                 foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
                                     config.AddNode(resNode);
-
-                            if (writeIgnitions && (!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
-                                config.AddValue("ignitions", ignitions);
-                                
                         }
                     }
-                    if (config.HasValue("useEngineDEV")&& bool.Parse(config.GetValue("useEngineDEV"))) {
-                        List<ConfigNode> chambers = new List<ConfigNode>();
-                        List<ConfigNode> nozzles = new List<ConfigNode>();
-                        foreach (ConfigNode subNode in config.GetNodes("ModuleChamber")) {
-                            //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
-                            ConfigNode newNode = new ConfigNode("ModuleChamber");
-                            subNode.CopyTo(newNode);
-                            chambers.Add(newNode);
+                    if (config.HasValue("ignitions"))
+                    {
+                        int ignitions;
+                        if ((!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
+                        {
+                            if (int.TryParse(config.GetValue("ignitions"), out ignitions))
+                            {
+                                ignitions = ConfigIgnitions(ignitions);
+                                config.SetValue("ignitions", ignitions.ToString());
+                            }
                         }
-                        foreach (ConfigNode subNode in config.GetNodes("ModuleNozzle")) {
-                            //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
-                            ConfigNode newNode = new ConfigNode("ModuleChamber");
-                            subNode.CopyTo(newNode);
-                            nozzles.Add(newNode);
-                        }
-                        ConfigNode chamberConfig = configs.Find(c => c.GetValue("name").Equals(chamber));
-                        ConfigNode nozzleConfig = configs.Find(c => c.GetValue("name").Equals(nozzle));
-                        if (pModule is ModuleEnginesDEV) {
-                            ModuleEnginesDEV pMDEV = (pModule as ModuleEnginesDEV);
-                            pMDEV.nominalPcns   = float.Parse(chamberConfig.GetValue("nominalPcns"));
-                            pMDEV.maxMassFlow   = float.Parse(chamberConfig.GetValue("maxMassFlow"));
-                            pMDEV.nominalPcns   = float.Parse(nozzleConfig.GetValue("At"));
-                            pMDEV.nominalPe     = float.Parse(nozzleConfig.GetValue("nominalPe"));
-                            pMDEV.nozzleType    = nozzleConfig.GetValue("type");
-                            pMDEV.chamberType   = chamberConfig.GetValue("type");
-                        }
+                        else
+                            config.RemoveValue("ignitions");
+                    }
+                    bool isDEV=false;
+                    if (config.TryGetValue("useEngineDEV",ref isDEV)&&isDEV) {
+                        UpdateDEVConfiguration();
                     }
                     if (pModule is ModuleEnginesRF)
                         (pModule as ModuleEnginesRF).SetScale(1d);
@@ -755,8 +802,18 @@ namespace RealFuels
                 /*if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
                     GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
                 // fire config modified event
-                if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
-                    EngineConfigChanged();
+                /*if(HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
+                    EngineConfigChanged();*/
+                // do it manually
+                List<Part> parts;
+                if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
+                    parts = EditorLogic.fetch.ship.parts;
+                else if (HighLogic.LoadedSceneIsFlight && vessel != null)
+                    parts = vessel.parts;
+                else parts = new List<Part>();
+                for (int i = parts.Count - 1; i >= 0; --i)
+                    parts[i].SendMessage("UpdateUsedBy");
+
                 SetupFX();
 
                 UpdateTFInterops(); // update TestFlight if it's installed
@@ -766,14 +823,20 @@ namespace RealFuels
                 Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
                 Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
             }
+            if (pModule is ModuleEnginesRF) {
+                (pModule as ModuleEnginesRF).CreateEngine();
+            }
+            pMInfo=pModule.GetInfo();
         }
         virtual protected int ConfigIgnitions(int ignitions)
         {
-            if (ignitions < 0) {
+            if (ignitions < 0)
+            {
                 ignitions = techLevel + ignitions;
                 if (ignitions < 1)
                     ignitions = 1;
-            } else if (ignitions == 0)
+            }
+            else if (ignitions == 0)
                 ignitions = -1;
             return ignitions;
         }
@@ -781,24 +844,21 @@ namespace RealFuels
         {
             configMaxThrust = configMinThrust = configHeat = -1f;
             // Get thrusts
-            if (config.HasValue(thrustRating))
-            {
+            if (config.HasValue(thrustRating)) {
                 float thr;
                 if (float.TryParse(config.GetValue(thrustRating), out thr))
                     configMaxThrust = scale * thr;
             }
-            if (config.HasValue("minThrust"))
-            {
+            if (config.HasValue("minThrust")) {
                 float thr;
                 if (float.TryParse(config.GetValue("minThrust"), out thr))
                     configMinThrust = scale * thr;
             }
 
             // Get, multiply heat
-            if (cfg.HasValue("heatProduction"))
-            {
+            if (cfg.HasValue("heatProduction")) {
                 float heat;
-                if(float.TryParse(cfg.GetValue("heatProduction"), out heat))
+                if (float.TryParse(cfg.GetValue("heatProduction"), out heat))
                     configHeat = (float)Math.Round(heat * RFSettings.Instance.heatMultiplier, 0);
             }
 
@@ -809,7 +869,7 @@ namespace RealFuels
             else if (configMinThrust >= 0f && configMaxThrust >= 0f)
                 configThrottle = configMinThrust / configMaxThrust;
 
-                        
+
             float TLMassMult = 1.0f;
 
             float gimbal = -1f;
@@ -820,8 +880,7 @@ namespace RealFuels
             if (cfg.HasValue("cost"))
                 cost = scale * float.Parse(cfg.GetValue("cost"));
 
-            if (techLevel != -1)
-            {
+            if (techLevel != -1) {
                 // load techlevels
                 TechLevel cTL = new TechLevel();
                 cTL.Load(cfg, techNodes, engineType, techLevel);
@@ -830,55 +889,45 @@ namespace RealFuels
 
 
                 // set atmosphereCurve
-                if (cfg.HasValue("IspSL") && cfg.HasValue("IspV"))
-                {
+                if (cfg.HasValue("IspSL") && cfg.HasValue("IspV")) {
                     cfg.RemoveNode("atmosphereCurve");
-                    
+
                     ConfigNode curve = new ConfigNode("atmosphereCurve");
-                    
+
                     // get the multipliers
                     float ispSL = 1f, ispV = 1f;
                     float.TryParse(cfg.GetValue("IspSL"), out ispSL);
                     float.TryParse(cfg.GetValue("IspV"), out ispV);
-                    
+
                     // Mod the curve by the multipliers
                     FloatCurve newAtmoCurve = new FloatCurve();
                     newAtmoCurve = Utilities.Mod(cTL.AtmosphereCurve, ispSL, ispV);
                     newAtmoCurve.Save(curve);
-                    
+
                     cfg.AddNode(curve);
                 }
 
                 // set heatProduction
-                if (configHeat > 0)
-                {
+                if (configHeat > 0) {
                     configHeat = MassTL(configHeat);
                 }
 
                 // set thrust and throttle
-                if (configMaxThrust >= 0)
-                {
+                if (configMaxThrust >= 0) {
                     configMaxThrust = ThrustTL(configMaxThrust);
-                    if (configMinThrust >= 0)
-                    {
+                    if (configMinThrust >= 0) {
                         configMinThrust = ThrustTL(configMinThrust);
-                    }
-                    else if (thrustRating.Equals("thrusterPower"))
-                    {
+                    } else if (thrustRating.Equals("thrusterPower")) {
                         configMinThrust = configMaxThrust * 0.5f;
-                    }
-                    else
-                    {
+                    } else {
                         configMinThrust = configMaxThrust;
-                        if (configThrottle > 1.0f)
-                        {
+                        if (configThrottle > 1.0f) {
                             if (techLevel >= configThrottle)
                                 configThrottle = 1.0f;
                             else
                                 configThrottle = -1.0f;
                         }
-                        if (configThrottle >= 0.0f)
-                        {
+                        if (configThrottle >= 0.0f) {
                             configThrottle = (float)((double)configThrottle * cTL.Throttle());
                             configMinThrust *= configThrottle;
                         }
@@ -892,8 +941,7 @@ namespace RealFuels
                 // We assume if it was specified in the CONFIG that we should use it anyway.
                 if (gimbal < 0 && (!gimbalTransform.Equals("") || useGimbalAnyway))
                     gimbal = cTL.GimbalRange;
-                if (gimbal >= 0)
-                {
+                if (gimbal >= 0) {
                     // allow local override of gimbal mult
                     if (cfg.HasValue("gimbalMult"))
                         gimbal *= float.Parse(cfg.GetValue("gimbalMult"));
@@ -901,11 +949,8 @@ namespace RealFuels
 
                 // Cost (multiplier will be 1.0 if unspecified)
                 cost = scale * CostTL(cost, cfg);
-            }
-            else
-            {
-                if (cfg.HasValue(thrustRating) && configThrottle > 0f && !cfg.HasValue("minThrust"))
-                {
+            } else {
+                if (cfg.HasValue(thrustRating) && configThrottle > 0f && !cfg.HasValue("minThrust")) {
                     configMinThrust = configThrottle * configMaxThrust;
                 }
             }
@@ -915,16 +960,15 @@ namespace RealFuels
             // thrust updates
             if (configMaxThrust >= 0f)
                 cfg.SetValue(thrustRating, configMaxThrust.ToString("0.0000"));
-            if(configMinThrust >= 0f)
+            if (configMinThrust >= 0f)
                 cfg.SetValue("minThrust", configMinThrust.ToString("0.0000")); // will be ignored by RCS, so what.
 
             // heat update
-            if(configHeat >= 0f)
+            if (configHeat >= 0f)
                 cfg.SetValue("heatProduction", configHeat.ToString("0"));
-            
+
             // mass change
-            if (origMass > 0)
-            {
+            if (origMass > 0) {
                 float ftmp;
                 configMassMult = scale;
                 if (cfg.HasValue("massMult"))
@@ -939,8 +983,7 @@ namespace RealFuels
             }
 
             // KIDS integration
-            if (cfg.HasNode("atmosphereCurve"))
-            {
+            if (cfg.HasNode("atmosphereCurve")) {
                 ConfigNode newCurveNode = new ConfigNode("atmosphereCurve");
                 FloatCurve oldCurve = new FloatCurve();
                 oldCurve.Load(cfg.GetNode("atmosphereCurve"));
@@ -955,8 +998,86 @@ namespace RealFuels
                 // apply module-wide gimbal mult on top of any local ones
                 cfg.AddValue("gimbalRange", (gimbal * gimbalMult).ToString("N4"));
             }
-            if (cost != 0f)
+            if (cost != 0f) {
+                if (cfg.HasValue("cost"))
+                    cfg.SetValue("cost", cost.ToString("N3"));
+                else
+                    cfg.AddValue("cost", cost.ToString("N3"));
+            }
+        }
+        virtual public void DoConfigDEV(ConfigNode cfg)
+        {
+
+
+            float TLMassMult = 1.0f;
+
+            float gimbal = -1f;
+            if (cfg.HasValue("gimbalRange"))
+                gimbal = float.Parse(cfg.GetValue("gimbalRange"));
+
+            float cost = 0f;
+            if (cfg.HasValue("cost"))
+                cost = scale * float.Parse(cfg.GetValue("cost"));
+
+            if (techLevel != -1) {
+                // load techlevels
+                TechLevel cTL = new TechLevel();
+                cTL.Load(cfg, techNodes, engineType, techLevel);
+                TechLevel oTL = new TechLevel();
+                oTL.Load(cfg, techNodes, engineType, origTechLevel);
+
+
+
+                // set heatProduction
+                if (configHeat > 0) {
+                    configHeat = MassTL(configHeat);
+                }
+                // Don't want to change gimbals on TL-enabled engines willy-nilly
+                // So we don't unless either a transform is specified, or we override.
+                // We assume if it was specified in the CONFIG that we should use it anyway.
+                if (gimbal < 0 && (!gimbalTransform.Equals("") || useGimbalAnyway))
+                    gimbal = cTL.GimbalRange;
+                if (gimbal >= 0) {
+                    // allow local override of gimbal mult
+                    if (cfg.HasValue("gimbalMult"))
+                        gimbal *= float.Parse(cfg.GetValue("gimbalMult"));
+                }
+
+                // Cost (multiplier will be 1.0 if unspecified)
+                cost = scale * CostTL(cost, cfg);
+            } else {
+                if (cfg.HasValue(thrustRating) && configThrottle > 0f && !cfg.HasValue("minThrust")) {
+                    configMinThrust = configThrottle * configMaxThrust;
+                }
+            }
+
+
+            // heat update
+            if (configHeat >= 0f)
+                cfg.SetValue("heatProduction", configHeat.ToString("0"));
+
+            // mass change
+            if (origMass > 0) {
+                float ftmp;
+                configMassMult = scale;
+                if (cfg.HasValue("massMult"))
+                    if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
+                        configMassMult *= ftmp;
+
+                part.mass = origMass * configMassMult * RFSettings.Instance.EngineMassMultiplier * TLMassMult;
+                massDelta = 0;
+                if ((object)(part.partInfo) != null)
+                    if ((object)(part.partInfo.partPrefab) != null)
+                        massDelta = part.mass - part.partInfo.partPrefab.mass;
+            }
+
+            // gimbal change
+            if (gimbal >= 0 && !cfg.HasValue("gimbalRange")) // if TL set a gimbal
             {
+                // apply module-wide gimbal mult on top of any local ones
+                cfg.AddValue("gimbalRange", (gimbal * gimbalMult).ToString("N4"));
+            }
+            if (cost != 0f) {
                 if (cfg.HasValue("cost"))
                     cfg.SetValue("cost", cost.ToString("N3"));
                 else
@@ -964,8 +1085,8 @@ namespace RealFuels
             }
         }
 
-        [PartMessageEvent]
-        public event PartEngineConfigChanged EngineConfigChanged;
+        /*[PartMessageEvent]
+        public event PartEngineConfigChanged EngineConfigChanged;*/
 
 
         //called by StretchyTanks StretchySRB and ProcedrualParts
@@ -1236,7 +1357,7 @@ namespace RealFuels
                 oldTechLevel = techLevel;
             }
         }*/
-
+        string pMInfo = "";
         private void engineManagerGUI(int WindowID)
         {
             foreach (ConfigNode node in configs)
@@ -1397,8 +1518,9 @@ namespace RealFuels
             // show current info, cost
             if (pModule != null && part.partInfo != null)
             {
+                if(pMInfo=="") pMInfo = pModule.GetInfo();
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
+                GUILayout.Label(pMInfo + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
                 GUILayout.EndHorizontal();
             }
             

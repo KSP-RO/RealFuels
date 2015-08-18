@@ -10,11 +10,11 @@ namespace RealFuels
     // ReSharper disable once InconsistentNaming
     public class RFSettings : MonoBehaviour
     {
-
+        
         private float engineMassMultiplier = 1;
-
+        
         public float heatMultiplier = 1;
-
+        
         public bool useRealisticMass = true;
 
         public double configEntryCostMultiplier = 20d;
@@ -42,6 +42,7 @@ namespace RealFuels
 
         public double naturalDiffusionRateX = 0.02d;
         public double naturalDiffusionRateY = 0.03d;
+        public double naturalDiffusionAccThresh = 0.04d;
 
         public double translateAxialCoefficientX = 0.06d;
         public double translateAxialCoefficientY = 0.06d;
@@ -94,30 +95,30 @@ namespace RealFuels
                 return version;
             }
 
-            var asm = Assembly.GetCallingAssembly();
-            var title = SystemUtils.GetAssemblyTitle(asm);
-            version = title + " " + SystemUtils.GetAssemblyVersionString(asm);
+            var asm = Assembly.GetCallingAssembly ();
+            var title = SystemUtils.GetAssemblyTitle (asm);
+            version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
 
             return version;
         }
 
         internal void Awake()
         {
-            if (engineConfigs == null)
+            if(engineConfigs == null)
                 engineConfigs = new Dictionary<string, List<ConfigNode>>();
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("RFSETTINGS").Last();
-
+            
             Debug.Log("*RF* Loading RFSETTINGS global settings");
 
             if (node == null)
                 throw new UnityException("*RF* Could not find RF global settings!");
 
             // parse values
-            node.TryGetValue("engineMassMultiplier", out engineMassMultiplier);
-            node.TryGetValue("heatMultiplier", out heatMultiplier);
-            node.TryGetValue("useRealisticMass", out useRealisticMass);
-            node.TryGetValue("varyThrust", out varyThrust);
+            node.TryGetValue("engineMassMultiplier", ref engineMassMultiplier);
+            node.TryGetValue("heatMultiplier", ref heatMultiplier);
+            node.TryGetValue("useRealisticMass", ref useRealisticMass);
+            node.TryGetValue("varyThrust", ref varyThrust);
 
             if (node.HasNode("RF_TECHLEVELS"))
                 techLevels = node.GetNode("RF_TECHLEVELS");
@@ -126,17 +127,18 @@ namespace RealFuels
             if (node.HasNode("instantThrottleProps"))
                 foreach (ConfigNode.Value val in node.GetNode("instantThrottleProps").values)
                     instantThrottleProps.Add(val.value);
-
+            
             // Upgrade costs
-            node.TryGetValue("configEntryCostMultiplier", out configEntryCostMultiplier);
-            node.TryGetValue("techLevelEntryCostFraction", out techLevelEntryCostFraction);
-            node.TryGetValue("configScienceCostMultiplier", out configScienceCostMultiplier);
-            node.TryGetValue("techLevelScienceEntryCostFraction", out techLevelScienceEntryCostFraction);
-            node.TryGetValue("configCostToScienceMultiplier", out configCostToScienceMultiplier);
-            node.TryGetValue("usePartNameInConfigUnlock", out usePartNameInConfigUnlock);
+            node.TryGetValue("configEntryCostMultiplier", ref configEntryCostMultiplier);
+            node.TryGetValue("techLevelEntryCostFraction", ref techLevelEntryCostFraction);
+            node.TryGetValue("configScienceCostMultiplier", ref configScienceCostMultiplier);
+            node.TryGetValue("techLevelScienceEntryCostFraction", ref techLevelScienceEntryCostFraction);
+            node.TryGetValue("configCostToScienceMultiplier", ref configCostToScienceMultiplier);
+            node.TryGetValue("usePartNameInConfigUnlock", ref usePartNameInConfigUnlock);
 
             #region Ullage
-            if (node.HasNode("Ullage")) {
+            if (node.HasNode("Ullage"))
+            {
                 ConfigNode ullageNode = node.GetNode("Ullage");
 
                 ullageNode.TryGetValue("simulateUllage", ref simulateUllage);
@@ -147,6 +149,7 @@ namespace RealFuels
 
                 ullageNode.TryGetValue("naturalDiffusionRateX", ref naturalDiffusionRateX);
                 ullageNode.TryGetValue("naturalDiffusionRateY", ref naturalDiffusionRateY);
+                ullageNode.TryGetValue("naturalDiffusionAccThresh", ref naturalDiffusionAccThresh);
 
                 ullageNode.TryGetValue("translateAxialCoefficientX", ref translateAxialCoefficientX);
                 ullageNode.TryGetValue("translateAxialCoefficientY", ref translateAxialCoefficientY);

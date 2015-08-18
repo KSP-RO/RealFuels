@@ -36,17 +36,15 @@ namespace RealFuels
                 bool calc = true, sciCalc = true;
                 string cfgName = node.GetValue("name");
 
-                if (node.HasValue("entryCost"))
-                    if (double.TryParse(node.GetValue("entryCost"), out techLevelEntryCost))
-                        calc = false;
-                if (node.HasValue("sciEntryCost"))
-                    if (double.TryParse(node.GetValue("sciEntryCost"), out techLevelSciEntryCost))
-                        sciCalc = false;
+                calc = !node.TryGetValue("entryCost", ref techLevelEntryCost);
+
+                sciCalc = !node.TryGetValue("sciEntryCost", ref techLevelSciEntryCost);
+                
                 if (mec.part.partInfo != null)
                 {
                     double configCost = 0d;
-                    if (node.HasValue("cost"))
-                        double.TryParse(node.GetValue("cost"), out configCost);
+                    node.TryGetValue("cost", ref configCost);
+
                     if (calc)
                     {
                         // calculate from what we know
@@ -56,47 +54,33 @@ namespace RealFuels
                     {
                         techLevelSciEntryCost += configCost * RFSettings.Instance.configScienceCostMultiplier;
                     }
+
                     techLevelEntryCost += mec.part.partInfo.entryCost;
                     techLevelSciEntryCost += mec.part.partInfo.entryCost * RFSettings.Instance.configScienceCostMultiplier;
                 }
                 techLevelEntryCost = Math.Max(0d, techLevelEntryCost * RFSettings.Instance.techLevelEntryCostFraction);
                 techLevelSciEntryCost = Math.Max(0d, techLevelSciEntryCost * RFSettings.Instance.techLevelScienceEntryCostFraction);
 
+                currentTL = mec.techLevel;
+
                 Load(node); // override the values if we have the real values.
 
-                currentTL = mec.techLevel;
                 name = Utilities.GetPartName(mec.part) + cfgName;
             }
         }
         public void Load(ConfigNode node)
         {
-            int itmp;
-            double dtmp;
+            node.TryGetValue("name", ref name);
 
-            if (node.HasValue("name"))
-                name = node.GetValue("name");
+            node.TryGetValue("currentTL", ref currentTL);
 
-            if (node.HasValue("currentTL"))
-                if (int.TryParse(node.GetValue("currentTL"), out itmp))
-                    currentTL = itmp;
-
-            if (node.HasValue("techLevelEntryCost"))
-            {
-                if (double.TryParse(node.GetValue("techLevelEntryCost"), out dtmp))
-                    techLevelEntryCost = dtmp;
-            }
-            if (node.HasValue("techLevelSciEntryCost"))
-            {
-                if (double.TryParse(node.GetValue("techLevelSciEntryCost"), out dtmp))
-                    techLevelSciEntryCost = dtmp;
-            }
+            node.TryGetValue("techLevelEntryCost", ref techLevelEntryCost);
+            node.TryGetValue("techLevelSciEntryCost", ref techLevelSciEntryCost);
         }
         public void Save(ConfigNode node)
         {
             node.AddValue("name", name);
             node.AddValue("currentTL", currentTL);
-            node.AddValue("techLevelEntryCost", techLevelEntryCost.ToString("G17"));
-            node.AddValue("techLevelSciEntryCost", techLevelSciEntryCost.ToString("G17"));
         }
     }
 }
