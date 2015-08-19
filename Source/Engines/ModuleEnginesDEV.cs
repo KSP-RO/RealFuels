@@ -13,134 +13,71 @@ namespace RealFuels
     {
         #region Fields
 
-
+        [KSPField]
         public float Mexh;
-
+        [KSPField]
         public float fuelFraction;
-
+        [KSPField]
         public float nominalTcns;
-
+        [KSPField]
         public float nominalPcns;
 
-
+        [KSPField]
         public float At;
-
+        [KSPField]
         public float nominalPe;
 
-
+        [KSPField]
         public float minMassFlow;
-
+        [KSPField]
         public float maxMassFlow;
-
+        [KSPField]
         public float maxRunTime;
 
+        [KSPField]
         public string nozzleType;
-
+        [KSPField]
         public string chamberType;
         #endregion
 
-
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3")]
+        public new float curveTime = 0f;//TODO
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "")]
+        public string statusDEV = "";//TODO
+        
         ScreenMessage igniteFailIgnitions;
         ScreenMessage igniteFailResources;
         ScreenMessage ullageFail;
-        protected SolverDEV devSolver = null;
 
         #region Overrides
         public override void CreateEngine()
         {
             double thrustVariation = varyThrust * RFSettings.Instance.varyThrust;
             maxEngineTemp = nominalTcns / 0.8;
-
+            SolverDEV devSolver = new SolverDEV();
+            engineSolver = devSolver;
+            //rfSolver = new SolverRF();
             devSolver.InitializeOverallEngineData(
-                nominalTcns, 
-                nominalPcns, 
-                maxEngineTemp * 0.8, 
-                nominalPcns / 0.8, 
-                nominalPe, 
-                At, 
-                fuelFraction, 
-                8314 / Mexh, 
+                nominalTcns,
+                nominalPcns,
+                maxEngineTemp * 0.8,
+                nominalPcns / 0.8,
+                nominalPe,
+                At,
+                fuelFraction,
+                8314 / Mexh,
                 maxMassFlow,
-                minFuelFlow, 
-                thrustVariation, 
-                nozzleType, 
+                minFuelFlow,
+                thrustVariation,
+                nozzleType,
                 chamberType
                 );
-
-            
+            maxFuelFlow = maxMassFlow * 0.001f;
+            minFuelFlow = minMassFlow * 0.001f;
+#if DEBUG
+            Debug.Log($"Createngine:Tcns:{nominalTcns},Pcns:{nominalPcns},maxEngineTemp:{maxEngineTemp},nominalPe:{nominalPe},At:{At},Mexh:{Mexh}");
+#endif
             devSolver.SetScale(scale);
-            
-            engineSolver = devSolver;
-        }
-        public override void OnAwake()
-        {
-            base.OnAwake();
-            if (thrustCurve == null)
-                thrustCurve = new FloatCurve();
-            if (ignitionResources == null)
-                ignitionResources = new List<ModuleResource>();
-        }
-        public override void OnLoad(ConfigNode node)
-        {
-            if (thrustCurve == null)
-                thrustCurve = new FloatCurve();
-
-            base.OnLoad(node);
-            // Manually reload ignitions if not in editor
-            if(!HighLogic.LoadedSceneIsEditor)
-                node.TryGetValue("ignited", ref ignited);
-            int pCount = propellants.Count;
-            // thrust curve
-            useThrustCurve = false;
-
-
-            CreateEngine();
-
-            if (ullageSet == null)
-                ullageSet = new Ullage.UllageSet(this);
-
-            // Get thrust axis (only on create prefabs)
-            if (part.partInfo == null || part.partInfo.partPrefab == null)
-            {
-                thrustAxis = Vector3.zero;
-                foreach(Transform t in part.FindModelTransforms(thrustVectorTransformName))
-                {
-                    thrustAxis -= t.forward;
-                }
-                thrustAxis = thrustAxis.normalized;
-            }
-            ullageSet.SetThrustAxis(thrustAxis);
-
-            // ullage
-            if (node.HasNode("Ullage"))
-            {
-                ullageSet.Load(node.GetNode("Ullage"));
-            }
-            ullageSet.SetUllageEnabled(ullage);
-
-            // load ignition resources
-            if (node.HasNode("IGNITOR_RESOURCE"))
-                ignitionResources.Clear();
-            foreach (ConfigNode n in node.GetNodes("IGNITOR_RESOURCE"))
-            {
-                ModuleResource res = new ModuleResource();
-                res.Load(n);
-                ignitionResources.Add(res);
-            }
-        }
-        public override void OnSave(ConfigNode node)
-        {
-            base.OnSave(node);
-            // manually save ignited if not editor
-            if (!HighLogic.LoadedSceneIsEditor) { 
-                node.AddValue("ignited", ignited);
-            }
-            if (ullageSet != null)
-            {
-                ConfigNode ullageNode = new ConfigNode("Ullage");
-                ullageSet.Save(ullageNode);
-                node.AddNode(ullageNode);
-            }
         }
         public override void Start()
         {
@@ -158,93 +95,46 @@ namespace RealFuels
         public override void OnStart(PartModule.StartState state)
         {
             base.OnStart(state);
-            
-            Fields["thrustCurveDisplay"].guiActive = useThrustCurve && state != StartState.Editor;
-        }
-        public override void FixedUpdate()
-        {
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                if (ullageSet != null && pressureFed)
-                {
-                    if (ullageSet.EditorPressurized()) // we need to recheck each frame. Expensive, but short of messages....
-                        propellantStatus = "Feed pressure OK";
-                    else
-                        propellantStatus = "Feed pressure too low";
-                }
-                else
-                    propellantStatus = "OK";
-            }
-            base.FixedUpdate();
+
+            Fields["thrustCurveDisplay"].guiActive = false;
         }
         public override void UpdateThrottle()
         {
             if (throttleLocked)
                 requestedThrottle = 1f;
-            if (ignited)
-            {
+            if (ignited) {
                 if (instantThrottle)
                     currentThrottle = requestedThrottle * thrustPercentage * 0.01f;
-                else
-                {
+                else {
 
                     float requiredThrottle = requestedThrottle * thrustPercentage * 0.01f;
                     float deltaT = TimeWarp.fixedDeltaTime;
 
                     float d = requiredThrottle - currentThrottle;
-                    float thisTick = engineAccelerationSpeed * deltaT * d;
-                    if(d<0)thisTick= engineDecelerationSpeed * deltaT * d;
-                    if (Math.Abs((double)d) > Math.Abs(thisTick))
-                    {
-                            currentThrottle += thisTick;
-                    }
-                    else
+                    float thisTick = engineAccelerationSpeed * deltaT * d;//TODO engineAccelerationSpeed
+                    if (d < 0) thisTick = engineDecelerationSpeed * deltaT * d;
+                    if (Math.Abs((double)d) > Math.Abs(thisTick)) {
+                        currentThrottle += thisTick;
+                    } else
                         currentThrottle = requiredThrottle;
                 }
-            }
-            else
+            } else
                 currentThrottle = 0f;
 
             actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
         }
-        
-        // from SolverEngines but we don't play FX here.
-        public override void vActivate()
-        {
-            if (!allowRestart && engineShutdown)
-            {
-                return; // If the engines were shutdown previously and restarting is not allowed, prevent restart of engines
-            }
-            if (noShieldedStart && part.ShieldedFromAirstream)
-            {
-                ScreenMessages.PostScreenMessage("<color=orange>[" + part.partInfo.title + "]: Cannot activate while stowed!</color>", 6f, ScreenMessageStyle.UPPER_LEFT);
-                return;
-            }
 
-            EngineIgnited = true;
-
-            if (allowShutdown)
-                Events["vShutdown"].active = true;
-            else
-                Events["vShutdown"].active = false;
-
-            Events["vActivate"].active = false;
-        }
-
-        // set ignited in shutdown
-        public override void vShutdown()
-        {
-            base.vShutdown();
-            ignited = false;
-        }
 
         public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
             throttledUp = false;
-
+            if (!(engineSolver is SolverDEV)) {
+                base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+                return;
+            }
+            SolverDEV devSolver = (engineSolver as SolverDEV);
             // handle ignition
-            if (HighLogic.LoadedSceneIsFlight)
-            {
+            if (HighLogic.LoadedSceneIsFlight && vessel != null) {
                 if (vessel.ctrlState.mainThrottle > 0f || throttleLocked)
                     throttledUp = true;
                 else
@@ -254,16 +144,17 @@ namespace RealFuels
                 // Ullage
                 bool pressureOK = ullageSet.PressureOK();
                 propellantStatus = "Nominal";
-                if (ullage && RFSettings.Instance.simulateUllage)
-                {
+                if (ullage && RFSettings.Instance.simulateUllage) {
                     propellantStatus = ullageSet.GetUllageState();
-                    if (EngineIgnited && ignited && throttledUp && devSolver.GetRunning())
-                    {
+                    if (EngineIgnited && ignited && throttledUp && devSolver.GetRunning()) {
+                        curveTime += TimeWarp.fixedDeltaTime * devSolver.overPressureRatio * devSolver.overTempRatio;
+                        if (curveTime > maxRunTime) {
+                            devSolver.SetDamageFrac(UnityEngine.Mathf.Pow(curveTime / maxRunTime, 0.05f));/*MAGIC*/
+                        }
                         double state = ullageSet.GetUllageStability();
                         double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
-                        if ((devSolver.failed & SolverDEV.isFailed.IGNITION) != SolverDEV.isFailed.NONE) testValue *= Mathf.Pow(devSolver.Stability,2);
-                        if (UnityEngine.Random.value > testValue)
-                        {
+                        if ((devSolver.failed & SolverDEV.isFailed.IGNITION) != SolverDEV.isFailed.NONE) testValue *= Mathf.Pow(devSolver.Stability, 2);
+                        if (UnityEngine.Random.value > testValue) {
                             ScreenMessages.PostScreenMessage(ullageFail);
                             FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + ullageFail.message);
                             reignitable = false;
@@ -273,8 +164,7 @@ namespace RealFuels
                         }
                     }
                 }
-                if (!pressureOK)
-                {
+                if (!pressureOK) {
                     propellantStatus = "Feed pressure too low"; // override ullage status indicator
                     vFlameout("Lack of pressure", false, ignited);
                     ignited = false;
@@ -282,12 +172,6 @@ namespace RealFuels
                 }
 
                 devSolver.SetEngineStatus(pressureOK, (ullageOK || !RFSettings.Instance.simulateUllage), ignited);
-                if (EngineIgnited) {
-                    curveTime += TimeWarp.fixedDeltaTime * devSolver.overPressureRatio * devSolver.overTempRatio;
-                }
-                if (curveTime > maxRunTime) {
-                    devSolver.SetDamageFrac(UnityEngine.Mathf.Pow(curveTime/maxRunTime,0.05f));/*MAGIC*/
-                }
             }
 
             // Set part temp
@@ -298,6 +182,9 @@ namespace RealFuels
 
             // run base method code
             base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+            Fields["statusDEV"].guiName = "";
+            Fields["statusDEV"].guiActive = true;
+            statusDEV = devSolver.statusString;
         }
         #endregion
 
@@ -324,11 +211,13 @@ namespace RealFuels
             return output;
         }
         protected new string GetThrustInfo() => GetStaticThrustInfo(false);
+        public override string GetPrimaryField() => GetStaticThrustInfo(true);
         protected string GetStaticThrustInfo(bool primaryField)//TODO WIP
         {
             string output = "";
             if (engineSolver == null || !(engineSolver is SolverDEV))
                 CreateEngine();
+            SolverDEV devSolver = (engineSolver as SolverDEV);
             devSolver.SetEngineStatus(true, true, true);
             // get stats
             double pressure = 101.325d, temperature = 288.15d, density = 1.225d;
@@ -366,6 +255,7 @@ namespace RealFuels
 
             output += "<b>Max. Thrust(ASL): </b>" + thrust_atm.ToString("N2") + " kN\n";
             output += "<b>Max. Thrust(Vac.): </b>" + thrust_vac.ToString("N2") + " kN\n";
+            output += ThrottleString()+"\n";
             output += "<b><color=#0099ff>Ignitions Available: </color></b>" + ignitions + "\n";
 
             output += "<b>Isp(ASL): </b>" + Isp_atm.ToString("N2") + " s\n";

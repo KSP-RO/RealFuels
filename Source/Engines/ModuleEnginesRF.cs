@@ -58,7 +58,6 @@ namespace RealFuels
 
         protected bool instantThrottle = false;
         protected float throttleResponseRate;
-        protected SolverRF rfSolver = null;
 
         #region Ullage/Ignition
         [KSPField]
@@ -92,7 +91,7 @@ namespace RealFuels
         #region Overrides
         public override void CreateEngine()
         {
-            rfSolver = new SolverRF();
+            engineSolver = new SolverRF();
             if(!useAtmCurve)
                 atmCurve = null;
             if(!useVelCurve)
@@ -120,7 +119,7 @@ namespace RealFuels
             double thrustVariation = varyThrust * RFSettings.Instance.varyThrust;
             chamberNominalTemp *= (1d - thrustVariation);
 
-            rfSolver.InitializeOverallEngineData(
+            (engineSolver as SolverRF).InitializeOverallEngineData(
                 minFuelFlow,
                 maxFuelFlow,
                 atmosphereCurve,
@@ -137,9 +136,8 @@ namespace RealFuels
                 thrustVariation,
                 (float)part.name.GetHashCode());
             
-            rfSolver.SetScale(scale);
+            (engineSolver as SolverRF).SetScale(scale);
             
-            engineSolver = rfSolver;
         }
         public override void OnAwake()
         {
@@ -360,9 +358,13 @@ namespace RealFuels
         public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
             throttledUp = false;
-
+            if (!(engineSolver is SolverRF)) {
+                base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+                return;
+            }
+            SolverRF rfSolver = (engineSolver as SolverRF);
             // handle ignition
-            if (HighLogic.LoadedSceneIsFlight)
+            if (HighLogic.LoadedSceneIsFlight && vessel != null)
             {
                 if (vessel.ctrlState.mainThrottle > 0f || throttleLocked)
                     throttledUp = true;
@@ -438,8 +440,8 @@ namespace RealFuels
         {
             scale = newScale;
             scaleRecip = 1d / scale;
-            if(rfSolver != null)
-                rfSolver.SetScale(scale);
+            if(engineSolver is SolverRF)
+                (engineSolver as SolverRF).SetScale(scale);
         }
         #endregion
 
@@ -469,7 +471,7 @@ namespace RealFuels
             string output = "";
             if (engineSolver == null || !(engineSolver is SolverRF))
                 CreateEngine();
-            rfSolver.SetEngineStatus(true, true, true);
+            (engineSolver as SolverRF).SetEngineStatus(true, true, true);
             // get stats
             double pressure = 101.325d, temperature = 288.15d, density = 1.225d;
             if (Planetarium.fetch != null)
@@ -491,7 +493,7 @@ namespace RealFuels
             lastPropellantFraction = 1d;
             bool oldE = EngineIgnited;
             EngineIgnited = true;
-            rfSolver.UpdateThrustRatio(1d);
+            (engineSolver as SolverRF).UpdateThrustRatio(1d);
 
             UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);

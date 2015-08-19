@@ -53,7 +53,6 @@ namespace RealFuels
             ConfigNode currentConfig = configs.Find (c => c.GetValue ("name").Equals (configuration));
             string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
             SetConfiguration(nextConfiguration);
-            // TODO: Does Engine Ignitor get switched here?
         }
 
         override public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
@@ -523,6 +522,7 @@ namespace RealFuels
                 ConfigNode newNode = new ConfigNode("ModuleChamber");
                 subNode.CopyTo(newNode);
                 chambers.Add(newNode);
+
             }
             foreach (ConfigNode subNode in config.GetNodes("ModuleNozzle")) {
                 //Debug.Log("*RFMEC* Load ModuleNozzle Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
@@ -538,13 +538,15 @@ namespace RealFuels
                 pMDEV.Mexh = float.Parse(config.GetValue("Mexh"));
                 pMDEV.fuelFraction = float.Parse(config.GetValue("fuelFraction"));
                 pMDEV.nominalTcns = float.Parse(config.GetValue("nominalTcns"));
-                
             }
-            SetDevConfiguration(chamber, nozzle);
+            SetDEVConfiguration(chamber, nozzle);
         }
 
-        virtual public void SetDevConfiguration(string newChamber, string newNozzle) {
-            
+        virtual public void SetDEVConfiguration(string newChamber, string newNozzle) {
+#if DEBUG
+            Debug.Log($"replacing {chamber} & {nozzle} with:");
+            Debug.Log(newChamber +"&"+ newNozzle);
+#endif
             chamberConfig = chambers.Find(c => c.GetValue("name").Equals(newChamber));
             nozzleConfig = nozzles.Find(c => c.GetValue("name").Equals(newNozzle));
             string s = "";
@@ -691,7 +693,7 @@ namespace RealFuels
                         }
                     }
 
-                    if (!useEngineDev) DoConfig(config); else DoConfigDEV(config);
+                    if (!useEngineDev) DoConfig(config); else DoDEVConfig(config);
 
                     // Handle Engine Ignitor
                     if (config.HasNode("ModuleEngineIgnitor"))
@@ -756,8 +758,7 @@ namespace RealFuels
                         else
                             config.RemoveValue("ignitions");
                     }
-                    bool isDEV=false;
-                    if (config.TryGetValue("useEngineDEV",ref isDEV)&&isDEV) {
+                    if (useEngineDev) {
                         UpdateDEVConfiguration();
                     }
                     if (pModule is ModuleEnginesRF)
@@ -1005,7 +1006,7 @@ namespace RealFuels
                     cfg.AddValue("cost", cost.ToString("N3"));
             }
         }
-        virtual public void DoConfigDEV(ConfigNode cfg)
+        virtual public void DoDEVConfig(ConfigNode cfg)//TODO
         {
 
 

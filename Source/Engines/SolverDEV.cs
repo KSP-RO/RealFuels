@@ -36,6 +36,8 @@ namespace RealFuels
         public float overTempRatio=1, overPressureRatio=1;
         public double Cstar { get; private set; } = -1;
         public double Ct { get; private set; } = -1;
+        public string chamberType { get; private set; }="";
+        public string nozzleType { get; private set; } = "";
         private float stability = 1;
         public float Stability {
             get {
@@ -70,14 +72,14 @@ namespace RealFuels
             double mmaxFuelFlow,
             double mminFuelFlow,
             double nVaryThrust,
-            string nozzleType,
-            string chamberType)//For Liquid+Bipropellant and deLaval now
+            string mnozzleType,
+            string mchamberType)//For Liquid+Bipropellant and deLaval now
         {
             double gamma_t = CalculateGamma(mTcns, mFF);
             double inv_gamma_t = 1 / gamma_t;
             double inv_gamma_tm1 = 1 / (gamma_t - 1);
-            chamberNominalTemp = Tcns;
-            chamberNominalPressure = Pcns;
+            chamberNominalTemp = mTcns;
+            chamberNominalPressure = mPcns;
             chamberMaxTemp = mmaxTc;
             chamberMaxPressure = mmaxPc;
             fuelFraction = mFF;
@@ -96,6 +98,8 @@ namespace RealFuels
             minFlow = mminFuelFlow;
 
             varyThrust = nVaryThrust;
+            chamberType = mchamberType;
+            nozzleType = mnozzleType;
         }
 
         public void SetPartTemp(double tmp)
@@ -156,6 +160,9 @@ namespace RealFuels
         }
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
         {
+            if (!HighLogic.LoadedSceneIsFlight) {
+                Tcns = chamberNominalTemp;
+            }
             // set base bits
             base.CalculatePerformance(airRatio, commandedThrottle, flowMult, ispMult);
             M0 = mach;
@@ -258,21 +265,26 @@ namespace RealFuels
                 if ((failed & isFailed.FUELFLOW) != isFailed.NONE) {
                     fuelFlow /= UnityEngine.Mathf.Pow(Stability, 3);
                 }
+#if DEBUG
+                Debug.Log($"CalculatePerformance:Tcns:{Tcns},Pcns:{Pcns},chamberMaxTemp:{chamberMaxTemp},Pe:{Pe},nozzleThroatArea:{nozzleThroatArea},R:{R}");
+                Debug.Log($"CalculatePerformance:gamma_c:{gamma_c},Cstar:{Cstar},fuelFlow:{fuelFlow},pR_Frac:{pR_Frac},Ct2:{Ct2},Ct:{Ct}");
+
+#endif
             }
             UpdateTc();
         }
         // engine status
-        public override double GetEngineTemp() => Tcns;
-        public double GetEnginePressure() => Pcns;
-        public override double GetArea() => 0d;
+        public override double GetEngineTemp()     => Tcns;
+        public double          GetEnginePressure() => Pcns;
+        public override double GetArea()           => 0d;
         // FX etc
-        public override double GetEmissive() => UtilMath.Clamp01(Tcns / chamberNominalTemp);
-        public override float GetFXPower() => fxPower;
-        public override float GetFXRunning() => fxPower;
-        public override float GetFXThrottle() => fxThrottle;
-        public override float GetFXSpool() => (float)(UtilMath.Clamp01(Tcns / chamberNominalTemp));
-        public override bool GetRunning() => combusting;
-        public double GetHeat() {
+        public override double GetEmissive()       => UtilMath.Clamp01(Tcns / chamberNominalTemp);
+        public override float  GetFXPower()        => fxPower;
+        public override float  GetFXRunning()      => fxPower;
+        public override float  GetFXThrottle()     => fxThrottle;
+        public override float  GetFXSpool()        => (float)(UtilMath.Clamp01(Tcns / chamberNominalTemp));
+        public override bool   GetRunning()        => combusting;
+        public double          GetHeat() {
             double heat = (Tcns - t0) * 0.05 * heatMult;/*MAGIC*/
             if ((failed & isFailed.PART_TEMP)!=isFailed.NONE) {
                 heat /= UnityEngine.Mathf.Pow(Stability, 2);
