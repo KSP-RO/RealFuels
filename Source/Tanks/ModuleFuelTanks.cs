@@ -326,7 +326,17 @@ namespace RealFuels.Tanks
                 {
                     FuelTank tank = tankList[i];
 
-                    if (tank.loss_rate > 0 && tank.amount > 0)
+					double vsp = 0d;
+
+					if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
+					{
+						double lossAmount;
+						double massLost = tank.density * lossAmount;
+
+						// subtract heat from boiloff
+						part.AddThermalFlux(massLost * vsp * deltaTimeRecip);
+					}
+					else if (tank.loss_rate > 0 && tank.amount > 0)
                     {
                         double deltaTemp = part.temperature - tank.temperature;
                         if (deltaTemp > 0)
@@ -342,9 +352,9 @@ namespace RealFuels.Tanks
                                 lossAmount = -lossAmount;
                                 tank.amount += lossAmount;
                             }
-                            double vsp = 0d;
                             double massLost = tank.density * lossAmount;
                             boiloffMass += massLost;
+							// TODO Shouldn't actually get here anymore; remove it.
                             if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
                             {
                                 // subtract heat from boiloff
