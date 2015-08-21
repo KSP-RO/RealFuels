@@ -158,10 +158,11 @@ namespace RealFuels
         }
         private void UpdateStab()
         {
-            double testValue = Math.Pow(Stability, RFSettings.Instance.stabilityPower * 2);/*MAGIC*/
+            double testValue = Math.Pow(Stability, RFSettings.Instance.stabilityPower/10);
             if (UnityEngine.Random.value > testValue) {
                 isFailed rand = (isFailed)(1<<UnityEngine.Random.Range(0, 9));
                 failed |= rand;
+
             }
         }
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)

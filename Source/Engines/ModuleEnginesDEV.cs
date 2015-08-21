@@ -32,7 +32,7 @@ namespace RealFuels
         [KSPField]
         public float maxMassFlow;
         [KSPField]
-        public float maxRunTime;
+        public float maxBurnTime;
 
         [KSPField]
         public string nozzleType;
@@ -56,7 +56,6 @@ namespace RealFuels
             maxEngineTemp = nominalTcns / 0.8;
             SolverDEV devSolver = new SolverDEV();
             engineSolver = devSolver;
-            //rfSolver = new SolverRF();
             devSolver.InitializeOverallEngineData(
                 nominalTcns,
                 nominalPcns,
@@ -148,12 +147,15 @@ namespace RealFuels
                     propellantStatus = ullageSet.GetUllageState();
                     if (EngineIgnited && ignited && throttledUp && devSolver.GetRunning()) {
                         curveTime += TimeWarp.fixedDeltaTime * devSolver.overPressureRatio * devSolver.overTempRatio;
-                        if (curveTime > maxRunTime) {
-                            devSolver.SetDamageFrac(UnityEngine.Mathf.Pow(curveTime / maxRunTime, 0.05f));/*MAGIC*/
+                        if (curveTime > maxBurnTime) {
+                            devSolver.SetDamageFrac(UnityEngine.Mathf.Pow(curveTime / maxBurnTime, 0.05f));/*MAGIC*/
                         }
                         double state = ullageSet.GetUllageStability();
                         double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
-                        if (((devSolver.failed & SolverDEV.isFailed.IGNITION) != SolverDEV.isFailed.NONE)&&(UnityEngine.Random.value>devSolver.Stability)) testValue *= Mathf.Pow(devSolver.Stability, 2);
+                        if (((devSolver.failed & SolverDEV.isFailed.IGNITION) != SolverDEV.isFailed.NONE) 
+                            && (UnityEngine.Random.value > devSolver.Stability) 
+                            && (UnityEngine.Random.value > devSolver.Stability))/*MAGIC*/
+                                testValue *= Mathf.Pow(devSolver.Stability, 2);
                         if (UnityEngine.Random.value > testValue) {
                             ScreenMessages.PostScreenMessage(ullageFail);
                             FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + ullageFail.message);
@@ -257,7 +259,7 @@ namespace RealFuels
             output += "<b>Max. Thrust(Vac.): </b>" + thrust_vac.ToString("N2") + " kN";
             output += ThrottleString()+"\n";
             output += "<b><color=#0099ff>Ignitions Available: </color></b>" + ignitions + "\n";
-
+            output += "<b><color=#0099ff>Max. Burn time: </color></b>" + maxBurnTime + " Sec.\n";
             output += "<b>Isp(ASL): </b>" + Isp_atm.ToString("N2") + " s\n";
             output += "<b>Isp(Vac.): </b>" + Isp_vac.ToString("N2") + " s\n";
             if (!primaryField) {
@@ -310,8 +312,8 @@ namespace RealFuels
                 output += "- <b>" + pName + "</b>: " + unitsUsed + " maximum.\n";
                 output += p.GetFlowModeDescription();
             }
-            output += "<b>Chamber Pressure:</b>" + nominalPcns + " kPa\n <b>Chamber Temperature:</b>" + nominalTcns + " K\n";
-            output += "<b>Nozzle Exit Pressure:</b>" + nominalPe + " kPa\n <b>Nozzle Throat Area:</b>" + At + " m^2\n";
+            output += "<b>Chamber Pressure:</b>" + nominalPcns + " kPa\n<b>Chamber Temperature:</b>" + nominalTcns + " K\n";
+            output += "<b>Nozzle Exit Pressure:</b>" + nominalPe + " kPa\n<b>Nozzle Throat Area:</b>" + At + " m^2\n";
             output += "<b>Flameout under: </b>" + (ignitionThreshold * 100f).ToString("0.#") + "% of requirement remaining.\n";
 
             if (!allowShutdown) output += "\n" + "<b><color=orange>Engine cannot be shut down!</color></b>";

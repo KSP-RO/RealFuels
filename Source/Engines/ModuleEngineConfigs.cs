@@ -451,7 +451,7 @@ namespace RealFuels
                     if (!cTL.Load(config, techNodes, engineType, techLevel))
                         cTL = null;
                     if (!config.GetValue("name").Equals(configuration)) {
-                        info += "   " + config.GetValue("name") + "\n";
+                        info += "<color=#ffcc66ff>[" + config.GetValue("name") + "]</color>\n";
 
                         SetConfiguration(config.GetValue("name"), true);
                         info += (pModule as ModuleEnginesDEV).GetPrimaryField();
@@ -549,7 +549,7 @@ namespace RealFuels
             nozzle = config.GetValue("nozzle");
             if (pModule is ModuleEnginesDEV) {
                 ModuleEnginesDEV pMDEV = (pModule as ModuleEnginesDEV);
-                pMDEV.maxRunTime = float.Parse(config.GetValue("maxRunTime"));
+                pMDEV.maxBurnTime = float.Parse(config.GetValue("maxBurnTime"));
                 pMDEV.Mexh = float.Parse(config.GetValue("Mexh"));
                 pMDEV.fuelFraction = float.Parse(config.GetValue("fuelFraction"));
                 pMDEV.nominalTcns = float.Parse(config.GetValue("nominalTcns"));
@@ -592,6 +592,7 @@ namespace RealFuels
                 pMDEV.nozzleType       = nozzleConfig.GetValue("type");
                 pMDEV.chamberType      = chamberConfig.GetValue("type");
             }
+            pMInfo = pModule.GetInfo();
         }
         virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
@@ -842,7 +843,7 @@ namespace RealFuels
             if (pModule is ModuleEnginesRF) {
                 (pModule as ModuleEnginesRF).CreateEngine();
             }
-            pMInfo=pModule.GetInfo();
+            pMInfo = pModule.GetInfo();
         }
         virtual protected int ConfigIgnitions(int ignitions)
         {
@@ -1457,6 +1458,41 @@ namespace RealFuels
                 }
                 GUILayout.EndHorizontal();
             }
+            if (useEngineDev) {
+                GUILayout.BeginHorizontal();
+                GUILayout.BeginVertical();
+                foreach (ConfigNode node in chambers) {
+                    string nName = node.GetValue("name");
+
+                    GUILayout.BeginHorizontal();
+                    if (nName.Equals(chamber)) {
+                        GUILayout.Label("Current config: " + nName );
+                    } else {
+                        if (GUILayout.Button(nName)) {
+                            SetDEVConfiguration(nName, nozzle);
+                            UpdateSymmetryCounterparts();
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndVertical();
+                GUILayout.BeginVertical();
+                foreach (ConfigNode node in nozzles) {
+                    string nName = node.GetValue("name");
+                    GUILayout.BeginHorizontal();
+                    if (nName.Equals(nozzle)) {
+                        GUILayout.Label("Current config: " + nName);
+                    } else {
+                        if (GUILayout.Button(nName)) {
+                            SetDEVConfiguration(chamber, nName);
+                            UpdateSymmetryCounterparts();
+                        }
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndVertical();
+                GUILayout.EndHorizontal();
+            }
             // NK Tech Level
             if (techLevel != -1)
             {
@@ -1564,6 +1600,7 @@ namespace RealFuels
                 ModuleEngineConfigs engine = GetSpecifiedModule(part.symmetryCounterparts[j], engineID, mIdx, this.GetType().Name, false) as ModuleEngineConfigs;
                 engine.techLevel = techLevel;
                 engine.SetConfiguration(configuration);
+                engine.SetDEVConfiguration(chamber, nozzle);
                 ++i;
             }
             return i;
