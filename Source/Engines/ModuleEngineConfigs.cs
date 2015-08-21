@@ -444,7 +444,22 @@ namespace RealFuels
                     }
                 }
             } else {
-                //TODO
+                String oldC = configuration;
+                int oldT = techLevel;
+                foreach (ConfigNode config in configs) {//TODO why we dont use TryGetValue
+                    TechLevel cTL = new TechLevel();
+                    if (!cTL.Load(config, techNodes, engineType, techLevel))
+                        cTL = null;
+                    if (!config.GetValue("name").Equals(configuration)) {
+                        info += "   " + config.GetValue("name") + "\n";
+
+                        SetConfiguration(config.GetValue("name"), true);
+                        info += (pModule as ModuleEnginesDEV).GetPrimaryField();
+                    }
+                }
+                configuration  = oldC;
+                techLevel = oldT;
+                SetConfiguration(configuration);
             }
             return info;
         }

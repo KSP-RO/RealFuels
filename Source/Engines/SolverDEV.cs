@@ -129,17 +129,15 @@ namespace RealFuels
                 Tcns = desiredTemp;
                 return;
             }
-            if (!combusting) desiredTemp = t0; else if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight) {
-                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 196883f) * 2d - 1d) * (varyThrust+ (overPressureRatio-1) * 10));/*MAGIC*/
+            if (!combusting) desiredTemp = t0;
+            else if (((failed & isFailed.CHAMBER_TEMP) != isFailed.NONE) || (varyThrust > 0d && fuelFlow > 0d)) {
+                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 196883f) * 2d - 1d) * (varyThrust + UtilMath.Clamp01((Stability - 1)/Stability)));/*MAGIC*/
             }
             if (Math.Abs(desiredTemp - Tcns) < 1d)
                 Tcns = desiredTemp;
             else {
                 double lerpVal = UtilMath.Clamp01(tempLerpRate * TimeWarp.fixedDeltaTime);
                 Tcns = UtilMath.LerpUnclamped(Tcns, desiredTemp, lerpVal);
-            }
-            if ((failed & isFailed.CHAMBER_TEMP) != isFailed.NONE) {
-                Tcns /= Stability;
             }
             //if (GetRunning()) {
             //    designTemp = designChamberTemp;
@@ -157,6 +155,14 @@ namespace RealFuels
             //    Tcns = designTemp;
             //}
 
+        }
+        private void UpdateStab()
+        {
+            double testValue = Math.Pow(Stability, RFSettings.Instance.stabilityPower * 2);/*MAGIC*/
+            if (UnityEngine.Random.value > testValue) {
+                isFailed rand = (isFailed)(1<<UnityEngine.Random.Range(0, 9));
+                failed |= rand;
+            }
         }
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
         {
@@ -211,7 +217,7 @@ namespace RealFuels
                 // get current flow, and thus thrust.
                 fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 if ((overTempRatio>1||varyThrust > 0d) && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
-                    fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * (varyThrust + (overTempRatio - 1) * 10));
+                    fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * UtilMath.Clamp01(varyThrust + (overTempRatio - 1) * overTempRatio / Stability));
 
                 Cstar = (Math.Sqrt(gamma_c * R) * sqrtT)
                             /
@@ -229,20 +235,20 @@ namespace RealFuels
                 Ct = pR_Frac * Ct1_per_pR_Frac + Ct2;
                 double pR_e = Pe * 1000d / p0;
                 statusString = "";
-                if (Pcns > chamberMaxPressure) {
+                if (Pcns > chamberMaxPressure* Stability) {
                     overPressureRatio = (float)(Pcns / chamberMaxPressure - 1);
                     if ((failed & isFailed.OVPR) != isFailed.NONE) {
                         overPressureRatio /= Stability;
                     }
-                    Stability /= (1 + 0.0001f * overPressureRatio);/*MAGIC*/
+                    SetDamageFrac (1 + 0.0001f * overPressureRatio);/*MAGIC*/
                     statusString = "OVPR ";//Over pressure
                 } else overPressureRatio = 1;
-                if (Tcns > chamberMaxTemp) {//chamberMaxTemp should be maxEngineTemp * 0.8 ,for the overheat box in SolverEngine
+                if (Tcns > chamberMaxTemp* Stability) {//chamberMaxTemp should be maxEngineTemp * 0.8 ,for the overheat box in SolverEngine
                     overTempRatio = (float)(Tcns / (chamberMaxTemp));
                     if ((failed & isFailed.OVHT) != isFailed.NONE) {
                         overTempRatio /= Stability;
                     }
-                    Stability /= (1 + 0.0001f * overTempRatio);/*MAGIC*/
+                    SetDamageFrac(1 + 0.0001f * overTempRatio);/*MAGIC*/
                     statusString += "OVHT ";//Over Temprature
                 } else overTempRatio = 1;
                 if (pR_e < 0.3 && pR_e >= 0.1) { Ct = Ct * Math.Sqrt(pR_e * 5 - 0.50f); statusString += "Shockwave in Nozzle"; }//TODO:Actually jet sepration wouldn't cost so much
@@ -272,7 +278,10 @@ namespace RealFuels
 #endif
             }
             UpdateTc();
+            UpdateStab();
         }
+
+
         // engine status
         public override double GetEngineTemp()     => Tcns;
         public double          GetEnginePressure() => Pcns;

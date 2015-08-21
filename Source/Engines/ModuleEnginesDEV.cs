@@ -111,8 +111,8 @@ namespace RealFuels
                     float deltaT = TimeWarp.fixedDeltaTime;
 
                     float d = requiredThrottle - currentThrottle;
-                    float thisTick = engineAccelerationSpeed * deltaT * d;//TODO engineAccelerationSpeed
-                    if (d < 0) thisTick = engineDecelerationSpeed * deltaT * d;
+                    float thisTick = engineAccelerationSpeed * deltaT * d * 10;/*MAGIC*/ //TODO engineAccelerationSpeed
+                    if (d < 0) thisTick = engineDecelerationSpeed * deltaT * d * 10;
                     if (Math.Abs((double)d) > Math.Abs(thisTick)) {
                         currentThrottle += thisTick;
                     } else
@@ -153,7 +153,7 @@ namespace RealFuels
                         }
                         double state = ullageSet.GetUllageStability();
                         double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
-                        if ((devSolver.failed & SolverDEV.isFailed.IGNITION) != SolverDEV.isFailed.NONE) testValue *= Mathf.Pow(devSolver.Stability, 2);
+                        if (((devSolver.failed & SolverDEV.isFailed.IGNITION) != SolverDEV.isFailed.NONE)&&(UnityEngine.Random.value>devSolver.Stability)) testValue *= Mathf.Pow(devSolver.Stability, 2);
                         if (UnityEngine.Random.value > testValue) {
                             ScreenMessages.PostScreenMessage(ullageFail);
                             FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + ullageFail.message);
@@ -254,7 +254,7 @@ namespace RealFuels
             double Ct_vac = devSolver.Ct;
 
             output += "<b>Max. Thrust(ASL): </b>" + thrust_atm.ToString("N2") + " kN\n";
-            output += "<b>Max. Thrust(Vac.): </b>" + thrust_vac.ToString("N2") + " kN\n";
+            output += "<b>Max. Thrust(Vac.): </b>" + thrust_vac.ToString("N2") + " kN";
             output += ThrottleString()+"\n";
             output += "<b><color=#0099ff>Ignitions Available: </color></b>" + ignitions + "\n";
 
