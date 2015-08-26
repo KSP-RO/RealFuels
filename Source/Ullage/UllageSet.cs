@@ -30,7 +30,7 @@ namespace RealFuels.Ullage
         {
             MonoBehaviour.print("*U* Ullage constructor called on " + eng.part.name);
             engine = eng;
-            ullageSim = new UllageSimulator();
+            ullageSim = new UllageSimulator(engine.part.name);
             if (engine.vessel != null)
                 module = engine.vessel.GetComponent<UllageModule>();
             else
