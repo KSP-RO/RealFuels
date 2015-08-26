@@ -28,6 +28,7 @@ namespace RealFuels.Ullage
         #region Setup
         public UllageSet(ModuleEnginesRF eng)
         {
+            MonoBehaviour.print("*U* Ullage constructor called on " + eng.part.name);
             engine = eng;
             ullageSim = new UllageSimulator();
             if (engine.vessel != null)
@@ -115,7 +116,12 @@ namespace RealFuels.Ullage
         public void Load(ConfigNode node)
         {
             if (!HighLogic.LoadedSceneIsEditor && node.HasNode("UllageSim"))
+            {
+#if DEBUG
+                MonoBehaviour.print("*U* Ullage load called on " + engine.part.name);
+#endif
                 ullageSim.Load(node.GetNode("UllageSim"));
+            }
         }
         public void Save(ConfigNode node)
         {

@@ -51,11 +51,20 @@ namespace RealFuels.Ullage
 
         public void Load(ConfigNode node)
         {
-            node.TryGetValue("ullageHeightMin", ref ullageHeightMin);
-            node.TryGetValue("ullageHeightMax", ref ullageHeightMax);
-            node.TryGetValue("ullageRadialMin", ref ullageRadialMin);
-            node.TryGetValue("ullageRadialMax", ref ullageRadialMax);
-            node.TryGetValue("UT", ref UT);
+            if (node != null)
+            {
+                node.TryGetValue("ullageHeightMin", ref ullageHeightMin);
+                node.TryGetValue("ullageHeightMax", ref ullageHeightMax);
+                node.TryGetValue("ullageRadialMin", ref ullageRadialMin);
+                node.TryGetValue("ullageRadialMax", ref ullageRadialMax);
+                node.TryGetValue("UT", ref UT);
+#if DEBUG
+                string str = "Loaded from node. H,R: " + ullageHeightMin + "/" + ullageHeightMax + ", " + ullageRadialMin + "/" + ullageRadialMax + ". UT: " + UT;
+                if (Planetarium.fetch)
+                    str += " with current UT " + Planetarium.GetUniversalTime();
+                MonoBehaviour.print("*U* UllageSim load: " + str);
+#endif
+            }
         }
         public void Save(ConfigNode node)
         {
