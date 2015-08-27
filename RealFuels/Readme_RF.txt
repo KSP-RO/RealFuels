@@ -49,6 +49,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.6
+* New throttling behavior. Old bugs with it were fixed, and now there is a proper delay while thrust builds up, when igniting a liquid engine. It will take about two seconds for an F-1 class engine to build up to full thrust. The rate can be tweaked, set throttleResponseRate in the ModuleEnginesRF (or in a CONFIG that's applied to one). By default when the current throttle is within 0.5% of the desired throttle, the engine clamps to the desired throttle. Further, when setting 0 throttle, the engine instantly shuts off (the latter will change, later). WORD TO THE WISE: Use launch clamps, and make sure your engines are at full thrust before disengaging the clamps!
+* Fix for sometime "says stable but fails to ignite" issue. Supreme thanks for stratochief66 for figuring out where to look!
+* Increase ullage acceleration threshold. Cryo stages will no longer keep themselves at Very Stable, but it won't take much thrust to ullage them.
+* Add tanks for the other Ethanol resources.
+
 v10.5.1
 * Fix issue with CONFIG entry costs being lost.
 
