@@ -144,15 +144,17 @@ namespace RealFuels.Ullage
                 angularVelocity = engine.transform.InverseTransformDirection(engine.part.rb.angularVelocity);
             else
                 angularVelocity = engine.transform.InverseTransformDirection(angVel);
-
+            
+            fuelRatio = 1d;
             if(HighLogic.LoadedSceneIsFlight && engine.EngineIgnited)
             {
-                fuelRatio = 1d;
                 int pCount = engine.propellants.Count;
                 for(int i = pCount - 1; i >= 0; --i)
                 {
                     Propellant p = engine.propellants[i];
-                    fuelRatio = Math.Min(fuelRatio, p.totalResourceAvailable / p.totalResourceCapacity);
+                    double tmp = p.totalResourceAvailable / p.totalResourceCapacity;
+                    if(!double.IsNaN(tmp)) // Ordinarily we'd set to 0 if capacity = 0, but if so engine will flame out, so we just toss the result.
+                        fuelRatio = Math.Min(fuelRatio, tmp);
                 }
                 // do pressure-fed tests?
             }
