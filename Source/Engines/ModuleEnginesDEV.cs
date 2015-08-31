@@ -53,7 +53,7 @@ namespace RealFuels
         public override void CreateEngine()
         {
             double thrustVariation = varyThrust * RFSettings.Instance.varyThrust;
-            maxEngineTemp = nominalTcns / 0.8;
+            maxEngineTemp = nominalTcns / 0.75;
             SolverDEV devSolver = new SolverDEV();
             engineSolver = devSolver;
             devSolver.InitializeOverallEngineData(
