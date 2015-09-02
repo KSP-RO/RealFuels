@@ -42,7 +42,7 @@ namespace RealFuels
 
         public double naturalDiffusionRateX = 0.02d;
         public double naturalDiffusionRateY = 0.03d;
-        public double naturalDiffusionAccThresh = 0.04d;
+        public double naturalDiffusionAccThresh = 0.01d;
 
         public double translateAxialCoefficientX = 0.06d;
         public double translateAxialCoefficientY = 0.06d;

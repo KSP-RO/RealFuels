@@ -128,7 +128,7 @@ namespace RealFuels
             }
             if (!combusting) desiredTemp = t0;
             else if (((failed & isFailed.CHAMBER_TEMP) != isFailed.NONE) || (varyThrust > 0d && fuelFlow > 0d)) {
-                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 196883f) * 2d - 1d) * (varyThrust + UtilMath.Clamp01((Stability - 1)/Stability)));/*MAGIC*/
+                desiredTemp *= (1d + (Mathf.PerlinNoise(Time.time, 196883f) * 2d - 1d) * (varyThrust + 0.1*UtilMath.Clamp01((Stability - 1)/Stability)));/*MAGIC*/
             }
             if (Math.Abs(desiredTemp - Tcns) < 1d)
                 Tcns = desiredTemp;
@@ -162,6 +162,7 @@ namespace RealFuels
 
             }
         }
+
         public override void CalculatePerformance(double airRatio, double commandedThrottle, double flowMult, double ispMult)
         {
             if (!HighLogic.LoadedSceneIsFlight) {
@@ -215,7 +216,7 @@ namespace RealFuels
                 // get current flow, and thus thrust.
                 fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
                 if ((overTempRatio>1||varyThrust > 0d) && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
-                    fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * UtilMath.Clamp01(varyThrust + (overTempRatio - 1) * overTempRatio / Stability));
+                    fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * (varyThrust + 0.1 * UtilMath.Clamp01((overTempRatio - 1) * overTempRatio / Stability)));/*MAGIC*/
 
                 Cstar = (Math.Sqrt(gamma_c * R) * sqrtT)
                             /

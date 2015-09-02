@@ -38,17 +38,18 @@ namespace RealFuels
         public string nozzleType;
         [KSPField]
         public string chamberType;
-        #endregion
+
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3")]
         public new float curveTime = 0f;//TODO
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "")]
         public string statusDEV = "";//TODO
-        
+
+        protected VInfoBox overpressureBox = null;
         ScreenMessage igniteFailIgnitions;
         ScreenMessage igniteFailResources;
         ScreenMessage ullageFail;
-
+        #endregion
         #region Overrides
         public override void CreateEngine()
         {
@@ -73,6 +74,8 @@ namespace RealFuels
                 );
             maxFuelFlow = maxMassFlow * 0.001f;
             minFuelFlow = minMassFlow * 0.001f;
+            minThrottle = minFuelFlow / maxFuelFlow;
+            
 #if DEBUG
             Debug.Log($"Createngine:Tcns:{nominalTcns},Pcns:{nominalPcns},maxEngineTemp:{maxEngineTemp},nominalPe:{nominalPe},At:{At},Mexh:{Mexh}");
 #endif
@@ -105,22 +108,41 @@ namespace RealFuels
                 if (instantThrottle)
                     currentThrottle = requestedThrottle * thrustPercentage * 0.01f;
                 else {
-
                     float requiredThrottle = requestedThrottle * thrustPercentage * 0.01f;
                     float deltaT = TimeWarp.fixedDeltaTime;
+                    const float IGNITELEVEL = 0.01f;
+                    float delta = requiredThrottle - currentThrottle;
+                    float thisTick = engineAccelerationSpeed * deltaT;/*MAGIC*/
+                    if (delta < 0) thisTick = engineDecelerationSpeed * deltaT;
+                    if (delta != 0f) {
+                        float sign = 1f;
+                        if (delta < 0) {
+                            sign = -1f;
+                            delta = -delta;
 
-                    float d = requiredThrottle - currentThrottle;
-                    float thisTick = engineAccelerationSpeed * deltaT * d * 10;/*MAGIC*/ //TODO engineAccelerationSpeed
-                    if (d < 0) thisTick = engineDecelerationSpeed * deltaT * d * 10;
-                    if (Math.Abs((double)d) > Math.Abs(thisTick)) {
-                        currentThrottle += thisTick;
-                    } else
-                        currentThrottle = requiredThrottle;
+                            // FIXME this doesn't actually matter much because we force-set to 0 if not ignited...
+                            if (currentThrottle <= IGNITELEVEL)
+                                thisTick *= throttleDownMult;
+                        }
+
+                        if (currentThrottle > IGNITELEVEL) {
+                            float invDelta = 1f - delta;
+                            thisTick *= (1f - invDelta * invDelta) * 2.4f;
+                        } else
+                            thisTick *= 0.0005f + 12.5f * currentThrottle;
+
+                        if (delta > thisTick && delta > throttleClamp)
+                            currentThrottle += thisTick * sign;
+                        else
+                            currentThrottle = requiredThrottle;
+                    }
+
+
                 }
             } else
                 currentThrottle = 0f;
 
-            actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
+            actualThrottle = currentThrottle * 100f;
         }
 
 
@@ -184,14 +206,50 @@ namespace RealFuels
 
             // run base method code
             base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+            
             Fields["statusDEV"].guiName = "";
             Fields["statusDEV"].guiActive = true;
             statusDEV = devSolver.statusString;
         }
+        override protected void UpdateTemp()
+        {
+            if (tempRatio > 1d) {
+                FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " melted its internals from heat.");
+                part.explode();
+            } else
+                UpdateOverheatBox(tempRatio, tempGaugeMin);
+            double P = (engineSolver as SolverDEV).GetEnginePressure();
+            if (P > nominalPcns / 0.64) {
+                FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " exploded due to overpressure.");
+                part.explode();
+            } else
+                UpdateOverpressureBox(P * 0.8 / nominalPcns, tempGaugeMin);
+        }
+        protected void UpdateOverpressureBox(double val, double minVal)
+        {
+            if (val >= (minVal - 0.00001d)) {
+                if (overpressureBox == null) {
+                    overpressureBox = part.stackIcon.DisplayInfo();
+                    overpressureBox.SetMsgBgColor(XKCDColors.DarkRed.A(0.6f));
+                    overpressureBox.SetMsgTextColor(XKCDColors.OrangeYellow.A(0.6f));
+                    overpressureBox.SetMessage("Eng. Pres.");
+                    overpressureBox.SetProgressBarBgColor(XKCDColors.DarkRed.A(0.6f));
+                    overpressureBox.SetProgressBarColor(XKCDColors.OrangeYellow.A(0.6f));
+                }
+                double scalar = 1d / (1d - minVal);
+                double scaleFac = 1f - scalar;
+                float gaugeMin = (float)(scalar * minVal + scaleFac);
+                overpressureBox.SetValue(Mathf.Clamp01((float)(val * scalar + scaleFac)), gaugeMin, 1.0f);
+            } else {
+                if (overpressureBox != null) {
+                    part.stackIcon.RemoveInfo(overpressureBox);
+                    overpressureBox = null;
+                }
+            }
+        }
         #endregion
-
-
         #region Info
+        public override string GetModuleTitle() => "Engine (EngineDevelopment)";
         protected new string ThrottleString()
         {
             string output = "";
@@ -231,53 +289,70 @@ namespace RealFuels
                     density = home.GetDensity(pressure, temperature);
                 }
             }
-            ambientTherm = new EngineThermodynamics();
-            ambientTherm.FromAmbientConditions(pressure, temperature, density);
-            inletTherm = new EngineThermodynamics();
-            inletTherm.CopyFrom(ambientTherm);
+
 
             currentThrottle = 1f;
             lastPropellantFraction = 1d;
             bool oldE = EngineIgnited;
             EngineIgnited = true;
             devSolver.UpdateThrustRatio(1d);
-            UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
 
+            ambientTherm = new EngineThermodynamics();
+            ambientTherm.FromAmbientConditions(pressure, temperature, density);
+            inletTherm = new EngineThermodynamics();
+            inletTherm.CopyFrom(ambientTherm);
+            UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
             double thrust_atm = (devSolver.GetThrust() * 0.001d);
             double Isp_atm = devSolver.GetIsp();
             double Cstar_atm = devSolver.Cstar;
             double Ct_atm = devSolver.Ct;
+
             ambientTherm = new EngineThermodynamics();
             ambientTherm.FromAmbientConditions(0d, 4d, 0d);
+            inletTherm = new EngineThermodynamics();
+            inletTherm.CopyFrom(ambientTherm);
             UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
             double thrust_vac = (devSolver.GetThrust() * 0.001d);
             double Isp_vac = devSolver.GetIsp();
             double Cstar_vac = devSolver.Cstar;
             double Ct_vac = devSolver.Ct;
+            double P_vac = devSolver.GetEnginePressure();
+            double T_vac = devSolver.GetEngineTemp();
 
-            output += "<b>Max. Thrust(ASL): </b>" + thrust_atm.ToString("N2") + " kN\n";
-            output += "<b>Max. Thrust(Vac.): </b>" + thrust_vac.ToString("N2") + " kN";
+            ambientTherm = new EngineThermodynamics();
+            ambientTherm.FromAmbientConditions(pressure * 2, temperature, density * 2);
+            inletTherm = new EngineThermodynamics();
+            inletTherm.CopyFrom(ambientTherm);
+            UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
+            double thrust_2atm = (devSolver.GetThrust() * 0.001d);
+            double Isp_2atm = devSolver.GetIsp();
+            double Cstar_2atm = devSolver.Cstar;
+            double Ct_2atm = devSolver.Ct;
+
+
+            FloatCurve tC = new FloatCurve();
+            tC.Add(0, (float)Isp_vac);
+            tC.Add(1, (float)Isp_atm);
+            tC.Add(2, (float)Isp_2atm);
+            atmosphereCurve = tC;
+            maxThrust = (float)Math.Max(thrust_vac, thrust_atm);
+
+            output += "<b>Max. Thrust(<color=#00FF99>ASL</color>/<color=#99CCFF>Vac.</color>):</b> <color=#00FF99>" + thrust_atm.ToString("N2") + "</color><b>/</b><color=#99CCFF>" + thrust_vac.ToString("N1") + "</color>kN";
             output += ThrottleString()+"\n";
+            output += "<b>Isp(<color=#00FF99>ASL</color>/<color=#99CCFF>Vac.</color>):</b> <color=#00FF99>" + Isp_atm.ToString("N2") + "</color><b>/</b><color=#99CCFF>" + Isp_vac.ToString("N2") + "</color>s\n";
             output += "<b><color=#0099ff>Ignitions Available: </color></b>" + ignitions + "\n";
             output += "<b><color=#0099ff>Max. Burn time: </color></b>" + maxBurnTime + " Sec.\n";
-            output += "<b>Isp(ASL): </b>" + Isp_atm.ToString("N2") + " s\n";
-            output += "<b>Isp(Vac.): </b>" + Isp_vac.ToString("N2") + " s\n";
             if (!primaryField) {
-                output += "<b>C*(ASL):</b> " + Cstar_atm.ToString("N2") + "m/s\n";
-                output += "<b>Ct(ASL):</b> " + Ct_atm.ToString("N2") + "\n";
-                output += "<b>C*(Vac):</b> " + Cstar_vac.ToString("N2") + "m/s\n";
-                output += "<b>Ct(Vac):</b> " + Ct_vac.ToString("N2") + "\n";
+                output += "<b>C*(<color=#00FF99>ASL</color>/<color=#99CCFF>Vac.</color>):</b> <color=#00FF99>" + Cstar_atm.ToString("N2") + "</color><b>/</b><color=#99CCFF>" + Cstar_vac.ToString("N2") + "</color>m/s\n";
+                output += "<b>Ct(<color=#00FF99>ASL</color>/<color=#99CCFF>Vac.</color>):</b> <color=#00FF99>" + Ct_atm.ToString("N2") + "</color><b>/</b><color=#99CCFF>" + Ct_vac.ToString("N2") + "</color>\n";
+                output += $"<b>Chamber Pressure:\n</b>{P_vac.ToString("N1")}<b>/</b>{nominalPcns.ToString("N1")}kPa\n<b>Chamber Temperature:\n</b>{T_vac.ToString("N1")}<b>/</b>{nominalTcns.ToString("N1")}K\n";
+                output += $"<b>Nozzle Exit Pressure: </b>{nominalPe} kPa\n<b>Nozzle Throat Area:</b>{At} m^2\n";
             }
 
             output += "\n";
             EngineIgnited = oldE;
             return output;
         }
-        public override string GetModuleTitle()
-        {
-            return "Engine (EngineDevelopment)";
-        }
-
         public override string GetInfo()//TODO WIP
         {
             string output = GetStaticThrustInfo(false);
@@ -301,19 +376,17 @@ namespace RealFuels
                     rate = "";
                 }
                 float unitsSec = getMaxFuelFlow(p);
-                string unitsUsed = unitsSec.ToString("N4") + units;
+                string unitsUsed = unitsSec.ToString("N3") + units;
                 if (PartResourceLibrary.Instance != null)
                 {
                     PartResourceDefinition def = PartResourceLibrary.Instance.GetDefinition(p.name);
                     if (def != null && def.density > 0)
-                        unitsUsed += " (" + (unitsSec * def.density * 1000f).ToString("N4") + " kg)";
+                        unitsUsed += " (" + (unitsSec * def.density * 1000f).ToString("N3") + " kg)";
                 }
                 unitsUsed += rate;
                 output += "- <b>" + pName + "</b>: " + unitsUsed + " maximum.\n";
                 output += p.GetFlowModeDescription();
             }
-            output += "<b>Chamber Pressure:</b>" + nominalPcns + " kPa\n<b>Chamber Temperature:</b>" + nominalTcns + " K\n";
-            output += "<b>Nozzle Exit Pressure:</b>" + nominalPe + " kPa\n<b>Nozzle Throat Area:</b>" + At + " m^2\n";
             output += "<b>Flameout under: </b>" + (ignitionThreshold * 100f).ToString("0.#") + "% of requirement remaining.\n";
 
             if (!allowShutdown) output += "\n" + "<b><color=orange>Engine cannot be shut down!</color></b>";

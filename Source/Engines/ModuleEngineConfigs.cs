@@ -553,6 +553,8 @@ namespace RealFuels
                 pMDEV.Mexh = float.Parse(config.GetValue("Mexh"));
                 pMDEV.fuelFraction = float.Parse(config.GetValue("fuelFraction"));
                 pMDEV.nominalTcns = float.Parse(config.GetValue("nominalTcns"));
+                pMDEV.engineAccelerationSpeed = float.Parse(config.GetValue("engineAccelerationSpeed"));
+                pMDEV.engineDecelerationSpeed = float.Parse(config.GetValue("engineDecelerationSpeed"));
             }
             SetDEVConfiguration(chamber, nozzle);
         }
@@ -591,6 +593,7 @@ namespace RealFuels
                 pMDEV.nominalPe        = float.Parse(nozzleConfig.GetValue("nominalPe"));
                 pMDEV.nozzleType       = nozzleConfig.GetValue("type");
                 pMDEV.chamberType      = chamberConfig.GetValue("type");
+                pMDEV.CreateEngine();
             }
             pMInfo = pModule.GetInfo();
         }
