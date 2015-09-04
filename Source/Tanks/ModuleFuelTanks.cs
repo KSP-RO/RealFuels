@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace RealFuels.Tanks
         protected static bool tfFound = false;
         protected static Type tfInterface = null;
         protected static BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
+		protected static double conductionFactors = PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInteralConductionFactor;
 
         public void UpdateTFInterops()
         {
@@ -297,16 +299,22 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
-
+			//print ("[Real Fuels]" + Time.time.ToString ());
 			if (HighLogic.LoadedSceneIsFlight) {
-				CalculateTankLossFunction (TimeWarp.fixedDeltaTime);
+				debug1Display = part.skinInternalConductionMult.ToString ();
+				incomingFluxDisplay = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
+
+				StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
 			}
 		}
         double boiloffMass = 0d;
         public double BoiloffMassRate { get { return boiloffMass; } }
 
-		private void CalculateTankLossFunction (double deltaTime)
+		private IEnumerator CalculateTankLossFunction (double deltaTime)
 		{
+			// Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
+			yield return new WaitForFixedUpdate();
+            Debug.Log("[RealFuels] CalculateTankLossFunction() Time - " + Time.time.ToString("F16") + deltaTime.ToString());
             boiloffMass = 0d;
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
@@ -318,50 +326,89 @@ namespace RealFuels.Tanks
                         minTemp = Math.Min(minTemp, tank.temperature);
                 }
                 part.temperature = minTemp;
+                part.radiatorMax = minTemp / part.maxTemp;
             }
             else
             {
+                // TODO Temporary solution to Analytic mode so that part.temperature doesn't get trashed.
+                if (TimeWarp.CurrentRate >= PhysicsGlobals.ThermalMaxIntegrationWarp)
+					part.temperature = Math.Min(part.temperature, partPrevTemperature);
+                else
+                    partPrevTemperature = part.temperature;
+
                 double deltaTimeRecip = 1d / deltaTime;
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
                     FuelTank tank = tankList[i];
 
 					double vsp = 0d;
-
-					if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
+					if (tank.amount > 0d)
 					{
-						double lossAmount;
-						double massLost = tank.density * lossAmount;
+						if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
+						{
+                            // Opposite of original boil off code. Finds massLost first.
+                            // Trying to nullify conduction factors... bad idea. (unless it also goes both ways)
+                            //double massLost = ((part.skinToInternalFlux / PhysicsGlobals.ConductionFactor / PhysicsGlobals.SkinInteralConductionFactor) * deltaTime) / vsp;
+                            double massLost = 0.0;
+                            //massLost += ((part.skinToInternalFlux * (part.skinTemperature - part.temperature)) * deltaTime) / vsp;
 
-						// subtract heat from boiloff
-						part.AddThermalFlux(massLost * vsp * deltaTimeRecip);
+
+                            // Now account for the tank's actual temperature compared to the resource
+                            double deltaTemp = part.temperature - tank.temperature;
+
+                            if (deltaTemp > 0)
+                            {
+                                double tankThermalMass = (part.thermalMass - part.resourceThermalMass) * (tank.maxAmount / volume);
+                                massLost += tankThermalMass * part.heatConductivity * deltaTemp / conductionFactors / vsp * deltaTime;
+                            }
+
+							double lossAmount = massLost / tank.density;
+							boiloffMass += massLost;
+
+							if(lossAmount > tank.amount)
+							{
+								lossAmount = -tank.amount;
+								tank.amount = 0d;
+							}
+							else
+							{
+								lossAmount = -lossAmount;
+								tank.amount += lossAmount;
+							}
+
+							massLost = -massLost;
+
+							// subtract heat from boiloff
+							// Nullified conduction factors. That results in normalized boil-off but our tank temp gets too high, so. Compensate.
+							part.AddThermalFlux(massLost * conductionFactors * vsp * deltaTimeRecip);
+						}
+						else if (tank.loss_rate > 0 && tank.amount > 0)
+						{
+							double deltaTemp = part.temperature - tank.temperature;
+							if (deltaTemp > 0)
+	                        {
+	                            double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
+	                            if(lossAmount > tank.amount)
+	                            {
+	                                lossAmount = -tank.amount;
+	                                tank.amount = 0d;
+	                            }
+	                            else
+	                            {
+	                                lossAmount = -lossAmount;
+	                                tank.amount += lossAmount;
+	                            }
+	                            double massLost = tank.density * lossAmount;
+	                            boiloffMass += massLost;
+								// TODO Shouldn't actually get here anymore; remove it.
+	                            if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
+	                            {
+	                                // subtract heat from boiloff
+	                                part.AddThermalFlux(massLost * vsp * deltaTimeRecip);
+	                            }
+	                        }
+	                    }
 					}
-					else if (tank.loss_rate > 0 && tank.amount > 0)
-                    {
-                        double deltaTemp = part.temperature - tank.temperature;
-                        if (deltaTemp > 0)
-                        {
-                            double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
-                            if(lossAmount > tank.amount)
-                            {
-                                lossAmount = -tank.amount;
-                                tank.amount = 0d;
-                            }
-                            else
-                            {
-                                lossAmount = -lossAmount;
-                                tank.amount += lossAmount;
-                            }
-                            double massLost = tank.density * lossAmount;
-                            boiloffMass += massLost;
-							// TODO Shouldn't actually get here anymore; remove it.
-                            if (MFSSettings.resourceVsps.TryGetValue(tank.name, out vsp))
-                            {
-                                // subtract heat from boiloff
-                                part.AddThermalFlux(massLost * vsp * deltaTimeRecip);
-                            }
-                        }
-                    }
                 }
             }
 		}
@@ -466,7 +513,7 @@ namespace RealFuels.Tanks
                 }
                 if (type == oldType) // if we didn't find a new one
                 {
-                    Debug.LogError("Unalbe to find a type that is tech-available for part " + part.name);
+                    Debug.LogError("Unable to find a type that is tech-available for part " + part.name);
                     return;
                 }
             }
@@ -484,7 +531,29 @@ namespace RealFuels.Tanks
 				ConfigNode overNode = MFSSettings.GetOverrideList(part).FirstOrDefault(n => n.GetValue("name") == tank.name);
 
 				tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
-			}
+
+				// Call it the SATURN_CONSTANT. Determined emperically based on Saturn V S-IVB insulation, 
+				// S-IVB pad/orbit loss rates and equivalent KSP to scale tank loss rates minus insulation
+
+				//if (part.skinInternalConductionMult == 1.0) // If it wasn't still at default then assume custom setting and leave it alone
+				//{
+					if (tank.loss_rate > 0.0 && part.skinInternalConductionMult > tank.loss_rate * 37499260) 
+					{
+						part.skinInternalConductionMult = tank.loss_rate * 37499260;
+                        // Ugh, trying to decrease heatConductivity on a tank makes engines overheat :/
+                        //part.heatConductivity *= 0.01;
+						Debug.Log (part.partName + ", " + tank.name + ": " + " Conductivity set to " + part.skinInternalConductionMult.ToString ());
+					}
+				//}
+
+                // Change to .heatConductivity; too much heat from engines instantly starts boiling H2 tanks
+                    
+                //if (tank.loss_rate > 0.0 && part.heatConductivity > tank.loss_rate * 37499260) 
+                //{
+                //    part.heatConductivity = tank.loss_rate * 37499260;
+                //    Debug.Log (part.partName + ", " + tank.name + ": " + " Conductivity set to " + part.heatConductivity.ToString ());
+                //}
+            }
             tankList.TechAmounts(); // update for current techs
 
 			// Destroy any managed resources that are not in the new type.
@@ -539,6 +608,14 @@ namespace RealFuels.Tanks
 		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
 		public string volumeDisplay;
 
+		[KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "Insulation (conductivity)")]
+		public string debug1Display;
+		
+		[KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "flux penetration")]
+		public string incomingFluxDisplay;
+
+		public double partPrevTemperature;
+		
 		public double UsedVolume
 		{
 			get; private set;
@@ -550,6 +627,35 @@ namespace RealFuels.Tanks
 				return volume - UsedVolume;
 			}
 		}
+
+		static string FormatFlux(double flux, bool scale = false)
+		{
+			string prefix = "";
+			if (flux < 0.0)
+			{
+				flux *= -1.0;
+				prefix = "-";
+			}
+			if (scale)
+				flux *= TimeWarp.fixedDeltaTime;
+			if (flux >= 1000000000000000.0)
+				return prefix + (flux / 1000000000000000.0).ToString("F2") + " EW";
+			else if (flux >= 1000000000000.0)
+				return prefix + (flux / 1000000000000.0).ToString("F2") + " PW";
+			else if (flux >= 1000000000.0)
+				return prefix + (flux / 1000000000.0).ToString("F2") + " TW";
+			else if (flux >= 1000000.0)
+				return prefix + (flux / 1000000.0).ToString("F2") + " GW";
+			else if (flux >= 1000.0)
+				return prefix + (flux / 1000.0).ToString("F2") + " MW";
+			else if (flux >= 1.0)
+				return prefix + (flux).ToString("F2") + " kW";
+			else if (flux < 1.0)
+				return prefix + (flux * 1000.0).ToString("F2") + " W";
+			else
+				return "ERROR";
+		}
+		
 
 		// Conversion between tank volume in kL, and whatever units this tank uses.
 		// Default to 1000 for RF. Varies for MFT. Needed to interface with PP.
