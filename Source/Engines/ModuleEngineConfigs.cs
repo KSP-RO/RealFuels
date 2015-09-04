@@ -289,7 +289,7 @@ namespace RealFuels
             SetConfiguration();
         }
 
-        public override void OnSave (ConfigNode node)
+        public override void OnSave(ConfigNode node)
         {
             if (!compatible)
                 return;
@@ -365,7 +365,7 @@ namespace RealFuels
                 return "";
         }
 
-        public override string GetInfo ()
+        public override string GetInfo()
         {
             if (!compatible)
                 return "";
@@ -571,7 +571,7 @@ namespace RealFuels
             try
             {
 	            if (!validate) {
-	                Debug.Log("*RFMEC*DEV£º ERROR could not find configuration of name " + newChamber+"&" + newNozzle);
+	                Debug.Log("*RFMEC*DEVï¿½ï¿½ ERROR could not find configuration of name " + newChamber+"&" + newNozzle);
 	                chamberConfig = chambers.First();
 	                nozzleConfig = nozzles.First();
                 }
@@ -580,7 +580,7 @@ namespace RealFuels
             }
             catch (System.Exception ex)
             {
-                Debug.Log("*RFMEC*DEV£º ERROR no configuration availble " + newChamber + "&" + newNozzle+",params unchanged");
+                Debug.Log("*RFMEC*DEVï¿½ï¿½ ERROR no configuration availble " + newChamber + "&" + newNozzle+",params unchanged");
                 Debug.LogException(ex);
                 return;
             }
@@ -1108,7 +1108,7 @@ namespace RealFuels
         /*[PartMessageEvent]
         public event PartEngineConfigChanged EngineConfigChanged;*/
 
-
+        //TODO
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
