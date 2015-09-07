@@ -12,33 +12,69 @@ namespace RealFuels
     public class ModuleEnginesDEV : ModuleEnginesRF
     {
         #region Fields
-
+        #region DEVparams
+        /// <summary>
+        /// Exhaust's molecular weight
+        /// </summary>
         [KSPField]
         public float Mexh;
+        /// <summary>
+        /// Used by CalculateGamma() from SolverEngine
+        /// </summary>
         [KSPField]
         public float fuelFraction;
+        /// <summary>
+        /// Theoretical chamber temperature
+        /// Determine running chamber temperature
+        /// </summary>
         [KSPField]
         public float nominalTcns;
-        [KSPField]
-        public float nominalPcns;
-
-        [KSPField]
-        public float At;
-        [KSPField]
-        public float nominalPe;
-
-        [KSPField]
-        public float minMassFlow;
-        [KSPField]
-        public float maxMassFlow;
+        /// <summary>
+        /// Theoretical max burn time
+        /// </summary>
         [KSPField]
         public float maxBurnTime;
 
+        /// <summary>
+        /// Nozzle's throat area
+        /// </summary>
+        [KSPField]
+        public float At;
+        /// <summary>
+        /// Theoretical nozzle exit pressure at max fuel flow
+        /// </summary>
+        [KSPField]
+        public float nominalPe;
+
+        /// <summary>
+        /// Theoretical chamber pressure at max fuel flow
+        /// Determine running chamber pressure
+        /// </summary>
+        [KSPField]
+        public float nominalPcns;
+        /// <summary>
+        /// Min fuel flow that chamber needs to maintain stable combustion
+        /// </summary>
+        [KSPField]
+        public float minMassFlow;
+        /// <summary>
+        /// Max fuel flow that chamber can load
+        /// </summary>
+        [KSPField]
+        public float maxMassFlow;
+
+
+        /// <summary>
+        /// The type of nozzle(supported:delaval)
+        /// </summary>
         [KSPField]
         public string nozzleType;
+        /// <summary>
+        /// The type of chamber(supported:Liquid+Bipropellant)
+        /// </summary>
         [KSPField]
         public string chamberType;
-
+        #endregion
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = false, guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3")]
         public new float curveTime = 0f;//TODO
@@ -100,6 +136,8 @@ namespace RealFuels
 
             Fields["thrustCurveDisplay"].guiActive = false;
         }
+
+
         public override void UpdateThrottle()
         {
             if (throttleLocked)
@@ -144,8 +182,6 @@ namespace RealFuels
 
             actualThrottle = currentThrottle * 100f;
         }
-
-
         public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
         {
             throttledUp = false;
@@ -211,7 +247,7 @@ namespace RealFuels
             Fields["statusDEV"].guiActive = true;
             statusDEV = devSolver.statusString;
         }
-        override protected void UpdateTemp()
+        protected override void UpdateTemp()
         {
             if (tempRatio > 1d) {
                 FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + part.partInfo.title + " melted its internals from heat.");
@@ -337,7 +373,7 @@ namespace RealFuels
             atmosphereCurve = tC;
             maxThrust = (float)Math.Max(thrust_vac, thrust_atm);
 
-            output += "<b>Max. Thrust(<color=#00FF99>ASL</color>/<color=#99CCFF>Vac.</color>):</b> <color=#00FF99>" + thrust_atm.ToString("N2") + "</color><b>/</b><color=#99CCFF>" + thrust_vac.ToString("N1") + "</color>kN";
+            output += "<b>Max. Thrust(<color=#00FF99>ASL</color>/<color=#99CCFF>Vac.</color>):</b> <color=#00FF99>" + thrust_atm.ToString("N2") + "</color><b>/</b><color=#99CCFF>" + thrust_vac.ToString("N1") + "</color>kN ";
             output += ThrottleString()+"\n";
             output += "<b>Isp(<color=#00FF99>ASL</color>/<color=#99CCFF>Vac.</color>):</b> <color=#00FF99>" + Isp_atm.ToString("N2") + "</color><b>/</b><color=#99CCFF>" + Isp_vac.ToString("N2") + "</color>s\n";
             output += "<b><color=#0099ff>Ignitions Available: </color></b>" + ignitions + "\n";
@@ -397,6 +433,5 @@ namespace RealFuels
             return output;
         }
         #endregion
-
     }
 }
