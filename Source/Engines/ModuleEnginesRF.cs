@@ -654,7 +654,7 @@ namespace RealFuels
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
                         FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailIgnitions.message);
-                        Flameout("Ignition failed");
+                        vFlameout("Ignition failed");
                         return;
                     }
                     else
@@ -668,22 +668,31 @@ namespace RealFuels
                             int count = ignitionResources.Count - 1;
                             if (count >= 0)
                             {
-                                double minResource = 1f;
+                                double minResource = 1d;
                                 for (int i = count; i >= 0; --i)
                                 {
                                     double req = ignitionResources[i].amount;
-                                    double amt = (float)part.RequestResource(ignitionResources[i].id, req);
-                                    if (amt < req)
-                                        minResource = Math.Min(minResource, (amt / req));
+                                    double amt = part.RequestResource(ignitionResources[i].id, req);
+                                    if (amt < req && req > 0d)
+                                    {
+                                        amt += part.RequestResource(ignitionResources[i].id, (req - 0.99d * amt));
+                                        if (amt < req)
+                                        {
+                                            minResource = Math.Min(minResource, (amt / req));
+                                            print("*RF* part " + part.partInfo.title + " requested " + req + " " + ignitionResources[i].name + " but got " + amt + ". MinResource now " + minResource);
+                                        }
+                                    }
                                 }
-
-                                if (UnityEngine.Random.value > (float)minResource)
+                                if (minResource < 1d)
                                 {
-                                    EngineIgnited = false; // don't play shutdown FX, just fail.
-                                    ScreenMessages.PostScreenMessage(igniteFailResources);
-                                    FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
-                                    Flameout("Ignition failed"); // yes play FX
-                                    return;
+                                    if (UnityEngine.Random.value > (float)minResource)
+                                    {
+                                        EngineIgnited = false; // don't play shutdown FX, just fail.
+                                        ScreenMessages.PostScreenMessage(igniteFailResources);
+                                        FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
+                                        vFlameout("Ignition failed"); // yes play FX
+                                        return;
+                                    }
                                 }
                             }
                         }
