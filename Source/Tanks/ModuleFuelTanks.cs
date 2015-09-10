@@ -310,11 +310,11 @@ namespace RealFuels.Tanks
         double boiloffMass = 0d;
         public double BoiloffMassRate { get { return boiloffMass; } }
 
-		private IEnumerator CalculateTankLossFunction (double deltaTime)
+		private IEnumerator CalculateTankLossFunction (float deltaTime)
 		{
 			// Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
 			yield return new WaitForFixedUpdate();
-            Debug.Log("[RealFuels] CalculateTankLossFunction() Time - " + Time.time.ToString("F16") + deltaTime.ToString());
+            Debug.Log("[RealFuels] CalculateTankLossFunction() Time - " + Time.time.ToString("F4") + " / " + deltaTime.ToString("F4"));
             boiloffMass = 0d;
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
@@ -358,8 +358,11 @@ namespace RealFuels.Tanks
 
                             if (deltaTemp > 0)
                             {
+                                double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02. Equation: (0.2/ 0.1/205 + 0.1/0.02)
                                 double tankThermalMass = (part.thermalMass - part.resourceThermalMass) * (tank.maxAmount / volume);
-                                massLost += tankThermalMass * part.heatConductivity * deltaTemp / conductionFactors / vsp * deltaTime;
+                                // massLost += tankThermalMass * part.heatConductivity * deltaTemp / conductionFactors / vsp * deltaTime; // Latest that works well
+                                // 216 is a magic number converting tank thermal mass to 1 m2 of aluminum tank
+                                massLost += (tankThermalMass / 216) * tankConductivity * deltaTemp / 0.2 / vsp * deltaTime;
                             }
 
 							double lossAmount = massLost / tank.density;
@@ -537,12 +540,13 @@ namespace RealFuels.Tanks
 
 				//if (part.skinInternalConductionMult == 1.0) // If it wasn't still at default then assume custom setting and leave it alone
 				//{
+                // temporarily disabled to test other conductivity means for internal tank
 					if (tank.loss_rate > 0.0 && part.skinInternalConductionMult > tank.loss_rate * 37499260) 
 					{
-						part.skinInternalConductionMult = tank.loss_rate * 37499260;
+						//part.skinInternalConductionMult = tank.loss_rate * 37499260;
                         // Ugh, trying to decrease heatConductivity on a tank makes engines overheat :/
                         //part.heatConductivity *= 0.01;
-						Debug.Log (part.partName + ", " + tank.name + ": " + " Conductivity set to " + part.skinInternalConductionMult.ToString ());
+						//Debug.Log (part.partName + ", " + tank.name + ": " + " Conductivity set to " + part.skinInternalConductionMult.ToString ());
 					}
 				//}
 
