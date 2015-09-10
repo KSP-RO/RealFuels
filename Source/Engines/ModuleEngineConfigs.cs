@@ -647,7 +647,7 @@ namespace RealFuels
                             }
                             ConfigNode tNode = new ConfigNode("MODULE");
                             eiNode.CopyTo(tNode);
-                            tNode.SetValue("name", "ModuleEngineIgnitor");
+                            tNode.SetAddValue("name", "ModuleEngineIgnitor");
                             part.Modules["ModuleEngineIgnitor"].Load(tNode);
                         }
                         else // backwards compatible with EI nodes when using RF ullage etc.
@@ -896,13 +896,13 @@ namespace RealFuels
             // Now update the cfg from what we did.
             // thrust updates
             if(configMaxThrust >= 0f)
-                cfg.SetValue(thrustRating, configMaxThrust.ToString("0.0000"));
+                cfg.SetAddValue(thrustRating, configMaxThrust.ToString("0.0000"));
             if(configMinThrust >= 0f)
-                cfg.SetValue("minThrust", configMinThrust.ToString("0.0000")); // will be ignored by RCS, so what.
+                cfg.SetAddValue("minThrust", configMinThrust.ToString("0.0000")); // will be ignored by RCS, so what.
 
             // heat update
             if(configHeat >= 0f)
-                cfg.SetValue("heatProduction", configHeat.ToString("0"));
+                cfg.SetAddValue("heatProduction", configHeat.ToString("0"));
             
             // mass change
             if (origMass > 0)

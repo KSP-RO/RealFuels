@@ -216,8 +216,12 @@ namespace RealFuels.Tanks
 			node.AddValue ("amount", value);
 			node.AddValue ("maxAmount", value);
 #if DEBUG
+<<<<<<< HEAD
 			// TODO Fix this Starwaster!
 			// print (node.ToString ());
+=======
+			MonoBehaviour.print (node.ToString ());
+>>>>>>> NathanKell/master
 #endif
 			partResource = part.AddResource (node);
 			partResource.enabled = true;

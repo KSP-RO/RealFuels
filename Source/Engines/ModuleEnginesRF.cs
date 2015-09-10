@@ -27,6 +27,15 @@ namespace RealFuels
         [KSPField]
         public double varyThrust = 1d;
 
+        [KSPField]
+        public float throttleResponseRate = -1f;
+
+        [KSPField]
+        public float throttleDownMult = 100f;
+
+        [KSPField]
+        public float throttleClamp = 0.005f;
+
         
 
         #region Thrust Curve
@@ -57,7 +66,7 @@ namespace RealFuels
 
 
         protected bool instantThrottle = false;
-        protected float throttleResponseRate;
+        protected float minThrottle = 0f;
         protected SolverRF rfSolver = null;
 
         #region Ullage/Ignition
@@ -193,21 +202,26 @@ namespace RealFuels
             }
 
             // Set from propellants
-            bool instantThrottle = true;
+            bool instantThrottle = false;
             for (int i = 0; i < pCount; ++i)
             {
                 if (RFSettings.Instance.instantThrottleProps.Contains(propellants[i].name))
                 {
-                    instantThrottle = false;
+                    instantThrottle = true;
                 }
                 // any other stuff
             }
 
             // FIXME calculating throttle change rate
             if (!instantThrottle)
-                throttleResponseRate = (float)(10d / Math.Sqrt(Math.Sqrt(part.mass * maxThrust)));
+            {
+                if (throttleResponseRate <= 0f)
+                    throttleResponseRate = (float)(10d / Math.Log(Math.Max(1.1, Math.Sqrt(part.mass * maxThrust * maxThrust))));
+            }
             else
                 throttleResponseRate = 1000000f;
+
+            minThrottle = minFuelFlow / maxFuelFlow;
 
             // set fields
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve;
@@ -298,33 +312,54 @@ namespace RealFuels
         {
             if (throttleLocked)
                 requestedThrottle = 1f;
+
+
             if (ignited)
             {
+                float requiredThrottle = Mathf.Lerp(minThrottle, 1f, requestedThrottle * thrustPercentage * 0.01f);
+
                 if (instantThrottle)
-                    currentThrottle = requestedThrottle * thrustPercentage * 0.01f;
+                    currentThrottle = requiredThrottle;
                 else
                 {
-
-                    float requiredThrottle = requestedThrottle * thrustPercentage * 0.01f;
+                    const float IGNITELEVEL = 0.01f;
+                    // This yields F-1 like curves where F-1 responserate is about 1.
                     float deltaT = TimeWarp.fixedDeltaTime;
 
-                    float d = requiredThrottle - currentThrottle;
-                    float thisTick = throttleResponseRate * deltaT;
-                    if (Math.Abs((double)d) > thisTick)
+                    float delta = requiredThrottle - currentThrottle;
+                    if (delta != 0f)
                     {
-                        if (d > 0f)
-                            currentThrottle += thisTick;
+                        float thisTick = throttleResponseRate * deltaT;
+                        float sign = 1f;
+                        if (delta < 0)
+                        {
+                            sign = -1f;
+                            delta = -delta;
+
+                            // FIXME this doesn't actually matter much because we force-set to 0 if not ignited...
+                            if (currentThrottle <= IGNITELEVEL)
+                                thisTick *= throttleDownMult;
+                        }
+
+                        if (currentThrottle > IGNITELEVEL)
+                        {
+                            float invDelta = 1f - delta;
+                            thisTick *= (1f - invDelta * invDelta) * 2.4f;
+                        }
                         else
-                            currentThrottle -= thisTick;
+                            thisTick *= 0.0005f + 12.5f * currentThrottle;
+
+                        if (delta > thisTick && delta > throttleClamp)
+                            currentThrottle += thisTick * sign;
+                        else
+                            currentThrottle = requiredThrottle;
                     }
-                    else
-                        currentThrottle = requiredThrottle;
                 }
             }
             else
                 currentThrottle = 0f;
 
-            actualThrottle = Mathf.RoundToInt(currentThrottle * 100f);
+            actualThrottle = (int)(currentThrottle * 100f);
         }
         
         // from SolverEngines but we don't play FX here.
@@ -447,16 +482,11 @@ namespace RealFuels
         protected string ThrottleString()
         {
             string output = "";
-            double throttleP = 0d;
-            if(minFuelFlow > 0d)
-                throttleP = minFuelFlow / maxFuelFlow * 100d;
-            if (minFuelFlow == maxFuelFlow)
-                throttleP = 100d;
             if (!throttleLocked)
             {
-                if (throttleP > 0d && throttleP < 100d)
-                    output += ", " + throttleP.ToString("N0") + "% min throttle";
-                else if(throttleP == 100d)
+                if (minThrottle > 0f && minThrottle < 1f)
+                    output += ", " + (minThrottle*100f).ToString("N0") + "% min throttle";
+                else if(minThrottle == 1f)
                     output += ", unthrottleable";
             }
             else
@@ -624,7 +654,7 @@ namespace RealFuels
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
                         FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailIgnitions.message);
-                        Flameout("Ignition failed");
+                        vFlameout("Ignition failed");
                         return;
                     }
                     else
@@ -638,22 +668,31 @@ namespace RealFuels
                             int count = ignitionResources.Count - 1;
                             if (count >= 0)
                             {
-                                double minResource = 1f;
+                                double minResource = 1d;
                                 for (int i = count; i >= 0; --i)
                                 {
                                     double req = ignitionResources[i].amount;
-                                    double amt = (float)part.RequestResource(ignitionResources[i].id, req);
-                                    if (amt < req)
-                                        minResource = Math.Min(minResource, (amt / req));
+                                    double amt = part.RequestResource(ignitionResources[i].id, req);
+                                    if (amt < req && req > 0d)
+                                    {
+                                        amt += part.RequestResource(ignitionResources[i].id, (req - 0.99d * amt));
+                                        if (amt < req)
+                                        {
+                                            minResource = Math.Min(minResource, (amt / req));
+                                            print("*RF* part " + part.partInfo.title + " requested " + req + " " + ignitionResources[i].name + " but got " + amt + ". MinResource now " + minResource);
+                                        }
+                                    }
                                 }
-
-                                if (UnityEngine.Random.value > (float)minResource)
+                                if (minResource < 1d)
                                 {
-                                    EngineIgnited = false; // don't play shutdown FX, just fail.
-                                    ScreenMessages.PostScreenMessage(igniteFailResources);
-                                    FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
-                                    Flameout("Ignition failed"); // yes play FX
-                                    return;
+                                    if (UnityEngine.Random.value > (float)minResource)
+                                    {
+                                        EngineIgnited = false; // don't play shutdown FX, just fail.
+                                        ScreenMessages.PostScreenMessage(igniteFailResources);
+                                        FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
+                                        vFlameout("Ignition failed"); // yes play FX
+                                        return;
+                                    }
                                 }
                             }
                         }

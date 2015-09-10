@@ -12,11 +12,11 @@
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>True</DebugSymbols>
-    <DebugType>full</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
     <Optimize>False</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
-    <OutputPath>..\..\Build\RealFuels\Debug\</OutputPath>
+    <OutputPath>..\RealFuels\Plugins\</OutputPath>
     <DefineConstants>DEBUG;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>

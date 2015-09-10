@@ -80,17 +80,23 @@ namespace RealFuels.Ullage
 
             // Update ullage sims
             UllageSet set;
-            //StringBuilder str = new StringBuilder("Ullage states: ");
+#if DEBUG
+            StringBuilder str = new StringBuilder("Ullage states: ");
+#endif
             for (int i = ullageSets.Count - 1; i >= 0; --i)
             {
                 set = ullageSets[i];
                 set.Update(accel, angVel, TimeWarp.fixedDeltaTime, ventingAcceleration);
-                /*str.Append(set.Engine());
+#if DEBUG
+                str.Append(set.Engine());
                 str.Append(" is ");
                 str.Append(set.GetUllageStability().ToString("N4"));
-                str.Append("\n");*/
+                str.Append("\n");
+#endif
             }
-            //print(str);
+#if DEBUG
+            print(str);
+#endif
         }
 
         public void Reset()
