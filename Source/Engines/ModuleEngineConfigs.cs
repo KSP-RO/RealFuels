@@ -523,8 +523,19 @@ namespace RealFuels
             }
             if (newConfig != null)
             {
-                if (configuration != newConfiguration && resetTechLevels)
-                    techLevel = origTechLevel;
+                if (configuration != newConfiguration)
+                {
+                    if(resetTechLevels)
+                        techLevel = origTechLevel;
+
+                    while (techLevel > 0)
+                    {
+                        if (TechLevel.CanTL(newConfig, techNodes, engineType, techLevel))
+                            break;
+                        else
+                            --techLevel;
+                    }
+                }
 
                 // for asmi
                 if (useConfigAsTitle)
