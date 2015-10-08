@@ -198,7 +198,6 @@ namespace RealFuels
 
         public static bool IsAllCompatible()
         {
-			return true;
             return IsCompatible() && IsUnityCompatible() && !IsWin64();
         }
 
