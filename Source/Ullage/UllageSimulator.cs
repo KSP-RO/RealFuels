@@ -44,18 +44,34 @@ namespace RealFuels.Ullage
         static double veryRisky = 0.3d;
         static double unstable = 0.15d;
 
+        string name = "Unknown";
+
         public UllageSimulator()
         {
             Reset();
         }
 
+        public UllageSimulator(string partname)
+        {
+            name = partname;
+        }
+
         public void Load(ConfigNode node)
         {
-            node.TryGetValue("ullageHeightMin", ref ullageHeightMin);
-            node.TryGetValue("ullageHeightMax", ref ullageHeightMax);
-            node.TryGetValue("ullageRadialMin", ref ullageRadialMin);
-            node.TryGetValue("ullageRadialMax", ref ullageRadialMax);
-            node.TryGetValue("UT", ref UT);
+            if (node != null)
+            {
+                node.TryGetValue("ullageHeightMin", ref ullageHeightMin);
+                node.TryGetValue("ullageHeightMax", ref ullageHeightMax);
+                node.TryGetValue("ullageRadialMin", ref ullageRadialMin);
+                node.TryGetValue("ullageRadialMax", ref ullageRadialMax);
+                node.TryGetValue("UT", ref UT);
+#if DEBUG
+                string str = "*U* Sim for " + name + " loaded from node. H,R: " + ullageHeightMin + "/" + ullageHeightMax + ", " + ullageRadialMin + "/" + ullageRadialMax + ". UT: " + UT;
+                if (Planetarium.fetch)
+                    str += " with current UT " + Planetarium.GetUniversalTime();
+                MonoBehaviour.print("*U* UllageSim load: " + str);
+#endif
+            }
         }
         public void Save(ConfigNode node)
         {
@@ -165,7 +181,14 @@ namespace RealFuels.Ullage
             //Debug.Log("Ullage: pHorizontal: " + pHorizontal.ToString("F3"));
 
             propellantStability = Math.Max(0.0d, 1.0d - (pVertical * pHorizontal * (0.75d + Math.Sqrt(bLevel))));
-                
+
+#if DEBUG
+            if (propellantStability < 0.5d)
+                MonoBehaviour.print("*US* for part " + name + ", low stability of " + propellantStability
+                    + "\npV/H = " + pVertical + "/" + pHorizontal + ", blevel " + bLevel
+                    + "\nUllage Height Min/Max " + ullageHeightMin + "/" + ullageHeightMax + ", Radial Min/Max " + ullageRadialMin + "/" + ullageRadialMax
+                    + "\nInputs: Time = " + deltaTime + ", UT delta = " + utTimeDelta + ", Acc " + localAcceleration + ", Rot " + rotation + ", FR " + fuelRatio);
+#endif
 
             SetStateString();
         }

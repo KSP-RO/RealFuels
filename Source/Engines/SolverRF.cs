@@ -158,7 +158,7 @@ namespace RealFuels
             {
 
                 // get current flow, and thus thrust.
-                fuelFlow = scale * flowMult * UtilMath.LerpUnclamped(minFlow, maxFlow, commandedThrottle) * thrustRatio;
+                fuelFlow = scale * flowMult * maxFlow * commandedThrottle * thrustRatio;
                 
                 if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
                     fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);
