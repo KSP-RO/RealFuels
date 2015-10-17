@@ -1,35 +1,11 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" PreferredExecutionTarget="MonoDevelop.Default" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Engines\ModuleEngineConfigs.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs">
     <Files>
-      <File FileName="Tanks\ModuleFuelTanks.cs" Line="311" Column="70" />
-      <File FileName="assembly\Checkers.cs" Line="1" Column="1" />
-      <File FileName="tweakscale\TweakScale_ModularEngines.cs" Line="1" Column="1" />
-      <File FileName="Engines\ModuleEnginesRF.cs" Line="85" Column="30" />
-      <File FileName="Tanks\FuelTank.cs" Line="23" Column="9" />
-      <File FileName="Engines\ModuleEngineConfigs.cs" Line="908" Column="30" />
-      <File FileName="Engines\SolverRF.cs" Line="88" Column="17" />
-      <File FileName="TechLevels\TechLevel.cs" Line="280" Column="32" />
-      <File FileName="Utilities\Utilities.cs" Line="144" Column="78" />
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="371" Column="43" />
+      <File FileName="Engines\ModuleEngineConfigs.cs" Line="438" Column="9" />
+      <File FileName="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs" Line="22" Column="65" />
     </Files>
-    <Pads>
-      <Pad Id="ProjectPad">
-        <State expanded="True">
-          <Node name="RealFuels" expanded="True">
-            <Node name="assembly" expanded="True" />
-            <Node name="Engines" expanded="True">
-              <Node name="ModuleEngineConfigs.cs" selected="True" />
-            </Node>
-            <Node name="Tanks" expanded="True" />
-            <Node name="TechLevels" expanded="True" />
-            <Node name="Utilities" expanded="True" />
-          </Node>
-          <Node name="TweakScale_RealFuels" expanded="True">
-            <Node name="tweakscale" expanded="True" />
-          </Node>
-        </State>
-      </Pad>
-    </Pads>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
