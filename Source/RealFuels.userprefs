@@ -1,0 +1,14 @@
+﻿<Properties>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" PreferredExecutionTarget="MonoDevelop.Default" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs">
+    <Files>
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="371" Column="43" />
+      <File FileName="Engines\ModuleEngineConfigs.cs" Line="438" Column="9" />
+      <File FileName="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs" Line="22" Column="65" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+</Properties>

@@ -24,6 +24,9 @@ namespace RealFuels.Tanks
         [Persistent]
         public bool highlyPressurized = false;
 
+        [Persistent]
+        public string outerInsulationFactor = "1.0";
+
 		public Tanks.FuelTankList tankList = new Tanks.FuelTankList ();
 
 

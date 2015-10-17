@@ -10,10 +10,8 @@
     <RootNamespace>RealFuels</RootNamespace>
     <AssemblyName>RealFuels</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>false</DebugSymbols>
     <DebugType>none</DebugType>
     <Optimize>False</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
@@ -22,6 +20,11 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
+    <CustomCommands>
+      <CustomCommands>
+        <Command type="AfterBuild" command="copy ${ProjectDir}\..\RealFuels\Plugins\RealFuels.dll C:\Games\KSP_win_1.0.4_STOCK\GameData\RealFuels\Plugins" externalConsole="True" />
+      </CustomCommands>
+    </CustomCommands>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
@@ -31,27 +34,25 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
+    <CustomCommands>
+      <CustomCommands>
+        <Command type="AfterBuild" command="xcopy /y C:\Users\Kevin\Documents\GitHub\ModularFuelSystem\RealFuels\Plugins\RealFuels.dll C:\Games\KSP_win_1.0.4_STOCK\GameData\RealFuels\Plugins\" externalConsole="True" />
+      </CustomCommands>
+    </CustomCommands>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\..\Games\KSP_win1\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="KSPAPIExtensions, Version=1.7.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\RealFuels\Plugins\KSPAPIExtensions.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="SolverEngines">
-      <HintPath>..\..\SolverEngines\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Games\KSP_win_1.0.4_STOCK\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\Games\KSP_win1\KSP_Data\Managed\UnityEngine.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\..\..\..\..\Games\KSP_win_1.0.4_STOCK\KSP_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="KSPAPIExtensions">
+      <HintPath>..\..\..\..\..\..\Games\KSP_win_1.0.4\GameData\RealFuels\Plugins\KSPAPIExtensions.dll</HintPath>
+    </Reference>
+    <Reference Include="SolverEngines">
+      <HintPath>..\..\..\..\..\..\Games\KSP_win_1.0.4\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
@@ -86,6 +87,6 @@
   <PropertyGroup>
     <PreBuildEvent>cd $(ProjectDir)
 
-sh tools/git-version.sh</PreBuildEvent>
+<!-- sh tools/git-version.sh --></PreBuildEvent>
   </PropertyGroup>
 </Project>

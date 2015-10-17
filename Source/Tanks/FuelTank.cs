@@ -20,7 +20,9 @@ namespace RealFuels.Tanks
 	// mass         How much the part's mass is increased per volume unit
 	//              of tank installed for this resource type. Tons per
 	//              volume unit.
-	// loss_rate    How quickly this resource type bleeds out of the tank.
+	// loss_rate    How quickly this resource type bleeds out of the tank. 
+    //
+    //
 
 	public class FuelTank: IConfigNode
 	{
@@ -35,8 +37,24 @@ namespace RealFuels.Tanks
 		public float mass = 0.0f;
 		[Persistent]
 		public float cost = 0.0f;
+        // TODO Retaining for fallback purposes but should be deprecated eventually
 		[Persistent]
 		public double loss_rate = 0.0;
+        // representing conduction factor from Fourier conduction formula. 
+        public double vsp;
+
+        //[Persistent]
+        //public double conductivity = 205.0; // default is 205 for aluminum 10cm thick (205 * 0.1m)
+
+        //[Persistent]
+        public double wallThickness = 0.1;
+        //[Persistent]
+        public double wallConduction = 205; // Aluminum conductive factor
+        //[Persistent]
+        public double insulationThickness = 0.0;
+        //[Persistent]
+        public double insulationConduction = 1.0;
+
 		[Persistent]
 		public float temperature = 300.0f;
 		[Persistent]
@@ -300,6 +318,8 @@ namespace RealFuels.Tanks
 			maxAmountExpression = node.GetValue ("maxAmount") ?? maxAmountExpression;
 
 			resourceAvailable = PartResourceLibrary.Instance.GetDefinition (name) != null;
+            MFSSettings.resourceVsps.TryGetValue(name, out vsp);
+
 
             GetDensity();
 		}

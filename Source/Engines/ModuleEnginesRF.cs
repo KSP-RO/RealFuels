@@ -359,7 +359,7 @@ namespace RealFuels
             else
                 currentThrottle = 0f;
 
-            actualThrottle = currentThrottle * 100f;
+            actualThrottle = (int)(currentThrottle * 100f);
         }
         
         // from SolverEngines but we don't play FX here.
