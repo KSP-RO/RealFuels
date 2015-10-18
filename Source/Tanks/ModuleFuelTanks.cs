@@ -305,10 +305,12 @@ namespace RealFuels.Tanks
 			//print ("[Real Fuels]" + Time.time.ToString ());
 			if (HighLogic.LoadedSceneIsFlight)
             {
-				//debug1Display = part.skinInternalConductionMult.ToString ("F12");
-				//debug2Display = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
+#if DEBUG
+                //debug1Display = part.skinInternalConductionMult.ToString ("F12");
+                //debug2Display = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
                 debug1Display = "";
                 debug2Display = "";
+#endif
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
 
@@ -362,7 +364,7 @@ namespace RealFuels.Tanks
                             double deltaTemp = part.temperature - tank.temperature;
 
                             double area = tankArea * (tank.maxAmount / volume);
-
+#if DEBUG
                             if (debug2Display != "")
                                 debug2Display += " / ";
                             else
@@ -372,7 +374,7 @@ namespace RealFuels.Tanks
                                 debug1Display += " / ";
                             else
                                 debug1Display = "Heat leakage = ";
-
+#endif
                             if (deltaTemp > 0)
                             {
 
@@ -381,10 +383,12 @@ namespace RealFuels.Tanks
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
                                 q *= 0.001d; // convert to kilowatts
                                 massLost = q / tank.vsp * deltaTime;
+#if DEBUG
                                 debug1Display += FormatFlux(q);
                                 debug2Display += (massLost * 1000d).ToString("F2") + " kg";
                                 //debug1Display = (massLost / deltaTime * 1000.0).ToString("F4");
                                 //debug2Display = (massLost / deltaTime * 1000.0 * 3600.0).ToString("F4");
+#endif
                             }
 
                             //double tankThermalMass = (part.thermalMass - part.resourceThermalMass) * (tank.maxAmount / volume);
@@ -408,7 +412,7 @@ namespace RealFuels.Tanks
                             fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
 							// subtract heat from boiloff
-							// Nullified conduction factors. That results in normalized boil-off but our tank temp gets too high, so. Compensate.
+                            // Nullified conduction factors. <-(removed that; will look at adding it back in if necessary)
                             part.AddThermalFlux(fluxLost * tank.vsp * deltaTimeRecip);
 						}
 						else if (tank.loss_rate > 0 && tank.amount > 0)
@@ -613,11 +617,13 @@ namespace RealFuels.Tanks
 		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
 		public string volumeDisplay;
 
+#if DEBUG
         [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "area1"/*, guiName = "Mass Loss/sec", guiUnits = "kg/sec"*/)]
 		public string debug1Display;
 		
         [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "area2"/*, guiName = "Mass Loss/hour", guiUnits = "kg/hour"*/)]
 		public string debug2Display;
+#endif
 
 		public double partPrevTemperature;
 		
