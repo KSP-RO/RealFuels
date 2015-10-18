@@ -21,7 +21,6 @@ namespace RealFuels.Tanks
         protected static bool tfFound = false;
         protected static Type tfInterface = null;
         protected static BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
-		protected static double conductionFactors = PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInteralConductionFactor;
 
         public void UpdateTFInterops()
         {
@@ -260,6 +259,8 @@ namespace RealFuels.Tanks
 			}
 
 			CalculateMass ();
+            CalculateTankArea(out tankArea);
+            part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
             part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, outerInsulationFactor);
 		}
 
@@ -302,14 +303,23 @@ namespace RealFuels.Tanks
 				return;
 			}
 			//print ("[Real Fuels]" + Time.time.ToString ());
-			if (HighLogic.LoadedSceneIsFlight) {
-				debug1Display = part.skinInternalConductionMult.ToString ("F12");
+			if (HighLogic.LoadedSceneIsFlight)
+            {
+				//debug1Display = part.skinInternalConductionMult.ToString ("F12");
 				//debug2Display = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
+                debug1Display = "";
+                debug2Display = "";
+                if (tankArea == 0d)
+                    CalculateTankArea(out tankArea);
 
 				StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
 			}
 		}
+
+        protected static double conductionFactors = PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInteralConductionFactor;
+        protected float tankArea;
         double boiloffMass = 0d;
+
         public double BoiloffMassRate { get { return boiloffMass; } }
 
 		private IEnumerator CalculateTankLossFunction (float deltaTime)
@@ -327,12 +337,13 @@ namespace RealFuels.Tanks
                         minTemp = Math.Min(minTemp, tank.temperature);
                 }
                 part.temperature = minTemp;
+                part.skinTemperature = minTemp;
                 part.radiatorMax = minTemp / part.maxTemp;
             }
             else
             {
                 // TODO Temporary solution to Analytic mode so that part.temperature doesn't get trashed.
-                if (TimeWarp.CurrentRate >= PhysicsGlobals.ThermalMaxIntegrationWarp)
+                if (TimeWarp.CurrentRate > PhysicsGlobals.ThermalMaxIntegrationWarp)
 					part.temperature = Math.Min(part.temperature, partPrevTemperature);
                 else
                     partPrevTemperature = part.temperature;
@@ -350,18 +361,36 @@ namespace RealFuels.Tanks
                             double massLost = 0.0;
                             double deltaTemp = part.temperature - tank.temperature;
 
+                            double area = tankArea * (tank.maxAmount / volume);
+
+                            if (debug2Display != "")
+                                debug2Display += " / ";
+                            else
+                                debug2Display = "Mass Loss = ";
+
+                            if (debug1Display != "")
+                                debug1Display += " / ";
+                            else
+                                debug1Display = "Heat leakage = ";
+
                             if (deltaTemp > 0)
                             {
 
                                 //double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02. 
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
-                                double tankThermalMass = (part.thermalMass - part.resourceThermalMass) * (tank.maxAmount / volume);
-                                // 216 is a magic number converting tank thermal mass to 1 m2 of aluminum tank
-                                double area = tankThermalMass / 216.0;
-                                double q = deltaTemp / ((tank.wallThickness / tank.wallConduction * area) + (tank.insulationThickness / tank.insulationConduction * area));
-                                massLost += q / tank.vsp * deltaTime;
-                                debug2Display = (tank.wallThickness / tank.wallConduction) + (tank.insulationThickness / tank.insulationConduction).ToString("F8");
+                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
+                                q *= 0.001d; // convert to kilowatts
+                                massLost = q / tank.vsp * deltaTime;
+                                debug1Display += FormatFlux(q);
+                                debug2Display += (massLost * 1000d).ToString("F2") + " kg";
+                                //debug1Display = (massLost / deltaTime * 1000.0).ToString("F4");
+                                //debug2Display = (massLost / deltaTime * 1000.0 * 3600.0).ToString("F4");
                             }
+
+                            //double tankThermalMass = (part.thermalMass - part.resourceThermalMass) * (tank.maxAmount / volume);
+                            //double resourceThermalMass = tank.resource.info.specificHeatCapacity * tank.amount * tank.resource.info.density;
+
+                            //double additionalLossAmount = 0d;
 
 							double lossAmount = massLost / tank.density;
 							boiloffMass += massLost;
@@ -375,11 +404,12 @@ namespace RealFuels.Tanks
 								tank.amount -= lossAmount;
 							}
 
-							massLost = -massLost;
+                            double fluxLost = -massLost;
+                            fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
 							// subtract heat from boiloff
 							// Nullified conduction factors. That results in normalized boil-off but our tank temp gets too high, so. Compensate.
-							part.AddThermalFlux(massLost * conductionFactors * tank.vsp * deltaTimeRecip);
+                            part.AddThermalFlux(fluxLost * tank.vsp * deltaTimeRecip);
 						}
 						else if (tank.loss_rate > 0 && tank.amount > 0)
 						{
@@ -583,10 +613,10 @@ namespace RealFuels.Tanks
 		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
 		public string volumeDisplay;
 
-		[KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "Conductivity")]
+        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "area1"/*, guiName = "Mass Loss/sec", guiUnits = "kg/sec"*/)]
 		public string debug1Display;
 		
-		[KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "inner conductivity")]
+        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "area2"/*, guiName = "Mass Loss/hour", guiUnits = "kg/hour"*/)]
 		public string debug2Display;
 
 		public double partPrevTemperature;
@@ -865,6 +895,19 @@ namespace RealFuels.Tanks
 				UpdateTweakableMenu ();
 			}
 		}
+
+        public void CalculateTankArea(out float totalTankArea)
+        {
+            totalTankArea = 0f;
+
+            for (int i = 0; i < 6; ++i)
+            {
+                totalTankArea += part.DragCubes.WeightedArea[i];
+            }
+            Debug.Log("[MFT] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
+            Debug.Log("[MFT] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
+        }
+
 		// mass-change interface, so Engineer's Report / Pad limit checking is correct.
 		public float massDelta = 0f; // assigned whenever part.mass is changed.
 		public float GetModuleMass(float defaultMass)
