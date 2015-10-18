@@ -1,10 +1,10 @@
-﻿<Properties>
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" PreferredExecutionTarget="MonoDevelop.Default" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs">
+﻿<Properties StartupItem="RealFuels.csproj">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanks.cs">
     <Files>
-      <File FileName="Tanks\ModuleFuelTanks.cs" Line="371" Column="43" />
-      <File FileName="Engines\ModuleEngineConfigs.cs" Line="438" Column="9" />
-      <File FileName="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs" Line="22" Column="65" />
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="264" Column="44" />
+      <File FileName="Engines\ModuleEngineConfigs.cs" Line="1" Column="1" />
+      <File FileName="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs" Line="30" Column="24" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
