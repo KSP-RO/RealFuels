@@ -382,13 +382,15 @@ namespace RealFuels.Tanks
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
                                 q *= 0.001d; // convert to kilowatts
-                                massLost = q / tank.vsp * deltaTime;
+                                massLost = q / tank.vsp;
 #if DEBUG
+                                // Only do debugging displays if compiled for debugging.
                                 debug1Display += FormatFlux(q);
-                                debug2Display += (massLost * 1000d).ToString("F2") + " kg";
+                                debug2Display += (massLost * 1000d * 3600).ToString("F4") + " kg/hr";
                                 //debug1Display = (massLost / deltaTime * 1000.0).ToString("F4");
                                 //debug2Display = (massLost / deltaTime * 1000.0 * 3600.0).ToString("F4");
 #endif
+                                massLost *= deltaTime; // Frame scaling
                             }
 
                             //double tankThermalMass = (part.thermalMass - part.resourceThermalMass) * (tank.maxAmount / volume);
@@ -399,7 +401,9 @@ namespace RealFuels.Tanks
 							double lossAmount = massLost / tank.density;
 							boiloffMass += massLost;
 
-							if(lossAmount > tank.amount)
+                            if (double.IsNaN(lossAmount))
+                                Debug.Log("[MFT] " + tank.name + " lossAmount is NaN!");
+							else if (lossAmount > tank.amount)
 							{
 								tank.amount = 0d;
 							}
@@ -617,12 +621,15 @@ namespace RealFuels.Tanks
 		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
 		public string volumeDisplay;
 
-#if DEBUG
-        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "area1"/*, guiName = "Mass Loss/sec", guiUnits = "kg/sec"*/)]
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "area1"/*, guiName = "Mass Loss/sec", guiUnits = "kg/sec"*/)]
 		public string debug1Display;
 		
-        [KSPField (isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "area2"/*, guiName = "Mass Loss/hour", guiUnits = "kg/hour"*/)]
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "area2"/*, guiName = "Mass Loss/hour", guiUnits = "kg/hour"*/)]
 		public string debug2Display;
+
+#if DEBUG
+        Fields["debug1Display"] = true;
+        Fields["debug2Display"] = true;
 #endif
 
 		public double partPrevTemperature;
