@@ -382,6 +382,7 @@ namespace RealFuels.Tanks
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
                                 q *= 0.001d; // convert to kilowatts
+                                q /= PhysicsGlobals.ConductionFactor; // Turns out we have to compensate for this after all
                                 massLost = q / tank.vsp;
 #if DEBUG
                                 // Only do debugging displays if compiled for debugging.
@@ -416,7 +417,8 @@ namespace RealFuels.Tanks
                             fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
 							// subtract heat from boiloff
-                            // Nullified conduction factors. <-(removed that; will look at adding it back in if necessary)
+                            // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
+                            fluxLost *= PhysicsGlobals.ConductionFactor;
                             part.AddThermalFlux(fluxLost * tank.vsp * deltaTimeRecip);
 						}
 						else if (tank.loss_rate > 0 && tank.amount > 0)
