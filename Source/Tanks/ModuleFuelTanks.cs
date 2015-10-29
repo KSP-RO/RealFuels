@@ -245,6 +245,12 @@ namespace RealFuels.Tanks
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
 
+#if DEBUG
+            Fields["debug1Display"].guiActive = true;
+            Fields["debug2Display"].guiActive = true;
+#endif
+
+
 			if (isEditor) {
 				GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 				TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
@@ -311,6 +317,7 @@ namespace RealFuels.Tanks
                 debug1Display = "";
                 debug2Display = "";
 #endif
+                debug1Display = (part.thermalRadiationFlux / part.radiativeArea).ToString("F");
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
 
@@ -367,13 +374,9 @@ namespace RealFuels.Tanks
 #if DEBUG
                             if (debug2Display != "")
                                 debug2Display += " / ";
-                            else
-                                debug2Display = "Mass Loss = ";
 
                             if (debug1Display != "")
                                 debug1Display += " / ";
-                            else
-                                debug1Display = "Heat leakage = ";
 #endif
                             if (deltaTemp > 0)
                             {
@@ -386,7 +389,7 @@ namespace RealFuels.Tanks
                                 massLost = q / tank.vsp;
 #if DEBUG
                                 // Only do debugging displays if compiled for debugging.
-                                debug1Display += FormatFlux(q);
+                                //debug1Display += ((massLost / tank.density) * 3600).ToString("F4") + " liter/hr";
                                 debug2Display += (massLost * 1000d * 3600).ToString("F4") + " kg/hr";
                                 //debug1Display = (massLost / deltaTime * 1000.0).ToString("F4");
                                 //debug2Display = (massLost / deltaTime * 1000.0 * 3600.0).ToString("F4");
@@ -623,16 +626,13 @@ namespace RealFuels.Tanks
 		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
 		public string volumeDisplay;
 
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "area1"/*, guiName = "Mass Loss/sec", guiUnits = "kg/sec"*/)]
+        // Note that the following two fields are highly variable and subject to the whims of whatever RF dev that might want to change them.
+        // (they only show up if this code is compiled in debug mode and are currently for debugging boiloff system)
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Rad Flux", guiUnits = " kw/m2")]
 		public string debug1Display;
 		
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "area2"/*, guiName = "Mass Loss/hour", guiUnits = "kg/hour"*/)]
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Mass Loss/hour", guiUnits = "kg/hour")]
 		public string debug2Display;
-
-#if DEBUG
-        Fields["debug1Display"] = true;
-        Fields["debug2Display"] = true;
-#endif
 
 		public double partPrevTemperature;
 		
