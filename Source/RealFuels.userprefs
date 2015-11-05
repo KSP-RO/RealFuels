@@ -1,10 +1,11 @@
 ﻿<Properties StartupItem="RealFuels.csproj">
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
   <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanks.cs">
     <Files>
-      <File FileName="Tanks\ModuleFuelTanks.cs" Line="395" Column="77" />
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="481" Column="30" />
       <File FileName="Engines\ModuleEngineConfigs.cs" Line="1" Column="1" />
       <File FileName="c:\Users\Kevin\Documents\GitHub\ModularFuelSystem\Source\Engines\EngineConfigUpgrade.cs" Line="1" Column="1" />
+      <File FileName="assembly\Checkers.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

@@ -13,7 +13,7 @@ using System.Reflection;
 
 namespace RealFuels.Tanks
 {
-	public class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier
+    public class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier, IAnalyticTemperatureModifier, IAnalyticPreview
 	{
 		bool compatible = true;
         #region TestFlight
@@ -320,43 +320,43 @@ namespace RealFuels.Tanks
                 debug1Display = (part.thermalRadiationFlux / part.radiativeArea).ToString("F");
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
-
-				StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
+                // Don't call tank loss function if we're in analytic mode. That's what the interface is for.
+                if (TimeWarp.CurrentRate < PhysicsGlobals.ThermalMaxIntegrationWarp)
+                    StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
 			}
 		}
 
-        protected static double conductionFactors = PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInteralConductionFactor;
+        protected static double conductionFactors = PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor;
         protected float tankArea;
         double boiloffMass = 0d;
 
         public double BoiloffMassRate { get { return boiloffMass; } }
 
-		private IEnumerator CalculateTankLossFunction (float deltaTime)
+        private IEnumerator CalculateTankLossFunction (float deltaTime, bool analyticalMode = false)
 		{
 			// Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
 			yield return new WaitForFixedUpdate();
             boiloffMass = 0d;
+
+            double minTemp = part.temperature;
+            for (int i = tankList.Count - 1; i >= 0; --i)
+            {
+                FuelTank tank = tankList[i];
+                if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
+                    minTemp = Math.Min(minTemp, tank.temperature);
+            }
+
+            part.radiatorMax = (minTemp * 0.9d) / part.maxTemp;
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
-                double minTemp = part.temperature;
-                for (int i = tankList.Count - 1; i >= 0; --i)
-                {
-                    FuelTank tank = tankList[i];
-                    if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
-                        minTemp = Math.Min(minTemp, tank.temperature);
-                }
                 part.temperature = minTemp;
                 part.skinTemperature = minTemp;
-                part.radiatorMax = minTemp / part.maxTemp;
             }
             else
             {
-                // TODO Temporary solution to Analytic mode so that part.temperature doesn't get trashed.
-                if (TimeWarp.CurrentRate > PhysicsGlobals.ThermalMaxIntegrationWarp)
-					part.temperature = Math.Min(part.temperature, partPrevTemperature);
-                else
+                if (partPrevTemperature == -1)
                     partPrevTemperature = part.temperature;
-
+                
                 double deltaTimeRecip = 1d / deltaTime;
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
@@ -407,22 +407,27 @@ namespace RealFuels.Tanks
 
                             if (double.IsNaN(lossAmount))
                                 Debug.Log("[MFT] " + tank.name + " lossAmount is NaN!");
-							else if (lossAmount > tank.amount)
-							{
-								tank.amount = 0d;
-							}
-							else
-							{
-								tank.amount -= lossAmount;
-							}
+                            else if (lossAmount > tank.amount)
+                            {
+                                tank.amount = 0d;
+                            } 
+                            else
+                            {
+                                tank.amount -= lossAmount;
 
-                            double fluxLost = -massLost;
-                            fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
+                                double fluxLost = -massLost * tank.vsp;
+                                // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
-							// subtract heat from boiloff
-                            // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
-                            fluxLost *= PhysicsGlobals.ConductionFactor;
-                            part.AddThermalFlux(fluxLost * tank.vsp * deltaTimeRecip);
+                                // subtract heat from boiloff
+                                // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
+
+                                fluxLost *= PhysicsGlobals.ConductionFactor;
+
+                                if (analyticalMode)
+                                    previewInternalFluxAdjust += fluxLost;
+                                else
+                                    part.AddThermalFlux(fluxLost * deltaTimeRecip);
+                            }
 						}
 						else if (tank.loss_rate > 0 && tank.amount > 0)
 						{
@@ -448,6 +453,41 @@ namespace RealFuels.Tanks
                 }
             }
 		}
+
+        // Analytic Interface
+        public void SetAnalyticTemperature(double analyticTemp, double toBeInternal, double toBeSkin)
+        {
+            analyticSkinTemp = toBeSkin;
+        }
+
+        public double GetSkinTemperature()
+        {
+            return analyticSkinTemp;
+        }
+
+        public double GetInternalTemperature()
+        {
+            // Report our last known temp. We'll adjust internal flux via IAnalyticPreview
+            if (partPrevTemperature == -1)
+                return part.temperature;
+            else
+                return partPrevTemperature;
+        }
+
+        // Analytic Preview Interface
+        public void AnalyticInfo(double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp)
+        {
+            //analyticalInternalFlux = internalFlux;
+            float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
+            CalculateTankLossFunction(deltaTime, true);
+        }
+
+        public double InternalFluxAdjust()
+        {
+            return previewInternalFluxAdjust;
+        }
+
+
 
 		// The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
 		internal FuelTankList tankList = new FuelTankList ();
@@ -634,8 +674,13 @@ namespace RealFuels.Tanks
         [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Mass Loss/hour", guiUnits = "kg/hour")]
 		public string debug2Display;
 
-		public double partPrevTemperature;
+        [KSPField(isPersistant = true)]
+		public double partPrevTemperature = -1;
 		
+        private double analyticSkinTemp;
+
+        private double previewInternalFluxAdjust;
+
 		public double UsedVolume
 		{
 			get; private set;
