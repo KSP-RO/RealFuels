@@ -405,28 +405,31 @@ namespace RealFuels.Tanks
 							double lossAmount = massLost / tank.density;
 							boiloffMass += massLost;
 
-                            if (double.IsNaN(lossAmount))
+                            if (!double.IsNaN(lossAmount))
                                 Debug.Log("[MFT] " + tank.name + " lossAmount is NaN!");
-                            else if (lossAmount > tank.amount)
-                            {
-                                tank.amount = 0d;
-                            } 
                             else
                             {
-                                tank.amount -= lossAmount;
-
-                                double fluxLost = -massLost * tank.vsp;
-                                // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
-
-                                // subtract heat from boiloff
-                                // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
-
-                                fluxLost *= PhysicsGlobals.ConductionFactor;
-
-                                if (analyticalMode)
-                                    previewInternalFluxAdjust += fluxLost;
+                                if (lossAmount > tank.amount)
+                                {
+                                    tank.amount = 0d;
+                                } 
                                 else
-                                    part.AddThermalFlux(fluxLost * deltaTimeRecip);
+                                {
+                                    tank.amount -= lossAmount;
+
+                                    double fluxLost = -massLost * tank.vsp;
+                                    // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
+
+                                    // subtract heat from boiloff
+                                    // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
+
+                                    fluxLost *= PhysicsGlobals.ConductionFactor;
+
+                                    if (analyticalMode)
+                                        previewInternalFluxAdjust += fluxLost;
+                                    else
+                                        part.AddThermalFlux(fluxLost * deltaTimeRecip);
+                                }
                             }
 						}
 						else if (tank.loss_rate > 0 && tank.amount > 0)
