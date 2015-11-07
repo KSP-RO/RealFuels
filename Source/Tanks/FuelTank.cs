@@ -320,6 +320,14 @@ namespace RealFuels.Tanks
 			resourceAvailable = PartResourceLibrary.Instance.GetDefinition (name) != null;
             MFSSettings.resourceVsps.TryGetValue(name, out vsp);
 
+            if (node.HasValue("wallThickness"))
+                double.TryParse(node.GetValue("wallThickness"), out wallThickness);
+            if (node.HasValue("wallConduction"))
+                double.TryParse(node.GetValue("wallConduction"), out wallConduction);
+            if (node.HasValue("insulationThickness"))
+                double.TryParse(node.GetValue("insulationThickness"), out insulationThickness);
+            if (node.HasValue("insulationConduction"))
+                double.TryParse(node.GetValue("insulationConduction"), out insulationConduction);
 
             GetDensity();
 		}
