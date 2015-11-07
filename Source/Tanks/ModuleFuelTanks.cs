@@ -368,7 +368,7 @@ namespace RealFuels.Tanks
 						{
                             // Opposite of original boil off code. Finds massLost first.
                             double massLost = 0.0;
-                            //double adjustedTemp = part.temperature * (part.thermalMass / (part.thermalMass - part.resourceThermalMass));
+                            double adjustedThermalMass = part.thermalMass / (part.thermalMass - part.resourceThermalMass);
                             double deltaTemp = part.temperature - tank.temperature;
 
                             double area = tankArea * (tank.maxAmount / volume);
@@ -387,6 +387,7 @@ namespace RealFuels.Tanks
                                 //double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02. 
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
+                                q *= adjustedThermalMass;
                                 q *= 0.001d; // convert to kilowatts
                                 //q /= PhysicsGlobals.ConductionFactor; // Turns out we have to compensate for this after all
                                 massLost = q / tank.vsp;
@@ -402,11 +403,6 @@ namespace RealFuels.Tanks
 #endif
                                 massLost *= deltaTime; // Frame scaling
                             }
-
-                            //double tankThermalMass = (part.thermalMass - part.resourceThermalMass) * (tank.maxAmount / volume);
-                            //double resourceThermalMass = tank.resource.info.specificHeatCapacity * tank.amount * tank.resource.info.density;
-
-                            //double additionalLossAmount = 0d;
 
 							double lossAmount = massLost / tank.density;
 							boiloffMass += massLost;
@@ -429,6 +425,7 @@ namespace RealFuels.Tanks
                                     // subtract heat from boiloff
                                     // Compensate for increased conduction flux
                                     //fluxLost *= PhysicsGlobals.ConductionFactor;
+                                    //fluxLost /= adjustedThermalMass;
                                     part.AddThermalFlux(fluxLost * deltaTimeRecip);
                                 }
                             }
