@@ -317,7 +317,7 @@ namespace RealFuels.Tanks
                 debug1Display = "";
                 debug2Display = "";
 #endif
-                debug1Display = (part.thermalRadiationFlux / part.radiativeArea).ToString("F");
+                //debug1Display = (part.thermalRadiationFlux / part.radiativeArea).ToString("F");
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
 
@@ -368,6 +368,7 @@ namespace RealFuels.Tanks
 						{
                             // Opposite of original boil off code. Finds massLost first.
                             double massLost = 0.0;
+                            //double adjustedTemp = part.temperature * (part.thermalMass / (part.thermalMass - part.resourceThermalMass));
                             double deltaTemp = part.temperature - tank.temperature;
 
                             double area = tankArea * (tank.maxAmount / volume);
@@ -377,6 +378,8 @@ namespace RealFuels.Tanks
 
                             if (debug1Display != "")
                                 debug1Display += " / ";
+                            //else
+                            //    debug1Display = "(" + adjustedTemp.ToString("F1") + ")";
 #endif
                             if (deltaTemp > 0)
                             {
@@ -385,14 +388,17 @@ namespace RealFuels.Tanks
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
                                 q *= 0.001d; // convert to kilowatts
-                                q /= PhysicsGlobals.ConductionFactor; // Turns out we have to compensate for this after all
+                                //q /= PhysicsGlobals.ConductionFactor; // Turns out we have to compensate for this after all
                                 massLost = q / tank.vsp;
 #if DEBUG
                                 // Only do debugging displays if compiled for debugging.
-                                //debug1Display += ((massLost / tank.density) * 3600).ToString("F4") + " liter/hr";
-                                debug2Display += (massLost * 1000d * 3600).ToString("F4") + " kg/hr";
-                                //debug1Display = (massLost / deltaTime * 1000.0).ToString("F4");
-                                //debug2Display = (massLost / deltaTime * 1000.0 * 3600.0).ToString("F4");
+                                debug1Display += FormatFlux(q);
+                                debug2Display += (massLost * 1000 * 3600).ToString("F4") + "/hr";
+                                //debug2Display += area.ToString("F2");
+
+                                //debug1Display = tank.wallThickness + " / " + tank.wallConduction;
+                                //debug2Display = tank.insulationThickness + " / " + tank.insulationConduction;
+
 #endif
                                 massLost *= deltaTime; // Frame scaling
                             }
@@ -421,9 +427,8 @@ namespace RealFuels.Tanks
                                     // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
                                     // subtract heat from boiloff
-                                    // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
-
-                                    fluxLost *= PhysicsGlobals.ConductionFactor;
+                                    // Compensate for increased conduction flux
+                                    //fluxLost *= PhysicsGlobals.ConductionFactor;
                                     part.AddThermalFlux(fluxLost * deltaTimeRecip);
                                 }
                             }
@@ -632,10 +637,10 @@ namespace RealFuels.Tanks
 
         // Note that the following two fields are highly variable and subject to the whims of whatever RF dev that might want to change them.
         // (they only show up if this code is compiled in debug mode and are currently for debugging boiloff system)
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Rad Flux", guiUnits = " kw/m2")]
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Tank Wall", guiUnits = "")]
 		public string debug1Display;
 		
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Mass Loss/hour", guiUnits = "kg/hour")]
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Tank Insulation", guiUnits = "")]
 		public string debug2Display;
 
 		public double partPrevTemperature;
@@ -660,6 +665,7 @@ namespace RealFuels.Tanks
 				flux *= -1.0;
 				prefix = "-";
 			}
+            // TODO If scale then it should display in joules not watts
 			if (scale)
 				flux *= TimeWarp.fixedDeltaTime;
 			if (flux >= 1000000000000000.0)
