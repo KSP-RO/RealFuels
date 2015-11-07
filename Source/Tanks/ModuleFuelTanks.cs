@@ -458,18 +458,20 @@ namespace RealFuels.Tanks
 		}
 
         // Analytic Interface
-        public void SetAnalyticTemperature(double analyticTemp, double toBeInternal, double toBeSkin)
+        public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
         {
             analyticSkinTemp = toBeSkin;
         }
 
-        public double GetSkinTemperature()
+        public double GetSkinTemperature(out bool lerp)
         {
+            lerp = false;
             return analyticSkinTemp;
         }
 
-        public double GetInternalTemperature()
+        public double GetInternalTemperature(out bool lerp)
         {
+            lerp = false;
             // Report our last known temp. We'll adjust internal flux via IAnalyticPreview
             if (partPrevTemperature == -1)
                 return part.temperature;
@@ -478,7 +480,7 @@ namespace RealFuels.Tanks
         }
 
         // Analytic Preview Interface
-        public void AnalyticInfo(double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp)
+        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp)
         {
             //analyticalInternalFlux = internalFlux;
             float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
