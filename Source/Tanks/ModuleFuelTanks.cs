@@ -864,6 +864,7 @@ namespace RealFuels.Tanks
                 return;
 
             string insulationFactor = node.GetValue("outerInsulationFactor");
+			ParseInsulationFactor (insulationFactor);
         }
 
         private void ParseInsulationFactor(string insulationFactor)
