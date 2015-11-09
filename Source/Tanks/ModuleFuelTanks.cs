@@ -325,7 +325,7 @@ namespace RealFuels.Tanks
 			}
 		}
 
-        protected static double conductionFactors = PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInteralConductionFactor;
+        protected static double conductionFactors = PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor;
         protected float tankArea;
         double boiloffMass = 0d;
 
