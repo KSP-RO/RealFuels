@@ -368,7 +368,6 @@ namespace RealFuels.Tanks
 						{
                             // Opposite of original boil off code. Finds massLost first.
                             double massLost = 0.0;
-                            double adjustedThermalMass = part.thermalMass / (part.thermalMass - part.resourceThermalMass);
                             double deltaTemp = part.temperature - tank.temperature;
 
                             double area = tankArea * (tank.maxAmount / volume);
@@ -387,9 +386,15 @@ namespace RealFuels.Tanks
                                 //double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02. 
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
-                                q *= adjustedThermalMass;
+
+                                if (MFSSettings.ferociousBoilOff)
+                                    q *= part.thermalMass / (part.thermalMass - part.resourceThermalMass);
+
+                                if (MFSSettings.globalConductionCompensation)
+                                    q /= PhysicsGlobals.ConductionFactor;
+
                                 q *= 0.001d; // convert to kilowatts
-                                //q /= PhysicsGlobals.ConductionFactor; // Turns out we have to compensate for this after all
+
                                 massLost = q / tank.vsp;
 #if DEBUG
                                 // Only do debugging displays if compiled for debugging.
@@ -420,12 +425,9 @@ namespace RealFuels.Tanks
                                     tank.amount -= lossAmount;
 
                                     double fluxLost = -massLost * tank.vsp;
-                                    // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
+                                    if (MFSSettings.globalConductionCompensation)
+                                        fluxLost *= PhysicsGlobals.ConductionFactor;
 
-                                    // subtract heat from boiloff
-                                    // Compensate for increased conduction flux
-                                    //fluxLost *= PhysicsGlobals.ConductionFactor;
-                                    //fluxLost /= adjustedThermalMass;
                                     part.AddThermalFlux(fluxLost * deltaTimeRecip);
                                 }
                             }
@@ -634,10 +636,10 @@ namespace RealFuels.Tanks
 
         // Note that the following two fields are highly variable and subject to the whims of whatever RF dev that might want to change them.
         // (they only show up if this code is compiled in debug mode and are currently for debugging boiloff system)
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Tank Wall", guiUnits = "")]
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "")]
 		public string debug1Display;
 		
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Tank Insulation", guiUnits = "")]
+        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "")]
 		public string debug2Display;
 
 		public double partPrevTemperature;
