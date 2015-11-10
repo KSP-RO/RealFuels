@@ -409,7 +409,14 @@ namespace RealFuels.TechLevels
             TechLevel nTL = new TechLevel();
             if (!nTL.Load(cfg, mod, type, level))
                 return false;
-            return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
+            try
+            {
+                return HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || nTL.techRequired.Equals("") || ResearchAndDevelopment.GetTechnologyState(nTL.techRequired) == RDTech.State.Available;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 }
