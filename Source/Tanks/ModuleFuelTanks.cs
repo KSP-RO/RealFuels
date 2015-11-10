@@ -399,7 +399,7 @@ namespace RealFuels.Tanks
 #if DEBUG
                                 // Only do debugging displays if compiled for debugging.
                                 debug1Display += FormatFlux(q);
-                                debug2Display += (massLost * 1000 * 3600).ToString("F4") + "/hr";
+                                debug2Display += (massLost * 1000 * 3600).ToString("F4") + "kg/hr";
                                 //debug2Display += area.ToString("F2");
 
                                 //debug1Display = tank.wallThickness + " / " + tank.wallConduction;
