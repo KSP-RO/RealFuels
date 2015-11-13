@@ -411,7 +411,7 @@ namespace RealFuels.Tanks
 							double lossAmount = massLost / tank.density;
 							boiloffMass += massLost;
 
-                            if (!double.IsNaN(lossAmount))
+                            if (double.IsNaN(lossAmount))
                                 Debug.Log("[MFT] " + tank.name + " lossAmount is NaN!");
                             else
                             {
