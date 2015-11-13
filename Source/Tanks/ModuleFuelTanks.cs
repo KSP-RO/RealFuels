@@ -241,7 +241,7 @@ namespace RealFuels.Tanks
 				return;
 			}
             enabled = true; // just in case...
-			
+
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
 
@@ -382,7 +382,7 @@ namespace RealFuels.Tanks
                             if (deltaTemp > 0)
                             {
 
-                                //double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02. 
+                                //double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02.
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
 
@@ -514,7 +514,7 @@ namespace RealFuels.Tanks
 
 		public string[] typesAvailable;
 
-		// for EngineIgnitor integration: store a public list of the fuel tanks, and 
+		// for EngineIgnitor integration: store a public list of the fuel tanks, and
 		[NonSerialized]
 		public List<FuelTank> fuelList = new List<FuelTank> ();
 		// for EngineIgnitor integration: store a public dictionary of all pressurized propellants
@@ -613,7 +613,7 @@ namespace RealFuels.Tanks
             }
 
 			oldType = type;
-            
+
             // Get pressurization
             highlyPressurized = def.highlyPressurized;
 
@@ -686,7 +686,7 @@ namespace RealFuels.Tanks
         // (they only show up if this code is compiled in debug mode and are currently for debugging boiloff system)
         [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "")]
 		public string debug1Display;
-		
+
         [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "")]
 		public string debug2Display;
 
@@ -737,7 +737,7 @@ namespace RealFuels.Tanks
 			else
 				return "ERROR";
 		}
-		
+
 
 		// Conversion between tank volume in kL, and whatever units this tank uses.
 		// Default to 1000 for RF. Varies for MFT. Needed to interface with PP.
@@ -822,10 +822,10 @@ namespace RealFuels.Tanks
 
 			oldUtilization = utilization;
 
-			ChangeTotalVolume (totalVolume);			
+			ChangeTotalVolume (totalVolume);
 		}
 
-		private void InitializeUtilization () 
+		private void InitializeUtilization ()
 		{
 			Fields["utilization"].guiActiveEditor = MFSSettings.partUtilizationTweakable || utilizationTweakable;
 		}
