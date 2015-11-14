@@ -361,75 +361,79 @@ namespace RealFuels
             else
                 moduleTLInfo = null;*/
 
-            foreach (ConfigNode config in configs) {
-                
-                TechLevel cTL = new TechLevel();
-                if (!cTL.Load(config, techNodes, engineType, techLevel))
-                    cTL = null;
+            foreach (ConfigNode config in configs)
+                if(!config.GetValue ("name").Equals (configuration))
+                    info += GetConfigInfo(config);
 
-                if(!config.GetValue ("name").Equals (configuration)) {
-                    info += "   " + config.GetValue ("name") + "\n";
-                    if(config.HasValue (thrustRating))
-                        info += "    (" + (scale * ThrustTL(config.GetValue (thrustRating), config)).ToString("0.00") + " Thrust";
-                    else
-                        info += "    (Unknown Thrust";
-                    float cst;
-                    if(config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
-                        info += "    (" + (scale*cst).ToString("N0") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
-                    // because it will always be the cost for the original TL, and thus unmodified.
+            return info;
+        }
 
-                    FloatCurve isp = new FloatCurve();
-                    if(config.HasNode ("atmosphereCurve")) {
-                        isp.Load (config.GetNode ("atmosphereCurve"));
-                        info  += ", "
-                            + isp.Evaluate (isp.maxTime).ToString() + "-"
-                              + isp.Evaluate (isp.minTime).ToString() + "Isp";
-                    }
-                    else if (config.HasValue("IspSL") && config.HasValue("IspV"))
-                    {
-                        float ispSL = 1.0f, ispV = 1.0f;
-                        float.TryParse(config.GetValue("IspSL"), out ispSL);
-                        float.TryParse(config.GetValue("IspV"), out ispV);
-                        if (cTL != null)
-                        {
-                            ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
-                            ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                            info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
-                        }
-                    }
-                    float gimbalR = -1f;
-                    if (config.HasValue("gimbalRange"))
-                        gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                    // Don't do per-TL checks here, they're misleading.
-                    /*else if (!gimbalTransform.Equals("") || useGimbalAnyway)
-                    {
-                        if (cTL != null)
-                            gimbalR = cTL.GimbalRange;
-                    }*/
-                    if (gimbalR != -1f)
-                        info += ", Gimbal " + gimbalR.ToString("N1");
+        public string GetConfigInfo(ConfigNode config)
+        {
+            TechLevel cTL = new TechLevel();
+            if (!cTL.Load(config, techNodes, engineType, techLevel))
+                cTL = null;
 
-                    if (config.HasValue("ullage"))
-                        info += ", " + (config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
-                    if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
-                        info += ", pfed";
+            string info = "   " + config.GetValue("name") + "\n";
+            if (config.HasValue(thrustRating))
+                info += "    (" + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.00") + " Thrust";
+            else
+                info += "    (Unknown Thrust";
+            float cst;
+            if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
+                info += "    (" + (scale * cst).ToString("N0") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
+            // because it will always be the cost for the original TL, and thus unmodified.
 
-                    if (config.HasValue("ignitions"))
-                    {
-                        int ignitions;
-                        if (int.TryParse(config.GetValue("ignitions"), out ignitions))
-                        {
-                            if (ignitions > 0)
-                                info += ", " + ignitions + " ignition" + (ignitions > 1 ? "s" : "");
-                            else
-                                info += ", unl. ignitions";
-                        }
-                    }
-                    info += ")\n";
-                }
-
-
+            FloatCurve isp = new FloatCurve();
+            if (config.HasNode("atmosphereCurve"))
+            {
+                isp.Load(config.GetNode("atmosphereCurve"));
+                info += ", "
+                    + isp.Evaluate(isp.maxTime).ToString() + "-"
+                      + isp.Evaluate(isp.minTime).ToString() + "Isp";
             }
+            else if (config.HasValue("IspSL") && config.HasValue("IspV"))
+            {
+                float ispSL = 1.0f, ispV = 1.0f;
+                float.TryParse(config.GetValue("IspSL"), out ispSL);
+                float.TryParse(config.GetValue("IspV"), out ispV);
+                if (cTL != null)
+                {
+                    ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
+                    ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
+                    info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
+                }
+            }
+            float gimbalR = -1f;
+            if (config.HasValue("gimbalRange"))
+                gimbalR = float.Parse(config.GetValue("gimbalRange"));
+            // Don't do per-TL checks here, they're misleading.
+            /*else if (!gimbalTransform.Equals("") || useGimbalAnyway)
+            {
+                if (cTL != null)
+                    gimbalR = cTL.GimbalRange;
+            }*/
+            if (gimbalR != -1f)
+                info += ", Gimbal " + gimbalR.ToString("N1");
+
+            if (config.HasValue("ullage"))
+                info += ", " + (config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
+            if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
+                info += ", pfed";
+
+            if (config.HasValue("ignitions"))
+            {
+                int ignitions;
+                if (int.TryParse(config.GetValue("ignitions"), out ignitions))
+                {
+                    if (ignitions > 0)
+                        info += ", " + ignitions + " ignition" + (ignitions > 1 ? "s" : "");
+                    else
+                        info += ", unl. ignitions";
+                }
+            }
+            info += ")\n";
+
             return info;
         }
         #endregion
@@ -1136,10 +1140,14 @@ namespace RealFuels
 
         private static Vector3 mousePos = Vector3.zero;
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
+        public static string myToolTip = "";
+        private int counterTT;
         public void OnGUI()
         {
             if (!compatible)
                 return;
+
+            Rect tooltipRect;
             bool cursorInGUI = false; // nicked the locking code from Ferram
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
@@ -1158,6 +1166,9 @@ namespace RealFuels
                     posMult = 1;
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
+                
+                tooltipRect = new Rect(guiWindowRect.xMin + 440, mousePos.y - 5, 300, 20);
+                
                 cursorInGUI = guiWindowRect.Contains(mousePos);
                 if (cursorInGUI)
                 {
@@ -1173,6 +1184,9 @@ namespace RealFuels
             {
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
+
+                tooltipRect = new Rect(guiWindowRect.xMin - (230 - 8), mousePos.y - 5, 220, 20);
+
                 cursorInGUI = guiWindowRect.Contains(mousePos);
                 if (cursorInGUI)
                 {
@@ -1190,6 +1204,8 @@ namespace RealFuels
                 editor.Unlock("RFGUILock");
                 return;
             }
+
+            GUI.Label(tooltipRect, myToolTip);
 
             guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title);
         }
@@ -1260,7 +1276,7 @@ namespace RealFuels
                     {
                         if (UnlockedConfig(node, part))
                         {
-                            if (GUILayout.Button("Switch to " + nName + costString))
+                            if (GUILayout.Button(new GUIContent("Switch to " + nName + costString, GetConfigInfo(node))))
                             {
                                 SetConfiguration(nName, true);
                                 UpdateSymmetryCounterparts();
@@ -1287,7 +1303,7 @@ namespace RealFuels
                             if (foundCost)
                             {
                                 costString += ")";
-                                if (GUILayout.Button("Purchase " + nName + costString))
+                                if (GUILayout.Button(new GUIContent("Purchase " + nName + costString, GetConfigInfo(node))))
                                 {
                                     RFUpgradeManager.Instance.PurchaseConfig(nName);
                                     SetConfiguration(nName, true);
@@ -1298,7 +1314,7 @@ namespace RealFuels
                             {
                                 // autobuy
                                 RFUpgradeManager.Instance.PurchaseConfig(nName);
-                                if (GUILayout.Button("Switch to " + nName + costString))
+                                if (GUILayout.Button(new GUIContent("Switch to " + nName + costString, GetConfigInfo(node))))
                                 {
                                     SetConfiguration(nName, true);
                                     UpdateSymmetryCounterparts();
@@ -1308,7 +1324,7 @@ namespace RealFuels
                     }
                     else
                     {
-                        GUILayout.Label("Lack tech for " + nName);
+                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node)));
                     }
                 }
                 GUILayout.EndHorizontal();
@@ -1393,6 +1409,24 @@ namespace RealFuels
                 GUILayout.BeginHorizontal();
                 GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
                 GUILayout.EndHorizontal();
+            }
+
+            if (!(myToolTip.Equals("")) && GUI.tooltip.Equals(""))
+            {
+                if (counterTT > 4)
+                {
+                    myToolTip = GUI.tooltip;
+                    counterTT = 0;
+                }
+                else
+                {
+                    counterTT++;
+                }
+            }
+            else
+            {
+                myToolTip = GUI.tooltip;
+                counterTT = 0;
             }
             
             GUI.DragWindow();
