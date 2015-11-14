@@ -376,21 +376,38 @@ namespace RealFuels
 
             string info = "   " + config.GetValue("name") + "\n";
             if (config.HasValue(thrustRating))
-                info += "    (" + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.00") + " Thrust";
+            {
+                info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("G3") + " kN";
+                // add throttling info if present
+                if (config.HasValue("minThrust"))
+                    info += ", min " + (float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)) * 100f).ToString("N0") + "%";
+                else if (config.HasValue("throttle"))
+                    info += ", min " + (float.Parse(config.GetValue("throttle")) * 100f).ToString("N0") + "%";
+            }
             else
-                info += "    (Unknown Thrust";
-            float cst;
-            if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
-                info += "    (" + (scale * cst).ToString("N0") + " extra cost)"; // FIXME should get cost from TL, but this should be safe
-            // because it will always be the cost for the original TL, and thus unmodified.
+                info += "    Unknown Thrust";
+
+            if (origMass > 0f)
+            {
+                float cMass = scale;
+                float ftmp;
+                if (config.HasValue("massMult"))
+                    if (float.TryParse(config.GetValue("massMult"), out ftmp))
+                        cMass *= ftmp;
+
+                cMass = origMass * cMass * RFSettings.Instance.EngineMassMultiplier;
+
+                info += ", " + cMass.ToString("N3") + "t";
+            }
+            info += "\n";
 
             FloatCurve isp = new FloatCurve();
             if (config.HasNode("atmosphereCurve"))
             {
                 isp.Load(config.GetNode("atmosphereCurve"));
-                info += ", "
-                    + isp.Evaluate(isp.maxTime).ToString() + "-"
-                      + isp.Evaluate(isp.minTime).ToString() + "Isp";
+                info += "    Isp: "
+                    + isp.Evaluate(isp.maxTime).ToString() + " - "
+                      + isp.Evaluate(isp.minTime).ToString() + "s\n";
             }
             else if (config.HasValue("IspSL") && config.HasValue("IspV"))
             {
@@ -401,7 +418,7 @@ namespace RealFuels
                 {
                     ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
                     ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                    info += ", " + ispSL.ToString("0") + "-" + ispV.ToString("0") + "Isp";
+                    info += "    Isp: " + ispSL.ToString("0") + " - " + ispV.ToString("0") + "s\n";
                 }
             }
             float gimbalR = -1f;
@@ -414,25 +431,43 @@ namespace RealFuels
                     gimbalR = cTL.GimbalRange;
             }*/
             if (gimbalR != -1f)
-                info += ", Gimbal " + gimbalR.ToString("N1");
+                info += "    Gimbal " + gimbalR.ToString("N1") + "d\n";
 
-            if (config.HasValue("ullage"))
-                info += ", " + (config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
-            if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
-                info += ", pfed";
-
-            if (config.HasValue("ignitions"))
+            if (config.HasValue("ullage") || config.HasValue("ignitions") || config.HasValue("pressureFed"))
             {
-                int ignitions;
-                if (int.TryParse(config.GetValue("ignitions"), out ignitions))
+                info += "    ";
+                bool comma = false;
+                if (config.HasValue("ullage"))
                 {
-                    if (ignitions > 0)
-                        info += ", " + ignitions + " ignition" + (ignitions > 1 ? "s" : "");
-                    else
-                        info += ", unl. ignitions";
+                    info += (config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
+                    comma = true;
                 }
+                if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
+                {
+                    if (comma)
+                        info += ", ";
+                    info += "pfed";
+                    comma = true;
+                }
+
+                if (config.HasValue("ignitions"))
+                {
+                    int ignitions;
+                    if (int.TryParse(config.GetValue("ignitions"), out ignitions))
+                    {
+                        if (comma)
+                            info += ", ";
+                        if (ignitions > 0)
+                            info += ignitions + " ignition" + (ignitions > 1 ? "s" : "");
+                        else
+                            info += "unl. ignitions";
+                    }
+                }
+                info += "\n";
             }
-            info += ")\n";
+            float cst;
+            if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
+                info += "    (" + (scale * cst).ToString("N0") + " extra cost)\n"; // FIXME should get cost from TL, but this should be safe
 
             return info;
         }
@@ -1167,7 +1202,7 @@ namespace RealFuels
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
                 
-                tooltipRect = new Rect(guiWindowRect.xMin + 440, mousePos.y - 5, 300, 20);
+                tooltipRect = new Rect(guiWindowRect.xMin + 440, mousePos.y - 5, 300, 200);
                 
                 cursorInGUI = guiWindowRect.Contains(mousePos);
                 if (cursorInGUI)
@@ -1185,7 +1220,7 @@ namespace RealFuels
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
 
-                tooltipRect = new Rect(guiWindowRect.xMin - (230 - 8), mousePos.y - 5, 220, 20);
+                tooltipRect = new Rect(guiWindowRect.xMin - (230 - 8), mousePos.y - 5, 220, 200);
 
                 cursorInGUI = guiWindowRect.Contains(mousePos);
                 if (cursorInGUI)
