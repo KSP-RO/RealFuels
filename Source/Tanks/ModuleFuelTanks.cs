@@ -251,19 +251,20 @@ namespace RealFuels.Tanks
 #endif
 
 
-			if (isEditor) {
-				GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
-				TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
-				TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
-				if (part.symmetryCounterparts.Count > 0) {
-					UpdateTankType (false);
-					massDirty = true;
-				}
+            if (isEditor)
+            {
+                GameEvents.onPartActionUIDismiss.Add (OnPartActionGuiDismiss);
+                TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
+                TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
+                if (part.symmetryCounterparts.Count > 0)
+                {
+                    UpdateTankType (false);
+                    massDirty = true;
+                }
 
-				InitializeTankType ();
-				InitializeUtilization ();
-			}
-
+                InitializeTankType ();
+                InitializeUtilization ();
+            }
 			CalculateMass ();
             CalculateTankArea(out tankArea);
             part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
@@ -326,6 +327,7 @@ namespace RealFuels.Tanks
 			}
 		}
 
+        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor : 1d; }} 
         protected float tankArea;
         double boiloffMass = 0d;
 
@@ -353,9 +355,8 @@ namespace RealFuels.Tanks
             }
             else
             {
-                if (partPrevTemperature == -1)
-                    partPrevTemperature = part.temperature;
-                
+				partPrevTemperature = part.temperature;
+
                 double deltaTimeRecip = 1d / deltaTime;
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
@@ -369,28 +370,31 @@ namespace RealFuels.Tanks
                             double massLost = 0.0;
                             double deltaTemp = part.temperature - tank.temperature;
 
-                            double area = tankArea * (tank.maxAmount / volume);
 #if DEBUG
                             if (debug2Display != "")
                                 debug2Display += " / ";
 
                             if (debug1Display != "")
                                 debug1Display += " / ";
-                            //else
-                            //    debug1Display = "(" + adjustedTemp.ToString("F1") + ")";
+                            else
+                                debug1Display = "(" + part.radiativeArea.ToString("####") + ")";
 #endif
                             if (deltaTemp > 0)
                             {
 
                                 //double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02.
                                 //Equation: (0.2/ 0.1/205 + 0.1/0.02)
-                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area)) + (tank.insulationThickness / (tank.insulationConduction * area)));
 
-                                if (MFSSettings.ferociousBoilOff)
-                                    q *= part.thermalMass / (part.thermalMass - part.resourceThermalMass);
+								double tankRatio = tank.maxAmount / volume;
 
-                                if (MFSSettings.globalConductionCompensation)
-                                    q /= PhysicsGlobals.ConductionFactor;
+								double area = tankArea * tankRatio;
+
+                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area * ConductionFactors)) + (tank.insulationThickness / (tank.insulationConduction * area)));
+                                Debug.Log (part.name + " area: " + area);
+								if (MFSSettings.ferociousBoilOff)
+                                    q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
+
+                                //q /= ConductionFactors;
 
                                 q *= 0.001d; // convert to kilowatts
 
@@ -425,16 +429,13 @@ namespace RealFuels.Tanks
 
                                     double fluxLost = -massLost * tank.vsp;
 
-									if (MFSSettings.globalConductionCompensation)
-                                        fluxLost *= PhysicsGlobals.ConductionFactor;
+                                    //fluxLost *= ConductionFactors;
 
                                     part.AddThermalFlux(fluxLost * deltaTimeRecip);
                                     // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
                                     // subtract heat from boiloff
                                     // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
-
-                                    fluxLost *= PhysicsGlobals.ConductionFactor;
 
                                     if (analyticalMode)
                                         previewInternalFluxAdjust += fluxLost;
@@ -476,18 +477,17 @@ namespace RealFuels.Tanks
 
         public double GetSkinTemperature(out bool lerp)
         {
-            lerp = false;
+            lerp = true;
             return analyticSkinTemp;
         }
 
         public double GetInternalTemperature(out bool lerp)
         {
-            lerp = false;
-            // Report our last known temp. We'll adjust internal flux via IAnalyticPreview
-            if (partPrevTemperature == -1)
+            lerp = true;
+            //if (partPrevTemperature == -1)
                 return part.temperature;
-            else
-                return partPrevTemperature;
+            //else
+            //    return partPrevTemperature;
         }
 
         // Analytic Preview Interface
