@@ -380,11 +380,11 @@ namespace RealFuels
             EngineIgnited = true;
 
             if (allowShutdown)
-                Events["vShutdown"].active = true;
+                Events["Shutdown"].active = true;
             else
-                Events["vShutdown"].active = false;
+                Events["Shutdown"].active = false;
 
-            Events["vActivate"].active = false;
+            Events["Activate"].active = false;
         }
 
         // set ignited in shutdown

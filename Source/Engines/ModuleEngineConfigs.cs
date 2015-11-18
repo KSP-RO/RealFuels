@@ -112,6 +112,8 @@ namespace RealFuels
         public float throttle = 0.0f; // default min throttle level
         public float configThrottle;
 
+        public string configDescription = "";
+
         public ConfigNode techNodes = new ConfigNode();
 
         [KSPField]
@@ -313,16 +315,19 @@ namespace RealFuels
         {
             string retStr = "";
             if (engineID != "")
-                retStr += "Bound to " + engineID;
+                retStr += "(Bound to " + engineID + ")\n";
             if(moduleIndex >= 0)
-                retStr += "Bound to engine " + moduleIndex + " in part";
+                retStr += "(Bound to engine " + moduleIndex + " in part)\n";
             if(techLevel != -1)
             {
                 TechLevel cTL = new TechLevel();
                 if (!cTL.Load(config, techNodes, engineType, techLevel))
                     cTL = null;
 
-                retStr =  "Type: " + engineType + ". Tech Level: " + techLevel + " (" + origTechLevel + "-" + maxTechLevel + ")";
+                if (!string.IsNullOrEmpty(configDescription))
+                    retStr += configDescription + "\n";
+
+                retStr +=  "Type: " + engineType + ". Tech Level: " + techLevel + " (" + origTechLevel + "-" + maxTechLevel + ")";
                 if (origMass > 0)
                     retStr += ", Mass: " + part.mass.ToString("N3") + " (was " + (origMass * RFSettings.Instance.EngineMassMultiplier).ToString("N3") + ")";
                 if (configThrottle >= 0)
@@ -375,6 +380,8 @@ namespace RealFuels
                 cTL = null;
 
             string info = "   " + config.GetValue("name") + "\n";
+            if (config.HasValue("description"))
+                info += "    " + config.GetValue("description") + "\n";
             if (config.HasValue(thrustRating))
             {
                 info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("G3") + " kN";
@@ -789,6 +796,11 @@ namespace RealFuels
                 SetupFX();
 
                 UpdateTFInterops(); // update TestFlight if it's installed
+
+                if (config.HasValue("description"))
+                    configDescription = config.GetValue("description");
+                else
+                    configDescription = "";
             }
             else
             {
