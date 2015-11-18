@@ -387,7 +387,7 @@ namespace RealFuels.Tanks
 
 								double area = tankArea * tankRatio;
 
-                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area * ConductionFactors)) + (tank.insulationThickness / (tank.insulationConduction * area * ConductionFactors)));
+                                double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * area)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * area)));
                                 Debug.Log (part.name + " area: " + area);
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
@@ -427,14 +427,12 @@ namespace RealFuels.Tanks
 
                                     double fluxLost = -massLost * tank.vsp;
 
-                                    //fluxLost *= ConductionFactors;
+                                    fluxLost *= ConductionFactors;
 
                                     part.AddThermalFlux(fluxLost * deltaTimeRecip);
-                                    // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
                                     // subtract heat from boiloff
-                                    // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
-
+                                    // TODO Fix analytic mode behavior or remove this. (currently unused as analyticMode is always false)
                                     if (analyticalMode)
                                         previewInternalFluxAdjust += fluxLost;
                                     else

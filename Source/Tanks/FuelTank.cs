@@ -44,9 +44,6 @@ namespace RealFuels.Tanks
         public double vsp;
 
         //[Persistent]
-        //public double conductivity = 205.0; // default is 205 for aluminum 10cm thick (205 * 0.1m)
-
-        //[Persistent]
         public double wallThickness = 0.1;
         //[Persistent]
         public double wallConduction = 205; // Aluminum conductive factor
