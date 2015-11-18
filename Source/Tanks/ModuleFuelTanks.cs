@@ -376,8 +376,6 @@ namespace RealFuels.Tanks
 
                             if (debug1Display != "")
                                 debug1Display += " / ";
-                            else
-                                debug1Display = "(" + part.radiativeArea.ToString("####") + ")";
 #endif
                             if (deltaTemp > 0)
                             {
@@ -389,7 +387,7 @@ namespace RealFuels.Tanks
 
 								double area = tankArea * tankRatio;
 
-                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area * ConductionFactors)) + (tank.insulationThickness / (tank.insulationConduction * area)));
+                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area * ConductionFactors)) + (tank.insulationThickness / (tank.insulationConduction * area * ConductionFactors)));
                                 Debug.Log (part.name + " area: " + area);
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
