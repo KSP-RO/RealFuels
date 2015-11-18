@@ -85,8 +85,7 @@
   </ItemGroup>
   <ItemGroup />
   <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
+    <PreBuildEvent>sh tools/git-version.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>del "System.Core.dll"</PostBuildEvent>
