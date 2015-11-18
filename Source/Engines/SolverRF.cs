@@ -10,13 +10,12 @@ namespace RealFuels
     public class SolverRF : EngineSolver
     {
         // engine params
-        private FloatCurve atmosphereCurve = null, atmCurve = null, velCurve = null;
-        private double minFlow, maxFlow, thrustRatio = 1d, throttleResponseRate, machLimit, machMult;
+        private FloatCurve atmosphereCurve = null, atmCurve = null, velCurve = null, atmCurveIsp = null, velCurveIsp = null;
+        private double minFlow, maxFlow, maxFlowRecip, thrustRatio = 1d, throttleResponseRate, machLimit, machMult;
         private double flowMultMin, flowMultCap, flowMultCapSharpness;
-        private bool multFlow;
         private bool combusting = true;
         private double varyThrust = 0d;
-        private bool pressure = true, ullage = true, ignited = false;
+        private bool pressure = true, ullage = true, ignited = false, disableUnderwater;
         private double scale = 1d; // scale for tweakscale
 
         private float seed = 0f;
@@ -39,6 +38,9 @@ namespace RealFuels
             FloatCurve nAtmosphereCurve, 
             FloatCurve nAtmCurve, 
             FloatCurve nVelCurve,
+            FloatCurve nAtmCurveIsp,
+            FloatCurve nVelCurveIsp,
+            bool nDisableUnderwater,
             double nThrottleResponseRate,
             double nChamberNominalTemp,
             double nMachLimit,
@@ -46,15 +48,18 @@ namespace RealFuels
             double nFlowMultMin,
             double nFlowMultCap,
             double nFlowMultSharp,
-            bool nMultFlow,
             double nVaryThrust,
             float nSeed)
         {
             minFlow = nMinFlow * 1000d; // to kg
             maxFlow = nMaxFlow * 1000d;
+            maxFlowRecip = 1d / maxFlow;
             atmosphereCurve = nAtmosphereCurve;
             atmCurve = nAtmCurve;
             velCurve = nVelCurve;
+            atmCurveIsp = nAtmCurveIsp;
+            velCurveIsp = nVelCurveIsp;
+            disableUnderwater = nDisableUnderwater;
             throttleResponseRate = nThrottleResponseRate;
             chamberTemp = 288d;
             chamberNominalTemp = nChamberNominalTemp;
@@ -64,7 +69,6 @@ namespace RealFuels
             flowMultMin = nFlowMultMin;
             flowMultCap = nFlowMultCap;
             flowMultCapSharpness = nFlowMultSharp;
-            multFlow = nMultFlow;
             varyThrust = nVaryThrust;
             seed = nSeed;
 
@@ -139,6 +143,12 @@ namespace RealFuels
                 statusString = "Lack of pressure";
             }
 
+            if (disableUnderwater && underwater)
+            {
+                combusting = false;
+                statusString = "Underwater";
+            }
+
             // check flow mult
             double fuelFlowMult = FlowMult();
             if (fuelFlowMult < flowMultMin)
@@ -163,16 +173,16 @@ namespace RealFuels
                 if (varyThrust > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
                     fuelFlow *= (1d + (Mathf.PerlinNoise(Time.time, 0f) * 2d - 1d) * varyThrust);
 
-                fxPower = (float)(fuelFlow / maxFlow * ispMult); // FX is proportional to fuel flow and Isp mult.
-                if (float.IsNaN(fxPower))
-                    fxPower = 0f;
+                fxPower = (float)(fuelFlow * maxFlowRecip * ispMult); // FX is proportional to fuel flow and Isp mult.
                 
                 // apply fuel flow multiplier
                 double ffMult = fuelFlow * fuelFlowMult;
-                if (multFlow) // do we apply the flow multiplier to fuel flow or thrust?
-                    fuelFlow = ffMult;
-                else
-                    Isp *= fuelFlowMult;
+                fuelFlow = ffMult;
+
+                if(atmCurveIsp != null)
+                    Isp *= atmCurveIsp.Evaluate((float)(rho * (1d / 1.225d)));
+                if (velCurveIsp != null)
+                    Isp *= velCurveIsp.Evaluate((float)mach);
 
                 double exhaustVelocity = Isp * 9.80665d;
                 SFC = 3600d / Isp;
@@ -214,10 +224,10 @@ namespace RealFuels
         protected double FlowMult()
         {
             double flowMult = 1d;
-            if ((object)atmCurve != null)
-                flowMult *= atmCurve.Evaluate((float)(rho / 1.225d));
+            if (atmCurve != null)
+                flowMult *= atmCurve.Evaluate((float)(rho * (1d / 1.225d)));
 
-            if ((object)velCurve != null)
+            if (velCurve != null)
                 flowMult *= velCurve.Evaluate((float)mach);
 
             if (flowMult > flowMultCap)

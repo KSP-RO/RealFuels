@@ -20,7 +20,7 @@ namespace RealFuels.Tanks
 	// mass         How much the part's mass is increased per volume unit
 	//              of tank installed for this resource type. Tons per
 	//              volume unit.
-	// loss_rate    How quickly this resource type bleeds out of the tank. 
+	// loss_rate    How quickly this resource type bleeds out of the tank.
     //
     //
 
@@ -40,7 +40,7 @@ namespace RealFuels.Tanks
         // TODO Retaining for fallback purposes but should be deprecated eventually
 		[Persistent]
 		public double loss_rate = 0.0;
-        // representing conduction factor from Fourier conduction formula. 
+        // representing conduction factor from Fourier conduction formula.
         public double vsp;
 
         //[Persistent]

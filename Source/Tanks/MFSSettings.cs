@@ -16,8 +16,9 @@ namespace RealFuels
         public static float partUtilizationDefault = 86;
         public static bool partUtilizationTweakable = false;
         public static string unitLabel = "u";
-
         public static bool basemassUseTotalVolume = false;
+        public static bool ferociousBoilOff = true;
+        public static bool globalConductionCompensation = false;
 
         public static HashSet<string> ignoreFuelsForFill;
         public static Tanks.TankDefinitionList tankDefinitions;
@@ -125,14 +126,22 @@ namespace RealFuels
 				if (bool.TryParse (node.GetValue ("partUtilizationTweakable"), out tb)) {
 					partUtilizationTweakable = tb;
 				}
-				if (node.HasValue ("unitLabel")) {
+                if (node.HasValue ("unitLabel")) {
 					unitLabel = node.GetValue ("unitLabel");
 				}
                 if (bool.TryParse(node.GetValue("basemassUseTotalVolume"), out tb)) {
                     basemassUseTotalVolume = tb;
                 }
+                if (bool.TryParse(node.GetValue("ferociousBoilOff"), out tb))
+                {
+                    ferociousBoilOff = tb;
+                }
+                if (bool.TryParse(node.GetValue("globalConductionCompensation"), out tb))
+                {
+                    globalConductionCompensation = tb;
+                }
 
-				ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
+                ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
 				if (ignoreNode != null) {
 					foreach (ConfigNode.Value v in ignoreNode.values) {
 						ignoreFuelsForFill.Add (v.name);

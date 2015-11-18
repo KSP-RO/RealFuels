@@ -133,8 +133,11 @@ namespace RealFuels
                 minFuelFlow,
                 maxFuelFlow,
                 atmosphereCurve,
-                atmCurve,
-                velCurve,
+                useAtmCurve ? atmCurve : null,
+                useVelCurve ? velCurve : null,
+                useAtmCurveIsp ? atmCurveIsp : null,
+                useVelCurveIsp ? velCurveIsp : null,
+                disableUnderwater,
                 throttleResponseRate,
                 chamberNominalTemp,
                 machLimit,
@@ -142,7 +145,6 @@ namespace RealFuels
                 flowMultMin,
                 flowMultCap,
                 flowMultCapSharpness,
-                multFlow,
                 thrustVariation,
                 (float)part.name.GetHashCode());
             
@@ -363,13 +365,13 @@ namespace RealFuels
         }
         
         // from SolverEngines but we don't play FX here.
-        public override void vActivate()
+        public override void Activate()
         {
             if (!allowRestart && engineShutdown)
             {
                 return; // If the engines were shutdown previously and restarting is not allowed, prevent restart of engines
             }
-            if (noShieldedStart && part.ShieldedFromAirstream)
+            if (!shieldedCanActivate && part.ShieldedFromAirstream)
             {
                 ScreenMessages.PostScreenMessage("<color=orange>[" + part.partInfo.title + "]: Cannot activate while stowed!</color>", 6f, ScreenMessageStyle.UPPER_LEFT);
                 return;
@@ -386,13 +388,13 @@ namespace RealFuels
         }
 
         // set ignited in shutdown
-        public override void vShutdown()
+        public override void Shutdown()
         {
-            base.vShutdown();
+            base.Shutdown();
             ignited = false;
         }
 
-        public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen)
+        public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen, bool underwater)
         {
             throttledUp = false;
 
@@ -429,7 +431,7 @@ namespace RealFuels
                 if (!pressureOK)
                 {
                     propellantStatus = "Feed pressure too low"; // override ullage status indicator
-                    vFlameout("Lack of pressure", false, ignited);
+                    Flameout("Lack of pressure", false, ignited);
                     ignited = false;
                     reignitable = false;
                 }
@@ -464,7 +466,7 @@ namespace RealFuels
             heatProduction = (float)(scaleRecip * extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
             // run base method code
-            base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen);
+            base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen, CheckTransformsUnderwater());
         }
         #endregion
 
@@ -523,7 +525,7 @@ namespace RealFuels
             EngineIgnited = true;
             rfSolver.UpdateThrustRatio(1d);
 
-            UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true);
+            UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true, false);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
 
             if (atmChangeFlow) // If it's a jet
@@ -555,7 +557,7 @@ namespace RealFuels
                     temperature = PhysicsGlobals.SpaceTemperature;
                 ambientTherm.FromAmbientConditions(pressure, temperature, density);
 
-                UpdateFlightCondition(ambientTherm, spaceHeight, Vector3d.zero, 0d, true);
+                UpdateFlightCondition(ambientTherm, spaceHeight, Vector3d.zero, 0d, true, false);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
                 if (thrustASL != thrustVac)
@@ -654,7 +656,7 @@ namespace RealFuels
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
                         FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailIgnitions.message);
-                        vFlameout("Ignition failed");
+                        Flameout("Ignition failed");
                         return;
                     }
                     else
@@ -690,7 +692,7 @@ namespace RealFuels
                                         EngineIgnited = false; // don't play shutdown FX, just fail.
                                         ScreenMessages.PostScreenMessage(igniteFailResources);
                                         FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
-                                        vFlameout("Ignition failed"); // yes play FX
+                                        Flameout("Ignition failed"); // yes play FX
                                         return;
                                     }
                                 }
@@ -706,7 +708,7 @@ namespace RealFuels
                 currentThrottle = 0f;
                 reignitable = true; // reset
                 ullageOK = true;
-                vUnFlameout(false);
+                UnFlameout(false);
                 ignited = false; // just in case
             }
         }
