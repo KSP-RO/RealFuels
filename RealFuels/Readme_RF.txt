@@ -49,6 +49,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.8.1
+* Update to SolverEngines v1.13.
+* Fix emissives patch for 1.0.5.
+* Add some patch magic to the emissives patch to fix VenStockRevamp engine emissives.
+* Add LOX insulation to tank type Cryogenic.
+
 v10.8
 * Update for KSP 1.0.5, start to tune boiloff for new thermo.
 * Add tooltips when hovering over (locked or unlocked) engine configs in the engine GUI.
