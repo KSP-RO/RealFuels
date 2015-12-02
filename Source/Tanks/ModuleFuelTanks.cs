@@ -388,7 +388,6 @@ namespace RealFuels.Tanks
 								double area = tankArea * tankRatio;
 
                                 double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * area)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * area)));
-                                Debug.Log (part.name + " area: " + area);
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
 
