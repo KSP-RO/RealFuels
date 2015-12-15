@@ -1041,8 +1041,6 @@ namespace RealFuels
                 return false;
             if (!config.HasValue("name"))
                 return false;
-            if (HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX && ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) != RDTech.State.Available)
-                return false;
             if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
                 return RFUpgradeManager.Instance.ConfigUnlocked((RFSettings.Instance.usePartNameInConfigUnlock ? Utilities.GetPartName(p) : "") + config.GetValue("name"));
             return true;
