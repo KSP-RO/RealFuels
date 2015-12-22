@@ -339,7 +339,7 @@ namespace RealFuels.Tanks
 			yield return new WaitForFixedUpdate();
             boiloffMass = 0d;
 
-            double minTemp = part.temperature;
+            double minTemp = 300d;
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -347,7 +347,9 @@ namespace RealFuels.Tanks
                     minTemp = Math.Min(minTemp, tank.temperature);
             }
 
-            part.radiatorMax = (minTemp * 0.9d) / part.maxTemp;
+            if (tankList.Count > 0 && minTemp < 300d)
+                part.radiatorMax = (minTemp * 0.992556d) / part.maxTemp;
+
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
                 part.temperature = minTemp;
