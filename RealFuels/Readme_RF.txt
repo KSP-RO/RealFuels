@@ -49,6 +49,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.8.2
+* Fix log spam.
+* Fix a typo in heat anim patch.
+* Fix bug with stock radiator interaction.
+
 v10.8.1
 * Update to SolverEngines v1.13.
 * Fix emissives patch for 1.0.5.
