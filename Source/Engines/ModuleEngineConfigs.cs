@@ -384,7 +384,7 @@ namespace RealFuels
                 info += "    " + config.GetValue("description") + "\n";
             if (config.HasValue(thrustRating))
             {
-                info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("G3") + " kN";
+                info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.###") + " kN";
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
                     info += ", min " + (float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)) * 100f).ToString("N0") + "%";
