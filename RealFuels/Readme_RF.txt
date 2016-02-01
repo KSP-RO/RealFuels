@@ -49,6 +49,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.8.3
+* Fix engine thrust display formatting in tooltips.
+* Add a bit of insulation to tank type Default (it represents S-IVB-level insulation).
+* Show cost display again in the tank GUI.
+* Update for SolverEngines 1.15.
+
 v10.8.2
 * Fix log spam.
 * Fix a typo in heat anim patch.
