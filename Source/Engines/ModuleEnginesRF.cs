@@ -90,6 +90,7 @@ namespace RealFuels
         protected bool reignitable = true;
         protected bool ullageOK = true;
         protected bool throttledUp = false;
+        protected bool showPropStatus = false;
         [SerializeField]
         public List<ModuleResource> ignitionResources;
         ScreenMessage igniteFailIgnitions;
@@ -281,8 +282,10 @@ namespace RealFuels
             if (ullageSet == null)
                 ullageSet = new Ullage.UllageSet(this);
 
+            showPropStatus = (pressureFed || (ullage && RFSettings.Instance.simulateUllage));
+
             Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0 && RFSettings.Instance.limitedIgnitions);
-            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || (ullage && RFSettings.Instance.simulateUllage));
+            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = showPropStatus;
 
             igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
             igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources to ignite!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
@@ -309,6 +312,15 @@ namespace RealFuels
                     propellantStatus = "OK";
             }
             base.FixedUpdate();
+            if (TimeWarping() && showPropStatus)
+            {
+                if (pressureFed && !ullageSet.PressureOK())
+                    propellantStatus = "Feed pressure too low";
+                else if(ullage && RFSettings.Instance.simulateUllage)
+                    propellantStatus = ullageSet.GetUllageState();
+                else
+                    propellantStatus = "Nominal";
+            }
         }
         public override void UpdateThrottle()
         {
