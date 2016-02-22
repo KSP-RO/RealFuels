@@ -146,6 +146,8 @@ namespace RealFuels
         public List<ConfigNode> configs;
         public ConfigNode config;
 
+        public static Dictionary<string, string> techNameToTitle = new Dictionary<string, string>();
+
         // KIDS integration
         public static float ispSLMult = 1.0f;
         public static float ispVMult = 1.0f;
@@ -212,8 +214,25 @@ namespace RealFuels
                 return;
             }
             PartMessageService.Register(this);
-            if(HighLogic.LoadedSceneIsEditor)
+            if (HighLogic.LoadedSceneIsEditor)
+            {
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
+                string fullPath = KSPUtil.ApplicationRootPath + HighLogic.CurrentGame.Parameters.Career.TechTreeUrl;
+
+                ConfigNode fileNode = ConfigNode.Load(fullPath);
+                if (fileNode.HasNode("TechTree"))
+                {
+                    techNameToTitle.Clear();
+
+                    ConfigNode treeNode = fileNode.GetNode("TechTree");
+                    ConfigNode[] ns = treeNode.GetNodes("RDNode");
+                    foreach (ConfigNode n in ns)
+                    {
+                        if (n.HasValue("id") && n.HasValue("title"))
+                            techNameToTitle[n.GetValue("id")] = n.GetValue("title");
+                    }
+                }
+            }
 
             if(configs == null)
                 configs = new List<ConfigNode>();
@@ -1371,7 +1390,10 @@ namespace RealFuels
                     }
                     else
                     {
-                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node)));
+                        string techStr = "";
+                        if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out techStr))
+                            techStr = "\nRequires: " + techStr;
+                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node) + techStr));
                     }
                 }
                 GUILayout.EndHorizontal();
