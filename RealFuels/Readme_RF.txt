@@ -49,6 +49,47 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.8.3
+* Fix engine thrust display formatting in tooltips.
+* Add a bit of insulation to tank type Default (it represents S-IVB-level insulation).
+* Show cost display again in the tank GUI.
+* Update for SolverEngines 1.15.
+
+v10.8.2
+* Fix log spam.
+* Fix a typo in heat anim patch.
+* Fix bug with stock radiator interaction.
+
+v10.8.1
+* Update to SolverEngines v1.13.
+* Fix emissives patch for 1.0.5.
+* Add some patch magic to the emissives patch to fix VenStockRevamp engine emissives.
+* Add LOX insulation to tank type Cryogenic.
+
+v10.8
+* Update for KSP 1.0.5, start to tune boiloff for new thermo.
+* Add tooltips when hovering over (locked or unlocked) engine configs in the engine GUI.
+* Support descriptions for engine configs (key 'description' in the CONFIG). They are shown on the editor tooltip and in the config tooltip in the engine GUI.
+
+v10.7.2
+* Increased boiloff rate can be switched off by adding ferociousBoilOff = False to MFSSETTINGS (best use MM patch for that)
+* PhysicsGlobal.conductionFactor can be compensated for by adding globalConductionCompensation = true to MFSSETTINGS (use at own risk)
+* cryogenic outerInsulation improved to 0.0005 (previous value 0.01)
+* All LOX tanks now assume stainless steel tanks, except the ServiceModule.
+
+v10.7.1
+* Fixed bug where individual tank insulation/tank values weren't loading
+in.
+* Increased heat leak flux based on  part thermal mass (total) / part
+thermal mass - resource mass.
+* Tweaked ServiceModule and Default tank insulation values. (service module insulation calculated assuming Inconel/Titanium + vacuum/vapor shielded tanks.)
+
+v10.7
+* Revamped boiloff code for cryogenic propellants to be compatible with KSP 1.0.x thermodynamics (tanks will be properly cooled by evaporation of boiled off resources)
+* For now, only LqdOxygen, LqdHydrogen, LqdMethane and LqdAmmonia use the new system. (others may be added if needed) 
+* Insulation can be either for the whole tank part or per each internal tank.
+* Fix issue where TL was not being correctly reset on config change.
+
 v10.6.1
 * Fix throttling via `throttle` in CONFIG (minThrust was not being set properly).
 * Work around an ignition resource issue (due to, apparently, either a float precision issue or a bug in stock KSP code).

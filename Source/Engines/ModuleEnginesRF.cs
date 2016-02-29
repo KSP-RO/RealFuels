@@ -90,6 +90,7 @@ namespace RealFuels
         protected bool reignitable = true;
         protected bool ullageOK = true;
         protected bool throttledUp = false;
+        protected bool showPropStatus = false;
         [SerializeField]
         public List<ModuleResource> ignitionResources;
         ScreenMessage igniteFailIgnitions;
@@ -281,8 +282,10 @@ namespace RealFuels
             if (ullageSet == null)
                 ullageSet = new Ullage.UllageSet(this);
 
+            showPropStatus = (pressureFed || (ullage && RFSettings.Instance.simulateUllage));
+
             Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0 && RFSettings.Instance.limitedIgnitions);
-            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = (pressureFed || (ullage && RFSettings.Instance.simulateUllage));
+            Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = showPropStatus;
 
             igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
             igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources to ignite!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
@@ -309,6 +312,15 @@ namespace RealFuels
                     propellantStatus = "OK";
             }
             base.FixedUpdate();
+            if (TimeWarping() && showPropStatus)
+            {
+                if (pressureFed && !ullageSet.PressureOK())
+                    propellantStatus = "Feed pressure too low";
+                else if(ullage && RFSettings.Instance.simulateUllage)
+                    propellantStatus = ullageSet.GetUllageState();
+                else
+                    propellantStatus = "Nominal";
+            }
         }
         public override void UpdateThrottle()
         {
@@ -380,11 +392,11 @@ namespace RealFuels
             EngineIgnited = true;
 
             if (allowShutdown)
-                Events["vShutdown"].active = true;
+                Events["Shutdown"].active = true;
             else
-                Events["vShutdown"].active = false;
+                Events["Shutdown"].active = false;
 
-            Events["vActivate"].active = false;
+            Events["Activate"].active = false;
         }
 
         // set ignited in shutdown
@@ -394,7 +406,7 @@ namespace RealFuels
             ignited = false;
         }
 
-        public override void UpdateFlightCondition(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool oxygen, bool underwater)
+        public override void UpdateSolver(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool sIgnited, bool oxygen, bool underwater)
         {
             throttledUp = false;
 
@@ -436,7 +448,7 @@ namespace RealFuels
                     reignitable = false;
                 }
 
-                rfSolver.SetEngineStatus(pressureOK, (ullageOK || !RFSettings.Instance.simulateUllage), ignited);
+                rfSolver.SetPropellantStatus(pressureOK, (ullageOK || !RFSettings.Instance.simulateUllage));
 
                 // do thrust curve
                 if (ignited && useThrustCurve)
@@ -466,7 +478,7 @@ namespace RealFuels
             heatProduction = (float)(scaleRecip * extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
 
             // run base method code
-            base.UpdateFlightCondition(ambientTherm, altitude, vel, mach, oxygen, CheckTransformsUnderwater());
+            base.UpdateSolver(ambientTherm, altitude, vel, mach, ignited, oxygen, CheckTransformsUnderwater());
         }
         #endregion
 
@@ -501,7 +513,7 @@ namespace RealFuels
             string output = "";
             if (engineSolver == null || !(engineSolver is SolverRF))
                 CreateEngine();
-            rfSolver.SetEngineStatus(true, true, true);
+            rfSolver.SetPropellantStatus(true, true);
             // get stats
             double pressure = 101.325d, temperature = 288.15d, density = 1.225d;
             if (Planetarium.fetch != null)
@@ -518,14 +530,17 @@ namespace RealFuels
             ambientTherm.FromAmbientConditions(pressure, temperature, density);
             inletTherm = new EngineThermodynamics();
             inletTherm.CopyFrom(ambientTherm);
-
             currentThrottle = 1f;
             lastPropellantFraction = 1d;
             bool oldE = EngineIgnited;
             EngineIgnited = true;
-            rfSolver.UpdateThrustRatio(1d);
+            bool oldIg = ignited;
+            ignited = true;
 
-            UpdateFlightCondition(ambientTherm, 0d, Vector3d.zero, 0d, true, false);
+            rfSolver.UpdateThrustRatio(1d);
+            rfSolver.SetPropellantStatus(true, true);
+
+            UpdateSolver(ambientTherm, 0d, Vector3d.zero, 0d, true, true, false);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
 
             if (atmChangeFlow) // If it's a jet
@@ -556,8 +571,7 @@ namespace RealFuels
                 else
                     temperature = PhysicsGlobals.SpaceTemperature;
                 ambientTherm.FromAmbientConditions(pressure, temperature, density);
-
-                UpdateFlightCondition(ambientTherm, spaceHeight, Vector3d.zero, 0d, true, false);
+                UpdateSolver(ambientTherm, spaceHeight, Vector3d.zero, 0d, true, true, false);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
                 if (thrustASL != thrustVac)
@@ -572,6 +586,7 @@ namespace RealFuels
             }
             output += "\n";
             EngineIgnited = oldE;
+            ignited = oldIg;
             return output;
         }
 

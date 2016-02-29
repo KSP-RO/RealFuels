@@ -322,7 +322,7 @@ namespace RealFuels.Tanks
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
                 // Don't call tank loss function if we're in analytic mode. That's what the interface is for.
-                if (TimeWarp.CurrentRate <= PhysicsGlobals.ThermalMaxIntegrationWarp)
+                //if (TimeWarp.CurrentRate <= PhysicsGlobals.ThermalMaxIntegrationWarp)
                     StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
 			}
 		}
@@ -339,7 +339,7 @@ namespace RealFuels.Tanks
 			yield return new WaitForFixedUpdate();
             boiloffMass = 0d;
 
-            double minTemp = part.temperature;
+            double minTemp = 300d;
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -347,7 +347,9 @@ namespace RealFuels.Tanks
                     minTemp = Math.Min(minTemp, tank.temperature);
             }
 
-            part.radiatorMax = (minTemp * 0.9d) / part.maxTemp;
+            if (tankList.Count > 0 && minTemp < 300d)
+                part.radiatorMax = (minTemp * 0.992556d) / part.maxTemp;
+
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
                 part.temperature = minTemp;
@@ -376,8 +378,6 @@ namespace RealFuels.Tanks
 
                             if (debug1Display != "")
                                 debug1Display += " / ";
-                            else
-                                debug1Display = "(" + part.radiativeArea.ToString("####") + ")";
 #endif
                             if (deltaTemp > 0)
                             {
@@ -389,8 +389,7 @@ namespace RealFuels.Tanks
 
 								double area = tankArea * tankRatio;
 
-                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * area * ConductionFactors)) + (tank.insulationThickness / (tank.insulationConduction * area)));
-                                Debug.Log (part.name + " area: " + area);
+                                double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * area)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * area)));
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
 
@@ -429,14 +428,12 @@ namespace RealFuels.Tanks
 
                                     double fluxLost = -massLost * tank.vsp;
 
-                                    //fluxLost *= ConductionFactors;
+                                    fluxLost *= ConductionFactors;
 
                                     part.AddThermalFlux(fluxLost * deltaTimeRecip);
-                                    // fluxLost *= part.thermalMass / (part.thermalMass - part.resourceThermalMass); // Remove extra flux to nullify resource thermal mass
 
                                     // subtract heat from boiloff
-                                    // Reduced incoming flux by conductionFactor. Compensate again here or we won't cool down the tank enough.
-
+                                    // TODO Fix analytic mode behavior or remove this. (currently unused as analyticMode is always false)
                                     if (analyticalMode)
                                         previewInternalFluxAdjust += fluxLost;
                                     else
@@ -495,7 +492,7 @@ namespace RealFuels.Tanks
         {
             //analyticalInternalFlux = internalFlux;
             float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
-            CalculateTankLossFunction(deltaTime, true);
+            //CalculateTankLossFunction(deltaTime, true);
         }
 
         public double InternalFluxAdjust()

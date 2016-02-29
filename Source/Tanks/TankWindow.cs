@@ -153,7 +153,7 @@ namespace RealFuels.Tanks
 		void DisplayMass ()
 		{
 			GUILayout.BeginHorizontal ();
-			GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cst " + tank_module.GetModuleCost (0).ToString ("N1"));
+			GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cost " + tank_module.GetModuleCost (0).ToString ("N1"));
 			GUILayout.EndHorizontal ();
 		}
 
@@ -182,6 +182,8 @@ namespace RealFuels.Tanks
 					GUILayout.Label ("Volume: " + tank_module.volumeDisplay);
 				}
 				GUILayout.EndHorizontal ();
+
+                DisplayMass();
 
 				scrollPos = GUILayout.BeginScrollView (scrollPos);
 
