@@ -297,6 +297,8 @@ namespace RealFuels
             
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve && state != StartState.Editor;
         }
+        bool needSetPropStatus = true;
+        Color ullageColor = XKCDColors.White;
         public override void FixedUpdate()
         {
             if (HighLogic.LoadedSceneIsEditor)
@@ -311,13 +313,17 @@ namespace RealFuels
                 else
                     propellantStatus = "OK";
             }
+            needSetPropStatus = true;
             base.FixedUpdate();
-            if (TimeWarping() && showPropStatus)
+            if (needSetPropStatus && showPropStatus)
             {
                 if (pressureFed && !ullageSet.PressureOK())
                     propellantStatus = "Feed pressure too low";
-                else if(ullage && RFSettings.Instance.simulateUllage)
-                    propellantStatus = ullageSet.GetUllageState();
+                else if (ullage && RFSettings.Instance.simulateUllage)
+                {
+                    propellantStatus = ullageSet.GetUllageState(out ullageColor);
+                    part.stackIcon.SetBgColor(ullageColor);
+                }
                 else
                     propellantStatus = "Nominal";
             }
@@ -424,7 +430,8 @@ namespace RealFuels
                 propellantStatus = "Nominal";
                 if (ullage && RFSettings.Instance.simulateUllage)
                 {
-                    propellantStatus = ullageSet.GetUllageState();
+                    propellantStatus = ullageSet.GetUllageState(out ullageColor);
+                    part.stackIcon.SetBgColor(ullageColor);
                     if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
                     {
                         double state = ullageSet.GetUllageStability();
@@ -447,6 +454,7 @@ namespace RealFuels
                     ignited = false;
                     reignitable = false;
                 }
+                needSetPropStatus = false;
 
                 rfSolver.SetPropellantStatus(pressureOK, (ullageOK || !RFSettings.Instance.simulateUllage));
 

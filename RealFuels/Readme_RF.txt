@@ -49,6 +49,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.8.4
+* Update propellant status info line during warp as well.
+* Change background color of engine stack icon based on propellant stability (like parachutes).
+* Add the tech required to unlock a config to the info tooltip for that config (for unavailable configs).
+
 v10.8.3
 * Fix engine thrust display formatting in tooltips.
 * Add a bit of insulation to tank type Default (it represents S-IVB-level insulation).

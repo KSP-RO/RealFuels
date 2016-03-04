@@ -219,8 +219,15 @@ namespace RealFuels.Ullage
             propellantStability = newStab;
             SetStateString();
         }
-        public string GetPropellantStatus()
+        public string GetPropellantStatus(out Color col)
         {
+            if (propellantStability >= stable)
+                col = XKCDColors.White;
+            else if (propellantStability >= risky)
+                col = XKCDColors.KSPNotSoGoodOrange;
+            else
+                col = XKCDColors.Red;
+
             return propellantStatus;
         }
 
