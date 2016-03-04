@@ -151,6 +151,8 @@ namespace RealFuels.Tanks
 					ParseBaseMass(node);
 					ParseBaseCost(node);
                     ParseInsulationFactor(node);
+                    ParseBoiloffData(node);
+                    AdjustBoiloffTempByPressure();
 					typesAvailable = node.GetValues ("typeAvailable");
 					RecordManagedResources ();
 				} else if (isEditorOrFlight) {
@@ -923,6 +925,18 @@ namespace RealFuels.Tanks
         {
             if (!double.TryParse(insulationFactor, out outerInsulationFactor))
                 Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
+        }
+
+        private void ParseBoiloffData(ConfigNode node)
+        {
+        }
+
+        private void ParseBoiloffData(string refPressure, string refBoilingPoint, string criticalPressure, string criticalTemperature)
+        {
+        }
+
+        private void AdjustBoiloffTempByPressure()
+        {
         }
 
 		public void CalculateMass ()
