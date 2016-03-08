@@ -687,7 +687,7 @@ namespace RealFuels
                         if (RFSettings.Instance.limitedIgnitions)
                         {
                             if (ignitions > 0)
-                                ignitions--;
+                                --ignitions;
 
                             // try to ignite
                             int count = ignitionResources.Count - 1;
