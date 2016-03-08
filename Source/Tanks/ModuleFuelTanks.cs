@@ -347,8 +347,8 @@ namespace RealFuels.Tanks
                     minTemp = Math.Min(minTemp, tank.temperature);
             }
 
-            if (tankList.Count > 0 && minTemp < 300d)
-                part.radiatorMax = (minTemp * 0.992556d) / part.maxTemp;
+            if (tankList.Count > 0 && minTemp < 300d && MFSSettings.radiatorMinTempMult >= 0d)
+                part.radiatorMax = (minTemp * MFSSettings.radiatorMinTempMult) / part.maxTemp;
 
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
