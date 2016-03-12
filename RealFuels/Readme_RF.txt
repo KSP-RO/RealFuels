@@ -49,6 +49,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v10.8.5
+* Don't try to stop other-config FX every frame, do more null checking (should speed things up a abit and avoid NREs).
+* Allow setting (in MFSSettings) the multiplier to lowest boiling point to use for radiator calls.
+* Rework engine throttle response speed, make it tunable in RealSettings and in per-engine cfg.
+
 v10.8.4
 * Update propellant status info line during warp as well.
 * Change background color of engine stack icon based on propellant stability (like parachutes).
