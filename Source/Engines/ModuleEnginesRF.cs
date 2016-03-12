@@ -29,6 +29,14 @@ namespace RealFuels
 
         [KSPField]
         public float throttleResponseRate = -1f;
+        [KSPField]
+        public float throttleIgniteLevelMult = 1f;
+        [KSPField]
+        public float throttleStartupMult = 1f;
+        [KSPField]
+        public float throttleStartedMult = 1f;
+        [KSPField]
+        public float throttlePressureFedStartupMult = 5f;
 
         [KSPField]
         public float throttleDownMult = 100f;
@@ -219,7 +227,7 @@ namespace RealFuels
             if (!instantThrottle)
             {
                 if (throttleResponseRate <= 0f)
-                    throttleResponseRate = (float)(10d / Math.Log(Math.Max(1.1, Math.Sqrt(part.mass * maxThrust * maxThrust))));
+                    throttleResponseRate = (float)(RFSettings.Instance.throttlingRate / Math.Log(Math.Max(RFSettings.Instance.throttlingClamp, Math.Sqrt(part.mass * maxThrust * maxThrust))));
             }
             else
                 throttleResponseRate = 1000000f;
@@ -342,7 +350,7 @@ namespace RealFuels
                     currentThrottle = requiredThrottle;
                 else
                 {
-                    const float IGNITELEVEL = 0.01f;
+                    float IGNITELEVEL = 0.01f * throttleIgniteLevelMult;
                     // This yields F-1 like curves where F-1 responserate is about 1.
                     float deltaT = TimeWarp.fixedDeltaTime;
 
@@ -364,10 +372,10 @@ namespace RealFuels
                         if (currentThrottle > IGNITELEVEL)
                         {
                             float invDelta = 1f - delta;
-                            thisTick *= (1f - invDelta * invDelta) * 2.4f;
+                            thisTick *= (1f - invDelta * invDelta) * 5f * throttleStartedMult;
                         }
                         else
-                            thisTick *= 0.0005f + 12.5f * currentThrottle;
+                            thisTick *= 0.0005f + 4.05f * currentThrottle * throttleStartupMult * (pressureFed ? throttlePressureFedStartupMult : 1f);
 
                         if (delta > thisTick && delta > throttleClamp)
                             currentThrottle += thisTick * sign;
