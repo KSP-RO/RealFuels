@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
-using KSPAPIExtensions;
 
 namespace RealFuels
 {
