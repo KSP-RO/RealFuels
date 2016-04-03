@@ -544,13 +544,16 @@ namespace RealFuels
         public void StopFX()
         {
             //if(HighLogic.LoadedSceneIsFlight)
-                for (int i = effectsToStop.Length - 1; i >= 0 ; --i)
+            if (part != null && effectsToStop != null)
+            {
+                for (int i = effectsToStop.Length - 1; i >= 0; --i)
                     part.Effect(effectsToStop[i], 0f);
+            }
         }
         #endregion
 
         #region MonoBehaviour Methods
-        virtual public void FixedUpdate()
+        /*virtual public void FixedUpdate()
         {
             if (!compatible)
                 return;
@@ -558,7 +561,7 @@ namespace RealFuels
                 return;
 
             StopFX();
-        }
+        }*/
         #endregion
 
         #region Configuration
@@ -826,6 +829,8 @@ namespace RealFuels
                 Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
                 Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
             }
+
+            StopFX();
         }
 
         virtual protected int ConfigIgnitions(int ignitions)

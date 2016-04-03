@@ -19,6 +19,7 @@ namespace RealFuels
         public static bool basemassUseTotalVolume = false;
         public static bool ferociousBoilOff = true;
         public static bool globalConductionCompensation = false;
+        public static double radiatorMinTempMult = 0.99d;
 
         public static HashSet<string> ignoreFuelsForFill;
         public static Tanks.TankDefinitionList tankDefinitions;
@@ -110,6 +111,7 @@ namespace RealFuels
 			if (node != null) {
 				bool tb;
 				float tf;
+                double td;
 
 				if (bool.TryParse (node.GetValue ("useRealisticMass"), out tb)) {
 					useRealisticMass = tb;
@@ -140,6 +142,9 @@ namespace RealFuels
                 {
                     globalConductionCompensation = tb;
                 }
+                if (node.HasValue("radiatorMinTempMult"))
+                    if (double.TryParse(node.GetValue("radiatorMinTempMult"), out td))
+                        radiatorMinTempMult = td;
 
                 ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
 				if (ignoreNode != null) {
