@@ -59,7 +59,6 @@ bin/modularFuelTanks.dll: ${MFT_FILES}
 		-r:Assembly-CSharp,Assembly-CSharp-firstpass \
 		-r:UnityEngine,UnityEngine.UI \
 		-r:KSPUtil \
-		-r:KSPAPIExtensions \
 		-out:$@ $^
 
 bin/TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} bin/modularFuelTanks.dll
