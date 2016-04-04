@@ -1,5 +1,4 @@
-﻿
-/**
+﻿/**
  * Copyright (c) 2016, Majiir, ferram4
  * All rights reserved.
  *
