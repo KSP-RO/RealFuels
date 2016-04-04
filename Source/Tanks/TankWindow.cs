@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Collections.ObjectModel;
-using KSP.UI.Screens;
 
 using KSP.UI.Screens;
 
@@ -253,7 +252,7 @@ namespace RealFuels.Tanks
 					//Debug.LogWarning ("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
 				} else {
 					double tmp;
-					if (MathUtils.TryParseExt (trimmed, out tmp)) {
+					if (double.TryParse (trimmed, out tmp)) {
 						tank.maxAmount = tmp;
 
 						if (tmp != 0) {
@@ -297,7 +296,9 @@ namespace RealFuels.Tanks
 
 		void AddTank (FuelTank tank)
 		{
-			string extraData = "Max: " + (tank_module.AvailableVolume * tank.utilization).ToStringExt ("S3") + "L (+" + ModuleFuelTanks.FormatMass ((float) (tank_module.AvailableVolume * tank.mass)) + " )";
+			double maxVol = tank_module.AvailableVolume * tank.utilization;
+			string maxVolStr = PartModuleUtil.PrintResourceSI (maxVol, "L");
+			string extraData = "Max: " + maxVolStr + " (+" + ModuleFuelTanks.FormatMass ((float) (tank_module.AvailableVolume * tank.mass)) + " )";
 
 			GUILayout.Label (extraData, GUILayout.Width (150));
 
