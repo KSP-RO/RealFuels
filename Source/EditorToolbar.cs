@@ -5,7 +5,7 @@ using System.Linq;
 using UnityEngine;
 using RUI.Icons.Selectable;
 
-using KSP.IO;
+using KSP.UI.Screens;
 
 namespace ExtraplanetaryLaunchpads {
 	[KSPAddon (KSPAddon.Startup.EditorAny, false) ]
