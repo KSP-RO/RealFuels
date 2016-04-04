@@ -47,21 +47,21 @@ namespace RealFuels
         
 
         #region Thrust Curve
-        [KSPField]
-        public bool useThrustCurve = false;
+        //[KSPField]
+        //public bool useThrustCurve = false;
         [KSPField]
         public bool thrustCurveUseTime = false;
-        [KSPField]
-        public FloatCurve thrustCurve;
+        //[KSPField]
+        //public FloatCurve thrustCurve;
         [KSPField]
         public string curveResource = "";
 
         protected int curveProp = -1;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "% Rated Thrust", guiUnits = "%", guiFormat = "F3")]
-        public float thrustCurveDisplay = 100f;
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
-        public float thrustCurveRatio = 1f;
+        //[KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "% Rated Thrust", guiUnits = "%", guiFormat = "F3")]
+        //public float thrustCurveDisplay = 100f;
+        //[KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Fuel Ratio", guiUnits = "%", guiFormat = "F3")]
+        //public float thrustCurveRatio = 1f;
 
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3")]
         public float curveTime = 0f;
@@ -330,7 +330,7 @@ namespace RealFuels
                 else if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetBgColor(ullageColor);
+                    part.stackIcon.SetBackgroundColor(ullageColor);
                 }
                 else
                     propellantStatus = "Nominal";
@@ -439,7 +439,7 @@ namespace RealFuels
                 if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetBgColor(ullageColor);
+                    part.stackIcon.SetBackgroundColor(ullageColor);
                     if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
                     {
                         double state = ullageSet.GetUllageStability();

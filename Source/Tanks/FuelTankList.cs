@@ -4,8 +4,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Collections.ObjectModel;
-using KSPAPIExtensions;
-using KSPAPIExtensions.PartMessage;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -20,6 +18,16 @@ namespace RealFuels.Tanks
 		public FuelTankList (ConfigNode node)
 		{
 			Load (node);
+		}
+
+		public bool TryGet(string resource, out FuelTank tank)
+		{
+			if (Contains(resource)) {
+				tank = this[resource];
+				return true;
+			}
+			tank = null;
+			return false;
 		}
 
 		protected override string GetKeyForItem (FuelTank item)

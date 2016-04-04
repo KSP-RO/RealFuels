@@ -4,8 +4,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Collections.ObjectModel;
-using KSPAPIExtensions;
-using KSPAPIExtensions.PartMessage;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -94,6 +92,27 @@ namespace RealFuels.Tanks
 			}
 		}
 
+		public void RaiseResourceInitialChanged (Part part, PartResource resource, double amount)
+		{
+			var data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<PartResource> ("resource", resource);
+			data.Set<double> ("amount", amount);
+			part.SendEvent ("OnResourceInitialChanged", data, 0);
+		}
+
+		public void RaiseResourceMaxChanged (Part part, PartResource resource, double amount)
+		{
+			var data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<PartResource> ("resource", resource);
+			data.Set<double> ("amount", amount);
+			part.SendEvent ("OnResourceMaxChanged", data, 0);
+		}
+
+		public void RaiseResourceListChanged (Part part)
+		{
+			part.SendEvent ("OnResourceListChanged", null, 0);
+		}
+
 		public double amount
 		{
 			get {
@@ -132,7 +151,7 @@ namespace RealFuels.Tanks
 						foreach (Part sym in part.symmetryCounterparts) {
 							PartResource symResc = sym.Resources[name];
 							symResc.amount = value;
-							PartMessageService.Send<PartResourceInitialAmountChanged> (this, sym, symResc, amount);
+							RaiseResourceInitialChanged (sym, symResc, amount);
 						}
 					}
 				}
@@ -166,7 +185,7 @@ namespace RealFuels.Tanks
 					PartResource symResc = sym.Resources[name];
 					sym.Resources.list.Remove (symResc);
 					PartModule.DestroyImmediate (symResc);
-					PartMessageService.Send<PartResourceListChanged> (this, sym);
+					RaiseResourceListChanged (sym);
 				}
 			}
 			//print ("Sym removed");
@@ -208,11 +227,11 @@ namespace RealFuels.Tanks
 				foreach (Part sym in part.symmetryCounterparts) {
 					PartResource symResc = sym.Resources[name];
 					symResc.maxAmount = value;
-					PartMessageService.Send<PartResourceMaxAmountChanged> (this, sym, symResc, value);
+					RaiseResourceMaxChanged (sym, symResc, value);
 
 					if (newAmount != symResc.amount) {
 						symResc.amount = newAmount;
-						PartMessageService.Send<PartResourceInitialAmountChanged> (this, sym, symResc, newAmount);
+						RaiseResourceInitialChanged (sym, symResc, newAmount);
 					}
 				}
 			}
@@ -243,7 +262,7 @@ namespace RealFuels.Tanks
 				foreach (Part sym in part.symmetryCounterparts) {
 					PartResource symResc = sym.AddResource (node);
 					symResc.enabled = true;
-					PartMessageService.Send<PartResourceListChanged> (this, sym);
+					RaiseResourceListChanged (sym);
 				}
 			}
 		}

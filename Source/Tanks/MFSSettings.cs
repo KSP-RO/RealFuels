@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
-using KSPAPIExtensions;
 
 namespace RealFuels
 {
@@ -37,8 +36,8 @@ namespace RealFuels
             }
 
             var asm = Assembly.GetCallingAssembly ();
-            var title = SystemUtils.GetAssemblyTitle (asm);
-            version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
+            var title = MFSVersionReport.GetAssemblyTitle (asm);
+            version = title + " " + MFSVersionReport.GetAssemblyVersionString (asm);
 
             return version;
         }
