@@ -63,7 +63,7 @@ namespace RealFuels
                     Tanks.ModuleFuelTanks m = (Tanks.ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
                     double minTemp = p.temperature;
                     // look through all tanks inside this part
-                    for (int j = m.tankList.Count -1; j >= 0; --j)
+                    for (int j = m.tankList.Count - 1; j >= 0; --j)
                     {
                         Tanks.FuelTank tank = m.tankList[j];
                         // if a tank isn't full, start filling it.
@@ -83,7 +83,7 @@ namespace RealFuels
                                 minTemp = Math.Min(p.temperature, tank.temperature);
                             if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
                             {
-                                double amount = deltaTime * pump_rate;
+                                double amount = deltaTime * pump_rate * tank.utilization;
                                 var game = HighLogic.CurrentGame;
 
                                 if (d.unitCost > 0 && game.Mode == Game.Modes.CAREER && Funding.Instance != null)
@@ -102,6 +102,22 @@ namespace RealFuels
                         }
                     }
                     p.temperature = minTemp;
+                }
+                else
+                {
+                    for (int j = p.Resources.Count - 1; j >= 0; --j)
+                    {
+                        PartResource r = p.Resources[j];
+                        if (r.info.name == "ElectricCharge")
+                        {
+                            if (r.flowMode != PartResource.FlowMode.None && r.info.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
+                            {
+                                double amount = deltaTime * pump_rate;
+                                amount = Math.Min(amount, r.maxAmount - r.amount);
+                                p.TransferResource(r, amount);
+                            }
+                        }
+                    }
                 }
             }
         }
