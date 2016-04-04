@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using KSPAPIExtensions;
 using KSPAPIExtensions.PartMessage;
 using System.Reflection;
+using KSP.UI.Screens;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -151,6 +152,8 @@ namespace RealFuels.Tanks
 					ParseBaseMass(node);
 					ParseBaseCost(node);
                     ParseInsulationFactor(node);
+                    ParseBoiloffData(node);
+                    AdjustBoiloffTempByPressure();
 					typesAvailable = node.GetValues ("typeAvailable");
 					RecordManagedResources ();
 				} else if (isEditorOrFlight) {
@@ -488,7 +491,7 @@ namespace RealFuels.Tanks
         }
 
         // Analytic Preview Interface
-        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp)
+        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp, double x)
         {
             //analyticalInternalFlux = internalFlux;
             float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
@@ -923,6 +926,18 @@ namespace RealFuels.Tanks
         {
             if (!double.TryParse(insulationFactor, out outerInsulationFactor))
                 Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
+        }
+
+        private void ParseBoiloffData(ConfigNode node)
+        {
+        }
+
+        private void ParseBoiloffData(string refPressure, string refBoilingPoint, string criticalPressure, string criticalTemperature)
+        {
+        }
+
+        private void AdjustBoiloffTempByPressure()
+        {
         }
 
 		public void CalculateMass ()

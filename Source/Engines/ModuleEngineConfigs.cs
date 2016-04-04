@@ -10,6 +10,7 @@ using KSPAPIExtensions.Utils;
 using Debug = UnityEngine.Debug;
 using RealFuels.TechLevels;
 using SolverEngines;
+using KSP.UI.Screens;
 
 namespace RealFuels
 {
@@ -649,12 +650,12 @@ namespace RealFuels
                 // clear propellant gauges
                 foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
                 {
-                    if (field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
+                    if (field.FieldType == typeof(Dictionary<Propellant, ProtoStageIconInfo>))
                     {
-                        Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
+                        Dictionary<Propellant, ProtoStageIconInfo> boxes = (Dictionary<Propellant, ProtoStageIconInfo>)(field.GetValue(pModule));
                         if (boxes == null)
                             continue;
-                        foreach (VInfoBox v in boxes.Values)
+                        foreach (ProtoStageIconInfo v in boxes.Values)
                         {
                             if (v == null) //just in case...
                                 continue;
