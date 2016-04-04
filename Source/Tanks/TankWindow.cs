@@ -6,6 +6,8 @@ using UnityEngine;
 using System.Collections.ObjectModel;
 using KSP.UI.Screens;
 
+using KSP.UI.Screens;
+
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
 namespace RealFuels.Tanks
