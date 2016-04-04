@@ -83,7 +83,7 @@ namespace RealFuels
                                 minTemp = Math.Min(p.temperature, tank.temperature);
                             if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
                             {
-                                double amount = deltaTime * pump_rate * tank.utilization;
+                                double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
                                 var game = HighLogic.CurrentGame;
 
                                 if (d.unitCost > 0 && game.Mode == Game.Modes.CAREER && Funding.Instance != null)
@@ -97,7 +97,8 @@ namespace RealFuels
                                     }
                                     Funding.Instance.AddFunds(-cost, TransactionReasons.VesselRollout);
                                 }
-                                tank.amount = tank.amount + amount;
+                                //tank.amount = tank.amount + amount;
+                                p.TransferResource(r, amount, this.part);
                             }
                         }
                     }
@@ -114,7 +115,7 @@ namespace RealFuels
                             {
                                 double amount = deltaTime * pump_rate;
                                 amount = Math.Min(amount, r.maxAmount - r.amount);
-                                p.TransferResource(r, amount);
+                                p.TransferResource(r, amount, this.part);
                             }
                         }
                     }
