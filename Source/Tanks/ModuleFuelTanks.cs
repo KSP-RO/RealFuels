@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using KSPAPIExtensions;
 using KSPAPIExtensions.PartMessage;
 using System.Reflection;
+using KSP.UI.Screens;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -490,7 +491,7 @@ namespace RealFuels.Tanks
         }
 
         // Analytic Preview Interface
-        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp)
+        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp, double x)
         {
             //analyticalInternalFlux = internalFlux;
             float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);

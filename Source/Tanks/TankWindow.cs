@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Collections.ObjectModel;
+using KSP.UI.Screens;
 using KSPAPIExtensions;
 using KSPAPIExtensions.PartMessage;
 
