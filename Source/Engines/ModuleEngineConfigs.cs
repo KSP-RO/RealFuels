@@ -207,11 +207,6 @@ namespace RealFuels
         #region PartModule Overrides
         public override void OnAwake ()
         {
-            if (!CompatibilityChecker.IsAllCompatible())
-            {
-                compatible = false;
-                return;
-            }
             if (HighLogic.LoadedSceneIsEditor)
             {
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
