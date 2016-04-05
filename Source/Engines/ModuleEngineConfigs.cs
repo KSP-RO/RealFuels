@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Linq;
-using KSPAPIExtensions.PartMessage;
 using UnityEngine;
 using KSP;
-using KSPAPIExtensions.Utils;
 using Debug = UnityEngine.Debug;
 using RealFuels.TechLevels;
 using SolverEngines;
@@ -214,7 +212,6 @@ namespace RealFuels
                 compatible = false;
                 return;
             }
-            PartMessageService.Register(this);
             if (HighLogic.LoadedSceneIsEditor)
             {
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
@@ -1245,7 +1242,8 @@ namespace RealFuels
                 if (cursorInGUI)
                 {
                     editor.Lock(false, false, false, "RFGUILock");
-                    EditorTooltip.Instance.HideToolTip();
+                    if (EditorTooltip.Instance != null)
+                        EditorTooltip.Instance.HideToolTip();
                 }
                 else
                 {
@@ -1263,7 +1261,8 @@ namespace RealFuels
                 if (cursorInGUI)
                 {
                     editor.Lock(false, false, false, "RFGUILock");
-                    EditorTooltip.Instance.HideToolTip();
+                    if (EditorTooltip.Instance != null)
+                        EditorTooltip.Instance.HideToolTip();
                 }
                 else
                 {
