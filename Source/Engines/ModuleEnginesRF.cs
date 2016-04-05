@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
 using UnityEngine;
 using KSP;
 using SolverEngines;
@@ -483,7 +482,6 @@ namespace RealFuels
                         thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
                     }
                     rfSolver.UpdateThrustRatio(thrustCurveDisplay);
-                    thrustCurveDisplay *= 100f;
                 }
             }
 

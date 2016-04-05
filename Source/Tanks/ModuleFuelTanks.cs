@@ -63,12 +63,6 @@ namespace RealFuels.Tanks
 		public override void OnAwake ()
 		{
 			enabled = false;
-			if (CompatibilityChecker.IsWin64 ()) {
-				compatible = false;
-				Events["HideUI"].active = false;
-				Events["ShowUI"].active = false;
-				return;
-			}
 			// Initialize utilization from the settings file
 			utilization = MFSSettings.partUtilizationDefault;
 		}
