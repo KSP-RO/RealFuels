@@ -923,24 +923,13 @@ namespace RealFuels.Tanks
             if (!double.TryParse(insulationFactor, out outerInsulationFactor))
                 Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
         }
-
-        private void ParseBoiloffData(ConfigNode node)
-        {
-        }
-
-        private void ParseBoiloffData(string refPressure, string refBoilingPoint, string criticalPressure, string criticalTemperature)
-        {
-        }
-
-        private void AdjustBoiloffTempByPressure()
-        {
-        }
-
+            
 		public void CalculateMass ()
 		{
-			if (tankList == null || !massDirty) {
-				return;
-			}
+			if (tankList == null || !massDirty)
+            {
+                return;
+            }
 			massDirty = false;
 
 			double basemass = basemassConst + basemassPV * (MFSSettings.basemassUseTotalVolume ? totalVolume : volume);
