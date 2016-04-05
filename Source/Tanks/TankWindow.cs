@@ -141,11 +141,11 @@ namespace RealFuels.Tanks
 			cursorInGUI = guiWindowRect.Contains (mousePos);
 			if (cursorInGUI) {
 				editor.Lock (false, false, false, "MFTGUILock");
-				EditorTooltip.Instance.HideToolTip ();
+                if (EditorTooltip.Instance != null)
+				    EditorTooltip.Instance.HideToolTip ();
 			} else {
 				editor.Unlock ("MFTGUILock");
 			}
-
             GUI.Label (tooltipRect, myToolTip);
             guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Fuel Tanks for " + tank_module.part.partInfo.title);
         }
