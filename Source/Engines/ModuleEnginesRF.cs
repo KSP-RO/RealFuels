@@ -482,7 +482,6 @@ namespace RealFuels
                         thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveRatio);
                     }
                     rfSolver.UpdateThrustRatio(thrustCurveDisplay);
-                    thrustCurveDisplay *= 100f;
                 }
             }
 
