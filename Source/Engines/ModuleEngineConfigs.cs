@@ -1206,8 +1206,15 @@ namespace RealFuels
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
         public static string myToolTip = "";
         private int counterTT;
+        private bool styleSetup = false;
         public void OnGUI()
         {
+            if (!styleSetup)
+            {
+                styleSetup = true;
+                Styles.InitStyles ();
+            }
+
             if (!compatible)
                 return;
 
@@ -1270,10 +1277,11 @@ namespace RealFuels
                 editor.Unlock("RFGUILock");
                 return;
             }
+            myToolTip = myToolTip.Trim ();
+            if (!String.IsNullOrEmpty(myToolTip))
+                GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
 
-            GUI.Label(tooltipRect, myToolTip);
-
-            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title);
+            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
         }
 
         /*private int oldTechLevel = -1;
@@ -1314,6 +1322,7 @@ namespace RealFuels
 
         private void engineManagerGUI(int WindowID)
         {
+            GUILayout.Space (20);
             foreach (ConfigNode node in configs)
             {
                 string nName = node.GetValue("name");

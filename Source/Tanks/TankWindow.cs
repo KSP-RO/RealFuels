@@ -107,8 +107,15 @@ namespace RealFuels.Tanks
 
         private Rect guiWindowRect = new Rect (0, 0, 0, 0);
         private static Vector3 mousePos = Vector3.zero;
+        private bool styleSetup = false;
         public void OnGUI ()
         {
+            if (!styleSetup)
+            {
+                styleSetup = true;
+                Styles.InitStyles ();
+            }
+
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor) {
                 return;
@@ -143,8 +150,10 @@ namespace RealFuels.Tanks
 			} else {
 				editor.Unlock ("MFTGUILock");
 			}
-            GUI.Label (tooltipRect, myToolTip);
-            guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Fuel Tanks for " + tank_module.part.partInfo.title);
+            myToolTip = myToolTip.Trim ();
+            if (!String.IsNullOrEmpty(myToolTip))
+                GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
+            guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Fuel Tanks for " + tank_module.part.partInfo.title, Styles.styleEditorPanel);
         }
 
 		void DisplayMass ()
@@ -170,6 +179,7 @@ namespace RealFuels.Tanks
 			InitializeStyles ();
 
 			GUILayout.BeginVertical ();
+            GUILayout.Space (20);
 
 			if (CheckTankList ()) {
 				GUILayout.BeginHorizontal ();

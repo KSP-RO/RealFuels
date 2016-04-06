@@ -73,6 +73,7 @@
     <Compile Include="Ullage\UllageSimulator.cs" />
     <Compile Include="Utilities\ConfigNodeExtensions.cs" />
     <Compile Include="Utilities\Utilities.cs" />
+    <Compile Include="Utilities\Styles.cs" />
   </ItemGroup>
   <ItemGroup />
   <PropertyGroup>
