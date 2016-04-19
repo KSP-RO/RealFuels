@@ -446,7 +446,7 @@ namespace RealFuels
                         if (UnityEngine.Random.value > testValue)
                         {
                             ScreenMessages.PostScreenMessage(ullageFail);
-                            FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + ullageFail.message);
+                            FlightLogger.fetch.LogEvent("[" + FormatTime(vessel.missionTime) + "] " + ullageFail.message);
                             reignitable = false;
                             ullageOK = false;
                             ignited = false;
@@ -684,7 +684,7 @@ namespace RealFuels
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
-                        FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailIgnitions.message);
+                        FlightLogger.fetch.LogEvent("[" + FormatTime(vessel.missionTime) + "] " + igniteFailIgnitions.message);
                         Flameout("Ignition failed");
                         return;
                     }
@@ -720,7 +720,7 @@ namespace RealFuels
                                     {
                                         EngineIgnited = false; // don't play shutdown FX, just fail.
                                         ScreenMessages.PostScreenMessage(igniteFailResources);
-                                        FlightLogger.eventLog.Add("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
+                                        FlightLogger.fetch.LogEvent("[" + FormatTime(vessel.missionTime) + "] " + igniteFailResources.message);
                                         Flameout("Ignition failed"); // yes play FX
                                         return;
                                     }
