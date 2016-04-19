@@ -990,9 +990,14 @@ namespace RealFuels.Tanks
 
 		// mass-change interface, so Engineer's Report / Pad limit checking is correct.
 		public float massDelta = 0f; // assigned whenever part.mass is changed.
-		public float GetModuleMass(float defaultMass)
+		public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
 		{
 			return massDelta;
+		}
+
+		public ModifierChangeWhen GetModuleMassChangeWhen ()
+		{
+			return ModifierChangeWhen.FIXED;
 		}
 
         private void UpdateTweakableMenu ()
@@ -1037,7 +1042,7 @@ namespace RealFuels.Tanks
         }
         private UIPartActionWindow action_window;
 
-		public float GetModuleCost (float defaultCost)
+		public float GetModuleCost (float defaultCost, ModifierStagingSituation sit)
 		{
 			double cst = 0;
 			if (baseCostPV >= 0) {
@@ -1055,6 +1060,11 @@ namespace RealFuels.Tanks
 				}
 			}
 			return (float)cst;
+		}
+
+		public ModifierChangeWhen GetModuleCostChangeWhen ()
+		{
+			return ModifierChangeWhen.FIXED;
 		}
 
 		public void RaiseResourceInitialChanged(PartResource resource, double amount)
