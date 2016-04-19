@@ -230,7 +230,8 @@ namespace RealFuels.Tanks
 
 		public override void OnStart (StartState state)
 		{
-			if (!compatible) {
+			if (!compatible)
+            {
 				return;
 			}
             enabled = true; // just in case...
@@ -244,12 +245,14 @@ namespace RealFuels.Tanks
 #endif
 
 
-            if (isEditor) {
+            if (isEditor)
+            {
 				GameEvents.onEditorShipModified.Add (onEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add (OnPartActionGuiDismiss);
                 TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
                 TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
-                if (part.symmetryCounterparts.Count > 0) {
+                if (part.symmetryCounterparts.Count > 0)
+                {
                     UpdateTankType (false);
                     massDirty = true;
                 }
@@ -259,6 +262,7 @@ namespace RealFuels.Tanks
             }
 			CalculateMass ();
             CalculateTankArea(out tankArea);
+
             part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
             part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, outerInsulationFactor);
 		}
@@ -395,11 +399,13 @@ namespace RealFuels.Tanks
 
 								double tankRatio = tank.maxAmount / volume;
 
-								double area = tankArea * tankRatio;
+								double totalArea = tankArea * tankRatio;
+                                double wettedArea = totalArea * (tank.amount / tank.maxAmount);
 
-                                double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * area)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * area)));
+                                double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * wettedArea)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * wettedArea)));
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
+                                
 
                                 //q /= ConductionFactors;
 
