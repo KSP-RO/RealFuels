@@ -774,31 +774,12 @@ namespace RealFuels.Tanks
 
 		static string FormatFlux(double flux, bool scale = false)
 		{
-			string prefix = "";
-			if (flux < 0.0)
-			{
-				flux *= -1.0;
-				prefix = "-";
-			}
-            // TODO If scale then it should display in joules not watts
-			if (scale)
+			string unit = "W";
+			if (scale) {
 				flux *= TimeWarp.fixedDeltaTime;
-			if (flux >= 1000000000000000.0)
-				return prefix + (flux / 1000000000000000.0).ToString("F2") + " EW";
-			else if (flux >= 1000000000000.0)
-				return prefix + (flux / 1000000000000.0).ToString("F2") + " PW";
-			else if (flux >= 1000000000.0)
-				return prefix + (flux / 1000000000.0).ToString("F2") + " TW";
-			else if (flux >= 1000000.0)
-				return prefix + (flux / 1000000.0).ToString("F2") + " GW";
-			else if (flux >= 1000.0)
-				return prefix + (flux / 1000.0).ToString("F2") + " MW";
-			else if (flux >= 1.0)
-				return prefix + (flux).ToString("F2") + " kW";
-			else if (flux < 1.0)
-				return prefix + (flux * 1000.0).ToString("F2") + " W";
-			else
-				return "ERROR";
+				unit = "J";
+			}
+			return PartModuleUtil.PrintResourceSI (flux * 1e3, unit, 4);
 		}
 
 
