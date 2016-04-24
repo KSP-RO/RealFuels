@@ -247,6 +247,8 @@ namespace RealFuels.Tanks
 
             if (isEditor)
             {
+				GameEvents.onPartAttach.Add (onPartAttach);
+				GameEvents.onPartRemove.Add (onPartRemove);
 				GameEvents.onEditorShipModified.Add (onEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add (OnPartActionGuiDismiss);
                 TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
@@ -270,6 +272,8 @@ namespace RealFuels.Tanks
 		void OnDestroy ()
 		{
 			if (isEditor) {
+				GameEvents.onPartAttach.Remove (onPartAttach);
+				GameEvents.onPartRemove.Remove (onPartRemove);
 				GameEvents.onEditorShipModified.Remove (onEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
                 TankWindow.OnActionGroupEditorOpened.Remove (OnActionGroupEditorOpened);
@@ -287,10 +291,58 @@ namespace RealFuels.Tanks
 			tankList.Save (node);
 		}
 
+		const int wait_frames = 2;
+		int update_wait_frames = 0;
+
+		private IEnumerator WaitAndUpdate (ShipConstruct ship)
+		{
+			while (--update_wait_frames > 0) {
+				yield return null;
+			}
+
+			PartResourcesChanged ();
+		}
+
 		private void onEditorShipModified (ShipConstruct ship)
 		{
-			PartResourcesChanged ();
+			// some parts/modules fire the event before doing things
+			if (update_wait_frames == 0) {
+				update_wait_frames = wait_frames;
+				StartCoroutine (WaitAndUpdate (ship));
+			} else {
+				update_wait_frames = wait_frames;
+			}
+		}
+
+		int updateusedby_wait_frames = 0;
+
+		private IEnumerator WaitAndUpdateUsedBy ()
+		{
+			while (--updateusedby_wait_frames > 0) {
+				yield return null;
+			}
+
 			UpdateUsedBy ();
+		}
+
+		private void onPartAttach (GameEvents.HostTargetAction<Part, Part> hostTarget)
+		{
+			if (updateusedby_wait_frames == 0) {
+				updateusedby_wait_frames = wait_frames;
+				StartCoroutine (WaitAndUpdateUsedBy ());
+			} else {
+				updateusedby_wait_frames = wait_frames;
+			}
+		}
+
+		private void onPartRemove (GameEvents.HostTargetAction<Part, Part> hostTarget)
+		{
+			if (updateusedby_wait_frames == 0) {
+				updateusedby_wait_frames = wait_frames;
+				StartCoroutine (WaitAndUpdateUsedBy ());
+			} else {
+				updateusedby_wait_frames = wait_frames;
+			}
 		}
 
 		private void OnPartActionGuiDismiss(Part p)
