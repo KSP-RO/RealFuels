@@ -382,12 +382,9 @@ namespace RealFuels.Tanks
                 debug1Display = "";
                 debug2Display = "";
 #endif
-                //debug1Display = (part.thermalRadiationFlux / part.radiativeArea).ToString("F");
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
-                // Don't call tank loss function if we're in analytic mode. That's what the interface is for.
-                //if (TimeWarp.CurrentRate <= PhysicsGlobals.ThermalMaxIntegrationWarp)
-                    StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
+				StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
 			}
 		}
 
