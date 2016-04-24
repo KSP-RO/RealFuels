@@ -1061,7 +1061,6 @@ namespace RealFuels.Tanks
 
         internal void MarkWindowDirty ()
         {
-			print("MarkWindowDirty: " + System.Environment.StackTrace);
             if (action_window == null && UIPartActionController.Instance) {
                 action_window = UIPartActionController.Instance.GetItem(part);
 			}
