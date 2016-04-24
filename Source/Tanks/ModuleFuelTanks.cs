@@ -789,7 +789,7 @@ namespace RealFuels.Tanks
 		void OnPartVolumeChanged (BaseEventData data)
 		{
 			string volName = data.Get<string> ("volName");
-			double newTotalVolume = data.Get<double> ("newTotalVolume");
+			double newTotalVolume = data.Get<double> ("newTotalVolume") * tankVolumeConversion;
 			if (volName == "Tankage") {
 				ChangeTotalVolume (newTotalVolume);
 			}
