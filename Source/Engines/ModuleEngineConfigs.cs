@@ -193,15 +193,17 @@ namespace RealFuels
         #endregion
 
         #region Callbacks
-        public float GetModuleCost(float stdCost)
+        public float GetModuleCost(float stdCost, ModifierStagingSituation sit)
         {
             return configCost;
         }
+        public ModifierChangeWhen GetModuleCostChangeWhen() { return ModifierChangeWhen.FIXED; }
 
-        public float GetModuleMass(float defaultMass)
+        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
         {
             return massDelta;
         }
+        public ModifierChangeWhen GetModuleMassChangeWhen() { return ModifierChangeWhen.FIXED; }
         #endregion
 
         #region PartModule Overrides
