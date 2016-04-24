@@ -1039,22 +1039,22 @@ namespace RealFuels.Tanks
                 return;
 			}
 
-            BaseEvent empty = Events["Empty"];
-            if (empty != null) {
-                empty.guiActiveEditor = (UsedVolume != 0);
+            bool activeChanged = false;
+            bool activeEditor = (UsedVolume != 0);
+            BaseEvent evt = Events["Empty"];
+            if (evt != null) {
+				activeChanged |= evt.guiActiveEditor != activeEditor;
+                evt.guiActiveEditor = activeEditor;
 			}
 
-            bool activeEditor = (AvailableVolume >= 0.001);
+            activeEditor = (AvailableVolume >= 0.001);
 
-            bool activeChanged = false;
             for (int i = 0; i < Events.Count; ++i) {
-                BaseEvent evt = Events.GetByIndex (i);
+                evt = Events.GetByIndex (i);
                 if (!evt.name.StartsWith ("MFT")) {
                     continue;
 				}
-                if (evt.guiActiveEditor != activeEditor) {
-                    activeChanged = true;
-				}
+				activeChanged |= evt.guiActiveEditor != activeEditor;
                 evt.guiActiveEditor = activeEditor;
             }
             if (activeChanged) {
