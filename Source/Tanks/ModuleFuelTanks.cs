@@ -271,14 +271,12 @@ namespace RealFuels.Tanks
 
 		void OnDestroy ()
 		{
-			if (isEditor) {
-				GameEvents.onPartAttach.Remove (onPartAttach);
-				GameEvents.onPartRemove.Remove (onPartRemove);
-				GameEvents.onEditorShipModified.Remove (onEditorShipModified);
-                GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
-                TankWindow.OnActionGroupEditorOpened.Remove (OnActionGroupEditorOpened);
-                TankWindow.OnActionGroupEditorClosed.Remove (OnActionGroupEditorClosed);
-			}
+			GameEvents.onPartAttach.Remove (onPartAttach);
+			GameEvents.onPartRemove.Remove (onPartRemove);
+			GameEvents.onEditorShipModified.Remove (onEditorShipModified);
+			GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
+			TankWindow.OnActionGroupEditorOpened.Remove (OnActionGroupEditorOpened);
+			TankWindow.OnActionGroupEditorClosed.Remove (OnActionGroupEditorClosed);
 		}
 
 		public override void OnSave (ConfigNode node)
