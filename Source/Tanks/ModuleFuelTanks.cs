@@ -303,6 +303,9 @@ namespace RealFuels.Tanks
 
 		private void onEditorShipModified (ShipConstruct ship)
 		{
+            if (this == null)
+                return;
+
 			// some parts/modules fire the event before doing things
 			if (update_wait_frames == 0) {
 				update_wait_frames = wait_frames;
@@ -325,6 +328,9 @@ namespace RealFuels.Tanks
 
 		private void onPartAttach (GameEvents.HostTargetAction<Part, Part> hostTarget)
 		{
+            if (this == null)
+                return;
+
 			if (updateusedby_wait_frames == 0) {
 				updateusedby_wait_frames = wait_frames;
 				StartCoroutine (WaitAndUpdateUsedBy ());
@@ -335,7 +341,10 @@ namespace RealFuels.Tanks
 
 		private void onPartRemove (GameEvents.HostTargetAction<Part, Part> hostTarget)
 		{
-			if (updateusedby_wait_frames == 0) {
+            if (this == null)
+                return;
+
+            if (updateusedby_wait_frames == 0) {
 				updateusedby_wait_frames = wait_frames;
 				StartCoroutine (WaitAndUpdateUsedBy ());
 			} else {
