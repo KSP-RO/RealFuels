@@ -49,6 +49,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v11.0
+* Port to KSP 1.1, thanks to taniwha, Agathorn, Starwaster!
+* Make sure clamps with the pump do pump EC even when the EC is not in a ModuleFuelTanks tank.
+* Change boiloff to use wetted tank area and other boiloff improvements.
+* Temprorarily remove TweakScale support until we can get it non-buggy.
+* Infinite Propellants cheat now allows reignition even with no ignitions remaining / no ignitor resources remaining.
+
 v10.8.5
 * Don't try to stop other-config FX every frame, do more null checking (should speed things up a abit and avoid NREs).
 * Allow setting (in MFSSettings) the multiplier to lowest boiling point to use for radiator calls.
