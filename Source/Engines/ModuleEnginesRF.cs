@@ -680,7 +680,7 @@ namespace RealFuels
                 if (!ignited && reignitable)
                 {
                     reignitable = false;
-                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions)
+                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant)
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
@@ -716,7 +716,7 @@ namespace RealFuels
                                 }
                                 if (minResource < 1d)
                                 {
-                                    if (UnityEngine.Random.value > (float)minResource)
+                                    if (UnityEngine.Random.value > (float)minResource && !CheatOptions.InfinitePropellant)
                                     {
                                         EngineIgnited = false; // don't play shutdown FX, just fail.
                                         ScreenMessages.PostScreenMessage(igniteFailResources);
