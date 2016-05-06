@@ -78,7 +78,7 @@ namespace RealFuels.Tanks
 		{
 			get {
 				return (HighLogic.LoadedScene == GameScenes.SPACECENTER
-						|| HighLogic.LoadedScene == GameScenes.LOADING);
+						|| HighLogic.LoadedScene == GameScenes.LOADING || HighLogic.LoadedScene == GameScenes.MAINMENU);
 			}
 		}
 
