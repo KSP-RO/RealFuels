@@ -184,12 +184,12 @@ namespace RealFuels
             {
                 if (node.GetValue("curveResource") != curveResource)
                 {
-                    Debug.Log("*RFE* ERROR: curveResource doesn't match node's!");
+                    Debug.LogError("*RFE* ERROR: curveResource doesn't match node's!");
                     curveResource = node.GetValue("curveResource");
                 }
                 if (thrustCurve == null)
                 {
-                    Debug.Log("*RFE* ERROR: have curve node but thrustCurve is null!");
+                    Debug.LogError("*RFE* ERROR: have curve node but thrustCurve is null!");
                     thrustCurve = new FloatCurve();
                     thrustCurve.Load(node.GetNode("thrustCurve"));
                 }

@@ -574,7 +574,7 @@ namespace RealFuels
             if (!UnlockedConfig(newConfig, part))
             {
                 if(newConfig == null)
-                    Debug.Log("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
+                    Debug.LogError("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
 
                 foreach(ConfigNode cfg in configs)
                     if (UnlockedConfig(cfg, part))
@@ -620,7 +620,7 @@ namespace RealFuels
 
                 if ((object)pModule == null)
                 {
-                    Debug.Log("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
+                    Debug.LogError("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
                     return;
                 }
 
@@ -659,7 +659,7 @@ namespace RealFuels
                             }
                             catch (Exception e)
                             {
-                                Debug.Log("*RFMEC* Trying to remove info box: " + e.Message);
+                                Debug.LogError("*RFMEC* Trying to remove info box: " + e.Message);
                             }
                         }
                         boxes.Clear();
@@ -808,7 +808,7 @@ namespace RealFuels
                     parts = vessel.parts;
                 else parts = new List<Part>();
                 for (int i = parts.Count - 1; i >= 0; --i)
-                    parts[i].SendMessage("UpdateUsedBy");
+                    parts[i].SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
 
                 SetupFX();
 
@@ -821,8 +821,7 @@ namespace RealFuels
             }
             else
             {
-                Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
-                Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
+                Debug.LogError("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.\nFor part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
             }
 
             StopFX();
