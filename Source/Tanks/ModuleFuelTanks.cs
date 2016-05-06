@@ -161,12 +161,9 @@ namespace RealFuels.Tanks
 					DestroyImmediate (partResource);
 				}
 				RaiseResourceListChanged ();
-				// Setup the mass
-				part.mass = mass;
-				// compute massDelta based on prefab, if available.
-				if ((object)(part.partInfo) != null)
-					if ((object)(part.partInfo.partPrefab) != null)
-						massDelta = part.mass - part.partInfo.partPrefab.mass;
+                // Setup the mass
+                massDirty = true;
+                CalculateMass();
 			}
 		}
 
@@ -993,6 +990,7 @@ namespace RealFuels.Tanks
 				}
 			} else {
 				mass = part.mass; // display dry mass even in this case.
+                massDelta = 0f;
 			}
 
 			if (isEditor) {
@@ -1021,8 +1019,10 @@ namespace RealFuels.Tanks
             {
                 totalTankArea += part.DragCubes.WeightedArea[i];
             }
+#if DEBUG
             Debug.Log("[MFT] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
             Debug.Log("[MFT] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
+#endif
         }
 
 		// mass-change interface, so Engineer's Report / Pad limit checking is correct.
