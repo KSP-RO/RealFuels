@@ -263,17 +263,20 @@ namespace RealFuels
                         massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
 
-
             if (configs == null)
                 configs = new List<ConfigNode>();
-            else
+
+            ConfigNode[] cNodes = node.GetNodes("CONFIG");
+            if (cNodes != null && cNodes.Length > 0)
+            {
                 configs.Clear();
 
-            foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
-                //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
-                ConfigNode newNode = new ConfigNode("CONFIG");
-                subNode.CopyTo (newNode);
-                configs.Add (newNode);
+                foreach (ConfigNode subNode in cNodes) {
+                    //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                    ConfigNode newNode = new ConfigNode("CONFIG");
+                    subNode.CopyTo(newNode);
+                    configs.Add(newNode);
+                }
             }
 
 
@@ -1562,7 +1565,7 @@ namespace RealFuels
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
-                    RFSettings.Instance.engineConfigs[partName] = configs;
+                    RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
                     /*Debug.Log("*RFMEC* Saved " + configs.Count + " configs");
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
                 }
@@ -1571,7 +1574,7 @@ namespace RealFuels
                     /*Debug.Log("*RFMEC* ERROR: part " + partName + " already in database! Current count = " + configs.Count + ", db count = " + RFSettings.Instance.engineConfigs[partName].Count);
                     Debug.Log("DB nodes:" + Utilities.PrintConfigs(RFSettings.Instance.engineConfigs[partName]));
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
-                    configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
+                    //configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
                 }
 
             }
@@ -1579,7 +1582,7 @@ namespace RealFuels
             {
                 if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
-                    configs = RFSettings.Instance.engineConfigs[partName];
+                    configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
                     /*Debug.Log("Found " + configs.Count + " configs!");
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
                 }
