@@ -49,6 +49,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v11.1
+* Enable conduction compensation (now that FAR no longer lowers conduction).
+* Set resources to volume=1 for compatibility with other mods.
+* Don't set wrong massDelta when basemass is negative (fixes the B9 proc wings mass issue amongst others).
+* Fix an NRE in database reloading at main menu.
+* Fix issue with configs getting lost (affected LR91 verniers).
+
 v11.0
 * Port to KSP 1.1, thanks to taniwha, Agathorn, Starwaster!
 * Make sure clamps with the pump do pump EC even when the EC is not in a ModuleFuelTanks tank.
