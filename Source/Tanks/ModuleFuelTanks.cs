@@ -1061,22 +1061,7 @@ namespace RealFuels.Tanks
 				activeChanged |= evt.guiActiveEditor != activeEditor;
                 evt.guiActiveEditor = activeEditor;
             }
-            if (activeChanged) {
-                MarkWindowDirty ();
-			}
         }
-
-        internal void MarkWindowDirty ()
-        {
-            if (action_window == null && UIPartActionController.Instance) {
-                action_window = UIPartActionController.Instance.GetItem(part);
-			}
-            if (action_window == null) {
-                return;
-			}
-            //action_window.displayDirty = true;
-        }
-        private UIPartActionWindow action_window;
 
 		public float GetModuleCost (float defaultCost, ModifierStagingSituation sit)
 		{
