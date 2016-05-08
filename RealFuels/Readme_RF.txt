@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v11.1.
+* Fix an NRE that was messing up VAB staging.
+
 v11.1
 * Enable conduction compensation (now that FAR no longer lowers conduction).
 * Set resources to volume=1 for compatibility with other mods.
