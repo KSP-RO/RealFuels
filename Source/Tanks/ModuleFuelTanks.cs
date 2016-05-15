@@ -227,8 +227,7 @@ namespace RealFuels.Tanks
 
 		public override void OnStart (StartState state)
 		{
-			if (!compatible)
-            {
+			if (!compatible) {
 				return;
 			}
             enabled = true; // just in case...
@@ -242,8 +241,7 @@ namespace RealFuels.Tanks
 #endif
 
 
-            if (isEditor)
-            {
+            if (isEditor) {
 				GameEvents.onPartAttach.Add (onPartAttach);
 				GameEvents.onPartRemove.Add (onPartRemove);
 				GameEvents.onEditorShipModified.Add (onEditorShipModified);
@@ -391,7 +389,7 @@ namespace RealFuels.Tanks
 			}
 		}
 
-        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor : 1d; }} 
+        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor : 1d; }}
         protected float tankArea;
         double boiloffMass = 0d;
 
@@ -457,7 +455,7 @@ namespace RealFuels.Tanks
                                 double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * wettedArea)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * wettedArea)));
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
-                                
+
 
                                 //q /= ConductionFactors;
 
@@ -487,7 +485,7 @@ namespace RealFuels.Tanks
                                 if (lossAmount > tank.amount)
                                 {
                                     tank.amount = 0d;
-                                } 
+                                }
                                 else
                                 {
                                     tank.amount -= lossAmount;
@@ -755,7 +753,7 @@ namespace RealFuels.Tanks
 
         [KSPField(isPersistant = true)]
 		public double partPrevTemperature = -1;
-		
+
         private double analyticSkinTemp;
 
         private double previewInternalFluxAdjust;
@@ -962,7 +960,7 @@ namespace RealFuels.Tanks
             if (!double.TryParse(insulationFactor, out outerInsulationFactor))
                 Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
         }
-            
+
 		public void CalculateMass ()
 		{
 			if (tankList == null || !massDirty)
