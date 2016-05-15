@@ -46,10 +46,10 @@ namespace RealFuels.Tanks
         }
         #endregion
 
-        private static float MassMult
+        private static double MassMult
 		{
 			get {
-				return MFSSettings.useRealisticMass ? 1.0f : MFSSettings.tankMassMultiplier;
+				return MFSSettings.useRealisticMass ? 1.0 : MFSSettings.tankMassMultiplier;
 			}
 		}
 
