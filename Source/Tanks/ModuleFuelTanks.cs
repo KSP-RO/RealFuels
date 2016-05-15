@@ -975,18 +975,21 @@ namespace RealFuels.Tanks
 			double basemass = basemassConst + basemassPV * (MFSSettings.basemassUseTotalVolume ? totalVolume : volume);
 
 			if (basemass >= 0) {
-				double tankDryMass = tankList
-					.Where (fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
-					.Sum (fuel => (float)fuel.maxAmount * fuel.mass / fuel.utilization);
+				double tankDryMass = 0;
+				for (int i = 0; i < tankList.Count; i++) {
+					var tank = tankList[i];
+					tankDryMass += tank.maxAmount * tank.mass / tank.utilization;
 
-				mass = (float) (basemass + tankDryMass) * MassMult;
+				}
+				mass = (float) ((basemass + tankDryMass) * MassMult);
 
-				if (part.mass != mass) {
+				// compute massDelta based on prefab, if available.
+				if (part.partInfo == null
+					|| part.partInfo.partPrefab == null) {
 					part.mass = mass;
-					// compute massDelta based on prefab, if available.
-					if ((object)(part.partInfo) != null)
-						if ((object)(part.partInfo.partPrefab) != null)
-							massDelta = part.mass - part.partInfo.partPrefab.mass;
+					massDelta = 0;
+				} else {
+					massDelta = mass - part.partInfo.partPrefab.mass;
 				}
 			} else {
 				mass = part.mass; // display dry mass even in this case.
