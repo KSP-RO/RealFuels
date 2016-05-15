@@ -23,6 +23,7 @@ MFT_FILES := \
     Tanks/TankDefinition.cs			\
     Tanks/TankDefinitionList.cs		\
     Tanks/TankWindow.cs				\
+	Utilities/Styles.cs				\
     Pumps/RefuelingPump.cs			\
 	EditorToolbar.cs				\
 	$e
