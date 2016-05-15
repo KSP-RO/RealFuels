@@ -998,7 +998,10 @@ namespace RealFuels.Tanks
 					.Where (fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
 					.Sum (fuel => fuel.maxAmount/fuel.utilization);
 
-				string availVolStr = PartModuleUtil.PrintResourceSI (AvailableVolume, MFSSettings.unitLabel);
+                double availRounded = AvailableVolume;
+                if (Math.Abs(availRounded) < 0.001d)
+                    availRounded = 0d;
+				string availVolStr = PartModuleUtil.PrintResourceSI (availRounded, MFSSettings.unitLabel);
 				string volStr = PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel);
 				volumeDisplay = "Avail: " + availVolStr + " / Tot: " + volStr;
 
