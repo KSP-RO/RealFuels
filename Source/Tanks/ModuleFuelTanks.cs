@@ -824,7 +824,7 @@ namespace RealFuels.Tanks
 
 			bool doResources = false;
 
-			if (totalVolume > newTotalVolume) {
+			if (volume > newVolume) {
 				ChangeResources (volumeRatio, propagate);
 			} else {
 				doResources = true;
