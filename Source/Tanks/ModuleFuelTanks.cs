@@ -250,15 +250,14 @@ namespace RealFuels.Tanks
                 GameEvents.onPartActionUIDismiss.Add (OnPartActionGuiDismiss);
                 TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
                 TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
-                if (part.symmetryCounterparts.Count > 0)
-                {
+                if (part.symmetryCounterparts.Count > 0) {
                     UpdateTankType (false);
-                    massDirty = true;
                 }
 
                 InitializeTankType ();
                 InitializeUtilization ();
             }
+			massDirty = true;
 			CalculateMass ();
             CalculateTankArea(out tankArea);
 
