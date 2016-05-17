@@ -193,15 +193,17 @@ namespace RealFuels
         #endregion
 
         #region Callbacks
-        public float GetModuleCost(float stdCost)
+        public float GetModuleCost(float stdCost, ModifierStagingSituation sit)
         {
             return configCost;
         }
+        public ModifierChangeWhen GetModuleCostChangeWhen() { return ModifierChangeWhen.FIXED; }
 
-        public float GetModuleMass(float defaultMass)
+        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
         {
             return massDelta;
         }
+        public ModifierChangeWhen GetModuleMassChangeWhen() { return ModifierChangeWhen.FIXED; }
         #endregion
 
         #region PartModule Overrides
@@ -261,17 +263,20 @@ namespace RealFuels
                         massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
 
-
             if (configs == null)
                 configs = new List<ConfigNode>();
-            else
+
+            ConfigNode[] cNodes = node.GetNodes("CONFIG");
+            if (cNodes != null && cNodes.Length > 0)
+            {
                 configs.Clear();
 
-            foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
-                //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
-                ConfigNode newNode = new ConfigNode("CONFIG");
-                subNode.CopyTo (newNode);
-                configs.Add (newNode);
+                foreach (ConfigNode subNode in cNodes) {
+                    //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                    ConfigNode newNode = new ConfigNode("CONFIG");
+                    subNode.CopyTo(newNode);
+                    configs.Add(newNode);
+                }
             }
 
 
@@ -572,7 +577,7 @@ namespace RealFuels
             if (!UnlockedConfig(newConfig, part))
             {
                 if(newConfig == null)
-                    Debug.Log("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
+                    Debug.LogError("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
 
                 foreach(ConfigNode cfg in configs)
                     if (UnlockedConfig(cfg, part))
@@ -618,7 +623,7 @@ namespace RealFuels
 
                 if ((object)pModule == null)
                 {
-                    Debug.Log("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
+                    Debug.LogError("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
                     return;
                 }
 
@@ -657,7 +662,7 @@ namespace RealFuels
                             }
                             catch (Exception e)
                             {
-                                Debug.Log("*RFMEC* Trying to remove info box: " + e.Message);
+                                Debug.LogError("*RFMEC* Trying to remove info box: " + e.Message);
                             }
                         }
                         boxes.Clear();
@@ -806,7 +811,7 @@ namespace RealFuels
                     parts = vessel.parts;
                 else parts = new List<Part>();
                 for (int i = parts.Count - 1; i >= 0; --i)
-                    parts[i].SendMessage("UpdateUsedBy");
+                    parts[i].SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
 
                 SetupFX();
 
@@ -819,8 +824,7 @@ namespace RealFuels
             }
             else
             {
-                Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
-                Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
+                Debug.LogError("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.\nFor part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
             }
 
             StopFX();
@@ -1206,8 +1210,15 @@ namespace RealFuels
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
         public static string myToolTip = "";
         private int counterTT;
+        private bool styleSetup = false;
         public void OnGUI()
         {
+            if (!styleSetup)
+            {
+                styleSetup = true;
+                Styles.InitStyles ();
+            }
+
             if (!compatible)
                 return;
 
@@ -1270,10 +1281,11 @@ namespace RealFuels
                 editor.Unlock("RFGUILock");
                 return;
             }
+            myToolTip = myToolTip.Trim ();
+            if (!String.IsNullOrEmpty(myToolTip))
+                GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
 
-            GUI.Label(tooltipRect, myToolTip);
-
-            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title);
+            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
         }
 
         /*private int oldTechLevel = -1;
@@ -1314,6 +1326,7 @@ namespace RealFuels
 
         private void engineManagerGUI(int WindowID)
         {
+            GUILayout.Space (20);
             foreach (ConfigNode node in configs)
             {
                 string nName = node.GetValue("name");
@@ -1561,7 +1574,7 @@ namespace RealFuels
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
-                    RFSettings.Instance.engineConfigs[partName] = configs;
+                    RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
                     /*Debug.Log("*RFMEC* Saved " + configs.Count + " configs");
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
                 }
@@ -1570,7 +1583,7 @@ namespace RealFuels
                     /*Debug.Log("*RFMEC* ERROR: part " + partName + " already in database! Current count = " + configs.Count + ", db count = " + RFSettings.Instance.engineConfigs[partName].Count);
                     Debug.Log("DB nodes:" + Utilities.PrintConfigs(RFSettings.Instance.engineConfigs[partName]));
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
-                    configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
+                    //configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
                 }
 
             }
@@ -1578,7 +1591,7 @@ namespace RealFuels
             {
                 if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
-                    configs = RFSettings.Instance.engineConfigs[partName];
+                    configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
                     /*Debug.Log("Found " + configs.Count + " configs!");
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
                 }

@@ -29,12 +29,12 @@ namespace RealFuels
         {
             if (fc == null)
             {
-                Debug.Log("*PC* ERROR: FC is null!");
+                Debug.LogError("*PC* ERROR: FC is null!");
                 return;
             }
             if (fc.Curve == null)
             {
-                Debug.Log("*PC* ERROR: FC's curve is null!");
+                Debug.LogError("*PC* ERROR: FC's curve is null!");
                 return;
             }
             int len = fc.Curve.keys.Length;

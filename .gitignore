@@ -3,6 +3,7 @@
 
 # User-specific files
 *.suo
+*.swp
 *.user
 *.sln.docstates
 

@@ -49,6 +49,29 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v11.2.0
+* Correct a bug in tank basemass calculation such that parts sometimes mass less than they should in flight. Thanks soundnfury for finding this!
+* New UI skin thanks to Agathorn!
+* Fix an issue with scaling down tanks during utilization changes.
+* Round displayed available volume when below 1mL (no more -322 femtoliters).
+
+v11.1.1
+* Fix an NRE that was messing up VAB staging.
+
+v11.1
+* Enable conduction compensation (now that FAR no longer lowers conduction).
+* Set resources to volume=1 for compatibility with other mods.
+* Don't set wrong massDelta when basemass is negative (fixes the B9 proc wings mass issue amongst others).
+* Fix an NRE in database reloading at main menu.
+* Fix issue with configs getting lost (affected LR91 verniers).
+
+v11.0
+* Port to KSP 1.1, thanks to taniwha, Agathorn, Starwaster!
+* Make sure clamps with the pump do pump EC even when the EC is not in a ModuleFuelTanks tank.
+* Change boiloff to use wetted tank area and other boiloff improvements.
+* Temprorarily remove TweakScale support until we can get it non-buggy.
+* Infinite Propellants cheat now allows reignition even with no ignitions remaining / no ignitor resources remaining.
+
 v10.8.5
 * Don't try to stop other-config FX every frame, do more null checking (should speed things up a abit and avoid NREs).
 * Allow setting (in MFSSettings) the multiplier to lowest boiling point to use for radiator calls.

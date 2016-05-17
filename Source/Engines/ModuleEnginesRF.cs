@@ -184,12 +184,12 @@ namespace RealFuels
             {
                 if (node.GetValue("curveResource") != curveResource)
                 {
-                    Debug.Log("*RFE* ERROR: curveResource doesn't match node's!");
+                    Debug.LogError("*RFE* ERROR: curveResource doesn't match node's!");
                     curveResource = node.GetValue("curveResource");
                 }
                 if (thrustCurve == null)
                 {
-                    Debug.Log("*RFE* ERROR: have curve node but thrustCurve is null!");
+                    Debug.LogError("*RFE* ERROR: have curve node but thrustCurve is null!");
                     thrustCurve = new FloatCurve();
                     thrustCurve.Load(node.GetNode("thrustCurve"));
                 }
@@ -680,7 +680,7 @@ namespace RealFuels
                 if (!ignited && reignitable)
                 {
                     reignitable = false;
-                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions)
+                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant)
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
@@ -716,7 +716,7 @@ namespace RealFuels
                                 }
                                 if (minResource < 1d)
                                 {
-                                    if (UnityEngine.Random.value > (float)minResource)
+                                    if (UnityEngine.Random.value > (float)minResource && !CheatOptions.InfinitePropellant)
                                     {
                                         EngineIgnited = false; // don't play shutdown FX, just fail.
                                         ScreenMessages.PostScreenMessage(igniteFailResources);
