@@ -1,16 +1,19 @@
 ﻿<Properties StartupItem="RealFuels.csproj">
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\MFSSettings.cs">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanks.cs">
     <Files>
-      <File FileName="Engines\ModuleEnginesRF.cs" Line="409" Column="30" />
-      <File FileName="Tanks\ModuleFuelTanks.cs" Line="626" Column="50" />
-      <File FileName="Tanks\MFSSettings.cs" Line="105" Column="1" />
-      <File FileName="Tanks\FuelTank.cs" Line="318" Column="25" />
+      <File FileName="Tanks\MFSSettings.cs" Line="1" Column="1" />
+      <File FileName="Tanks\FuelTank.cs" Line="1" Column="1" />
       <File FileName="Tanks\FuelInfo.cs" Line="1" Column="1" />
       <File FileName="Tanks\TankWindow.cs" Line="1" Column="1" />
       <File FileName="Engines\SolverRF.cs" Line="1" Column="1" />
-      <File FileName="Engines\UpgradeManager.cs" Line="36" Column="17" />
-      <File FileName="Engines\ModuleEngineConfigs.cs" Line="206" Column="28" />
+      <File FileName="Engines\UpgradeManager.cs" Line="1" Column="1" />
+      <File FileName="Engines\RFSettings.cs" Line="1" Column="1" />
+      <File FileName="..\..\SolverEngines\SolverEngines\Properties\AssemblyInfo.cs" Line="1" Column="1" />
+      <File FileName="..\..\SolverEngines\SolverEngines\AJEInlet.cs" Line="1" Column="1" />
+      <File FileName="..\..\SolverEngines\SolverEngines\EnginesGUI\FlightGUI.cs" Line="1" Column="1" />
+      <File FileName="..\..\SolverEngines\SolverEngines\EngineModule.cs" Line="1" Column="1" />
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="387" Column="32" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
