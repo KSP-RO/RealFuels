@@ -389,7 +389,7 @@ namespace RealFuels.Tanks
 			}
 		}
 
-        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor : 1d; }}
+        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor : 1d; }}
         protected float tankArea;
         double boiloffMass = 0d;
 
@@ -443,16 +443,12 @@ namespace RealFuels.Tanks
 #endif
                             if (deltaTemp > 0)
                             {
-
-                                //double tankConductivity = 0.03999680026; // Equal to 10cm aluminum + 10cm polyurethane insulation. Conductivity 250 and 0.02.
-                                //Equation: (0.2/ 0.1/205 + 0.1/0.02)
-
 								double tankRatio = tank.maxAmount / volume;
 
 								double totalArea = tankArea * tankRatio;
                                 double wettedArea = totalArea * (tank.amount / tank.maxAmount);
 
-                                double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * wettedArea)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * wettedArea)));
+                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * wettedArea)) + (tank.insulationThickness / (tank.insulationConduction * wettedArea)));
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
 
