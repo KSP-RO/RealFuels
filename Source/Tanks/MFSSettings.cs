@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
-using KSPAPIExtensions;
 
 namespace RealFuels
 {
@@ -19,6 +18,7 @@ namespace RealFuels
         public static bool basemassUseTotalVolume = false;
         public static bool ferociousBoilOff = true;
         public static bool globalConductionCompensation = false;
+        public static double radiatorMinTempMult = 0.99d;
 
         public static HashSet<string> ignoreFuelsForFill;
         public static Tanks.TankDefinitionList tankDefinitions;
@@ -36,8 +36,8 @@ namespace RealFuels
             }
 
             var asm = Assembly.GetCallingAssembly ();
-            var title = SystemUtils.GetAssemblyTitle (asm);
-            version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
+            var title = MFSVersionReport.GetAssemblyTitle (asm);
+            version = title + " " + MFSVersionReport.GetAssemblyVersionString (asm);
 
             return version;
         }
@@ -110,6 +110,7 @@ namespace RealFuels
 			if (node != null) {
 				bool tb;
 				float tf;
+                double td;
 
 				if (bool.TryParse (node.GetValue ("useRealisticMass"), out tb)) {
 					useRealisticMass = tb;
@@ -140,6 +141,9 @@ namespace RealFuels
                 {
                     globalConductionCompensation = tb;
                 }
+                if (node.HasValue("radiatorMinTempMult"))
+                    if (double.TryParse(node.GetValue("radiatorMinTempMult"), out td))
+                        radiatorMinTempMult = td;
 
                 ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
 				if (ignoreNode != null) {

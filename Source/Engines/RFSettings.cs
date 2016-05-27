@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
-using KSPAPIExtensions;
 
 namespace RealFuels
 {
@@ -32,6 +31,8 @@ namespace RealFuels
         public ConfigNode techLevels = null;
 
         public List<string> instantThrottleProps;
+        public double throttlingRate = 10d;
+        public double throttlingClamp = 1.1d;
 
         #region Ullage
         public bool simulateUllage = true;
@@ -96,8 +97,8 @@ namespace RealFuels
             }
 
             var asm = Assembly.GetCallingAssembly ();
-            var title = SystemUtils.GetAssemblyTitle (asm);
-            version = title + " " + SystemUtils.GetAssemblyVersionString (asm);
+            var title = MFSVersionReport.GetAssemblyTitle (asm);
+            version = title + " " + MFSVersionReport.GetAssemblyVersionString (asm);
 
             return version;
         }
@@ -123,11 +124,15 @@ namespace RealFuels
             if (node.HasNode("RF_TECHLEVELS"))
                 techLevels = node.GetNode("RF_TECHLEVELS");
 
+            // Throttling
             instantThrottleProps = new List<string>();
             if (node.HasNode("instantThrottleProps"))
                 foreach (ConfigNode.Value val in node.GetNode("instantThrottleProps").values)
                     instantThrottleProps.Add(val.value);
-            
+
+            node.TryGetValue("throttlingRate", ref throttlingRate);
+            node.TryGetValue("throttlingClamp", ref throttlingClamp);
+
             // Upgrade costs
             node.TryGetValue("configEntryCostMultiplier", ref configEntryCostMultiplier);
             node.TryGetValue("techLevelEntryCostFraction", ref techLevelEntryCostFraction);

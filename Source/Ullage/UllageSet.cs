@@ -175,9 +175,9 @@ namespace RealFuels.Ullage
         {
             ullageSim.SetPropellantStability(newStability);
         }
-        public string GetUllageState()
+        public string GetUllageState(out Color col)
         {
-            return ullageSim.GetPropellantStatus();
+            return ullageSim.GetPropellantStatus(out col);
         }
         public double GetUllageStability()
         {

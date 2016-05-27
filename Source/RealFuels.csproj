@@ -12,7 +12,7 @@
     <ReleaseVersion>10.8.0</ReleaseVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugType>none</DebugType>
+    <DebugType>full</DebugType>
     <Optimize>False</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
     <OutputPath>..\RealFuels\Plugins\</OutputPath>
@@ -20,24 +20,28 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
+    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>none</DebugType>
+    <DebugType>full</DebugType>
     <Optimize>True</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
     <OutputPath>..\RealFuels\Plugins\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
+    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Assembly-CSharp, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="KSPCore, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\Games\RO_105\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Games\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\KSPCore.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="KSPAPIExtensions">
-      <HintPath>..\..\..\..\..\..\Games\KSP_win_1.0.4_STOCK\GameData\ProceduralFairings\KSPAPIExtensions.dll</HintPath>
+    <Reference Include="KSPUtil, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Games\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\KSPUtil.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="SolverEngines">
       <HintPath>..\..\SolverEngines\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
@@ -47,11 +51,16 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\Games\KSP_win_1.0.5\KSP_Data\Managed\UnityEngine.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\Games\RO_105\KSP_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\..\..\..\..\Games\RO_105\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\Games\Steam\steamapps\common\Kerbal Space Program\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -82,13 +91,16 @@
     <Compile Include="Ullage\UllageSimulator.cs" />
     <Compile Include="Utilities\ConfigNodeExtensions.cs" />
     <Compile Include="Utilities\Utilities.cs" />
+    <Compile Include="Utilities\Styles.cs" />
   </ItemGroup>
   <ItemGroup />
   <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
+    <PreBuildEvent>cd $(SolutionDir)
+sh tools/git-version.sh
+cd $(TargetDir)</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"</PostBuildEvent>
+    <PostBuildEvent>del "System.Core.dll"
+C:\utils\pdb2mdb\pdb2mdb.exe RealFuels.dll</PostBuildEvent>
   </PropertyGroup>
 </Project>

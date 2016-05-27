@@ -49,6 +49,80 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v11.2.0
+* Correct a bug in tank basemass calculation such that parts sometimes mass less than they should in flight. Thanks soundnfury for finding this!
+* New UI skin thanks to Agathorn!
+* Fix an issue with scaling down tanks during utilization changes.
+* Round displayed available volume when below 1mL (no more -322 femtoliters).
+
+v11.1.1
+* Fix an NRE that was messing up VAB staging.
+
+v11.1
+* Enable conduction compensation (now that FAR no longer lowers conduction).
+* Set resources to volume=1 for compatibility with other mods.
+* Don't set wrong massDelta when basemass is negative (fixes the B9 proc wings mass issue amongst others).
+* Fix an NRE in database reloading at main menu.
+* Fix issue with configs getting lost (affected LR91 verniers).
+
+v11.0
+* Port to KSP 1.1, thanks to taniwha, Agathorn, Starwaster!
+* Make sure clamps with the pump do pump EC even when the EC is not in a ModuleFuelTanks tank.
+* Change boiloff to use wetted tank area and other boiloff improvements.
+* Temprorarily remove TweakScale support until we can get it non-buggy.
+* Infinite Propellants cheat now allows reignition even with no ignitions remaining / no ignitor resources remaining.
+
+v10.8.5
+* Don't try to stop other-config FX every frame, do more null checking (should speed things up a abit and avoid NREs).
+* Allow setting (in MFSSettings) the multiplier to lowest boiling point to use for radiator calls.
+* Rework engine throttle response speed, make it tunable in RealSettings and in per-engine cfg.
+
+v10.8.4
+* Update propellant status info line during warp as well.
+* Change background color of engine stack icon based on propellant stability (like parachutes).
+* Add the tech required to unlock a config to the info tooltip for that config (for unavailable configs).
+
+v10.8.3
+* Fix engine thrust display formatting in tooltips.
+* Add a bit of insulation to tank type Default (it represents S-IVB-level insulation).
+* Show cost display again in the tank GUI.
+* Update for SolverEngines 1.15.
+
+v10.8.2
+* Fix log spam.
+* Fix a typo in heat anim patch.
+* Fix bug with stock radiator interaction.
+
+v10.8.1
+* Update to SolverEngines v1.13.
+* Fix emissives patch for 1.0.5.
+* Add some patch magic to the emissives patch to fix VenStockRevamp engine emissives.
+* Add LOX insulation to tank type Cryogenic.
+
+v10.8
+* Update for KSP 1.0.5, start to tune boiloff for new thermo.
+* Add tooltips when hovering over (locked or unlocked) engine configs in the engine GUI.
+* Support descriptions for engine configs (key 'description' in the CONFIG). They are shown on the editor tooltip and in the config tooltip in the engine GUI.
+
+v10.7.2
+* Increased boiloff rate can be switched off by adding ferociousBoilOff = False to MFSSETTINGS (best use MM patch for that)
+* PhysicsGlobal.conductionFactor can be compensated for by adding globalConductionCompensation = true to MFSSETTINGS (use at own risk)
+* cryogenic outerInsulation improved to 0.0005 (previous value 0.01)
+* All LOX tanks now assume stainless steel tanks, except the ServiceModule.
+
+v10.7.1
+* Fixed bug where individual tank insulation/tank values weren't loading
+in.
+* Increased heat leak flux based on  part thermal mass (total) / part
+thermal mass - resource mass.
+* Tweaked ServiceModule and Default tank insulation values. (service module insulation calculated assuming Inconel/Titanium + vacuum/vapor shielded tanks.)
+
+v10.7
+* Revamped boiloff code for cryogenic propellants to be compatible with KSP 1.0.x thermodynamics (tanks will be properly cooled by evaporation of boiled off resources)
+* For now, only LqdOxygen, LqdHydrogen, LqdMethane and LqdAmmonia use the new system. (others may be added if needed) 
+* Insulation can be either for the whole tank part or per each internal tank.
+* Fix issue where TL was not being correctly reset on config change.
+
 v10.6.1
 * Fix throttling via `throttle` in CONFIG (minThrust was not being set properly).
 * Work around an ignition resource issue (due to, apparently, either a float precision issue or a bug in stock KSP code).

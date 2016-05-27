@@ -4,10 +4,11 @@ using System.Collections;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Events;
 using System.Collections.ObjectModel;
-using KSPAPIExtensions;
-using KSPAPIExtensions.PartMessage;
 using System.Reflection;
+
+using KSP.UI.Screens;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -45,10 +46,10 @@ namespace RealFuels.Tanks
         }
         #endregion
 
-        private static float MassMult
+        private static double MassMult
 		{
 			get {
-				return MFSSettings.useRealisticMass ? 1.0f : MFSSettings.tankMassMultiplier;
+				return MFSSettings.useRealisticMass ? 1.0 : MFSSettings.tankMassMultiplier;
 			}
 		}
 
@@ -62,13 +63,6 @@ namespace RealFuels.Tanks
 		public override void OnAwake ()
 		{
 			enabled = false;
-			if (CompatibilityChecker.IsWin64 ()) {
-				compatible = false;
-				Events["HideUI"].active = false;
-				Events["ShowUI"].active = false;
-				return;
-			}
-            PartMessageService.Register(this);
 			// Initialize utilization from the settings file
 			utilization = MFSSettings.partUtilizationDefault;
 		}
@@ -83,21 +77,23 @@ namespace RealFuels.Tanks
 		bool isDatabaseLoad
 		{
 			get {
-				return (GameSceneFilter.Loading.IsLoaded () || GameSceneFilter.SpaceCenter.IsLoaded ());
+				return (HighLogic.LoadedScene == GameScenes.SPACECENTER
+						|| HighLogic.LoadedScene == GameScenes.LOADING || HighLogic.LoadedScene == GameScenes.MAINMENU);
 			}
 		}
 
 		bool isEditor
 		{
 			get {
-				return GameSceneFilter.AnyEditor.IsLoaded ();
+				return HighLogic.LoadedSceneIsEditor;
 			}
 		}
 
 		bool isEditorOrFlight
 		{
 			get {
-				return GameSceneFilter.AnyEditorOrFlight.IsLoaded();
+				return (HighLogic.LoadedSceneIsEditor
+						|| HighLogic.LoadedSceneIsFlight);
 			}
 		}
 
@@ -145,35 +141,29 @@ namespace RealFuels.Tanks
 			} else if (node.HasValue ("volume") && double.TryParse (node.GetValue ("volume"), out volume)) {
 				totalVolume = volume * 100d / utilization;
 			}
-			using (PartMessageService.Instance.Ignore(this, null, typeof(PartResourcesChanged))) {
-				if (isDatabaseLoad) {
-					MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
-					ParseBaseMass(node);
-					ParseBaseCost(node);
-                    ParseInsulationFactor(node);
-					typesAvailable = node.GetValues ("typeAvailable");
-					RecordManagedResources ();
-				} else if (isEditorOrFlight) {
-					// The amounts initialized flag is there so that the tank type loading doesn't
-					// try to set up any resources. They'll get loaded directly from the save.
-					UpdateTankType (false);
-					// Destroy any resources still hanging around from the LOADING phase
-					for (int i = part.Resources.Count - 1; i >= 0; --i) {
-						PartResource partResource = part.Resources[i];
-						if (!tankList.Contains (partResource.resourceName))
-							continue;
-						part.Resources.list.RemoveAt (i);
-						DestroyImmediate (partResource);
-					}
-					RaiseResourceListChanged ();
-					// Setup the mass
-					part.mass = mass;
-					MassChanged (mass);
-					// compute massDelta based on prefab, if available.
-					if ((object)(part.partInfo) != null)
-						if ((object)(part.partInfo.partPrefab) != null)
-							massDelta = part.mass - part.partInfo.partPrefab.mass;
+			if (isDatabaseLoad) {
+				MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
+				ParseBaseMass(node);
+				ParseBaseCost(node);
+				ParseInsulationFactor(node);
+				typesAvailable = node.GetValues ("typeAvailable");
+				RecordManagedResources ();
+			} else if (isEditorOrFlight) {
+				// The amounts initialized flag is there so that the tank type loading doesn't
+				// try to set up any resources. They'll get loaded directly from the save.
+				UpdateTankType (false);
+				// Destroy any resources still hanging around from the LOADING phase
+				for (int i = part.Resources.Count - 1; i >= 0; --i) {
+					PartResource partResource = part.Resources[i];
+					if (!tankList.Contains (partResource.resourceName))
+						continue;
+					part.Resources.list.RemoveAt (i);
+					DestroyImmediate (partResource);
 				}
+				RaiseResourceListChanged ();
+                // Setup the mass
+                massDirty = true;
+                CalculateMass();
 			}
 		}
 
@@ -187,7 +177,7 @@ namespace RealFuels.Tanks
 
 			StringBuilder info = new StringBuilder ();
 			info.AppendLine ("Modular Fuel Tank:");
-			info.Append ("	Max Volume: ").AppendLine (volume.ToStringSI (unit: MFSSettings.unitLabel));
+			info.Append ("	Max Volume: ").AppendLine (PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel));
 			info.AppendLine ("	Tank can hold:");
 			for (int i = 0; i < tankList.Count; i++) {
 				FuelTank tank = tankList[i];
@@ -199,7 +189,7 @@ namespace RealFuels.Tanks
 		public string GetPrimaryField ()
 		{
 			return String.Format ("Max Volume: {0}, {1}{2}",
-							volume.ToStringSI (unit: MFSSettings.unitLabel),
+							PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel),
 							type,
 							(typesAvailable != null && typesAvailable.Length > 1) ? "*" : "");
 		}
@@ -251,24 +241,36 @@ namespace RealFuels.Tanks
 #endif
 
 
-            if (isEditor)
-            {
+            if (isEditor) {
+				GameEvents.onPartAttach.Add (onPartAttach);
+				GameEvents.onPartRemove.Add (onPartRemove);
+				GameEvents.onEditorShipModified.Add (onEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add (OnPartActionGuiDismiss);
                 TankWindow.OnActionGroupEditorOpened.Add (OnActionGroupEditorOpened);
                 TankWindow.OnActionGroupEditorClosed.Add (OnActionGroupEditorClosed);
-                if (part.symmetryCounterparts.Count > 0)
-                {
+                if (part.symmetryCounterparts.Count > 0) {
                     UpdateTankType (false);
-                    massDirty = true;
                 }
 
                 InitializeTankType ();
                 InitializeUtilization ();
             }
+			massDirty = true;
 			CalculateMass ();
             CalculateTankArea(out tankArea);
+
             part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
             part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, outerInsulationFactor);
+		}
+
+		void OnDestroy ()
+		{
+			GameEvents.onPartAttach.Remove (onPartAttach);
+			GameEvents.onPartRemove.Remove (onPartRemove);
+			GameEvents.onEditorShipModified.Remove (onEditorShipModified);
+			GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
+			TankWindow.OnActionGroupEditorOpened.Remove (OnActionGroupEditorOpened);
+			TankWindow.OnActionGroupEditorClosed.Remove (OnActionGroupEditorClosed);
 		}
 
 		public override void OnSave (ConfigNode node)
@@ -279,6 +281,69 @@ namespace RealFuels.Tanks
 
 			node.AddValue ("volume", volume.ToString ("G17")); // no KSPField support for doubles
 			tankList.Save (node);
+		}
+
+		const int wait_frames = 2;
+		int update_wait_frames = 0;
+
+		private IEnumerator WaitAndUpdate (ShipConstruct ship)
+		{
+			while (--update_wait_frames > 0) {
+				yield return null;
+			}
+
+			PartResourcesChanged ();
+		}
+
+		private void onEditorShipModified (ShipConstruct ship)
+		{
+            if (this == null)
+                return;
+
+			// some parts/modules fire the event before doing things
+			if (update_wait_frames == 0) {
+				update_wait_frames = wait_frames;
+				StartCoroutine (WaitAndUpdate (ship));
+			} else {
+				update_wait_frames = wait_frames;
+			}
+		}
+
+		int updateusedby_wait_frames = 0;
+
+		private IEnumerator WaitAndUpdateUsedBy ()
+		{
+			while (--updateusedby_wait_frames > 0) {
+				yield return null;
+			}
+
+			UpdateUsedBy ();
+		}
+
+		private void onPartAttach (GameEvents.HostTargetAction<Part, Part> hostTarget)
+		{
+            if (this == null)
+                return;
+
+			if (updateusedby_wait_frames == 0) {
+				updateusedby_wait_frames = wait_frames;
+				StartCoroutine (WaitAndUpdateUsedBy ());
+			} else {
+				updateusedby_wait_frames = wait_frames;
+			}
+		}
+
+		private void onPartRemove (GameEvents.HostTargetAction<Part, Part> hostTarget)
+		{
+            if (this == null)
+                return;
+
+            if (updateusedby_wait_frames == 0) {
+				updateusedby_wait_frames = wait_frames;
+				StartCoroutine (WaitAndUpdateUsedBy ());
+			} else {
+				updateusedby_wait_frames = wait_frames;
+			}
 		}
 
 		private void OnPartActionGuiDismiss(Part p)
@@ -318,16 +383,13 @@ namespace RealFuels.Tanks
                 debug1Display = "";
                 debug2Display = "";
 #endif
-                //debug1Display = (part.thermalRadiationFlux / part.radiativeArea).ToString("F");
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
-                // Don't call tank loss function if we're in analytic mode. That's what the interface is for.
-                //if (TimeWarp.CurrentRate <= PhysicsGlobals.ThermalMaxIntegrationWarp)
-                    StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
+				StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
 			}
 		}
 
-        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor : 1d; }} 
+        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor * PhysicsGlobals.SkinInternalConductionFactor : 1d; }}
         protected float tankArea;
         double boiloffMass = 0d;
 
@@ -347,8 +409,8 @@ namespace RealFuels.Tanks
                     minTemp = Math.Min(minTemp, tank.temperature);
             }
 
-            if (tankList.Count > 0 && minTemp < 300d)
-                part.radiatorMax = (minTemp * 0.992556d) / part.maxTemp;
+            if (tankList.Count > 0 && minTemp < 300d && MFSSettings.radiatorMinTempMult >= 0d)
+                part.radiatorMax = (minTemp * MFSSettings.radiatorMinTempMult) / part.maxTemp;
 
             if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
             {
@@ -387,11 +449,13 @@ namespace RealFuels.Tanks
 
 								double tankRatio = tank.maxAmount / volume;
 
-								double area = tankArea * tankRatio;
+								double totalArea = tankArea * tankRatio;
+                                double wettedArea = totalArea * (tank.amount / tank.maxAmount);
 
-                                double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * area)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * area)));
+                                double q = deltaTemp / ((tank.wallThickness / ((tank.wallConduction / ConductionFactors) * wettedArea)) + (tank.insulationThickness / ((tank.insulationConduction / ConductionFactors) * wettedArea)));
 								if (MFSSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
+
 
                                 //q /= ConductionFactors;
 
@@ -421,7 +485,7 @@ namespace RealFuels.Tanks
                                 if (lossAmount > tank.amount)
                                 {
                                     tank.amount = 0d;
-                                } 
+                                }
                                 else
                                 {
                                     tank.amount -= lossAmount;
@@ -488,10 +552,10 @@ namespace RealFuels.Tanks
         }
 
         // Analytic Preview Interface
-        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp)
+        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp, double x)
         {
             //analyticalInternalFlux = internalFlux;
-            float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
+            //float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
             //CalculateTankLossFunction(deltaTime, true);
         }
 
@@ -666,7 +730,7 @@ namespace RealFuels.Tanks
 		public double totalVolume;
 
 		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0"),
-		 UI_FloatEdit (minValue = 1, maxValue = 100, incrementSlide = 1, scene = UI_Scene.Editor)]
+		 UI_FloatRange (minValue = 1, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
 		public float utilization = -1;
 		private float oldUtilization = -1;
 
@@ -689,7 +753,7 @@ namespace RealFuels.Tanks
 
         [KSPField(isPersistant = true)]
 		public double partPrevTemperature = -1;
-		
+
         private double analyticSkinTemp;
 
         private double previewInternalFluxAdjust;
@@ -708,31 +772,12 @@ namespace RealFuels.Tanks
 
 		static string FormatFlux(double flux, bool scale = false)
 		{
-			string prefix = "";
-			if (flux < 0.0)
-			{
-				flux *= -1.0;
-				prefix = "-";
-			}
-            // TODO If scale then it should display in joules not watts
-			if (scale)
+			string unit = "W";
+			if (scale) {
 				flux *= TimeWarp.fixedDeltaTime;
-			if (flux >= 1000000000000000.0)
-				return prefix + (flux / 1000000000000000.0).ToString("F2") + " EW";
-			else if (flux >= 1000000000000.0)
-				return prefix + (flux / 1000000000000.0).ToString("F2") + " PW";
-			else if (flux >= 1000000000.0)
-				return prefix + (flux / 1000000000.0).ToString("F2") + " TW";
-			else if (flux >= 1000000.0)
-				return prefix + (flux / 1000000.0).ToString("F2") + " GW";
-			else if (flux >= 1000.0)
-				return prefix + (flux / 1000.0).ToString("F2") + " MW";
-			else if (flux >= 1.0)
-				return prefix + (flux).ToString("F2") + " kW";
-			else if (flux < 1.0)
-				return prefix + (flux * 1000.0).ToString("F2") + " W";
-			else
-				return "ERROR";
+				unit = "J";
+			}
+			return PartModuleUtil.PrintResourceSI (flux * 1e3, unit, 4);
 		}
 
 
@@ -741,20 +786,14 @@ namespace RealFuels.Tanks
 		[KSPField]
 		public float tankVolumeConversion = 1000;
 
-		[PartMessageListener (typeof (PartVolumeChanged), scenes: GameSceneFilter.AnyEditor)]
-		public void PartVolumeChanged (string volName, float newTotalVolume)
+		[KSPEvent (guiActive=false, active = true)]
+		void OnPartVolumeChanged (BaseEventData data)
 		{
-			if (volName != PartVolumes.Tankage.ToString ()) {
-				return;
+			string volName = data.Get<string> ("volName");
+			double newTotalVolume = data.Get<double> ("newTotalVolume") * tankVolumeConversion;
+			if (volName == "Tankage") {
+				ChangeTotalVolume (newTotalVolume);
 			}
-
-			double newTotalVolue = newTotalVolume * tankVolumeConversion;
-
-			if (newTotalVolue == totalVolume) {
-				return;
-			}
-
-			ChangeTotalVolume (newTotalVolue);
 		}
 
 		//called by StretchyTanks
@@ -785,7 +824,7 @@ namespace RealFuels.Tanks
 
 			bool doResources = false;
 
-			if (totalVolume > newTotalVolume) {
+			if (volume > newVolume) {
 				ChangeResources (volumeRatio, propagate);
 			} else {
 				doResources = true;
@@ -842,15 +881,12 @@ namespace RealFuels.Tanks
 		public float basemassConst;
 		public float baseCostConst;
 
-		[PartMessageEvent]
-		public event PartMassChanged MassChanged;
-
 		public static string FormatMass (float mass)
 		{
 			if (mass < 1.0f) {
-				return mass.ToStringSI (4, 6, "g");
+				return PartModuleUtil.PrintResourceSI (mass * 1e6, "g", 4);
 			}
-			return mass.ToStringSI (4, unit:"t");
+			return PartModuleUtil.PrintResourceSI (mass, "t", 4);
 		}
 
 		private void ParseBaseMass (ConfigNode node)
@@ -927,30 +963,34 @@ namespace RealFuels.Tanks
 
 		public void CalculateMass ()
 		{
-			if (tankList == null || !massDirty) {
-				return;
-			}
+			if (tankList == null || !massDirty)
+            {
+                return;
+            }
 			massDirty = false;
 
 			double basemass = basemassConst + basemassPV * (MFSSettings.basemassUseTotalVolume ? totalVolume : volume);
 
 			if (basemass >= 0) {
-				double tankDryMass = tankList
-					.Where (fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
-					.Sum (fuel => (float)fuel.maxAmount * fuel.mass / fuel.utilization);
+				double tankDryMass = 0;
+				for (int i = 0; i < tankList.Count; i++) {
+					var tank = tankList[i];
+					tankDryMass += tank.maxAmount * tank.mass / tank.utilization;
 
-				mass = (float) (basemass + tankDryMass) * MassMult;
+				}
+				mass = (float) ((basemass + tankDryMass) * MassMult);
 
-				if (part.mass != mass) {
+				// compute massDelta based on prefab, if available.
+				if (part.partInfo == null
+					|| part.partInfo.partPrefab == null) {
 					part.mass = mass;
-					MassChanged (mass);
-					// compute massDelta based on prefab, if available.
-					if ((object)(part.partInfo) != null)
-						if ((object)(part.partInfo.partPrefab) != null)
-							massDelta = part.mass - part.partInfo.partPrefab.mass;
+					massDelta = 0;
+				} else {
+					massDelta = mass - part.partInfo.partPrefab.mass;
 				}
 			} else {
 				mass = part.mass; // display dry mass even in this case.
+                massDelta = 0f;
 			}
 
 			if (isEditor) {
@@ -958,9 +998,12 @@ namespace RealFuels.Tanks
 					.Where (fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
 					.Sum (fuel => fuel.maxAmount/fuel.utilization);
 
-				SIPrefix pfx = volume.GetSIPrefix ();
-				Func<double, string> formatter = pfx.GetFormatter (volume);
-				volumeDisplay = "Avail: " + formatter (AvailableVolume) + pfx.PrefixString () + MFSSettings.unitLabel + " / Tot: " + formatter (volume) + pfx.PrefixString () + MFSSettings.unitLabel;
+                double availRounded = AvailableVolume;
+                if (Math.Abs(availRounded) < 0.001d)
+                    availRounded = 0d;
+				string availVolStr = PartModuleUtil.PrintResourceSI (availRounded, MFSSettings.unitLabel);
+				string volStr = PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel);
+				volumeDisplay = "Avail: " + availVolStr + " / Tot: " + volStr;
 
 				double resourceMass = part.Resources.Cast<PartResource> ().Sum (r => r.maxAmount*r.info.density);
 
@@ -979,15 +1022,22 @@ namespace RealFuels.Tanks
             {
                 totalTankArea += part.DragCubes.WeightedArea[i];
             }
+#if DEBUG
             Debug.Log("[MFT] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
             Debug.Log("[MFT] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
+#endif
         }
 
 		// mass-change interface, so Engineer's Report / Pad limit checking is correct.
 		public float massDelta = 0f; // assigned whenever part.mass is changed.
-		public float GetModuleMass(float defaultMass)
+		public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
 		{
 			return massDelta;
+		}
+
+		public ModifierChangeWhen GetModuleMassChangeWhen ()
+		{
+			return ModifierChangeWhen.FIXED;
 		}
 
         private void UpdateTweakableMenu ()
@@ -996,43 +1046,27 @@ namespace RealFuels.Tanks
                 return;
 			}
 
-            BaseEvent empty = Events["Empty"];
-            if (empty != null) {
-                empty.guiActiveEditor = (UsedVolume != 0);
+            bool activeChanged = false;
+            bool activeEditor = (UsedVolume != 0);
+            BaseEvent evt = Events["Empty"];
+            if (evt != null) {
+				activeChanged |= evt.guiActiveEditor != activeEditor;
+                evt.guiActiveEditor = activeEditor;
 			}
 
-            bool activeEditor = (AvailableVolume >= 0.001);
+            activeEditor = (AvailableVolume >= 0.001);
 
-            bool activeChanged = false;
             for (int i = 0; i < Events.Count; ++i) {
-                BaseEvent evt = Events.GetByIndex (i);
+                evt = Events.GetByIndex (i);
                 if (!evt.name.StartsWith ("MFT")) {
                     continue;
 				}
-                if (evt.guiActiveEditor != activeEditor) {
-                    activeChanged = true;
-				}
+				activeChanged |= evt.guiActiveEditor != activeEditor;
                 evt.guiActiveEditor = activeEditor;
             }
-            if (activeChanged) {
-                MarkWindowDirty ();
-			}
         }
 
-        [PartMessageListener (typeof (PartResourceListChanged))]
-        internal void MarkWindowDirty ()
-        {
-            if (_myWindow == null) {
-                _myWindow = part.FindActionWindow ();
-			}
-            if (_myWindow == null) {
-                return;
-			}
-            _myWindow.displayDirty = true;
-        }
-        private UIPartActionWindow _myWindow;
-
-		public float GetModuleCost (float defaultCost)
+		public float GetModuleCost (float defaultCost, ModifierStagingSituation sit)
 		{
 			double cst = 0;
 			if (baseCostPV >= 0) {
@@ -1052,27 +1086,32 @@ namespace RealFuels.Tanks
 			return (float)cst;
 		}
 
-		[PartMessageEvent]
-		public event PartResourceInitialAmountChanged ResourceInitialChanged;
-		[PartMessageEvent]
-		public event PartResourceMaxAmountChanged ResourceMaxChanged;
-		[PartMessageEvent]
-		public event PartResourceListChanged ResourceListChanged;
-
-		internal void RaiseResourceInitialChanged (PartResource resource, double amount)
+		public ModifierChangeWhen GetModuleCostChangeWhen ()
 		{
-			ResourceInitialChanged (resource, amount);
-		}
-		internal void RaiseResourceMaxChanged (PartResource resource, double amount)
-		{
-			ResourceMaxChanged (resource, amount);
-		}
-		internal void RaiseResourceListChanged ()
-		{
-			ResourceListChanged ();
+			return ModifierChangeWhen.FIXED;
 		}
 
-		[PartMessageListener (typeof (PartResourcesChanged))]
+		public void RaiseResourceInitialChanged(PartResource resource, double amount)
+		{
+			var data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<PartResource> ("resource", resource);
+			data.Set<double> ("amount", amount);
+			part.SendEvent ("OnResourceInitialChanged", data, 0);
+		}
+
+		public void RaiseResourceMaxChanged (PartResource resource, double amount)
+		{
+			var data = new BaseEventData (BaseEventData.Sender.USER);
+			data.Set<PartResource> ("resource", resource);
+			data.Set<double> ("amount", amount);
+			part.SendEvent ("OnResourceMaxChanged", data, 0);
+		}
+
+		public void RaiseResourceListChanged ()
+		{
+			part.SendEvent ("OnResourceListChanged", null, 0);
+		}
+
 		public void PartResourcesChanged ()
 		{
 			// We'll need to update the volume display regardless
@@ -1102,10 +1141,8 @@ namespace RealFuels.Tanks
 		[KSPEvent (guiName = "Remove All Tanks", guiActive = false, guiActiveEditor = true, name = "Empty")]
 		public void Empty ()
 		{
-			using (PartMessageService.Instance.Consolidate (this)) {
-				for (int i = 0; i < tankList.Count; i++) {
-					tankList[i].maxAmount = 0;
-				}
+			for (int i = 0; i < tankList.Count; i++) {
+				tankList[i].maxAmount = 0;
 			}
 			GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
 		}
@@ -1115,19 +1152,6 @@ namespace RealFuels.Tanks
 		{
 			return MFSSettings.ignoreFuelsForFill.Contains (name);
 		}
-
-		[PartMessageListener (typeof (PartChildAttached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
-		[PartMessageListener (typeof (PartChildDetached), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
-		public void VesselAttachmentsChanged (Part childPart)
-		{
-			UpdateUsedBy ();
-		}
-
-		/*[PartMessageListener (typeof (PartEngineConfigChanged), relations: PartRelationship.AnyPart, scenes: GameSceneFilter.AnyEditor)]
-		public void EngineConfigsChanged ()
-		{
-			UpdateUsedBy ();
-		}*/
 
 		internal readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
 
@@ -1202,7 +1226,7 @@ namespace RealFuels.Tanks
 					};
 					Events.Add (button);
 				}
-				MarkWindowDirty ();
+				//MarkWindowDirty ();
 			}
 		}
 

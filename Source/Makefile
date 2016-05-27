@@ -9,7 +9,7 @@ TSPLUGIN	:= ${TSGAMEDATA}/Plugins
 TSINTERACT	:= ${TSGAMEDATA}/TweakScaleInteraction
 
 TARGETS		:= bin/modularFuelTanks.dll
-TSTARGETS	:= bin/TweakScale_ModularFuelTanks.dll
+#TSTARGETS	:= bin/TweakScale_ModularFuelTanks.dll
 
 MFT_FILES := \
     assembly/AssemblyInfoMFT.cs		\
@@ -23,6 +23,7 @@ MFT_FILES := \
     Tanks/TankDefinition.cs			\
     Tanks/TankDefinitionList.cs		\
     Tanks/TankWindow.cs				\
+	Utilities/Styles.cs				\
     Pumps/RefuelingPump.cs			\
 	EditorToolbar.cs				\
 	$e
@@ -32,7 +33,7 @@ MFT_TS_FILES := \
 	$e
 
 RESGEN2	:= resgen2
-GMCS	:= gmcs
+GMCS	:= mcs
 GIT		:= git
 TAR		:= tar
 ZIP		:= zip
@@ -56,8 +57,9 @@ info:
 bin/modularFuelTanks.dll: ${MFT_FILES}
 	@mkdir -p bin
 	${GMCS} -t:library -lib:${APIEXTDATA},${MANAGED} \
-		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
-		-r:KSPAPIExtensions \
+		-r:Assembly-CSharp,Assembly-CSharp-firstpass \
+		-r:UnityEngine,UnityEngine.UI \
+		-r:KSPUtil \
 		-out:$@ $^
 
 bin/TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} bin/modularFuelTanks.dll
@@ -74,7 +76,7 @@ clean:
 install: all
 	mkdir -p ${PLUGINDIR}
 	cp ${TARGETS} ${PLUGINDIR}
-	mkdir -p ${TSINTERACT}
-	cp ${TSTARGETS} ${PLUGINDIR}
+	#mkdir -p ${TSINTERACT}
+	#cp ${TSTARGETS} ${PLUGINDIR}
 
 .PHONY: all clean info install

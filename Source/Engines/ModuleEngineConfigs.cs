@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using System.Linq;
-using KSPAPIExtensions.PartMessage;
 using UnityEngine;
 using KSP;
-using KSPAPIExtensions.Utils;
 using Debug = UnityEngine.Debug;
 using RealFuels.TechLevels;
 using SolverEngines;
+using KSP.UI.Screens;
 
 namespace RealFuels
 {
@@ -146,6 +145,8 @@ namespace RealFuels
         public List<ConfigNode> configs;
         public ConfigNode config;
 
+        public static Dictionary<string, string> techNameToTitle = new Dictionary<string, string>();
+
         // KIDS integration
         public static float ispSLMult = 1.0f;
         public static float ispVMult = 1.0f;
@@ -192,28 +193,41 @@ namespace RealFuels
         #endregion
 
         #region Callbacks
-        public float GetModuleCost(float stdCost)
+        public float GetModuleCost(float stdCost, ModifierStagingSituation sit)
         {
             return configCost;
         }
+        public ModifierChangeWhen GetModuleCostChangeWhen() { return ModifierChangeWhen.FIXED; }
 
-        public float GetModuleMass(float defaultMass)
+        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
         {
             return massDelta;
         }
+        public ModifierChangeWhen GetModuleMassChangeWhen() { return ModifierChangeWhen.FIXED; }
         #endregion
 
         #region PartModule Overrides
         public override void OnAwake ()
         {
-            if (!CompatibilityChecker.IsAllCompatible())
+            if (HighLogic.LoadedSceneIsEditor)
             {
-                compatible = false;
-                return;
-            }
-            PartMessageService.Register(this);
-            if(HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
+                string fullPath = KSPUtil.ApplicationRootPath + HighLogic.CurrentGame.Parameters.Career.TechTreeUrl;
+
+                ConfigNode fileNode = ConfigNode.Load(fullPath);
+                if (fileNode.HasNode("TechTree"))
+                {
+                    techNameToTitle.Clear();
+
+                    ConfigNode treeNode = fileNode.GetNode("TechTree");
+                    ConfigNode[] ns = treeNode.GetNodes("RDNode");
+                    foreach (ConfigNode n in ns)
+                    {
+                        if (n.HasValue("id") && n.HasValue("title"))
+                            techNameToTitle[n.GetValue("id")] = n.GetValue("title");
+                    }
+                }
+            }
 
             if(configs == null)
                 configs = new List<ConfigNode>();
@@ -249,17 +263,20 @@ namespace RealFuels
                         massDelta = part.mass - part.partInfo.partPrefab.mass;
             }
 
-
             if (configs == null)
                 configs = new List<ConfigNode>();
-            else
+
+            ConfigNode[] cNodes = node.GetNodes("CONFIG");
+            if (cNodes != null && cNodes.Length > 0)
+            {
                 configs.Clear();
 
-            foreach (ConfigNode subNode in node.GetNodes ("CONFIG")) {
-                //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
-                ConfigNode newNode = new ConfigNode("CONFIG");
-                subNode.CopyTo (newNode);
-                configs.Add (newNode);
+                foreach (ConfigNode subNode in cNodes) {
+                    //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
+                    ConfigNode newNode = new ConfigNode("CONFIG");
+                    subNode.CopyTo(newNode);
+                    configs.Add(newNode);
+                }
             }
 
 
@@ -384,7 +401,7 @@ namespace RealFuels
                 info += "    " + config.GetValue("description") + "\n";
             if (config.HasValue(thrustRating))
             {
-                info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("G3") + " kN";
+                info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.###") + " kN";
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
                     info += ", min " + (float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)) * 100f).ToString("N0") + "%";
@@ -525,13 +542,16 @@ namespace RealFuels
         public void StopFX()
         {
             //if(HighLogic.LoadedSceneIsFlight)
-                for (int i = effectsToStop.Length - 1; i >= 0 ; --i)
+            if (part != null && effectsToStop != null)
+            {
+                for (int i = effectsToStop.Length - 1; i >= 0; --i)
                     part.Effect(effectsToStop[i], 0f);
+            }
         }
         #endregion
 
         #region MonoBehaviour Methods
-        virtual public void FixedUpdate()
+        /*virtual public void FixedUpdate()
         {
             if (!compatible)
                 return;
@@ -539,7 +559,7 @@ namespace RealFuels
                 return;
 
             StopFX();
-        }
+        }*/
         #endregion
 
         #region Configuration
@@ -557,7 +577,7 @@ namespace RealFuels
             if (!UnlockedConfig(newConfig, part))
             {
                 if(newConfig == null)
-                    Debug.Log("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
+                    Debug.LogError("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
 
                 foreach(ConfigNode cfg in configs)
                     if (UnlockedConfig(cfg, part))
@@ -603,7 +623,7 @@ namespace RealFuels
 
                 if ((object)pModule == null)
                 {
-                    Debug.Log("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
+                    Debug.LogError("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
                     return;
                 }
 
@@ -627,12 +647,12 @@ namespace RealFuels
                 // clear propellant gauges
                 foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
                 {
-                    if (field.FieldType == typeof(Dictionary<Propellant, VInfoBox>))
+                    if (field.FieldType == typeof(Dictionary<Propellant, ProtoStageIconInfo>))
                     {
-                        Dictionary<Propellant, VInfoBox> boxes = (Dictionary<Propellant, VInfoBox>)(field.GetValue(pModule));
+                        Dictionary<Propellant, ProtoStageIconInfo> boxes = (Dictionary<Propellant, ProtoStageIconInfo>)(field.GetValue(pModule));
                         if (boxes == null)
                             continue;
-                        foreach (VInfoBox v in boxes.Values)
+                        foreach (ProtoStageIconInfo v in boxes.Values)
                         {
                             if (v == null) //just in case...
                                 continue;
@@ -642,7 +662,7 @@ namespace RealFuels
                             }
                             catch (Exception e)
                             {
-                                Debug.Log("*RFMEC* Trying to remove info box: " + e.Message);
+                                Debug.LogError("*RFMEC* Trying to remove info box: " + e.Message);
                             }
                         }
                         boxes.Clear();
@@ -791,7 +811,7 @@ namespace RealFuels
                     parts = vessel.parts;
                 else parts = new List<Part>();
                 for (int i = parts.Count - 1; i >= 0; --i)
-                    parts[i].SendMessage("UpdateUsedBy");
+                    parts[i].SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
 
                 SetupFX();
 
@@ -804,9 +824,10 @@ namespace RealFuels
             }
             else
             {
-                Debug.Log("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.");
-                Debug.Log("For part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
+                Debug.LogError("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.\nFor part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
             }
+
+            StopFX();
         }
 
         virtual protected int ConfigIgnitions(int ignitions)
@@ -1189,8 +1210,15 @@ namespace RealFuels
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
         public static string myToolTip = "";
         private int counterTT;
+        private bool styleSetup = false;
         public void OnGUI()
         {
+            if (!styleSetup)
+            {
+                styleSetup = true;
+                Styles.InitStyles ();
+            }
+
             if (!compatible)
                 return;
 
@@ -1220,7 +1248,8 @@ namespace RealFuels
                 if (cursorInGUI)
                 {
                     editor.Lock(false, false, false, "RFGUILock");
-                    EditorTooltip.Instance.HideToolTip();
+                    if (EditorTooltip.Instance != null)
+                        EditorTooltip.Instance.HideToolTip();
                 }
                 else
                 {
@@ -1238,7 +1267,8 @@ namespace RealFuels
                 if (cursorInGUI)
                 {
                     editor.Lock(false, false, false, "RFGUILock");
-                    EditorTooltip.Instance.HideToolTip();
+                    if (EditorTooltip.Instance != null)
+                        EditorTooltip.Instance.HideToolTip();
                 }
                 else
                 {
@@ -1251,10 +1281,11 @@ namespace RealFuels
                 editor.Unlock("RFGUILock");
                 return;
             }
+            myToolTip = myToolTip.Trim ();
+            if (!String.IsNullOrEmpty(myToolTip))
+                GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
 
-            GUI.Label(tooltipRect, myToolTip);
-
-            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title);
+            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
         }
 
         /*private int oldTechLevel = -1;
@@ -1295,6 +1326,7 @@ namespace RealFuels
 
         private void engineManagerGUI(int WindowID)
         {
+            GUILayout.Space (20);
             foreach (ConfigNode node in configs)
             {
                 string nName = node.GetValue("name");
@@ -1371,7 +1403,10 @@ namespace RealFuels
                     }
                     else
                     {
-                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node)));
+                        string techStr = "";
+                        if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out techStr))
+                            techStr = "\nRequires: " + techStr;
+                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node) + techStr));
                     }
                 }
                 GUILayout.EndHorizontal();
@@ -1539,7 +1574,7 @@ namespace RealFuels
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
-                    RFSettings.Instance.engineConfigs[partName] = configs;
+                    RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
                     /*Debug.Log("*RFMEC* Saved " + configs.Count + " configs");
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
                 }
@@ -1548,7 +1583,7 @@ namespace RealFuels
                     /*Debug.Log("*RFMEC* ERROR: part " + partName + " already in database! Current count = " + configs.Count + ", db count = " + RFSettings.Instance.engineConfigs[partName].Count);
                     Debug.Log("DB nodes:" + Utilities.PrintConfigs(RFSettings.Instance.engineConfigs[partName]));
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
-                    configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
+                    //configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
                 }
 
             }
@@ -1556,7 +1591,7 @@ namespace RealFuels
             {
                 if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 {
-                    configs = RFSettings.Instance.engineConfigs[partName];
+                    configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
                     /*Debug.Log("Found " + configs.Count + " configs!");
                     Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
                 }

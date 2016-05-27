@@ -4,8 +4,8 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using System.Collections.ObjectModel;
-using KSPAPIExtensions;
-using KSPAPIExtensions.PartMessage;
+
+using KSP.UI.Screens;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -96,9 +96,6 @@ namespace RealFuels.Tanks
 		void Awake ()
 		{
 			enabled = false;
-			if (CompatibilityChecker.IsWin64 ()) {
-				return;
-			}
 			instance = this;
 			StartCoroutine (CheckActionGroupEditor ());
 		}
@@ -110,8 +107,15 @@ namespace RealFuels.Tanks
 
         private Rect guiWindowRect = new Rect (0, 0, 0, 0);
         private static Vector3 mousePos = Vector3.zero;
+        private bool styleSetup = false;
         public void OnGUI ()
         {
+            if (!styleSetup)
+            {
+                styleSetup = true;
+                Styles.InitStyles ();
+            }
+
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor) {
                 return;
@@ -141,19 +145,21 @@ namespace RealFuels.Tanks
 			cursorInGUI = guiWindowRect.Contains (mousePos);
 			if (cursorInGUI) {
 				editor.Lock (false, false, false, "MFTGUILock");
-				EditorTooltip.Instance.HideToolTip ();
+                if (EditorTooltip.Instance != null)
+				    EditorTooltip.Instance.HideToolTip ();
 			} else {
 				editor.Unlock ("MFTGUILock");
 			}
-
-            GUI.Label (tooltipRect, myToolTip);
-            guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Fuel Tanks for " + tank_module.part.partInfo.title);
+            myToolTip = myToolTip.Trim ();
+            if (!String.IsNullOrEmpty(myToolTip))
+                GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
+            guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Fuel Tanks for " + tank_module.part.partInfo.title, Styles.styleEditorPanel);
         }
 
 		void DisplayMass ()
 		{
 			GUILayout.BeginHorizontal ();
-			GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cst " + tank_module.GetModuleCost (0).ToString ("N1"));
+			GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cost " + tank_module.GetModuleCost (0, ModifierStagingSituation.CURRENT).ToString ("N1"));
 			GUILayout.EndHorizontal ();
 		}
 
@@ -173,6 +179,7 @@ namespace RealFuels.Tanks
 			InitializeStyles ();
 
 			GUILayout.BeginVertical ();
+            GUILayout.Space (20);
 
 			if (CheckTankList ()) {
 				GUILayout.BeginHorizontal ();
@@ -182,6 +189,8 @@ namespace RealFuels.Tanks
 					GUILayout.Label ("Volume: " + tank_module.volumeDisplay);
 				}
 				GUILayout.EndHorizontal ();
+
+                DisplayMass();
 
 				scrollPos = GUILayout.BeginScrollView (scrollPos);
 
@@ -250,7 +259,7 @@ namespace RealFuels.Tanks
 					//Debug.LogWarning ("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
 				} else {
 					double tmp;
-					if (MathUtils.TryParseExt (trimmed, out tmp)) {
+					if (double.TryParse (trimmed, out tmp)) {
 						tank.maxAmount = tmp;
 
 						if (tmp != 0) {
@@ -294,7 +303,9 @@ namespace RealFuels.Tanks
 
 		void AddTank (FuelTank tank)
 		{
-			string extraData = "Max: " + (tank_module.AvailableVolume * tank.utilization).ToStringExt ("S3") + "L (+" + ModuleFuelTanks.FormatMass ((float) (tank_module.AvailableVolume * tank.mass)) + " )";
+			double maxVol = tank_module.AvailableVolume * tank.utilization;
+			string maxVolStr = PartModuleUtil.PrintResourceSI (maxVol, "L");
+			string extraData = "Max: " + maxVolStr + " (+" + ModuleFuelTanks.FormatMass ((float) (tank_module.AvailableVolume * tank.mass)) + " )";
 
 			GUILayout.Label (extraData, GUILayout.Width (150));
 

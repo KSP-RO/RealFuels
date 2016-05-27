@@ -15,7 +15,7 @@ namespace RealFuels
         private double flowMultMin, flowMultCap, flowMultCapSharpness;
         private bool combusting = true;
         private double varyThrust = 0d;
-        private bool pressure = true, ullage = true, ignited = false, disableUnderwater;
+        private bool pressure = true, ullage = true, disableUnderwater;
         private double scale = 1d; // scale for tweakscale
 
         private float seed = 0f;
@@ -99,11 +99,10 @@ namespace RealFuels
             partTemperature = tmp;
         }
 
-        public void SetEngineStatus(bool pressureOK, bool ullageOK, bool nIgnited)
+        public void SetPropellantStatus(bool pressureOK, bool ullageOK)
         {
             pressure = pressureOK;
             ullage = ullageOK;
-            ignited = nIgnited;
         }
         public void SetScale(double newScale)
         {
@@ -120,7 +119,7 @@ namespace RealFuels
             Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;
 
             // if we're not combusting, don't combust and start cooling off
-            combusting = running && ignited;
+            combusting = running;
             statusString = "Nominal";
 
             // ullage check first, overwrite if bad pressure or no propellants
@@ -157,9 +156,11 @@ namespace RealFuels
                 statusString = "Airflow outside specs";
             }
 
-            if (!combusting || commandedThrottle <= 0d)
+            if (commandedThrottle <= 0d)
+                combusting = false;
+
+            if (!combusting)
             {
-                combusting = false; // for throttle FX
                 double declinePow = Math.Pow(tempDeclineRate, TimeWarp.fixedDeltaTime);
                 chamberTemp = Math.Max(Math.Max(t0, partTemperature), chamberTemp * declinePow);
                 fxPower = 0f;
