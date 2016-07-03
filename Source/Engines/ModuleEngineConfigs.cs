@@ -204,6 +204,19 @@ namespace RealFuels
             return massDelta;
         }
         public ModifierChangeWhen GetModuleMassChangeWhen() { return ModifierChangeWhen.FIXED; }
+
+        [KSPEvent(guiActive = false, active = true)]
+        void OnPartScaleChanged(BaseEventData data)
+        {
+            float factorAbsolute = data.Get<float>("factorAbsolute");
+            float factorRelative = data.Get<float>("factorRelative");
+            scale = factorAbsolute * factorAbsolute; // quadratic
+            SetConfiguration();
+            /*Debug.Log("PartMessage: OnPartScaleChanged:"
+                + "\npart=" + part.name
+                + "\nfactorRelative=" + factorRelative.ToString()
+                + "\nfactorAbsolute=" + factorAbsolute.ToString());*/
+        }
         #endregion
 
         #region PartModule Overrides
