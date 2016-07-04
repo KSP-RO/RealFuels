@@ -49,6 +49,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v11.3.0
+* Tweak to boiloff and to how conduction is compensated.
+* Slight optimization in the ullage VesselModule.
+* Attempting to add back tweakscale support for ModuleEngineConfigs.
+* Update to KSP 1.1.3.
+
 v11.2.0
 * Correct a bug in tank basemass calculation such that parts sometimes mass less than they should in flight. Thanks soundnfury for finding this!
 * New UI skin thanks to Agathorn!
