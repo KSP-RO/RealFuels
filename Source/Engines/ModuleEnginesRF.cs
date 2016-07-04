@@ -329,7 +329,7 @@ namespace RealFuels
                 else if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetIconColor(ullageColor);
+                    part.stackIcon.SetBackgroundColor(ullageColor);
                 }
                 else
                     propellantStatus = "Nominal";
