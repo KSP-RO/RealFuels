@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v11.3.1
+* Fix an issue with verniers and TestFlight.
+
 v11.3.0
 * Tweak to boiloff and to how conduction is compensated.
 * Slight optimization in the ullage VesselModule.
