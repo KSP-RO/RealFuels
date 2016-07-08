@@ -183,7 +183,7 @@ namespace RealFuels
             {
                 try
                 {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "engineConfig", configuration, "RealFuels" });
+                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels" });
                 }
                 catch
                 {
