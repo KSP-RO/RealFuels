@@ -34,6 +34,10 @@ namespace RealFuels
         public double throttlingRate = 10d;
         public double throttlingClamp = 1.1d;
 
+        public static bool ferociousBoilOff = true;
+        public static bool globalConductionCompensation = false;
+        public static bool debugBoilOff = false;
+
         #region Ullage
         public bool simulateUllage = true;
         public bool limitedIgnitions = true;
@@ -140,6 +144,9 @@ namespace RealFuels
             node.TryGetValue("techLevelScienceEntryCostFraction", ref techLevelScienceEntryCostFraction);
             node.TryGetValue("configCostToScienceMultiplier", ref configCostToScienceMultiplier);
             node.TryGetValue("usePartNameInConfigUnlock", ref usePartNameInConfigUnlock);
+            node.TryGetValue("ferociousBoilOff", ref ferociousBoilOff);
+            node.TryGetValue("globalConductionCompensation", ref globalConductionCompensation);
+            node.TryGetValue("debugBoilOff", ref debugBoilOff);
 
             #region Ullage
             if (node.HasNode("Ullage"))
