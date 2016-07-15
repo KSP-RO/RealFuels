@@ -16,8 +16,6 @@ namespace RealFuels
         public static bool partUtilizationTweakable = false;
         public static string unitLabel = "u";
         public static bool basemassUseTotalVolume = false;
-        public static bool ferociousBoilOff = true;
-        public static bool globalConductionCompensation = false;
         public static double radiatorMinTempMult = 0.99d;
 
         public static HashSet<string> ignoreFuelsForFill;
@@ -132,14 +130,6 @@ namespace RealFuels
 				}
                 if (bool.TryParse(node.GetValue("basemassUseTotalVolume"), out tb)) {
                     basemassUseTotalVolume = tb;
-                }
-                if (bool.TryParse(node.GetValue("ferociousBoilOff"), out tb))
-                {
-                    ferociousBoilOff = tb;
-                }
-                if (bool.TryParse(node.GetValue("globalConductionCompensation"), out tb))
-                {
-                    globalConductionCompensation = tb;
                 }
                 if (node.HasValue("radiatorMinTempMult"))
                     if (double.TryParse(node.GetValue("radiatorMinTempMult"), out td))
