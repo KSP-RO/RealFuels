@@ -235,10 +235,11 @@ namespace RealFuels.Tanks
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
 
-#if DEBUG
-            Fields["debug1Display"].guiActive = true;
-            Fields["debug2Display"].guiActive = true;
-#endif
+            if (RFSettings.debugBoilOff)
+            {
+                Fields["debug1Display"].guiActive = true;
+                Fields["debug2Display"].guiActive = true;
+            }
 
 
             if (isEditor) {
@@ -377,19 +378,20 @@ namespace RealFuels.Tanks
 			//print ("[Real Fuels]" + Time.time.ToString ());
 			if (HighLogic.LoadedSceneIsFlight)
             {
-#if DEBUG
-                //debug1Display = part.skinInternalConductionMult.ToString ("F12");
-                //debug2Display = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
-                debug1Display = "";
-                debug2Display = "";
-#endif
+                if (RFSettings.debugBoilOff)
+                {
+                    //debug1Display = part.skinInternalConductionMult.ToString ("F12");
+                    //debug2Display = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
+                    debug1Display = "";
+                    debug2Display = "";
+                }
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
 				StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
 			}
 		}
 
-        public double ConductionFactors { get { return MFSSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor : 1d; }}
+        private static double ConductionFactors { get { return RFSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor : 1d; }}
         protected float tankArea;
         double boiloffMass = 0d;
 
@@ -434,23 +436,24 @@ namespace RealFuels.Tanks
                             double massLost = 0.0;
                             double deltaTemp = part.temperature - tank.temperature;
 
-#if DEBUG
-                            if (debug2Display != "")
-                                debug2Display += " / ";
+                            if (RFSettings.debugBoilOff)
+                            {
+                                if (debug2Display != "")
+                                    debug2Display += " / ";
 
-                            if (debug1Display != "")
-                                debug1Display += " / ";
-#endif
+                                if (debug1Display != "")
+                                    debug1Display += " / ";
+                            }
+
                             if (deltaTemp > 0)
                             {
-								double tankRatio = tank.maxAmount / volume;
+								//double tankRatio = tank.maxAmount / volume;
 
-								double totalArea = tankArea * tankRatio;
-                                double wettedArea = totalArea * (tank.amount / tank.maxAmount);
+                                double wettedArea = tank.totalArea * (tank.amount / tank.maxAmount);
 
                                 double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * wettedArea)) + (tank.insulationThickness / (tank.insulationConduction * wettedArea)));
-								if (MFSSettings.ferociousBoilOff)
-                                    q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tankRatio;
+								if (RFSettings.ferociousBoilOff)
+                                    q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tank.tankRatio;
 
 
                                 //q /= ConductionFactors;
@@ -458,16 +461,18 @@ namespace RealFuels.Tanks
                                 q *= 0.001d; // convert to kilowatts
 
                                 massLost = q / tank.vsp;
-#if DEBUG
-                                // Only do debugging displays if compiled for debugging.
-                                debug1Display += FormatFlux(q);
-                                debug2Display += (massLost * 1000 * 3600).ToString("F4") + "kg/hr";
-                                //debug2Display += area.ToString("F2");
 
-                                //debug1Display = tank.wallThickness + " / " + tank.wallConduction;
-                                //debug2Display = tank.insulationThickness + " / " + tank.insulationConduction;
+                                if (RFSettings.debugBoilOff)
+                                {
+                                    // Only do debugging displays if compiled for debugging.
 
-#endif
+                                    debug1Display += FormatFlux(q);
+                                    debug2Display += (massLost * 1000 * 3600).ToString("F4") + "kg/hr";
+                                    //debug2Display += area.ToString("F2");
+
+                                    //debug1Display = tank.wallThickness + " / " + tank.wallConduction;
+                                    //debug2Display = tank.insulationThickness + " / " + tank.insulationConduction;
+                                }
                                 massLost *= deltaTime; // Frame scaling
                             }
 
@@ -1022,6 +1027,29 @@ namespace RealFuels.Tanks
             Debug.Log("[MFT] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
             Debug.Log("[MFT] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
 #endif
+            // This allows a rough guess as to individual tank surface area based on volume but it breaks down at very small fractions
+            // Assume spherically shaped if ratio less than 1/8th
+            for (int i = tankList.Count - 1; i >= 0; --i)
+            {
+                FuelTank tank = tankList[i];
+                if (tank.maxAmount > 0.0 && totalTankArea > 0.0)
+                {
+                    tank.tankRatio = tank.maxAmount / volume;
+                    Debug.Log("[RF] tankRatio = " + tank.tankRatio.ToString());
+                    Debug.Log("[RF] maxAmount = " + tank.maxAmount.ToString());
+                    Debug.Log("[RF] totalTankArea = " + totalTankArea.ToString());
+                    if (tank.tankRatio <= 0.125)
+                    {
+                        tank.totalArea = Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tank.maxAmount / 1000.0) * 6, 2.0 / 3.0);
+                        Debug.Log("[RF] Calculating spherical tank area as " + tank.totalArea.ToString());
+                    }
+                    else
+                    {
+                        tank.totalArea = totalTankArea * tank.tankRatio;
+                        Debug.Log("[RF] Tank surface area defaulting to " + tank.totalArea.ToString());
+                    }
+                }
+            }
         }
 
 		// mass-change interface, so Engineer's Report / Pad limit checking is correct.

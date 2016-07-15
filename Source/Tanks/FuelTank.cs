@@ -40,6 +40,9 @@ namespace RealFuels.Tanks
 		public double loss_rate = 0.0;
         // representing conduction factor from Fourier conduction formula.
         public double vsp;
+        // cache for tank.totalArea and tank.tankRatio for use by ModuleFuelTanks
+        public double totalArea = -1;
+        public double tankRatio = -1;
 
         //[Persistent]
         public double wallThickness = 0.1;
