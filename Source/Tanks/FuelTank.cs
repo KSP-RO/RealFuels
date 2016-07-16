@@ -29,7 +29,10 @@ namespace RealFuels.Tanks
 		public string name = "UnknownFuel";
 		[Persistent]
 		public string note = "";
-		[Persistent]
+      
+        public string boiloffProduct = "";
+
+        [Persistent]
 		public float utilization = 1.0f;
 		[Persistent]
 		public float mass = 0.0f;
@@ -38,8 +41,11 @@ namespace RealFuels.Tanks
         // TODO Retaining for fallback purposes but should be deprecated eventually
 		[Persistent]
 		public double loss_rate = 0.0;
-        // representing conduction factor from Fourier conduction formula.
+
         public double vsp;
+
+        public double resourceConductivity = 10;
+
         // cache for tank.totalArea and tank.tankRatio for use by ModuleFuelTanks
         public double totalArea = -1;
         public double tankRatio = -1;
@@ -47,7 +53,7 @@ namespace RealFuels.Tanks
         //[Persistent]
         public double wallThickness = 0.1;
         //[Persistent]
-        public double wallConduction = 205; // Aluminum conductive factor
+        public double wallConduction = 205; // Aluminum conductive factor (@cryogenic temperatures)
         //[Persistent]
         public double insulationThickness = 0.0;
         //[Persistent]
@@ -66,13 +72,16 @@ namespace RealFuels.Tanks
 
         public double density = 0d;
 
-		public bool resourceAvailable;
+        public bool resourceAvailable;
 
 		internal string amountExpression;
 		internal string maxAmountExpression;
 
 		[NonSerialized]
 		private ModuleFuelTanks module;
+
+
+        public PartResourceDefinition boiloffProductResource;
 
 		//------------------- virtual properties
 		public Part part
@@ -94,8 +103,23 @@ namespace RealFuels.Tanks
 				return part.Resources[name];
 			}
 		}
-
-		public void RaiseResourceInitialChanged (Part part, PartResource resource, double amount)
+        /*
+        public PartResourceDefinition boiloffProductResource
+        {
+            get
+            {
+                if (boiloffProduct != "")
+                {
+                    if (_boiloffProductResource == null)
+                        _boiloffProductResource = PartResourceLibrary.Instance.GetDefinition(boiloffProduct);
+                    return _boiloffProductResource;
+                }
+                else
+                    return null;
+            }
+        }
+*/
+        public void RaiseResourceInitialChanged (Part part, PartResource resource, double amount)
 		{
 			var data = new BaseEventData (BaseEventData.Sender.USER);
 			data.Set<PartResource> ("resource", resource);
@@ -338,6 +362,8 @@ namespace RealFuels.Tanks
 
 			resourceAvailable = PartResourceLibrary.Instance.GetDefinition (name) != null;
             MFSSettings.resourceVsps.TryGetValue(name, out vsp);
+            MFSSettings.resourceConductivities.TryGetValue(name, out resourceConductivity);
+
 
             if (node.HasValue("wallThickness"))
                 double.TryParse(node.GetValue("wallThickness"), out wallThickness);
@@ -347,6 +373,8 @@ namespace RealFuels.Tanks
                 double.TryParse(node.GetValue("insulationThickness"), out insulationThickness);
             if (node.HasValue("insulationConduction"))
                 double.TryParse(node.GetValue("insulationConduction"), out insulationConduction);
+            if (node.HasValue("boiloffProduct"))
+                boiloffProductResource = PartResourceLibrary.Instance.GetDefinition(node.GetValue("boiloffProduct"));
 
             GetDensity();
 		}
