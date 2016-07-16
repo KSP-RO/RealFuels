@@ -23,6 +23,7 @@ namespace RealFuels
 
 		public static Dictionary<string, HashSet<string>> managedResources;
         public static Dictionary<string, double> resourceVsps;
+        public static Dictionary<string, double> resourceConductivities;
 
         private static Dictionary<string, ConfigNode[]> overrides;
 
@@ -90,8 +91,9 @@ namespace RealFuels
 			managedResources = new Dictionary<string,HashSet<string>> ();
             overrides = new Dictionary<string, ConfigNode[]>();
 
-            // fill vsps
+            // fill vsps & conductivities
             resourceVsps = new Dictionary<string, double>();
+            resourceConductivities = new Dictionary<string, double>();
             foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("RESOURCE_DEFINITION"))
             {
                 if (n.HasValue("vsp"))
@@ -100,7 +102,14 @@ namespace RealFuels
                     if (double.TryParse(n.GetValue("vsp"), out dtmp))
                         resourceVsps[n.GetValue("name")] = dtmp;
                 }
+                if (n.HasValue("conductivity"))
+                {
+                    double dtmp;
+                    if (double.TryParse(n.GetValue("conductivity"), out dtmp))
+                        resourceConductivities[n.GetValue("name")] = dtmp;
+                }
             }
+
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes ("MFSSETTINGS").LastOrDefault ();
             Debug.Log ("[MFS] Loading global settings");

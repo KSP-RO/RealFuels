@@ -451,7 +451,10 @@ namespace RealFuels.Tanks
 
                                 double wettedArea = tank.totalArea * (tank.amount / tank.maxAmount);
 
-                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * wettedArea)) + (tank.insulationThickness / (tank.insulationConduction * wettedArea)));
+                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * wettedArea))
+                                                        + (tank.insulationThickness / (tank.insulationConduction * wettedArea))
+                                                        + (0.01 / (tank.resourceConductivity * wettedArea)));
+                                
 								if (RFSettings.ferociousBoilOff)
                                     q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tank.tankRatio;
 
@@ -477,7 +480,6 @@ namespace RealFuels.Tanks
                             }
 
 							double lossAmount = massLost / tank.density;
-							boiloffMass += massLost;
 
                             if (double.IsNaN(lossAmount))
                                 Debug.Log("[MFT] " + tank.name + " lossAmount is NaN!");
@@ -495,7 +497,15 @@ namespace RealFuels.Tanks
 
                                     fluxLost *= ConductionFactors;
 
-                                    part.AddThermalFlux(fluxLost * deltaTimeRecip);
+                                    // See if there is boiloff byproduct and see if any other parts want to accept it.
+                                    if (tank.boiloffProductResource != null)
+                                    {
+                                        double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
+                                        double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
+                                        massLost -= retainedAmount * tank.boiloffProductResource.density;
+                                    }
+
+                                    boiloffMass += massLost;
 
                                     // subtract heat from boiloff
                                     // TODO Fix analytic mode behavior or remove this. (currently unused as analyticMode is always false)
@@ -1027,26 +1037,32 @@ namespace RealFuels.Tanks
             Debug.Log("[MFT] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
             Debug.Log("[MFT] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
 #endif
-            // This allows a rough guess as to individual tank surface area based on volume but it breaks down at very small fractions
-            // Assume spherically shaped if ratio less than 1/8th
-            for (int i = tankList.Count - 1; i >= 0; --i)
+            // This allows a rough guess as to individual tank surface area based on ratio of tank volume to total volume but it breaks down at very small fractions
+            // So use greater of spherical calculation and tank ratio of total area.
+            if (totalTankArea > 0.0)
             {
-                FuelTank tank = tankList[i];
-                if (tank.maxAmount > 0.0 && totalTankArea > 0.0)
+                double tankMaxAmount;
+                for (int i = tankList.Count - 1; i >= 0; --i)
                 {
-                    tank.tankRatio = tank.maxAmount / volume;
-                    Debug.Log("[RF] tankRatio = " + tank.tankRatio.ToString());
-                    Debug.Log("[RF] maxAmount = " + tank.maxAmount.ToString());
-                    Debug.Log("[RF] totalTankArea = " + totalTankArea.ToString());
-                    if (tank.tankRatio <= 0.125)
+                    FuelTank tank = tankList[i];
+                    if (tank.maxAmount > 0.0)
                     {
-                        tank.totalArea = Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tank.maxAmount / 1000.0) * 6, 2.0 / 3.0);
-                        Debug.Log("[RF] Calculating spherical tank area as " + tank.totalArea.ToString());
-                    }
-                    else
-                    {
-                        tank.totalArea = totalTankArea * tank.tankRatio;
-                        Debug.Log("[RF] Tank surface area defaulting to " + tank.totalArea.ToString());
+                        tankMaxAmount = tank.maxAmount;
+
+                        if (tank.utilization > 1.0)
+                            tankMaxAmount /= utilization;
+
+                        tank.tankRatio = tankMaxAmount / volume;
+
+                        tank.totalArea = Math.Max(Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tankMaxAmount / 1000.0) * 6, 2.0 / 3.0), tank.totalArea = totalTankArea * tank.tankRatio);
+
+                        if (RFSettings.debugBoilOff)
+                        {
+                            Debug.Log("[RF] " + tank.name + ".tankRatio = " + tank.tankRatio.ToString());
+                            Debug.Log("[RF] " + tank.name + ".maxAmount = " + tankMaxAmount.ToString());
+                            Debug.Log("[RF] " + part.name + ".totalTankArea = " + totalTankArea.ToString());
+                            Debug.Log("[RF] Tank surface area = " + tank.totalArea.ToString());
+                        }
                     }
                 }
             }
