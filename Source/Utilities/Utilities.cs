@@ -105,10 +105,14 @@ namespace RealFuels
         {
             List<PartResource> list = new List<PartResource>();
             ResourceFlowMode flow = p.GetFlowMode();
-            if (flow == ResourceFlowMode.STACK_PRIORITY_SEARCH)
+            if (flow == ResourceFlowMode.STACK_PRIORITY_SEARCH || flow == ResourceFlowMode.STAGE_PRIORITY_FLOW_BALANCE || flow == ResourceFlowMode.STAGE_STACK_FLOW || flow == ResourceFlowMode.STAGE_STACK_FLOW_BALANCE)
             {
                 HashSet<Part> visited = new HashSet<Part>();
-                FindResources_StackPri(part, visited, list, p.id);
+                CrossfeedRecurseParts(visited, part, null);
+                foreach (Part n in visited)
+                {
+                    n.Resources.GetAll(list, p.id);
+                }
             }
             else
             {
@@ -141,63 +145,78 @@ namespace RealFuels
             }
             return list;
         }
-        public static void FindResources_StackPri(Part part, HashSet<Part> visited, List<PartResource> resources, int resourceID)
+        public static void CrossfeedRecurseParts(HashSet<Part> set, Part p, Vessel v)
         {
-            // will never be called if we visited this part
-            visited.Add(part);
-
-            // check local first
-            FindResources_Stack(part, visited, resources, resourceID);
-
-            // Check self, else check parent.
-            // weird logic, but this is what KSP does...
-            PartResource resource = part.Resources.Get(resourceID);
-            if (resource != null)
-            {
-                if(!resources.Contains(resource))
-                    resources.Add(resource);
-            }
-            else
-            {
-                if (part.fuelCrossFeed && part.parent != null)
-                {
-                    AttachNode node = part.findAttachNodeByPart(part.parent);
-                    if (node != null)
-                        if (part.NoCrossFeedNodeKey == "" || !node.id.Contains(part.NoCrossFeedNodeKey))
-                            if(!visited.Contains(part.parent))
-                                FindResources_StackPri(part.parent, visited, resources, resourceID);
-                }
-            }
-        }
-        public static void FindResources_Stack(Part part, HashSet<Part> visited, List<PartResource> sources, int resourceID)
-        {
-            // will never be called if visited contains part.
-
-            // use target list if it has targets
-            for (int i = part.fuelLookupTargets.Count - 1; i >= 0; --i)
-            {
-                Part target = part.fuelLookupTargets[i];
-                if (!visited.Contains(target) && (target == part.parent ? part.isAttached : target.isAttached))
-                    FindResources_StackPri(part.fuelLookupTargets[i], visited, sources, resourceID);
-            }
-
-            // if we don't crossfeed, stop here.
-            if (!part.fuelCrossFeed)
+            if (set.Contains(p))
                 return;
 
-            // check any attached parts where we have crossfeed with them.
-            AttachNode node;
-            for (int j = part.attachNodes.Count - 1; j >= 0; --j)
+            set.Add(p);
+
+            // check fuel lines
+            Part otherPart;
+            int fCount = p.fuelLookupTargets.Count;
+            if (fCount > 0)
             {
-                node = part.attachNodes[j];
-                if (part.NoCrossFeedNodeKey != "" && node.id.Contains(part.NoCrossFeedNodeKey))
-                    continue;
-                if (!node.ResourceXFeed || node.attachedPart == null)
-                    continue;
-                if(visited.Contains(node.attachedPart))
+                for (int i = fCount; i-- > 0;)
+                {
+                    otherPart = p.fuelLookupTargets[i];
+                    if (otherPart != null && (otherPart.vessel == v || HighLogic.LoadedSceneIsEditor))
+                    {
+                        if ((otherPart == p.parent && p.isAttached)
+                            || (otherPart != p.parent && otherPart.isAttached))
+                        {
+                            CrossfeedRecurseParts(set, otherPart, v);
+                        }
+                    }
+                }
+            }
+
+            // if not, we only continue if the part has fuelCrossFeed enabled or if this same part is the one generating the request
+            if (!p.fuelCrossFeed)
+                return;
+
+            // check surface attachments (i.e. our children)
+            for (int i = p.children.Count; i-- > 0;)
+            {
+                otherPart = p.children[i];
+                if (otherPart.srfAttachNode.attachedPart == p && otherPart.fuelCrossFeed)
+                {
+                    CrossfeedRecurseParts(set, otherPart, v);
+                }
+            }
+
+            // check any neighbour nodes that are attached
+            AttachNode node;
+            for (int anI = p.attachNodes.Count; anI-- > 0;)
+            {
+                node = p.attachNodes[anI];
+
+                if (!string.IsNullOrEmpty(p.NoCrossFeedNodeKey) && node.id.Contains(p.NoCrossFeedNodeKey))
                     continue;
 
-                FindResources_StackPri(node.attachedPart, visited, sources, resourceID);
+                otherPart = node.attachedPart;
+
+                if (!node.ResourceXFeed)
+                    continue;
+
+                if (otherPart == null)
+                    continue;
+
+                CrossfeedRecurseParts(set, otherPart, v);
+            }
+
+            // lastly check parent, if we haven't yet.
+            if (p.parent != null)
+            {
+                AttachNode parentNode = p.findAttachNodeByPart(p.parent);
+
+                if (parentNode != null)
+                {
+                    if (string.IsNullOrEmpty(p.NoCrossFeedNodeKey) || !parentNode.id.Contains(p.NoCrossFeedNodeKey))
+                    {
+                        CrossfeedRecurseParts(set, p.parent, v);
+                    }
+                }
             }
         }
         #endregion
