@@ -27,14 +27,6 @@ namespace RealFuels
         public double varyThrust = 1d;
 
         [KSPField]
-        public float throttleResponseRate = -1f;
-        [KSPField]
-        public float throttleIgniteLevelMult = 1f;
-        [KSPField]
-        public float throttleStartupMult = 1f;
-        [KSPField]
-        public float throttleStartedMult = 1f;
-        [KSPField]
         public float throttlePressureFedStartupMult = 5f;
 
         [KSPField]
