@@ -208,7 +208,7 @@ namespace RealFuels
             // lastly check parent, if we haven't yet.
             if (p.parent != null)
             {
-                AttachNode parentNode = p.findAttachNodeByPart(p.parent);
+                AttachNode parentNode = p.FindAttachNodeByPart(p.parent);
 
                 if (parentNode != null)
                 {
