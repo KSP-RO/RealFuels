@@ -1261,8 +1261,8 @@ namespace RealFuels
                 if (cursorInGUI)
                 {
                     editor.Lock(false, false, false, "RFGUILock");
-                    if (EditorTooltip.Instance != null)
-                        EditorTooltip.Instance.HideToolTip();
+                    if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
+                        KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
                 }
                 else
                 {
@@ -1280,8 +1280,8 @@ namespace RealFuels
                 if (cursorInGUI)
                 {
                     editor.Lock(false, false, false, "RFGUILock");
-                    if (EditorTooltip.Instance != null)
-                        EditorTooltip.Instance.HideToolTip();
+                    if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
+                        KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
                 }
                 else
                 {
