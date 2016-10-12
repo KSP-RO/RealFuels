@@ -59,7 +59,6 @@ bin/modularFuelTanks.dll: ${MFT_FILES}
 	${GMCS} -t:library -lib:${APIEXTDATA},${MANAGED} \
 		-r:Assembly-CSharp,Assembly-CSharp-firstpass \
 		-r:UnityEngine,UnityEngine.UI \
-		-r:KSPUtil \
 		-out:$@ $^
 
 bin/TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} bin/modularFuelTanks.dll

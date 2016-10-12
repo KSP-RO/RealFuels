@@ -201,8 +201,7 @@ namespace RealFuels.Tanks
 			//Debug.LogWarning ("[MFT] Deleting tank from API " + name);
 			maxAmountExpression = null;
 
-			part.Resources.list.Remove (partResource);
-			PartModule.DestroyImmediate (partResource);
+			part.Resources.Remove (partResource);
 			module.RaiseResourceListChanged ();
 			//print ("Removed.");
 
@@ -210,8 +209,7 @@ namespace RealFuels.Tanks
 			if (HighLogic.LoadedSceneIsEditor && propagate) {
 				foreach (Part sym in part.symmetryCounterparts) {
 					PartResource symResc = sym.Resources[name];
-					sym.Resources.list.Remove (symResc);
-					PartModule.DestroyImmediate (symResc);
+					sym.Resources.Remove (symResc);
 					RaiseResourceListChanged (sym);
 				}
 			}
@@ -280,15 +278,13 @@ namespace RealFuels.Tanks
 			MonoBehaviour.print (node.ToString ());
 #endif
 			partResource = part.AddResource (node);
-			partResource.enabled = true;
 
 			module.RaiseResourceListChanged ();
 
 			// Update symmetry counterparts.
 			if (HighLogic.LoadedSceneIsEditor && propagate) {
 				foreach (Part sym in part.symmetryCounterparts) {
-					PartResource symResc = sym.AddResource (node);
-					symResc.enabled = true;
+					sym.AddResource (node);
 					RaiseResourceListChanged (sym);
 				}
 			}

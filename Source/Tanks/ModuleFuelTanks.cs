@@ -128,8 +128,7 @@ namespace RealFuels.Tanks
 					PartResource partResource = part.Resources[i];
 					if (!tankList.Contains (partResource.resourceName))
 						continue;
-					part.Resources.list.RemoveAt (i);
-					DestroyImmediate (partResource);
+					part.Resources.Remove(partResource.info.id);
 				}
 				RaiseResourceListChanged ();
                 // Setup the mass
@@ -148,7 +147,7 @@ namespace RealFuels.Tanks
 
 			StringBuilder info = new StringBuilder ();
 			info.AppendLine ("Modular Fuel Tank:");
-			info.Append ("	Max Volume: ").AppendLine (PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel));
+			info.Append ("	Max Volume: ").AppendLine (KSPUtil.PrintSI (volume, MFSSettings.unitLabel));
 			info.AppendLine ("	Tank can hold:");
 			for (int i = 0; i < tankList.Count; i++) {
 				FuelTank tank = tankList[i];
@@ -160,7 +159,7 @@ namespace RealFuels.Tanks
 		public string GetPrimaryField ()
 		{
 			return String.Format ("Max Volume: {0}, {1}{2}",
-							PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel),
+							KSPUtil.PrintSI (volume, MFSSettings.unitLabel),
 							type,
 							(typesAvailable != null && typesAvailable.Length > 1) ? "*" : "");
 		}
@@ -461,8 +460,7 @@ namespace RealFuels.Tanks
 				string resname = partResource.resourceName;
 				if (!managed.Contains(resname) || tankList.Contains(resname))
 					continue;
-				part.Resources.list.RemoveAt (i);
-				DestroyImmediate (partResource);
+				part.Resources.Remove (partResource.info.id);
 				needsMesage = true;
 			}
 			if (needsMesage) {
@@ -618,9 +616,9 @@ namespace RealFuels.Tanks
 		public static string FormatMass (float mass)
 		{
 			if (mass < 1.0f) {
-				return PartModuleUtil.PrintResourceSI (mass * 1e6, "g", 4);
+				return KSPUtil.PrintSI (mass * 1e6, "g", 4);
 			}
-			return PartModuleUtil.PrintResourceSI (mass, "t", 4);
+			return KSPUtil.PrintSI (mass, "t", 4);
 		}
 
 		private void ParseBaseMass (ConfigNode node)
@@ -720,8 +718,8 @@ namespace RealFuels.Tanks
                 double availRounded = AvailableVolume;
                 if (Math.Abs(availRounded) < 0.001d)
                     availRounded = 0d;
-				string availVolStr = PartModuleUtil.PrintResourceSI (availRounded, MFSSettings.unitLabel);
-				string volStr = PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel);
+				string availVolStr = KSPUtil.PrintSI (availRounded, MFSSettings.unitLabel);
+				string volStr = KSPUtil.PrintSI (volume, MFSSettings.unitLabel);
 				volumeDisplay = "Avail: " + availVolStr + " / Tot: " + volStr;
 
 				double resourceMass = part.Resources.Cast<PartResource> ().Sum (r => r.maxAmount*r.info.density);

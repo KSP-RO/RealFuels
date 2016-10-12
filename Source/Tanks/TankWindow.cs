@@ -145,8 +145,8 @@ namespace RealFuels.Tanks
 			cursorInGUI = guiWindowRect.Contains (mousePos);
 			if (cursorInGUI) {
 				editor.Lock (false, false, false, "MFTGUILock");
-                if (EditorTooltip.Instance != null)
-				    EditorTooltip.Instance.HideToolTip ();
+                //if (EditorTooltip.Instance != null)
+				//    EditorTooltip.Instance.HideToolTip ();
 			} else {
 				editor.Unlock ("MFTGUILock");
 			}
@@ -304,7 +304,7 @@ namespace RealFuels.Tanks
 		void AddTank (FuelTank tank)
 		{
 			double maxVol = tank_module.AvailableVolume * tank.utilization;
-			string maxVolStr = PartModuleUtil.PrintResourceSI (maxVol, "L");
+			string maxVolStr = KSPUtil.PrintSI (maxVol, "L");
 			string extraData = "Max: " + maxVolStr + " (+" + ModuleFuelTanks.FormatMass ((float) (tank_module.AvailableVolume * tank.mass)) + " )";
 
 			GUILayout.Label (extraData, GUILayout.Width (150));
