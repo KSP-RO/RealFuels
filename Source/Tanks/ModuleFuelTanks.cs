@@ -812,6 +812,7 @@ namespace RealFuels.Tanks
 
 		public void RaiseResourceListChanged ()
 		{
+			MarkWindowDirty();
 			part.SendEvent ("OnResourceListChanged", null, 0);
 		}
 
@@ -847,8 +848,19 @@ namespace RealFuels.Tanks
 			for (int i = 0; i < tankList.Count; i++) {
 				tankList[i].maxAmount = 0;
 			}
+			MarkWindowDirty();
 			GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
 		}
+		internal void MarkWindowDirty ()
+		{
+			UIPartActionWindow action_window;
+			action_window = UIPartActionController.Instance.GetItem(part);
+			if (action_window == null) {
+				return;
+			}
+			action_window.displayDirty = true;
+		}
+
 
 		// looks to see if we should ignore this fuel when creating an autofill for an engine
 		private static bool IgnoreFuel (string name)
