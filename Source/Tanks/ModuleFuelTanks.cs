@@ -854,6 +854,10 @@ namespace RealFuels.Tanks
 		internal void MarkWindowDirty ()
 		{
 			UIPartActionWindow action_window;
+			if (UIPartActionController.Instance == null) {
+				// no controller means no window to mark dirty
+				return;
+			}
 			action_window = UIPartActionController.Instance.GetItem(part);
 			if (action_window == null) {
 				return;
