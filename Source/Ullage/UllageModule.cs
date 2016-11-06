@@ -11,14 +11,11 @@ namespace RealFuels.Ullage
         List<UllageSet> ullageSets;
         List<Tanks.ModuleFuelTanks> tanks;
 
-        Vessel vessel;
         bool packed = true;
         int partCount = -1;
 
         public void Start()
         {
-            vessel = GetComponent<Vessel>();
-            
             ullageSets = new List<UllageSet>();
             tanks = new List<Tanks.ModuleFuelTanks>();
             // will reset on first update
