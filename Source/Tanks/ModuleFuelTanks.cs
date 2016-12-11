@@ -14,37 +14,9 @@ using KSP.UI.Screens;
 
 namespace RealFuels.Tanks
 {
-    public class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier, IAnalyticTemperatureModifier, IAnalyticPreview
+    public class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier
 	{
 		bool compatible = true;
-        #region TestFlight
-        protected static bool tfChecked = false;
-        protected static bool tfFound = false;
-        protected static Type tfInterface = null;
-        protected static BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
-
-        public void UpdateTFInterops()
-        {
-            // Grab a pointer to the TestFlight interface if its installed
-            if (!tfChecked)
-            {
-                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
-                if (tfInterface != null)
-                    tfFound = true;
-            }
-            // update TestFlight if its installed
-            if (tfFound)
-            {
-                try
-                {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, "tankType", type, "RealFuels" });
-                }
-                catch
-                {
-                }
-            }
-        }
-        #endregion
 
         private static double MassMult
 		{
@@ -145,7 +117,6 @@ namespace RealFuels.Tanks
 				MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
 				ParseBaseMass(node);
 				ParseBaseCost(node);
-				ParseInsulationFactor(node);
 				typesAvailable = node.GetValues ("typeAvailable");
 				RecordManagedResources ();
 			} else if (isEditorOrFlight) {
@@ -157,8 +128,7 @@ namespace RealFuels.Tanks
 					PartResource partResource = part.Resources[i];
 					if (!tankList.Contains (partResource.resourceName))
 						continue;
-					part.Resources.list.RemoveAt (i);
-					DestroyImmediate (partResource);
+					part.Resources.Remove(partResource.info.id);
 				}
 				RaiseResourceListChanged ();
                 // Setup the mass
@@ -177,7 +147,7 @@ namespace RealFuels.Tanks
 
 			StringBuilder info = new StringBuilder ();
 			info.AppendLine ("Modular Fuel Tank:");
-			info.Append ("	Max Volume: ").AppendLine (PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel));
+			info.Append ("	Max Volume: ").AppendLine (KSPUtil.PrintSI (volume, MFSSettings.unitLabel));
 			info.AppendLine ("	Tank can hold:");
 			for (int i = 0; i < tankList.Count; i++) {
 				FuelTank tank = tankList[i];
@@ -189,7 +159,7 @@ namespace RealFuels.Tanks
 		public string GetPrimaryField ()
 		{
 			return String.Format ("Max Volume: {0}, {1}{2}",
-							PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel),
+							KSPUtil.PrintSI (volume, MFSSettings.unitLabel),
 							type,
 							(typesAvailable != null && typesAvailable.Length > 1) ? "*" : "");
 		}
@@ -222,7 +192,6 @@ namespace RealFuels.Tanks
 				return;
 			}
             enabled = true;
-            UpdateTFInterops();
         }
 
 		public override void OnStart (StartState state)
@@ -234,12 +203,6 @@ namespace RealFuels.Tanks
 
 			Events["HideUI"].active = false;
 			Events["ShowUI"].active = true;
-
-            if (RFSettings.debugBoilOff)
-            {
-                Fields["debug1Display"].guiActive = true;
-                Fields["debug2Display"].guiActive = true;
-            }
 
 
             if (isEditor) {
@@ -258,10 +221,6 @@ namespace RealFuels.Tanks
             }
 			massDirty = true;
 			CalculateMass ();
-            CalculateTankArea(out tankArea);
-
-            part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
-            part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, outerInsulationFactor);
 		}
 
 		void OnDestroy ()
@@ -369,213 +328,6 @@ namespace RealFuels.Tanks
 				TankWindow.ShowGUI (this);
 			}
 		}
-
-		public void FixedUpdate ()
-		{
-			if (!compatible) {
-				return;
-			}
-			//print ("[Real Fuels]" + Time.time.ToString ());
-			if (HighLogic.LoadedSceneIsFlight)
-            {
-                if (RFSettings.debugBoilOff)
-                {
-                    //debug1Display = part.skinInternalConductionMult.ToString ("F12");
-                    //debug2Display = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
-                    debug1Display = "";
-                    debug2Display = "";
-                }
-                if (tankArea == 0d)
-                    CalculateTankArea(out tankArea);
-				StartCoroutine(CalculateTankLossFunction (TimeWarp.fixedDeltaTime));
-			}
-		}
-
-        private static double ConductionFactors { get { return RFSettings.globalConductionCompensation == true ? PhysicsGlobals.ConductionFactor : 1d; }}
-        protected float tankArea;
-        double boiloffMass = 0d;
-
-        public double BoiloffMassRate { get { return boiloffMass; } }
-
-        private IEnumerator CalculateTankLossFunction (float deltaTime, bool analyticalMode = false)
-		{
-			// Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
-			yield return new WaitForFixedUpdate();
-            boiloffMass = 0d;
-
-            double minTemp = 300d;
-            for (int i = tankList.Count - 1; i >= 0; --i)
-            {
-                FuelTank tank = tankList[i];
-                if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
-                    minTemp = Math.Min(minTemp, tank.temperature);
-            }
-
-            if (tankList.Count > 0 && minTemp < 300d && MFSSettings.radiatorMinTempMult >= 0d)
-                part.radiatorMax = (minTemp * MFSSettings.radiatorMinTempMult) / part.maxTemp;
-
-            if (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)
-            {
-                part.temperature = minTemp;
-                part.skinTemperature = minTemp;
-            }
-            else
-            {
-				partPrevTemperature = part.temperature;
-
-                double deltaTimeRecip = 1d / deltaTime;
-                for (int i = tankList.Count - 1; i >= 0; --i)
-                {
-                    FuelTank tank = tankList[i];
-
-					if (tank.amount > 0d)
-					{
-						if (tank.vsp > 0.0)
-						{
-                            // Opposite of original boil off code. Finds massLost first.
-                            double massLost = 0.0;
-                            double deltaTemp = part.temperature - tank.temperature;
-
-                            if (RFSettings.debugBoilOff)
-                            {
-                                if (debug2Display != "")
-                                    debug2Display += " / ";
-
-                                if (debug1Display != "")
-                                    debug1Display += " / ";
-                            }
-
-                            if (deltaTemp > 0)
-                            {
-								//double tankRatio = tank.maxAmount / volume;
-
-                                double wettedArea = tank.totalArea * (tank.amount / tank.maxAmount);
-
-                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * wettedArea))
-                                                        + (tank.insulationThickness / (tank.insulationConduction * wettedArea))
-                                                        + (0.01 / (tank.resourceConductivity * wettedArea)));
-                                
-								if (RFSettings.ferociousBoilOff)
-                                    q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tank.tankRatio;
-
-
-                                //q /= ConductionFactors;
-
-                                q *= 0.001d; // convert to kilowatts
-
-                                massLost = q / tank.vsp;
-
-                                if (RFSettings.debugBoilOff)
-                                {
-                                    // Only do debugging displays if compiled for debugging.
-
-                                    debug1Display += FormatFlux(q);
-                                    debug2Display += (massLost * 1000 * 3600).ToString("F4") + "kg/hr";
-                                    //debug2Display += area.ToString("F2");
-
-                                    //debug1Display = tank.wallThickness + " / " + tank.wallConduction;
-                                    //debug2Display = tank.insulationThickness + " / " + tank.insulationConduction;
-                                }
-                                massLost *= deltaTime; // Frame scaling
-                            }
-
-							double lossAmount = massLost / tank.density;
-
-                            if (double.IsNaN(lossAmount))
-                                Debug.Log("[MFT] " + tank.name + " lossAmount is NaN!");
-                            else
-                            {
-                                if (lossAmount > tank.amount)
-                                {
-                                    tank.amount = 0d;
-                                }
-                                else
-                                {
-                                    tank.amount -= lossAmount;
-
-                                    double fluxLost = -massLost * tank.vsp;
-
-                                    fluxLost *= ConductionFactors;
-
-                                    // See if there is boiloff byproduct and see if any other parts want to accept it.
-                                    if (tank.boiloffProductResource != null)
-                                    {
-                                        double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
-                                        double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
-                                        massLost -= retainedAmount * tank.boiloffProductResource.density;
-                                    }
-
-                                    boiloffMass += massLost;
-
-                                    // subtract heat from boiloff
-                                    // TODO Fix analytic mode behavior or remove this. (currently unused as analyticMode is always false)
-                                    if (analyticalMode)
-                                        previewInternalFluxAdjust += fluxLost;
-                                    else
-                                        part.AddThermalFlux(fluxLost * deltaTimeRecip);
-                                }
-                            }
-						}
-						else if (tank.loss_rate > 0 && tank.amount > 0)
-						{
-							double deltaTemp = part.temperature - tank.temperature;
-							if (deltaTemp > 0)
-	                        {
-	                            double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
-	                            if(lossAmount > tank.amount)
-	                            {
-	                                lossAmount = -tank.amount;
-	                                tank.amount = 0d;
-	                            }
-	                            else
-	                            {
-	                                lossAmount = -lossAmount;
-	                                tank.amount += lossAmount;
-	                            }
-	                            double massLost = tank.density * lossAmount;
-	                            boiloffMass += massLost;
-	                        }
-	                    }
-					}
-                }
-            }
-		}
-
-        // Analytic Interface
-        public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
-        {
-            analyticSkinTemp = toBeSkin;
-        }
-
-        public double GetSkinTemperature(out bool lerp)
-        {
-            lerp = true;
-            return analyticSkinTemp;
-        }
-
-        public double GetInternalTemperature(out bool lerp)
-        {
-            lerp = true;
-            //if (partPrevTemperature == -1)
-                return part.temperature;
-            //else
-            //    return partPrevTemperature;
-        }
-
-        // Analytic Preview Interface
-        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp, double x)
-        {
-            //analyticalInternalFlux = internalFlux;
-            //float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
-            //CalculateTankLossFunction(deltaTime, true);
-        }
-
-        public double InternalFluxAdjust()
-        {
-            return previewInternalFluxAdjust;
-        }
-
-
 
 		// The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
 		internal FuelTankList tankList = new FuelTankList ();
@@ -708,8 +460,7 @@ namespace RealFuels.Tanks
 				string resname = partResource.resourceName;
 				if (!managed.Contains(resname) || tankList.Contains(resname))
 					continue;
-				part.Resources.list.RemoveAt (i);
-				DestroyImmediate (partResource);
+				part.Resources.Remove (partResource.info.id);
 				needsMesage = true;
 			}
 			if (needsMesage) {
@@ -721,10 +472,6 @@ namespace RealFuels.Tanks
 			if (!baseCostOverride) {
 				ParseBaseCost (def.baseCost);
 			}
-
-            ParseInsulationFactor(def.outerInsulationFactor);
-
-            UpdateTFInterops();
 
 			if (isDatabaseLoad) {
 				// being called in the SpaceCenter scene is assumed to be a database reload
@@ -754,21 +501,6 @@ namespace RealFuels.Tanks
 		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
 		public string volumeDisplay;
 
-        // Note that the following two fields are highly variable and subject to the whims of whatever RF dev that might want to change them.
-        // (they only show up if this code is compiled in debug mode and are currently for debugging boiloff system)
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "")]
-		public string debug1Display;
-
-        [KSPField (isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "")]
-		public string debug2Display;
-
-        [KSPField(isPersistant = true)]
-		public double partPrevTemperature = -1;
-
-        private double analyticSkinTemp;
-
-        private double previewInternalFluxAdjust;
-
 		public double UsedVolume
 		{
 			get; private set;
@@ -780,17 +512,6 @@ namespace RealFuels.Tanks
 				return volume - UsedVolume;
 			}
 		}
-
-		static string FormatFlux(double flux, bool scale = false)
-		{
-			string unit = "W";
-			if (scale) {
-				flux *= TimeWarp.fixedDeltaTime;
-				unit = "J";
-			}
-			return PartModuleUtil.PrintResourceSI (flux * 1e3, unit, 4);
-		}
-
 
 		// Conversion between tank volume in kL, and whatever units this tank uses.
 		// Default to 1000 for RF. Varies for MFT. Needed to interface with PP.
@@ -895,9 +616,9 @@ namespace RealFuels.Tanks
 		public static string FormatMass (float mass)
 		{
 			if (mass < 1.0f) {
-				return PartModuleUtil.PrintResourceSI (mass * 1e6, "g", 4);
+				return KSPUtil.PrintSI (mass * 1e6, "g", 4);
 			}
-			return PartModuleUtil.PrintResourceSI (mass, "t", 4);
+			return KSPUtil.PrintSI (mass, "t", 4);
 		}
 
 		private void ParseBaseMass (ConfigNode node)
@@ -957,21 +678,6 @@ namespace RealFuels.Tanks
 			}
 		}
 
-        private void ParseInsulationFactor(ConfigNode node)
-        {
-            if (!node.HasValue("outerInsulationFactor"))
-                return;
-
-            string insulationFactor = node.GetValue("outerInsulationFactor");
-			ParseInsulationFactor (insulationFactor);
-        }
-
-        private void ParseInsulationFactor(string insulationFactor)
-        {
-            if (!double.TryParse(insulationFactor, out outerInsulationFactor))
-                Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
-        }
-
 		public void CalculateMass ()
 		{
 			if (tankList == null || !massDirty)
@@ -1012,8 +718,8 @@ namespace RealFuels.Tanks
                 double availRounded = AvailableVolume;
                 if (Math.Abs(availRounded) < 0.001d)
                     availRounded = 0d;
-				string availVolStr = PartModuleUtil.PrintResourceSI (availRounded, MFSSettings.unitLabel);
-				string volStr = PartModuleUtil.PrintResourceSI (volume, MFSSettings.unitLabel);
+				string availVolStr = KSPUtil.PrintSI (availRounded, MFSSettings.unitLabel);
+				string volStr = KSPUtil.PrintSI (volume, MFSSettings.unitLabel);
 				volumeDisplay = "Avail: " + availVolStr + " / Tot: " + volStr;
 
 				double resourceMass = part.Resources.Cast<PartResource> ().Sum (r => r.maxAmount*r.info.density);
@@ -1024,49 +730,6 @@ namespace RealFuels.Tanks
 				UpdateTweakableMenu ();
 			}
 		}
-
-        public void CalculateTankArea(out float totalTankArea)
-        {
-            totalTankArea = 0f;
-
-            for (int i = 0; i < 6; ++i)
-            {
-                totalTankArea += part.DragCubes.WeightedArea[i];
-            }
-#if DEBUG
-            Debug.Log("[MFT] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
-            Debug.Log("[MFT] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
-#endif
-            // This allows a rough guess as to individual tank surface area based on ratio of tank volume to total volume but it breaks down at very small fractions
-            // So use greater of spherical calculation and tank ratio of total area.
-            if (totalTankArea > 0.0)
-            {
-                double tankMaxAmount;
-                for (int i = tankList.Count - 1; i >= 0; --i)
-                {
-                    FuelTank tank = tankList[i];
-                    if (tank.maxAmount > 0.0)
-                    {
-                        tankMaxAmount = tank.maxAmount;
-
-                        if (tank.utilization > 1.0)
-                            tankMaxAmount /= utilization;
-
-                        tank.tankRatio = tankMaxAmount / volume;
-
-                        tank.totalArea = Math.Max(Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tankMaxAmount / 1000.0) * 6, 2.0 / 3.0), tank.totalArea = totalTankArea * tank.tankRatio);
-
-                        if (RFSettings.debugBoilOff)
-                        {
-                            Debug.Log("[RF] " + tank.name + ".tankRatio = " + tank.tankRatio.ToString());
-                            Debug.Log("[RF] " + tank.name + ".maxAmount = " + tankMaxAmount.ToString());
-                            Debug.Log("[RF] " + part.name + ".totalTankArea = " + totalTankArea.ToString());
-                            Debug.Log("[RF] Tank surface area = " + tank.totalArea.ToString());
-                        }
-                    }
-                }
-            }
-        }
 
 		// mass-change interface, so Engineer's Report / Pad limit checking is correct.
 		public float massDelta = 0f; // assigned whenever part.mass is changed.
@@ -1149,6 +812,7 @@ namespace RealFuels.Tanks
 
 		public void RaiseResourceListChanged ()
 		{
+			MarkWindowDirty();
 			part.SendEvent ("OnResourceListChanged", null, 0);
 		}
 
@@ -1184,8 +848,23 @@ namespace RealFuels.Tanks
 			for (int i = 0; i < tankList.Count; i++) {
 				tankList[i].maxAmount = 0;
 			}
+			MarkWindowDirty();
 			GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
 		}
+		internal void MarkWindowDirty ()
+		{
+			UIPartActionWindow action_window;
+			if (UIPartActionController.Instance == null) {
+				// no controller means no window to mark dirty
+				return;
+			}
+			action_window = UIPartActionController.Instance.GetItem(part);
+			if (action_window == null) {
+				return;
+			}
+			action_window.displayDirty = true;
+		}
+
 
 		// looks to see if we should ignore this fuel when creating an autofill for an engine
 		private static bool IgnoreFuel (string name)

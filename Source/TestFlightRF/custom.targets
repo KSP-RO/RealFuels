@@ -1,0 +1,12 @@
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<ItemGroup>
+  <FilesToCopy Include="$(OutputPath)\TestFlightRF.dll" />
+</ItemGroup>
+<ItemGroup>
+  <MDBFilesToCopy Include="$(OutputPath)\TestFlightRF.dll.mdb" />
+</ItemGroup>
+<Target Name="AfterBuild">
+  <Copy SourceFiles="@(FilesToCopy)" DestinationFolder="..\GameData\TestFlight\Plugins\" />
+  <Copy SourceFiles="@(MDBFilesToCopy)" DestinationFolder="..\GameData\TestFlight\Plugins\" />
+</Target>
+</Project>
