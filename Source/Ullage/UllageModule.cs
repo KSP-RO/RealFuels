@@ -9,7 +9,7 @@ namespace RealFuels.Ullage
     public class UllageModule : VesselModule
     {
         List<UllageSet> ullageSets;
-        List<Tanks.ModuleFuelTanks> tanks;
+        List<Tanks.ModuleRFBoiloff> tanks;
 
         bool packed = true;
         int partCount = -1;
@@ -19,7 +19,7 @@ namespace RealFuels.Ullage
             base.OnStart();
 
             ullageSets = new List<UllageSet>();
-            tanks = new List<Tanks.ModuleFuelTanks>();
+            tanks = new List<Tanks.ModuleRFBoiloff>();
             // will reset on first update
         }
 
@@ -102,9 +102,9 @@ namespace RealFuels.Ullage
                 for (int j = part.Modules.Count - 1; j >= 0; --j)
                 {
                     PartModule m = part.Modules[j];
-                    if (m is Tanks.ModuleFuelTanks)
+                    if (m is Tanks.ModuleRFBoiloff)
                     {
-                        Tanks.ModuleFuelTanks tank = m as Tanks.ModuleFuelTanks;
+                        Tanks.ModuleRFBoiloff tank = m as Tanks.ModuleRFBoiloff;
                         if (!tanks.Contains(tank))
                             tanks.Add(tank);
                     }

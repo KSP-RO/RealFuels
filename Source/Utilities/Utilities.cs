@@ -100,6 +100,17 @@ namespace RealFuels
             return true;
         }
 
+        public static string FormatFlux(double flux, bool scale = false)
+        {
+            string unit = "W";
+            if (scale)
+            {
+                flux *= TimeWarp.fixedDeltaTime;
+                unit = "J";
+            }
+            return KSPUtil.PrintSI(flux * 1e3, unit, 4);
+        }
+
         #region Finding resources
         public static List<PartResource> FindResources(Part part, Propellant p)
         {
