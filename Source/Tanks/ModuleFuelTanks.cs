@@ -18,6 +18,8 @@ namespace RealFuels.Tanks
 	{
 		bool compatible = true;
 
+        public readonly EventVoid onUpdateTankType = new EventVoid("onUpdateTankType");
+
         private static double MassMult
 		{
 			get {
@@ -117,7 +119,8 @@ namespace RealFuels.Tanks
 				MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
 				ParseBaseMass(node);
 				ParseBaseCost(node);
-				typesAvailable = node.GetValues ("typeAvailable");
+                ParseInsulationFactor(node);
+                typesAvailable = node.GetValues ("typeAvailable");
 				RecordManagedResources ();
 			} else if (isEditorOrFlight) {
 				// The amounts initialized flag is there so that the tank type loading doesn't
@@ -477,15 +480,18 @@ namespace RealFuels.Tanks
 				ParseBaseCost (def.baseCost);
 			}
 
-			if (isDatabaseLoad) {
-				// being called in the SpaceCenter scene is assumed to be a database reload
-				//FIXME is this really needed?
-				return;
-			}
+            ParseInsulationFactor(def.outerInsulationFactor);
 
-			UpdateEngineIgnitor (def);
+            onUpdateTankType.Fire();
 
-			massDirty = true;
+            if (!isDatabaseLoad) {
+                // being called in the SpaceCenter scene is assumed to be a database reload
+                //FIXME is this really needed?
+
+                UpdateEngineIgnitor(def);
+
+                massDirty = true;
+            }
 		}
 
 		// The total tank volume. This is prior to utilization
@@ -682,7 +688,22 @@ namespace RealFuels.Tanks
 			}
 		}
 
-		public void CalculateMass ()
+        private void ParseInsulationFactor(ConfigNode node)
+        {
+            if (!node.HasValue("outerInsulationFactor"))
+                return;
+
+            string insulationFactor = node.GetValue("outerInsulationFactor");
+            ParseInsulationFactor(insulationFactor);
+        }
+
+        private void ParseInsulationFactor(string insulationFactor)
+        {
+            if (!double.TryParse(insulationFactor, out outerInsulationFactor))
+                Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
+        }
+
+        public void CalculateMass ()
 		{
 			if (tankList == null || !massDirty)
             {
