@@ -324,7 +324,11 @@ namespace RealFuels.Tanks
 			CalculateMass ();
 
 			EditorLogic editor = EditorLogic.fetch;
-			if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts ().Contains (part)) {
+
+            bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
+            bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
+
+            if (partIsSelectedInActionsScreen) {
 				TankWindow.ShowGUI (this);
 			}
 		}
