@@ -74,6 +74,7 @@
     <Compile Include="Tanks\MFSSettings.cs" />
     <Compile Include="Tanks\ModuleFuelTanks.cs" />
     <Compile Include="Tanks\ModuleRFBoiloff.cs" />
+    <Compile Include="Tanks\ModuleRFTankTestFlight.cs" />
     <Compile Include="Tanks\TankDefinition.cs" />
     <Compile Include="Tanks\TankDefinitionList.cs" />
     <Compile Include="Tanks\TankWindow.cs" />
@@ -82,6 +83,7 @@
     <Compile Include="Ullage\UllageSet.cs" />
     <Compile Include="Ullage\UllageSimulator.cs" />
     <Compile Include="Utilities\ConfigNodeExtensions.cs" />
+    <Compile Include="Utilities\TestFlightWrapper.cs" />
     <Compile Include="Utilities\Utilities.cs" />
     <Compile Include="Utilities\Styles.cs" />
   </ItemGroup>
