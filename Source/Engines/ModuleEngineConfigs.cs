@@ -142,6 +142,9 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         public bool modded = false;
 
+        [KSPField]
+        public bool literalZeroIgnitions = false; /* Normally, ignitions = 0 means unlimited.  Setting this changes it to really mean zero */
+
         public List<ConfigNode> configs;
         public ConfigNode config;
 
@@ -496,6 +499,8 @@ namespace RealFuels
                             info += ", ";
                         if (ignitions > 0)
                             info += ignitions + " ignition" + (ignitions > 1 ? "s" : "");
+                        else if (literalZeroIgnitions && ignitions == 0)
+                            info += "ground ignition only";
                         else
                             info += "unl. ignitions";
                     }
@@ -851,7 +856,7 @@ namespace RealFuels
                 if (ignitions < 1)
                     ignitions = 1;
             }
-            else if (ignitions == 0)
+            else if (ignitions == 0 && !literalZeroIgnitions)
                 ignitions = -1;
             return ignitions;
         }
