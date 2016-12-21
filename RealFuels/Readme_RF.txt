@@ -49,6 +49,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v12.0.0
+* Update to KSP 1.2.2
+* Update to SolverEngines v3.0
+
 v11.3.1
 * Fix an issue with verniers and TestFlight.
 
