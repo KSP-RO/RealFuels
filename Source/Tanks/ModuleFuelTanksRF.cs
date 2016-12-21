@@ -1,16 +1,25 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace RealFuels.Tanks
 {
-    public class ModuleRFBoiloff : PartModule, IAnalyticTemperatureModifier, IAnalyticPreview
+    public partial class ModuleFuelTanks : IAnalyticTemperatureModifier, IAnalyticPreview
     {
         protected float tankArea;
         private double boiloffMass = 0d;
-        private ModuleFuelTanks tankModule;
         private double analyticSkinTemp;
         private double previewInternalFluxAdjust;
+
+        public double outerInsulationFactor = 1.0;
+
+        // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
+        [NonSerialized]
+        public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool>();
+
+        [KSPField(guiActiveEditor = true, guiName = "Highly Pressurized?")]
+        public bool highlyPressurized = false;
 
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "")]
         public string debug1Display;
@@ -21,31 +30,18 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         public double partPrevTemperature = -1;
 
-        #region Setup
+        private static double ConductionFactors => RFSettings.globalConductionCompensation ? PhysicsGlobals.ConductionFactor : 1d;
 
-        public override void OnAwake()
-        {
-            base.OnAwake();
+        public double BoiloffMassRate => boiloffMass;
 
-            tankModule = part.FindModuleImplementing<ModuleFuelTanks>();
-
-            if (tankModule == null && (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor))
-            {
-                Debug.LogError($"[{part.name} {this.GetType().Name}] no {nameof(ModuleEnginesRF)} found on part.  This module will be removed.");
-                part.Modules.Remove(this);
-                Destroy(this);
-                return;
-            }
-        }
-
-        public override void OnStart(StartState state)
+        partial void OnStartRF(StartState state)
         {
             base.OnStart(state);
 
             CalculateTankArea(out tankArea);
-            part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, tankModule.outerInsulationFactor);
+            part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, outerInsulationFactor);
 
-            part.heatConductivity = Math.Min(part.heatConductivity, tankModule.outerInsulationFactor);
+            part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
 
             if (RFSettings.debugBoilOff)
             {
@@ -53,10 +49,6 @@ namespace RealFuels.Tanks
                 Fields[nameof(debug2Display)].guiActive = true;
             }
         }
-
-        #endregion
-
-        #region Update
 
         public void FixedUpdate()
         {
@@ -76,10 +68,6 @@ namespace RealFuels.Tanks
             }
         }
 
-        private static double ConductionFactors => RFSettings.globalConductionCompensation ? PhysicsGlobals.ConductionFactor : 1d;
-
-        public double BoiloffMassRate => boiloffMass;
-
         private IEnumerator CalculateTankLossFunction(float deltaTime, bool analyticalMode = false)
         {
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
@@ -87,7 +75,6 @@ namespace RealFuels.Tanks
             boiloffMass = 0d;
 
             double minTemp = 300d;
-            FuelTankList tankList = tankModule.tankList;
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -225,7 +212,44 @@ namespace RealFuels.Tanks
             }
         }
 
-        #endregion
+        partial void UpdateTankTypeRF(TankDefinition def)
+        {
+            // Get pressurization
+            highlyPressurized = def.highlyPressurized;
+
+            if (isDatabaseLoad)
+                UpdateEngineIgnitor(def);
+        }
+
+        private void UpdateEngineIgnitor(TankDefinition def)
+        {
+            // collect pressurized propellants for EngineIgnitor
+            // XXX Dirty hack until engine ignitor is fixed
+            fuelList.Clear();               //XXX
+            fuelList.AddRange(tankList);    //XXX
+
+            pressurizedFuels.Clear();
+            for (int i = 0; i < tankList.Count; i++)
+            {
+                FuelTank f = tankList[i];
+                pressurizedFuels[f.name] = def.highlyPressurized || f.note.ToLower().Contains("pressurized");
+            }
+        }
+
+        partial void ParseInsulationFactor(ConfigNode node)
+        {
+            if (!node.HasValue("outerInsulationFactor"))
+                return;
+
+            string insulationFactor = node.GetValue("outerInsulationFactor");
+            ParseInsulationFactor(insulationFactor);
+        }
+
+        private void ParseInsulationFactor(string insulationFactor)
+        {
+            if (!double.TryParse(insulationFactor, out outerInsulationFactor))
+                Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
+        }
 
         public void CalculateTankArea(out float totalTankArea)
         {
@@ -244,7 +268,6 @@ namespace RealFuels.Tanks
             if (totalTankArea > 0.0)
             {
                 double tankMaxAmount;
-                FuelTankList tankList = tankModule.tankList;
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
                     FuelTank tank = tankList[i];
@@ -253,9 +276,9 @@ namespace RealFuels.Tanks
                         tankMaxAmount = tank.maxAmount;
 
                         if (tank.utilization > 1.0)
-                            tankMaxAmount /= tankModule.utilization;
+                            tankMaxAmount /= utilization;
 
-                        tank.tankRatio = tankMaxAmount / tankModule.volume;
+                        tank.tankRatio = tankMaxAmount / volume;
 
                         tank.totalArea = Math.Max(Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tankMaxAmount / 1000.0) * 6, 2.0 / 3.0), tank.totalArea = totalTankArea* tank.tankRatio);
 

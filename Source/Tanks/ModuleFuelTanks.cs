@@ -14,11 +14,9 @@ using KSP.UI.Screens;
 
 namespace RealFuels.Tanks
 {
-    public class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier
+    public partial class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier
 	{
 		bool compatible = true;
-
-        public readonly EventVoid onUpdateTankType = new EventVoid("onUpdateTankType");
 
         private static double MassMult
 		{
@@ -224,9 +222,12 @@ namespace RealFuels.Tanks
             }
 			massDirty = true;
 			CalculateMass ();
-		}
 
-		void OnDestroy ()
+            OnStartRF(state);
+            UpdateTestFlight();
+        }
+
+        void OnDestroy ()
 		{
 			GameEvents.onPartAttach.Remove (onPartAttach);
 			GameEvents.onPartRemove.Remove (onPartRemove);
@@ -348,13 +349,6 @@ namespace RealFuels.Tanks
 		// for EngineIgnitor integration: store a public list of the fuel tanks, and
 		[NonSerialized]
 		public List<FuelTank> fuelList = new List<FuelTank> ();
-		// for EngineIgnitor integration: store a public dictionary of all pressurized propellants
-		[NonSerialized]
-		public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool> ();
-        [KSPField(guiActiveEditor = true, guiName = "Highly Pressurized?")]
-        public bool highlyPressurized = false;
-
-        public double outerInsulationFactor = 1.0;
 
 		private void InitializeTankType ()
 		{
@@ -387,20 +381,6 @@ namespace RealFuels.Tanks
 			}
 
 			UpdateTankType ();
-		}
-
-		private void UpdateEngineIgnitor (TankDefinition def)
-		{
-			// collect pressurized propellants for EngineIgnitor
-			// XXX Dirty hack until engine ignitor is fixed
-			fuelList.Clear ();				//XXX
-			fuelList.AddRange (tankList);	//XXX
-
-			pressurizedFuels.Clear ();
-			for (int i = 0; i < tankList.Count; i++) {
-				FuelTank f = tankList[i];
-				pressurizedFuels[f.name] = def.highlyPressurized || f.note.ToLower ().Contains ("pressurized");
-			}
 		}
 
 		private void UpdateTankType (bool initializeAmounts = true)
@@ -445,9 +425,6 @@ namespace RealFuels.Tanks
 
 			oldType = type;
 
-            // Get pressurization
-            highlyPressurized = def.highlyPressurized;
-
 			// Build the new tank list.
 			tankList = new FuelTankList ();
 			for (int i = 0; i < def.tankList.Count; i++) {
@@ -480,19 +457,17 @@ namespace RealFuels.Tanks
 				ParseBaseCost (def.baseCost);
 			}
 
-            ParseInsulationFactor(def.outerInsulationFactor);
-
-            onUpdateTankType.Fire();
 
             if (!isDatabaseLoad) {
                 // being called in the SpaceCenter scene is assumed to be a database reload
                 //FIXME is this really needed?
-
-                UpdateEngineIgnitor(def);
-
+                
                 massDirty = true;
             }
-		}
+
+            UpdateTankTypeRF(def);
+            UpdateTestFlight();
+        }
 
 		// The total tank volume. This is prior to utilization
 		public double totalVolume;
@@ -687,21 +662,6 @@ namespace RealFuels.Tanks
 				baseCostPV = defaultBaseCostPV;
 			}
 		}
-
-        private void ParseInsulationFactor(ConfigNode node)
-        {
-            if (!node.HasValue("outerInsulationFactor"))
-                return;
-
-            string insulationFactor = node.GetValue("outerInsulationFactor");
-            ParseInsulationFactor(insulationFactor);
-        }
-
-        private void ParseInsulationFactor(string insulationFactor)
-        {
-            if (!double.TryParse(insulationFactor, out outerInsulationFactor))
-                Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
-        }
 
         public void CalculateMass ()
 		{
@@ -1011,5 +971,14 @@ namespace RealFuels.Tanks
                 return (engine as ModuleRCS).propellants;
             return null;
         }
-	}
+
+        #region Partial Methods
+
+        partial void OnStartRF(StartState state);
+        partial void UpdateTestFlight();
+        partial void ParseInsulationFactor(ConfigNode node);
+        partial void UpdateTankTypeRF(TankDefinition def);
+
+        #endregion
+    }
 }

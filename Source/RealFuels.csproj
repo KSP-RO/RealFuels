@@ -73,8 +73,8 @@
     <Compile Include="Tanks\FuelTankList.cs" />
     <Compile Include="Tanks\MFSSettings.cs" />
     <Compile Include="Tanks\ModuleFuelTanks.cs" />
-    <Compile Include="Tanks\ModuleRFBoiloff.cs" />
-    <Compile Include="Tanks\ModuleRFTankTestFlight.cs" />
+    <Compile Include="Tanks\ModuleFuelTanksRF.cs" />
+    <Compile Include="Tanks\ModuleFuelTanksTestFlight.cs" />
     <Compile Include="Tanks\TankDefinition.cs" />
     <Compile Include="Tanks\TankDefinitionList.cs" />
     <Compile Include="Tanks\TankWindow.cs" />
