@@ -11,7 +11,7 @@ GIT		:= git
 TAR		:= tar
 ZIP		:= zip
 
-.PHONY: all clean info install
+.PHONY: all clean info install release
 
 SUBDIRS=ModularFuelTanks Source
 
@@ -29,3 +29,6 @@ info:
 	@echo "    zip:      ${ZIP}"
 	@echo "    KSP Data: ${KSPDIR}"
 	@echo "    Plugin:   ${PLUGINDIR}"
+
+release:
+	tools/make-release
