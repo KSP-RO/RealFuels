@@ -100,6 +100,17 @@ namespace RealFuels
             return true;
         }
 
+        public static string FormatFlux(double flux, bool scale = false)
+        {
+            string unit = "W";
+            if (scale)
+            {
+                flux *= TimeWarp.fixedDeltaTime;
+                unit = "J";
+            }
+            return KSPUtil.PrintSI(flux * 1e3, unit, 4);
+        }
+
         #region Finding resources
         public static List<PartResource> FindResources(Part part, Propellant p)
         {
@@ -107,117 +118,36 @@ namespace RealFuels
             ResourceFlowMode flow = p.GetFlowMode();
             if (flow == ResourceFlowMode.STACK_PRIORITY_SEARCH || flow == ResourceFlowMode.STAGE_PRIORITY_FLOW_BALANCE || flow == ResourceFlowMode.STAGE_STACK_FLOW || flow == ResourceFlowMode.STAGE_STACK_FLOW_BALANCE)
             {
-                HashSet<Part> visited = new HashSet<Part>();
-                CrossfeedRecurseParts(visited, part, null);
-                foreach (Part n in visited)
+                foreach (Part n in part.crossfeedPartSet.GetParts())
                 {
                     n.Resources.GetAll(list, p.id);
                 }
             }
             else
             {
-                List<Part> parts;
+                List<Part> parts = null;
                 if (flow != ResourceFlowMode.NO_FLOW)
                 {
                     if (part.vessel != null)
                         parts = part.vessel.parts;
                     else if (EditorLogic.fetch != null && EditorLogic.fetch.ship != null)
                         parts = EditorLogic.fetch.ship.parts;
-                    else
-                    {
-                        parts = new List<Part>();
-                        parts.Add(part);
-                    }
+                }
+
+                if (parts == null)
+                {
+                    part.Resources.GetAll(list, p.id);
                 }
                 else
                 {
-                    parts = new List<Part>();
-                    parts.Add(part);
-                }
-
-                for (int i = parts.Count - 1; i >= 0; --i)
-                {
-                    Part foundPart = parts[i];
-                    List<PartResource> resources = foundPart.Resources.GetAll(p.id);
-                    for (int j = resources.Count - 1; j >= 0; --j)
-                        list.Add(resources[j]);
+                    for (int i = parts.Count - 1; i >= 0; --i)
+                    {
+                        Part foundPart = parts[i];
+                        foundPart.Resources.GetAll(list, p.id);
+                    }
                 }
             }
             return list;
-        }
-        public static void CrossfeedRecurseParts(HashSet<Part> set, Part p, Vessel v)
-        {
-            if (set.Contains(p))
-                return;
-
-            set.Add(p);
-
-            // check fuel lines
-            Part otherPart;
-            int fCount = p.fuelLookupTargets.Count;
-            if (fCount > 0)
-            {
-                for (int i = fCount; i-- > 0;)
-                {
-                    otherPart = p.fuelLookupTargets[i];
-                    if (otherPart != null && (otherPart.vessel == v || HighLogic.LoadedSceneIsEditor))
-                    {
-                        if ((otherPart == p.parent && p.isAttached)
-                            || (otherPart != p.parent && otherPart.isAttached))
-                        {
-                            CrossfeedRecurseParts(set, otherPart, v);
-                        }
-                    }
-                }
-            }
-
-            // if not, we only continue if the part has fuelCrossFeed enabled or if this same part is the one generating the request
-            if (!p.fuelCrossFeed)
-                return;
-
-            // check surface attachments (i.e. our children)
-            for (int i = p.children.Count; i-- > 0;)
-            {
-                otherPart = p.children[i];
-                if (otherPart.srfAttachNode.attachedPart == p && otherPart.fuelCrossFeed)
-                {
-                    CrossfeedRecurseParts(set, otherPart, v);
-                }
-            }
-
-            // check any neighbour nodes that are attached
-            AttachNode node;
-            for (int anI = p.attachNodes.Count; anI-- > 0;)
-            {
-                node = p.attachNodes[anI];
-
-                if (!string.IsNullOrEmpty(p.NoCrossFeedNodeKey) && node.id.Contains(p.NoCrossFeedNodeKey))
-                    continue;
-
-                otherPart = node.attachedPart;
-
-                if (!node.ResourceXFeed)
-                    continue;
-
-                if (otherPart == null)
-                    continue;
-
-                CrossfeedRecurseParts(set, otherPart, v);
-            }
-
-            // lastly check parent, if we haven't yet.
-            if (p.parent != null)
-            {
-                AttachNode parentNode = p.FindAttachNodeByPart(p.parent);
-
-                if (parentNode != null)
-                {
-                    if (string.IsNullOrEmpty(p.NoCrossFeedNodeKey) || !parentNode.id.Contains(p.NoCrossFeedNodeKey))
-                    {
-                        CrossfeedRecurseParts(set, p.parent, v);
-                    }
-                }
-            }
         }
         #endregion
     }

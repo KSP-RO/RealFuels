@@ -14,8 +14,10 @@ namespace RealFuels.Ullage
         bool packed = true;
         int partCount = -1;
 
-        public void Start()
+        protected override void OnStart()
         {
+            base.OnStart();
+
             ullageSets = new List<UllageSet>();
             tanks = new List<Tanks.ModuleFuelTanks>();
             // will reset on first update
@@ -102,7 +104,7 @@ namespace RealFuels.Ullage
                     PartModule m = part.Modules[j];
                     if (m is Tanks.ModuleFuelTanks)
                     {
-                        Tanks.ModuleFuelTanks tank = m as Tanks.ModuleFuelTanks;
+                        Tanks.ModuleFuelTanks tank = (Tanks.ModuleFuelTanks)m;
                         if (!tanks.Contains(tank))
                             tanks.Add(tank);
                     }
