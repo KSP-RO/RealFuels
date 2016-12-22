@@ -327,8 +327,6 @@ namespace RealFuels.Tanks
 			UpdateUtilization ();
 			CalculateMass ();
 
-			EditorLogic editor = EditorLogic.fetch;
-
             bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
             bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
 
