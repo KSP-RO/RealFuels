@@ -216,10 +216,10 @@ namespace RealFuels
         public bool ConfigUnlocked(string cfgName)
         {
             EngineConfigUpgrade cfg = null;
-            if(configUpgrades.TryGetValue(cfgName, out cfg))
+            if (configUpgrades.TryGetValue(cfgName, out cfg))
                 return cfg.unlocked;
-            Debug.LogError("*RFUM: ERROR: upgrade " + cfgName + " does not exist!");
-            return false;
+            else
+                return true;
         }
 
         public void SetConfigUnlock(string cfgName, bool newVal)
@@ -228,25 +228,23 @@ namespace RealFuels
             if(configUpgrades.TryGetValue(cfgName, out cfg))
                 cfg.unlocked = newVal;
             else
-                Debug.LogError("*RFUM: ERROR: upgrade " + cfgName + " does not exist!");
+                Debug.LogError("*RFUM: ERROR: upgrade " + cfgName + " does not exist!1");
         }
         public double ConfigEntryCost(string cfgName)
         {
             EngineConfigUpgrade cfg = null;
-            if(configUpgrades.TryGetValue(cfgName, out cfg))
+            if (configUpgrades.TryGetValue(cfgName, out cfg))
                 return cfg.EntryCost();
-
-            Debug.LogError("*RFUM: ERROR: upgrade " + cfgName + " does not exist!");
-            return 0d;
+            else
+                return 0d;
         }
         public double ConfigSciEntryCost(string cfgName)
         {
             EngineConfigUpgrade cfg = null;
             if (configUpgrades.TryGetValue(cfgName, out cfg))
                 return cfg.SciEntryCost();
-
-            Debug.LogError("*RFUM: ERROR: upgrade " + cfgName + " does not exist!");
-            return 0d;
+            else
+                return 0d;
         }
         public bool PurchaseConfig(string cfgName)
         {
