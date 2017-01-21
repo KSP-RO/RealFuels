@@ -106,8 +106,6 @@ namespace RealFuels
                 atmCurve = null;
             if(!useVelCurve)
                 velCurve = null;
-            if (!useThrustCurve)
-                thrustCurve = null;
             
             // FIXME quick temp hax
             if (useAtmCurve)
@@ -162,12 +160,10 @@ namespace RealFuels
         }
         public override void OnLoad(ConfigNode node)
         {
-            if (thrustCurve == null)
-                thrustCurve = new FloatCurve();
-
             base.OnLoad(node);
+
             // Manually reload ignitions if not in editor
-            if(!HighLogic.LoadedSceneIsEditor)
+            if (!HighLogic.LoadedSceneIsEditor)
                 node.TryGetValue("ignited", ref ignited);
             int pCount = propellants.Count;
             // thrust curve
