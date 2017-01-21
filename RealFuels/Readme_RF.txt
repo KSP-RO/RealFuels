@@ -1,6 +1,6 @@
 **** RealFuels ****
 by NathanKell
-Contributors: Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!)
+Contributors: Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!), blowfish
 ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the RealFuels branch.
 
 License remains CC-BY-SA as modified by ialdabaoth.
@@ -49,6 +49,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v12.0.1
+* Fix TestFlight integration
+* Fix engine configs in career that aren't unlocked by upgrade nodes
+* Fix harmless but noisy error message when using thrust curves
+
 v12.0.0
 * Update to KSP 1.2.2
 * Update to SolverEngines v3.0
