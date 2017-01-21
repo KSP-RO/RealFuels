@@ -15,7 +15,8 @@ namespace RealFuels
             tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
             if (tfInterface != null)
             {
-                addInteropValue = tfInterface.GetMethod("AddInteropValue", tfBindingFlags);
+                Type[] argumentTypes = new[] { typeof(Part), typeof(string), typeof(string), typeof(string) };
+                addInteropValue = tfInterface.GetMethod("AddInteropValue", tfBindingFlags, null, argumentTypes, null);
             }
         }
 
