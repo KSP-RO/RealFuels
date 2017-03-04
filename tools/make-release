@@ -1,0 +1,8 @@
+#! /bin/sh
+
+ver=`Source/tools/git-version-gen --prefix mft .tarball-version s/mft-/mft/`
+make GAMEDATA=`pwd`/tmp install
+cd tmp
+zip -r9 ../ModularFuelTanks_v${ver}.zip ModularFuelTanks
+cd ..
+rm -rf tmp
