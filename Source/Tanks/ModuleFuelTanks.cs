@@ -818,6 +818,14 @@ namespace RealFuels.Tanks
 			TankWindow.ShowGUI (this);
 			UpdateMenus (true);
 		}
+			
+		[KSPEvent(guiActive = true, guiName = "Tank Operations")]
+		public void ShowTanksUI ()
+		{
+			TankOpsWindow.Open (this);
+		}
+
+
 
 		void UpdateMenus (bool visible)
 		{
