@@ -62,7 +62,7 @@ namespace RealFuels.Tanks
 			instance = null;
 		}
 		public void TanksGUI(){
-			Debug.Log (/*debuggingClass.modName + */"Starting TanksGUI()");
+			//Debug.Log (/*debuggingClass.modName + */"Starting TanksGUI()");
 
 			guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Tank Operations");
 
@@ -73,10 +73,10 @@ namespace RealFuels.Tanks
 		}
 
 		public void GUIWindow(int windowID) {
-			GUILayout.BeginVertical ("box");
-			//GUILayout.Label("PlaceHolder GUI");
+			GUILayout.BeginVertical ();
+			GUILayout.Label("Empty the propellants from any following tank, tanks which are empty can have their volume repurposed for another propellant type.");
 
-			Debug.Log ("TankOpsWindow: " + this.tankModule);
+			//Debug.Log ("TankOpsWindow: " + this.tankModule);
 
 			foreach (FuelTank tank in this.tankModule.tankList) {
 				if (tank.maxAmount == 0) {
@@ -84,14 +84,16 @@ namespace RealFuels.Tanks
 				}
 				GUILayout.BeginHorizontal ("box");
 
-				Debug.Log ("TankOpsWindow: loop " + tank);
-				GUILayout.Label (tank.resource.resourceName);
+				//Debug.Log ("TankOpsWindow: loop " + tank);
+				GUILayout.Label (string.Format("{0} {1:P2} full.", tank.resource.resourceName, (tank.amount/tank.maxAmount)));
 				if (GUILayout.Button ("Drain tank", GUILayout.Width (150f))) {
 					tank.amount = 0;
 				}
 				if (selecting == null) {
 					if (GUILayout.Button ("Switch tank type", GUILayout.Width (150f))) {
-						selecting = tank;
+						if (tank.amount == 0) {
+							selecting = tank;
+						}
 					}
 				}
 
@@ -104,6 +106,14 @@ namespace RealFuels.Tanks
 						}
 						if (GUILayout.Button (possibleTank + "", GUILayout.Width (200f))) {
 							double oldAmount = tank.maxAmount;
+							FuelTank outTank = null;
+							if (this.tankModule.tankList.TryGet(""+possibleTank,out outTank)) {
+								if (outTank.amount > 0) {
+									selecting = null;
+									continue;
+								}
+								oldAmount += possibleTank.maxAmount;
+							}
 							if (tank.amount == 0) {
 								tank.maxAmount = 0;
 
@@ -121,7 +131,7 @@ namespace RealFuels.Tanks
 
 				GUILayout.EndHorizontal ();
 			}
-			if (GUILayout.Button ("Close this Window", GUILayout.Width (200f)))
+			if (GUILayout.Button ("Close this Window"))
 				GUIOpen = false;
 
 			GUILayout.EndVertical ();
