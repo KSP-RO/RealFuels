@@ -805,7 +805,7 @@ namespace RealFuels
                     }
                 }
                 if (config.HasValue("cost"))
-                    configCost = scale * float.Parse(config.GetValue("cost"));
+                    configCost = float.Parse(config.GetValue("cost"));
                 else
                     configCost = 0f;
 
