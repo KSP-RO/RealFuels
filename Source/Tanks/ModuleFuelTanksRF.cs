@@ -10,6 +10,7 @@ namespace RealFuels.Tanks
         protected float tankArea;
         private double boiloffMass = 0d;
         private double analyticSkinTemp;
+        private double analyticInternalTemp;
         private double previewInternalFluxAdjust;
 
         public double outerInsulationFactor = 1.0;
@@ -42,6 +43,7 @@ namespace RealFuels.Tanks
             part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, outerInsulationFactor);
 
             part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
+            part.analyticInternalInsulationFactor = outerInsulationFactor;
 
             if (RFSettings.debugBoilOff)
             {
@@ -300,6 +302,7 @@ namespace RealFuels.Tanks
         public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
         {
             analyticSkinTemp = toBeSkin;
+            analyticInternalTemp = toBeInternal;
         }
 
         public double GetSkinTemperature(out bool lerp)
@@ -311,18 +314,15 @@ namespace RealFuels.Tanks
         public double GetInternalTemperature(out bool lerp)
         {
             lerp = true;
-            //if (partPrevTemperature == -1)
-            return part.temperature;
-            //else
-            //    return partPrevTemperature;
+            return analyticInternalTemp;
         }
 
         // Analytic Preview Interface
         public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp, double x)
         {
             //analyticalInternalFlux = internalFlux;
-            //float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
-            //CalculateTankLossFunction(deltaTime, true);
+            float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
+            CalculateTankLossFunction(deltaTime, true);
         }
 
         public double InternalFluxAdjust()
