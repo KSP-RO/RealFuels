@@ -35,14 +35,29 @@ namespace RealFuels.Tanks
 
         public double BoiloffMassRate => boiloffMass;
 
+
+        private FlightIntegrator _flightIntegrator;
+
         partial void OnStartRF(StartState state)
         {
             base.OnStart(state);
 
-            CalculateTankArea(out tankArea);
-            part.skinInternalConductionMult = Math.Min(part.skinInternalConductionMult, outerInsulationFactor);
+            if (HighLogic.LoadedSceneIsFlight)
+            {
+                for (int i = 0; i < vessel.vesselModules.Count; i++)
+                {
+                    if (vessel.vesselModules[i] is FlightIntegrator)
+                    {
+                        _flightIntegrator = vessel.vesselModules[i] as FlightIntegrator;
+                    }
+                }
+            }
 
+
+            CalculateTankArea(out tankArea);
+            // changed from skin-internal to part.heatConductivity which affects
             part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
+            // affects how fast internal temperatures change during analytic mode
             part.analyticInternalInsulationFactor = outerInsulationFactor;
 
             if (RFSettings.debugBoilOff)
@@ -59,14 +74,17 @@ namespace RealFuels.Tanks
             {
                 if (RFSettings.debugBoilOff)
                 {
-                    //debug1Display = part.skinInternalConductionMult.ToString ("F12");
-                    //debug2Display = FormatFlux (part.skinToInternalFlux * (part.skinTemperature - part.temperature));
+                    //debug1Display = part.heatConductivity.ToString ("F12");
+                    //debug2Display = FormatFlux (part.skinToInternalFlux);
                     debug1Display = "";
                     debug2Display = "";
                 }
                 if (tankArea == 0d)
                     CalculateTankArea(out tankArea);
-                StartCoroutine(CalculateTankLossFunction(TimeWarp.fixedDeltaTime));
+
+                // 
+                if(!_flightIntegrator.isAnalytical)
+                    StartCoroutine(CalculateTankLossFunction(TimeWarp.fixedDeltaTime));
             }
         }
 
@@ -75,8 +93,10 @@ namespace RealFuels.Tanks
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
             yield return new WaitForFixedUpdate();
             boiloffMass = 0d;
-
             double minTemp = 300d;
+            double coolingPool = part.thermalInternalFlux < 0.0d ? Math.Abs(part.thermalInternalFlux) : 0d;
+            double cooling = 0d;
+
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -107,7 +127,13 @@ namespace RealFuels.Tanks
                         {
                             // Opposite of original boil off code. Finds massLost first.
                             double massLost = 0.0;
-                            double deltaTemp = part.temperature - tank.temperature;
+                            double deltaTemp;
+                            double hotTemp = analyticalMode ? analyticInternalTemp : part.temperature;
+
+                            if (RFSettings.ferociousBoilOff)
+                                deltaTemp = ((hotTemp * part.thermalMass) - (tank.temperature * part.resourceThermalMass)) / (part.thermalMass - part.resourceThermalMass) - tank.temperature;
+                            else
+                                deltaTemp = hotTemp - tank.temperature;
 
                             if (RFSettings.debugBoilOff)
                             {
@@ -124,25 +150,24 @@ namespace RealFuels.Tanks
 
                                 double wettedArea = tank.totalArea * (tank.amount / tank.maxAmount);
 
-                                double q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * wettedArea))
+                                double Q = deltaTemp / ((tank.wallThickness / (tank.wallConduction * wettedArea))
                                                         + (tank.insulationThickness / (tank.insulationConduction * wettedArea))
                                                         + (0.01 / (tank.resourceConductivity * wettedArea)));
 
-                                if (RFSettings.ferociousBoilOff)
-                                    q *= (part.thermalMass / (part.thermalMass - part.resourceThermalMass)) * tank.tankRatio;
+                                // Because any heat pumps that pulled heat out don't take effect until next physics frame...
+                                cooling = Math.Min(coolingPool, Q);
+                                coolingPool -= cooling;
+                                Q -= cooling;
 
+                                Q *= 0.001d; // convert to kilowatts
 
-                                //q /= ConductionFactors;
-
-                                q *= 0.001d; // convert to kilowatts
-
-                                massLost = q / tank.vsp;
+                                massLost = Q / tank.vsp;
 
                                 if (RFSettings.debugBoilOff)
                                 {
                                     // Only do debugging displays if compiled for debugging.
 
-                                    debug1Display += Utilities.FormatFlux(q);
+                                    debug1Display += Utilities.FormatFlux(Q);
                                     debug2Display += (massLost * 1000 * 3600).ToString("F4") + "kg/hr";
                                     //debug2Display += area.ToString("F2");
 
@@ -155,7 +180,7 @@ namespace RealFuels.Tanks
                             double lossAmount = massLost / tank.density;
 
                             if (double.IsNaN(lossAmount))
-                                Debug.Log("[MFT] " + tank.name + " lossAmount is NaN!");
+                                Debug.Log("[RF] " + tank.name + " lossAmount is NaN!");
                             else
                             {
                                 if (lossAmount > tank.amount)
@@ -181,7 +206,6 @@ namespace RealFuels.Tanks
                                     boiloffMass += massLost;
 
                                     // subtract heat from boiloff
-                                    // TODO Fix analytic mode behavior or remove this. (currently unused as analyticMode is always false)
                                     if (analyticalMode)
                                         previewInternalFluxAdjust += fluxLost;
                                     else
@@ -250,7 +274,7 @@ namespace RealFuels.Tanks
         private void ParseInsulationFactor(string insulationFactor)
         {
             if (!double.TryParse(insulationFactor, out outerInsulationFactor))
-                Debug.LogWarning("[MFT] Unable to parse outerInsulationFactor");
+                Debug.LogWarning("[RF] Unable to parse outerInsulationFactor");
         }
 
         public void CalculateTankArea(out float totalTankArea)
@@ -262,8 +286,8 @@ namespace RealFuels.Tanks
                 totalTankArea += part.DragCubes.WeightedArea[i];
             }
 #if DEBUG
-            Debug.Log("[MFT] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
-            Debug.Log("[MFT] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
+            Debug.Log("[RF] Part WeightedArea: " + part.name + " = " + totalTankArea.ToString("F2"));
+            Debug.Log("[RF] Part Area: " + part.name + " = " + part.DragCubes.Area.ToString("F2"));
 #endif
             // This allows a rough guess as to individual tank surface area based on ratio of tank volume to total volume but it breaks down at very small fractions
             // So use greater of spherical calculation and tank ratio of total area.
@@ -297,7 +321,6 @@ namespace RealFuels.Tanks
         }
 
         #region Analytic Interfaces
-
         // Analytic Interface
         public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
         {
@@ -318,8 +341,10 @@ namespace RealFuels.Tanks
         }
 
         // Analytic Preview Interface
-        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp, double x)
+        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double absEmissRatio, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp)
         {
+            if (_flightIntegrator != fi)
+                fi = _flightIntegrator;
             //analyticalInternalFlux = internalFlux;
             float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
             CalculateTankLossFunction(deltaTime, true);
