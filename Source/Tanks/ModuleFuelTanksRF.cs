@@ -136,7 +136,6 @@ namespace RealFuels.Tanks
                 double deltaTimeRecip = 1d / deltaTime;
                 //Debug.Log("internalFlux = " + part.thermalInternalFlux.ToString() + ", thermalInternalFluxPrevious =" + part.thermalInternalFluxPrevious.ToString() + ", analytic internal flux = " + previewInternalFluxAdjust.ToString());
 
-                double cooling = Math.Min(0, part.thermalInternalFluxPrevious);
 
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
@@ -149,7 +148,7 @@ namespace RealFuels.Tanks
                             // Opposite of original boil off code. Finds massLost first.
                             double massLost = 0.0;
                             double deltaTemp;
-                            double hotTemp = part.skinTemperature - (cooling * part.thermalMassReciprocal);
+                            double hotTemp = part.temperature - (cooling * part.thermalMassReciprocal);
                             double tankRatio = tank.maxAmount / volume;
 
                             if (RFSettings.Instance.ferociousBoilOff)
