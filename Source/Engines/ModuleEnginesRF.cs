@@ -546,20 +546,8 @@ namespace RealFuels
             else
             {
                 // get stats again
-                double spaceHeight = 131000d;
-                ambientTherm.P = 0d;
-                if (Planetarium.fetch != null)
-                {
-                    CelestialBody home = Planetarium.fetch.Home;
-                    if (home != null)
-                    {
-                        ambientTherm.T = home.GetTemperature(home.atmosphereDepth + 1d);
-                        spaceHeight = home.atmosphereDepth + 1000d;
-                    }
-                }
-                else
-                    ambientTherm.T = PhysicsGlobals.SpaceTemperature;
-                ambientTherm = EngineThermodynamics.StandardConditions(true);
+                ambientTherm = EngineThermodynamics.VacuumConditions(true);
+                double spaceHeight = Planetarium.fetch?.Home?.atmosphereDepth + 1000d ?? 141000d;
                 UpdateSolver(ambientTherm, spaceHeight, Vector3d.zero, 0d, true, true, false);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
