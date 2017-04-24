@@ -136,6 +136,7 @@ namespace RealFuels.Tanks
                 double deltaTimeRecip = 1d / deltaTime;
                 //Debug.Log("internalFlux = " + part.thermalInternalFlux.ToString() + ", thermalInternalFluxPrevious =" + part.thermalInternalFluxPrevious.ToString() + ", analytic internal flux = " + previewInternalFluxAdjust.ToString());
 
+                double cooling = analyticalMode ? Math.Max(0, part.thermalInternalFluxPrevious) : 0;
 
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
