@@ -1,6 +1,6 @@
 **** RealFuels ****
 by NathanKell
-Contributors: Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!)
+Contributors: Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!), blowfish
 ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the RealFuels branch.
 
 License remains CC-BY-SA as modified by ialdabaoth.
@@ -49,6 +49,23 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+v12.1.0
+* Reinstate analytic boiloff with improvements
+* Set specific heat to zero for cryogenic resources (assumption that part and resource temperature are the same doesn't make sense here)
+* Disable ferociousBoilOff since changing cryogenic resource specific heat makes it unnecessary
+* Add the ability for ignitions to be allowed only when attached to launch clamps
+* Make sure cost only gets multiplied by scale once
+* Fix issue where engines would explode after being decoupled (due to KSP reporting the wrong ambient temperature for a couple of frames)
+* Fix resource mix buttons not showing up when a ship is first loaded
+* Fix fuel tank related NRE in flight
+* Make burn time formatting consistent
+* Fix vacuum thrust displaying the same as sea level thrust
+
+v12.0.1
+* Fix TestFlight integration
+* Fix engine configs in career that aren't unlocked by upgrade nodes
+* Fix harmless but noisy error message when using thrust curves
+
 v12.0.0
 * Update to KSP 1.2.2
 * Update to SolverEngines v3.0
@@ -132,7 +149,7 @@ thermal mass - resource mass.
 
 v10.7
 * Revamped boiloff code for cryogenic propellants to be compatible with KSP 1.0.x thermodynamics (tanks will be properly cooled by evaporation of boiled off resources)
-* For now, only LqdOxygen, LqdHydrogen, LqdMethane and LqdAmmonia use the new system. (others may be added if needed) 
+* For now, only LqdOxygen, LqdHydrogen, LqdMethane and LqdAmmonia use the new system. (others may be added if needed)
 * Insulation can be either for the whole tank part or per each internal tank.
 * Fix issue where TL was not being correctly reset on config change.
 
@@ -540,7 +557,7 @@ v3.2 = \/
 *Increased precision for fuel densities; fixed LH2's density (was 0.071g/cc; should be 0.07085g/cc)
 *Added tank support for Space Shuttle Engines mod (thanks, Malsheck!)
 *Added scrolling to tank configuration.
-*Upgraded to Module Manager v1.5 
+*Upgraded to Module Manager v1.5
 
 v3.1 = \/
 *Changed zip's path structure.
