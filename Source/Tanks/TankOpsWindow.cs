@@ -20,14 +20,14 @@ namespace RealFuels.Tanks
 		private bool hasInitStyles = false;
 
 		private FuelTank selecting = null;
-		private Rect guiWindowRect = new Rect(20, 20, 500, 500);
+		private Rect guiWindowRect = new Rect(20, 100, 1, 1);
 		public Vector2 scrollPosition;
 
 		private ModuleFuelTanks tankModule;
 		private static TankOpsWindow instance;
 
 		public void Awake() {
-			Debug.Log (/*debuggingClass.modName + */"Starting Awake()");
+			//Debug.Log (/*debuggingClass.modName + */"Starting Awake()");
 			//enabled = false;
 			instance = this;
 		}
@@ -64,7 +64,7 @@ namespace RealFuels.Tanks
 		public void TanksGUI(){
 			//Debug.Log (/*debuggingClass.modName + */"Starting TanksGUI()");
 
-			guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Tank Operations");
+			guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Tank Operations",  GUILayout.Width( 500 ), GUILayout.ExpandHeight( true ));
 
 			//GUI.BeginGroup(new Rect(Screen.width / 2 - 250, Screen.height / 2 - 250, 500, 500));
 
@@ -86,13 +86,16 @@ namespace RealFuels.Tanks
 
 				//Debug.Log ("TankOpsWindow: loop " + tank);
 				GUILayout.Label (string.Format("{0} {1:P2} full.", tank.resource.resourceName, (tank.amount/tank.maxAmount)));
-				if (GUILayout.Button ("Drain tank", GUILayout.Width (150f))) {
-					tank.amount = 0;
+				if (tank.amount > 0) {
+					if (GUILayout.Button ("Drain tank", GUILayout.Width (150f))) {
+						tank.amount = 0;
+					}
 				}
-				if (selecting == null) {
+				if (selecting == null && tank.amount == 0) {
 					if (GUILayout.Button ("Switch tank type", GUILayout.Width (150f))) {
 						if (tank.amount == 0) {
 							selecting = tank;
+							guiWindowRect.height += 200;
 						}
 					}
 				}
@@ -110,6 +113,7 @@ namespace RealFuels.Tanks
 							if (this.tankModule.tankList.TryGet(""+possibleTank,out outTank)) {
 								if (outTank.amount > 0) {
 									selecting = null;
+									guiWindowRect.height -= 200;
 									continue;
 								}
 								oldAmount += possibleTank.maxAmount;
@@ -121,6 +125,7 @@ namespace RealFuels.Tanks
 								possibleTank.amount = 0;
 
 								selecting = null;
+								guiWindowRect.height -= 200;
 							}
 						}
 
