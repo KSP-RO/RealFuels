@@ -546,20 +546,8 @@ namespace RealFuels
             else
             {
                 // get stats again
-                double spaceHeight = 131000d;
-                ambientTherm.P = 0d;
-                if (Planetarium.fetch != null)
-                {
-                    CelestialBody home = Planetarium.fetch.Home;
-                    if (home != null)
-                    {
-                        ambientTherm.T = home.GetTemperature(home.atmosphereDepth + 1d);
-                        spaceHeight = home.atmosphereDepth + 1000d;
-                    }
-                }
-                else
-                    ambientTherm.T = PhysicsGlobals.SpaceTemperature;
-                ambientTherm = EngineThermodynamics.StandardConditions(true);
+                ambientTherm = EngineThermodynamics.VacuumConditions(true);
+                double spaceHeight = Planetarium.fetch?.Home?.atmosphereDepth + 1000d ?? 141000d;
                 UpdateSolver(ambientTherm, spaceHeight, Vector3d.zero, 0d, true, true, false);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
@@ -593,7 +581,7 @@ namespace RealFuels
             if (pressureFed)
                 output += "Pressure-fed";
             if (ignitions >= 0 && RFSettings.Instance.limitedIgnitions)
-                output += (output != "" ? ", " : "") + "Ignitions: " + ignitions;
+                output += (output != "" ? ", " : "") + "Ignitions: " + (ignitions > 0 ? ignitions.ToString() : "Ground only");
             if (!ullage)
                 output += (output != "" ? ", " : "") + "Not subject to ullage";
             if (output != "")
@@ -654,8 +642,10 @@ namespace RealFuels
             {
                 if (!ignited && reignitable)
                 {
+                    /* As long as you're on the pad, you can always ignite */
+                    bool externalIgnition = vessel.FindPartModulesImplementing<LaunchClamp>().Count > 0;
                     reignitable = false;
-                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant)
+                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant && !externalIgnition)
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
@@ -691,7 +681,7 @@ namespace RealFuels
                                 }
                                 if (minResource < 1d)
                                 {
-                                    if (UnityEngine.Random.value > (float)minResource && !CheatOptions.InfinitePropellant)
+                                    if (UnityEngine.Random.value > (float)minResource && !CheatOptions.InfinitePropellant && !externalIgnition)
                                     {
                                         EngineIgnited = false; // don't play shutdown FX, just fail.
                                         ScreenMessages.PostScreenMessage(igniteFailResources);

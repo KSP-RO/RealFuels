@@ -34,9 +34,9 @@ namespace RealFuels
         public double throttlingRate = 10d;
         public double throttlingClamp = 1.1d;
 
-        public static bool ferociousBoilOff = true;
-        public static bool globalConductionCompensation = false;
-        public static bool debugBoilOff = false;
+        public bool ferociousBoilOff = false;
+        public bool globalConductionCompensation = false;
+        public bool debugBoilOff = false;
 
         #region Ullage
         public bool simulateUllage = true;

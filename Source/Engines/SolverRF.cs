@@ -162,7 +162,8 @@ namespace RealFuels
             if (!combusting)
             {
                 double declinePow = Math.Pow(tempDeclineRate, TimeWarp.fixedDeltaTime);
-                chamberTemp = Math.Max(Math.Max(t0, partTemperature), chamberTemp * declinePow);
+                // removed t0 from next calculation; under some circumstances t0 can spike during staging/decoupling resulting in engine part destruction even on an unfired engine.
+                chamberTemp = Math.Max(partTemperature, chamberTemp * declinePow);
                 fxPower = 0f;
             }
             else

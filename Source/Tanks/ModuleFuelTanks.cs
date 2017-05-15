@@ -17,6 +17,7 @@ namespace RealFuels.Tanks
     public partial class ModuleFuelTanks : PartModule, IModuleInfo, IPartCostModifier, IPartMassModifier
 	{
 		bool compatible = true;
+		bool started;
 
         private static double MassMult
 		{
@@ -225,6 +226,7 @@ namespace RealFuels.Tanks
 
             OnStartRF(state);
             UpdateTestFlight();
+			started = true;
         }
 
         void OnDestroy ()
@@ -844,6 +846,9 @@ namespace RealFuels.Tanks
 		}
 		internal void MarkWindowDirty ()
 		{
+			if (!started) {
+				return;
+			}
 			UIPartActionWindow action_window;
 			if (UIPartActionController.Instance == null) {
 				// no controller means no window to mark dirty

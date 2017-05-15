@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -65,7 +66,21 @@ namespace RealFuels.Tanks
                 editor.Unlock("MFTGUILock");
 		}
 
-		private IEnumerator<YieldInstruction> CheckActionGroupEditor ()
+		private void onEditorLoad (ShipConstruct ship, CraftBrowserDialog.LoadType loadType)
+		{
+			Debug.LogFormat ("[TankWindow] onEditorLoad: {0}", loadType);
+			for (int i = 0, c = ship.parts.Count; i < c; ++i) {
+				Part part = ship.parts[i];
+				for (int j = 0, d = part.Modules.Count; j < d; ++j) {
+					PartModule module = part.Modules[j];
+					if (module is ModuleFuelTanks) {
+						(module as ModuleFuelTanks).UpdateUsedBy ();
+					}
+				}
+			}
+		}
+
+		private IEnumerator CheckActionGroupEditor ()
 		{
 			while (EditorLogic.fetch == null) {
 				yield return null;
@@ -98,11 +113,13 @@ namespace RealFuels.Tanks
 			enabled = false;
 			instance = this;
 			StartCoroutine (CheckActionGroupEditor ());
+			GameEvents.onEditorLoad.Add (onEditorLoad);
 		}
 
 		void OnDestroy ()
 		{
 			instance = null;
+			GameEvents.onEditorLoad.Remove (onEditorLoad);
 		}
 
         private Rect guiWindowRect = new Rect (0, 0, 0, 0);
