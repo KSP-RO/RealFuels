@@ -75,6 +75,15 @@ namespace RealFuels
         [KSPField]
         public bool pressureFed = false;
 
+        [KSPField(guiName = "Pressure Fed", guiActive = true)]
+        public string pressureFedDisplay
+        {
+            get
+            {
+                return pressureFed.ToString();
+            }
+        }
+
         [KSPField]
         public bool ullage = false;
 
@@ -245,6 +254,11 @@ namespace RealFuels
             {
                 ullageSet.Load(node.GetNode("Ullage"));
             }
+            if (node.HasValue("pressureFed"))
+            {
+                bool.TryParse(node.GetValue("pressureFed"), out pressureFed);
+                Debug.Log(this.name + ".pressureFed = " + this.pressureFed);
+            }
             ullageSet.SetUllageEnabled(ullage);
 
             // load ignition resources
@@ -281,6 +295,7 @@ namespace RealFuels
 
             Fields["ignitions"].guiActive = Fields["ignitions"].guiActiveEditor = (ignitions >= 0 && RFSettings.Instance.limitedIgnitions);
             Fields["propellantStatus"].guiActive = Fields["propellantStatus"].guiActiveEditor = showPropStatus;
+            Fields[nameof(pressureFed)].guiActive = true;
 
             igniteFailIgnitions = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
             igniteFailResources = new ScreenMessage("<color=orange>[" + part.partInfo.title + "]: insufficient resources to ignite!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
