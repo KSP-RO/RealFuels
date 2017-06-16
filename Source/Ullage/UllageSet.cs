@@ -185,7 +185,7 @@ namespace RealFuels.Ullage
         }
         public bool PressureOK()
         {
-            return pressureFed ? tanksHighlyPressurized : true;
+            return engine.pressureFed ? tanksHighlyPressurized : true;
         }
         public bool EditorPressurized()
         {
