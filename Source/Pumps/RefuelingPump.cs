@@ -1,5 +1,6 @@
 //#define DEBUG
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -27,16 +28,22 @@ namespace RealFuels
             return "\nPump rate: " + pump_rate + "/s";
         }
 
+		IEnumerator WaitAndCheckLandedAt ()
+		{
+			yield return null;
+			if (vessel != null
+				&& vessel.LandedInKSC
+				&& Events != null) {
+				Events["TogglePump"].guiActive = true;
+			} else {
+				enablePump = false;
+			}
+		}
+
 		public override void OnStart (PartModule.StartState state)
 		{
 			if (HighLogic.LoadedSceneIsFlight) {
-				if ((state & StartState.Landed) != StartState.None
-					&& (vessel.landedAt.Equals ("LaunchPad")
-						|| vessel.landedAt.Equals ("Runway"))) {
-					Events["TogglePump"].guiActive = true;
-				} else {
-					enablePump = false;
-				}
+				StartCoroutine (WaitAndCheckLandedAt ());
 			}
 		}
 
