@@ -11,17 +11,12 @@ namespace RealFuels
 {
     public class RefuelingPump : PartModule
     {
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Pump Enabled")]
-        bool enablePump = false;
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Fuel Pump")]
+        [UI_Toggle(affectSymCounterparts = UI_Scene.Editor, disabledText = "Disabled", enabledText = "Enabled")]
+        bool enablePump = true;
 
         [KSPField(isPersistant = true)]
         double pump_rate = 100.0; // 100L/sec per resource
-
-        [KSPEvent(guiActive = false, guiActiveEditor = true, guiName = "Toggle Pump")]
-        public void TogglePump()
-        {
-            enablePump = !enablePump;
-        }
 
         public override string GetInfo ()
         {
