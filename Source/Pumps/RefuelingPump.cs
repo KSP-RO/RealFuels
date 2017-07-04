@@ -23,23 +23,20 @@ namespace RealFuels
             return "\nPump rate: " + pump_rate + "/s";
         }
 
-		IEnumerator WaitAndCheckLandedAt ()
-		{
-			yield return null;
-			if (vessel != null
-				&& vessel.LandedInKSC
-				&& Events != null) {
-				Events["TogglePump"].guiActive = true;
-			} else {
-				enablePump = false;
-			}
-		}
-
 		public override void OnStart (PartModule.StartState state)
 		{
 			if (HighLogic.LoadedSceneIsFlight) {
-				StartCoroutine (WaitAndCheckLandedAt ());
-			}
+                BaseField field = Fields[nameof(enablePump)];
+                if (vessel != null && vessel.LandedInKSC)
+                {
+                    field.guiActive = true;
+                }
+                else
+                {
+                    field.guiActive = false;
+                    enablePump = false;
+                }
+            }
 		}
 
         public void FixedUpdate ()
