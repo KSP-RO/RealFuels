@@ -146,136 +146,134 @@ namespace RealFuels.Tanks
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
+                if (tank.amount <= 0) continue;
 
-                if (tank.amount > 0d)
+                if (tank.vsp > 0.0 && tank.totalArea > 0)
                 {
-                    if (tank.vsp > 0.0 && tank.totalArea > 0)
+                    // Opposite of original boil off code. Finds massLost first.
+                    double massLost = 0.0;
+                    double deltaTemp;
+                    // should cache the insulation check as long as it's not liable to change between updates.
+                    bool hasMLI = part.heatConductivity < part.partInfo.partPrefab.heatConductivity;
+                    double hotTemp = (hasMLI ? part.temperature : part.skinTemperature) - (cooling * part.thermalMassReciprocal);
+                    double tankRatio = tank.maxAmount / volume;
+
+                    if (RFSettings.Instance.ferociousBoilOff)
+                        hotTemp = Math.Max(((hotTemp * part.thermalMass) - (tank.temperature * part.resourceThermalMass)) / (part.thermalMass - part.resourceThermalMass), part.temperature);
+
+                    deltaTemp = hotTemp - tank.temperature;
+
+                    if (RFSettings.Instance.debugBoilOff)
                     {
-                        // Opposite of original boil off code. Finds massLost first.
-                        double massLost = 0.0;
-                        double deltaTemp;
-                        // should cache the insulation check as long as it's not liable to change between updates.
-                        bool hasMLI = part.heatConductivity < part.partInfo.partPrefab.heatConductivity;
-                        double hotTemp = (hasMLI ? part.temperature : part.skinTemperature) - (cooling * part.thermalMassReciprocal);
-                        double tankRatio = tank.maxAmount / volume;
+                        if (debug2Display != "")
+                            debug2Display += " / ";
 
-                        if (RFSettings.Instance.ferociousBoilOff)
-                            hotTemp = Math.Max(((hotTemp * part.thermalMass) - (tank.temperature * part.resourceThermalMass)) / (part.thermalMass - part.resourceThermalMass), part.temperature);
+                        if (debug1Display != "")
+                            debug1Display += " / ";
 
-                        deltaTemp = hotTemp - tank.temperature;
+                        if (debug0Display != "")
+                            debug0Display += " / ";
+                    }
+
+                    if (RFSettings.Instance.debugBoilOff)
+                        debug0Display += hotTemp.ToString("F6");
+
+                    if (deltaTemp > 0)
+                    {
+                        if (analyticalMode)
+                            print("Tank " + tank.name + " surface area = " + tank.totalArea);
+                        double wettedArea = tank.totalArea;// disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
+
+                        double Q = deltaTemp /
+                            ((tank.wallThickness / (tank.wallConduction * wettedArea))
+                             + (tank.insulationThickness / (tank.insulationConduction * wettedArea))
+                             + (tank.resourceConductivity > 0 ? (0.01 / (tank.resourceConductivity * wettedArea)) : 0));
+
+                        Q *= 0.001d; // convert to kilowatts
+
+                        massLost = Q / tank.vsp;
 
                         if (RFSettings.Instance.debugBoilOff)
                         {
-                            if (debug2Display != "")
-                                debug2Display += " / ";
+                            // Only do debugging displays if debugging enabled in RFSettings
 
-                            if (debug1Display != "")
-                                debug1Display += " / ";
-
-                            if (debug0Display != "")
-                                debug0Display += " / ";
+                            debug1Display += Utilities.FormatFlux(Q);
+                            debug2Display += (massLost * 1000 * 3600).ToString("F4") + "kg/hr";
                         }
+                        massLost *= deltaTime; // Frame scaling
+                    }
 
-                        if (RFSettings.Instance.debugBoilOff)
-                            debug0Display += hotTemp.ToString("F6");
+                    double lossAmount = massLost / tank.density;
 
-                        if (deltaTemp > 0)
+                    if (double.IsNaN(lossAmount))
+                        print("[RF] " + tank.name + " lossAmount is NaN!");
+                    else
+                    {
+                        double heatLost = 0d;
+                        if (lossAmount > tank.amount)
                         {
-                            if (analyticalMode)
-                                print("Tank " + tank.name + " surface area = " + tank.totalArea);
-                            double wettedArea = tank.totalArea;// disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
-
-                            double Q = deltaTemp /
-                                ((tank.wallThickness / (tank.wallConduction * wettedArea))
-                                 + (tank.insulationThickness / (tank.insulationConduction * wettedArea))
-                                 + (tank.resourceConductivity > 0 ? (0.01 / (tank.resourceConductivity * wettedArea)) : 0));
-
-                            Q *= 0.001d; // convert to kilowatts
-
-                            massLost = Q / tank.vsp;
-
-                            if (RFSettings.Instance.debugBoilOff)
-                            {
-                                // Only do debugging displays if debugging enabled in RFSettings
-
-                                debug1Display += Utilities.FormatFlux(Q);
-                                debug2Display += (massLost * 1000 * 3600).ToString("F4") + "kg/hr";
-                            }
-                            massLost *= deltaTime; // Frame scaling
+                            tank.amount = 0d;
                         }
-
-                        double lossAmount = massLost / tank.density;
-
-                        if (double.IsNaN(lossAmount))
-                            print("[RF] " + tank.name + " lossAmount is NaN!");
                         else
                         {
-                            double heatLost = 0d;
-                            if (lossAmount > tank.amount)
+                            tank.amount -= lossAmount;
+
+                            heatLost = -massLost * tank.vsp;
+
+                            heatLost *= ConductionFactors;
+
+                            // See if there is boiloff byproduct and see if any other parts want to accept it.
+                            if (tank.boiloffProductResource != null)
                             {
-                                tank.amount = 0d;
+                                double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
+                                double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
+                                massLost -= retainedAmount * tank.boiloffProductResource.density;
                             }
+
+                            boiloffMass += massLost;
+
+                        }
+                        // subtract heat from boiloff
+                        // subtracting heat in analytic mode is tricky: Analytic flux handling is 'cheaty' and tricky to predict. 
+                        // scratch sheet: example
+                        // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels Analytic Temp = 256.679360297684, Analytic Internal = 256.679360297684, Analytic Skin = 256.679360297684
+                        // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels deltaTime = 17306955.5092776, heat lost = 6638604.21227684, thermalMassReciprocal = 0.00444787360733243
+
+                        if (!analyticalMode)
+                        {
+                            if (hasMLI)
+                                part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
                             else
-                            {
-                                tank.amount -= lossAmount;
+                                part.AddSkinThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
 
-                                heatLost = -massLost * tank.vsp;
-
-                                heatLost *= ConductionFactors;
-
-                                // See if there is boiloff byproduct and see if any other parts want to accept it.
-                                if (tank.boiloffProductResource != null)
-                                {
-                                    double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
-                                    double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
-                                    massLost -= retainedAmount * tank.boiloffProductResource.density;
-                                }
-
-                                boiloffMass += massLost;
-
-                            }
-                            // subtract heat from boiloff
-                            // subtracting heat in analytic mode is tricky: Analytic flux handling is 'cheaty' and tricky to predict. 
-                            // scratch sheet: example
-                            // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels Analytic Temp = 256.679360297684, Analytic Internal = 256.679360297684, Analytic Skin = 256.679360297684
-                            // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels deltaTime = 17306955.5092776, heat lost = 6638604.21227684, thermalMassReciprocal = 0.00444787360733243
-
-                            if (!analyticalMode)
-                            {
-                                if (hasMLI)
-                                    part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
-                                else
-                                    part.AddSkinThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
-
-                            }
-                            else
-                            {
-                                analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal);
-                                previewInternalFluxAdjust -= heatLost * deltaTimeRecip;
-                                if (deltaTime > 0)
-                                    print(part.name + " deltaTime = " + deltaTime + ", heat lost = " + heatLost + ", thermalMassReciprocal = " + part.thermalMassReciprocal);
-                            }
+                        }
+                        else
+                        {
+                            analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal);
+                            previewInternalFluxAdjust -= heatLost * deltaTimeRecip;
+                            if (deltaTime > 0)
+                                print(part.name + " deltaTime = " + deltaTime + ", heat lost = " + heatLost + ", thermalMassReciprocal = " + part.thermalMassReciprocal);
                         }
                     }
-                    else if (tank.loss_rate > 0 && tank.amount > 0)
+                }
+                else if (tank.loss_rate > 0 && tank.amount > 0)
+                {
+                    double deltaTemp = part.temperature - tank.temperature;
+                    if (deltaTemp > 0)
                     {
-                        double deltaTemp = part.temperature - tank.temperature;
-                        if (deltaTemp > 0)
+                        double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
+                        if (lossAmount > tank.amount)
                         {
-                            double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
-                            if (lossAmount > tank.amount)
-                            {
-                                lossAmount = -tank.amount;
-                                tank.amount = 0d;
-                            }
-                            else
-                            {
-                                lossAmount = -lossAmount;
-                                tank.amount += lossAmount;
-                            }
-                            double massLost = tank.density * lossAmount;
-                            boiloffMass += massLost;
+                            lossAmount = -tank.amount;
+                            tank.amount = 0d;
                         }
+                        else
+                        {
+                            lossAmount = -lossAmount;
+                            tank.amount += lossAmount;
+                        }
+                        double massLost = tank.density * lossAmount;
+                        boiloffMass += massLost;
                     }
                 }
             }
