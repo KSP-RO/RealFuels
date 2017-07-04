@@ -88,12 +88,11 @@ namespace RealFuels
                 return;
 
             // now, let's look at what we're connected to.
-            for (int i = vessel.parts.Count - 1; i >= 0; --i ) // look through all parts
+            foreach (Part p in vessel.parts ) // look through all parts
             {
-                Part p = vessel.parts[i];
-                if (p.Modules.Contains("ModuleFuelTanks"))
+                Tanks.ModuleFuelTanks m = p.FindModuleImplementing<Tanks.ModuleFuelTanks>();
+                if (m != null)
                 {
-                    Tanks.ModuleFuelTanks m = (Tanks.ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
                     double minTemp = p.temperature;
                     m.fueledByLaunchClamp = true;
                     // look through all tanks inside this part
