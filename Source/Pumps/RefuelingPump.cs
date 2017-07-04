@@ -9,7 +9,7 @@ using KSP;
 
 namespace RealFuels
 {
-    public class RefuelingPump : PartModule
+    public class RefuelingPump : PartModule, IAnalyticPreview
     {
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Fuel Pump")]
         [UI_Toggle(affectSymCounterparts = UI_Scene.Editor, disabledText = "Disabled", enabledText = "Enabled")]
@@ -18,6 +18,8 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         double pump_rate = 100.0; // 100L/sec per resource
 
+        private FlightIntegrator flightIntegrator;
+
         public override string GetInfo ()
         {
             return "\nPump rate: " + pump_rate + "/s";
@@ -25,27 +27,59 @@ namespace RealFuels
 
 		public override void OnStart (PartModule.StartState state)
 		{
-			if (HighLogic.LoadedSceneIsFlight) {
-                BaseField field = Fields[nameof(enablePump)];
-                if (vessel != null && vessel.LandedInKSC)
-                {
-                    field.guiActive = true;
-                }
-                else
-                {
-                    field.guiActive = false;
-                    enablePump = false;
-                }
+			if (HighLogic.LoadedSceneIsFlight)
+            {
+                FindFlightIntegrator();
+                SetupGUI();
             }
 		}
 
         public void FixedUpdate ()
         {
-            if (HighLogic.LoadedSceneIsFlight && part.parent != null && part.vessel != null && enablePump) {
+            if (HighLogic.LoadedSceneIsFlight && part.parent != null && part.vessel != null && !flightIntegrator.isAnalytical && enablePump)
                 FillAttachedTanks(TimeWarp.fixedDeltaTime);
-			}
         }
 
+        #region IAnalyticPreview
+
+        public void AnalyticInfo(FlightIntegrator fi, double sunAndBodyIn, double backgroundRadiation, double radArea, double absEmissRatio, double internalFlux, double convCoeff, double ambientTemp, double maxPartTemp)
+        {
+            if (enablePump && fi.timeSinceLastUpdate < double.MaxValue * 0.99)
+                FillAttachedTanks(fi.timeSinceLastUpdate);
+        }
+
+        public double InternalFluxAdjust() => 0;
+
+        #endregion
+
+        private void FindFlightIntegrator()
+        {
+            foreach (VesselModule module in vessel.vesselModules)
+            {
+                if (module is FlightIntegrator fi)
+                {
+                    flightIntegrator = fi;
+                    break;
+                }
+            }
+
+            if (flightIntegrator is null)
+                Debug.LogError("[RefuelingPump] could not find flight integrator!");
+        }
+
+        private void SetupGUI()
+        {
+            BaseField field = Fields[nameof(enablePump)];
+            if (vessel != null && vessel.LandedInKSC)
+            {
+                field.guiActive = true;
+            }
+            else
+            {
+                field.guiActive = false;
+                enablePump = false;
+            }
+        }
 
         private void FillAttachedTanks(double deltaTime)
         {
@@ -61,6 +95,7 @@ namespace RealFuels
                 {
                     Tanks.ModuleFuelTanks m = (Tanks.ModuleFuelTanks)p.Modules["ModuleFuelTanks"];
                     double minTemp = p.temperature;
+                    m.fueledByLaunchClamp = true;
                     // look through all tanks inside this part
                     for (int j = m.tankList.Count - 1; j >= 0; --j)
                     {
