@@ -110,7 +110,7 @@ namespace RealFuels
                         if (d == null) continue;
                         
                         if (tank.loss_rate > 0d)
-                            minTemp = Math.Min(p.temperature, tank.temperature);
+                            minTemp = Math.Min(minTemp, tank.temperature);
                         if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
                         {
                             double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
