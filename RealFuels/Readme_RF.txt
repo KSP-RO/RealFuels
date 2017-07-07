@@ -49,6 +49,18 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+
+v12.2.0
+
+* Fix for engines not properly loading pressure fed setting from
+ModuleEngineConfig
+* Fix for cryogenic tanks exploding during analytic mode after long
+periods unloaded
+* Avoid possible NRE on fuel pumps when launching with Extraplanetary Launchpads
+* Fuel pumps must now be present and active in order to avoid boiloff during prelaunch (previously being on the launch pad was enough)
+* Fuel pumps are now enabled by default and enabled setting respects symmetry in the editor
+* Streamline fuel pump enable/disable UI - now a simple button rather than display + button
+
 v12.1.0
 * Reinstate analytic boiloff with improvements
 * Set specific heat to zero for cryogenic resources (assumption that part and resource temperature are the same doesn't make sense here)
