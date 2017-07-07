@@ -25,14 +25,21 @@ namespace RealFuels
             return "\nPump rate: " + pump_rate + "/s";
         }
 
-		public override void OnStart (PartModule.StartState state)
+		public override void OnStart(PartModule.StartState state)
 		{
 			if (HighLogic.LoadedSceneIsFlight)
             {
                 FindFlightIntegrator();
+            }
+        }
+
+        public override void OnStartFinished(PartModule.StartState state)
+        {
+            if (HighLogic.LoadedSceneIsFlight)
+            {
                 SetupGUI();
             }
-		}
+        }
 
         public void FixedUpdate ()
         {
