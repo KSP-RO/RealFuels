@@ -102,7 +102,7 @@ namespace RealFuels.Tanks
                     debug0Display = "";
                 }
 
-                if(!_flightIntegrator.isAnalytical)
+                if(!_flightIntegrator.isAnalytical && supportsBoiloff)
                     StartCoroutine(CalculateTankLossFunction((double)TimeWarp.fixedDeltaTime));
             }
         }
@@ -120,18 +120,18 @@ namespace RealFuels.Tanks
 
             previewInternalFluxAdjust = 0;
 
-            for (int i = tankList.Count - 1; i >= 0; --i)
-            {
-                FuelTank tank = tankList[i];
-                if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
-                    lowestTankTemperature = Math.Min(lowestTankTemperature, tank.temperature);
-            }
+            bool hasCryoFuels = CalculateLowestTankTemperature();
 
             if (tankList.Count > 0 && lowestTankTemperature < 300d && MFSSettings.radiatorMinTempMult >= 0d)
                 part.radiatorMax = (lowestTankTemperature * MFSSettings.radiatorMinTempMult) / part.maxTemp;
 
             if (fueledByLaunchClamp)
             {
+                if (hasCryoFuels)
+                {
+                    part.temperature = lowestTankTemperature;
+                    part.skinTemperature = lowestTankTemperature;
+                }
                 fueledByLaunchClamp = false;
                 yield break;
             }
@@ -180,8 +180,11 @@ namespace RealFuels.Tanks
 
                     if (deltaTemp > 0)
                     {
+#if DEBUG
                         if (analyticalMode)
                             print("Tank " + tank.name + " surface area = " + tank.totalArea);
+#endif
+
                         double wettedArea = tank.totalArea;// disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
 
                         double Q = deltaTemp /
@@ -220,8 +223,6 @@ namespace RealFuels.Tanks
 
                             heatLost = -massLost * tank.vsp;
 
-                            heatLost *= ConductionFactors;
-
                             // See if there is boiloff byproduct and see if any other parts want to accept it.
                             if (tank.boiloffProductResource != null)
                             {
@@ -241,6 +242,8 @@ namespace RealFuels.Tanks
 
                         if (!analyticalMode)
                         {
+                            heatLost *= ConductionFactors;
+
                             if (hasMLI)
                                 part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
                             else
@@ -250,9 +253,11 @@ namespace RealFuels.Tanks
                         else
                         {
                             analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal);
-                            previewInternalFluxAdjust -= heatLost * deltaTimeRecip;
+                            previewInternalFluxAdjust += heatLost * deltaTimeRecip;
+#if DEBUG
                             if (deltaTime > 0)
                                 print(part.name + " deltaTime = " + deltaTime + ", heat lost = " + heatLost + ", thermalMassReciprocal = " + part.thermalMassReciprocal);
+#endif
                         }
                     }
                 }
@@ -377,19 +382,48 @@ namespace RealFuels.Tanks
             GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
         }
 
+        private bool CalculateLowestTankTemperature()
+        {
+            bool result = false;
+            lowestTankTemperature = 300;
+            for (int i = tankList.Count - 1; i >= 0; --i)
+            {
+                FuelTank tank = tankList[i];
+                if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
+                {
+                    lowestTankTemperature = Math.Min(lowestTankTemperature, tank.temperature);
+                    result = true;
+                }
+            }
+            return result;
+        }
+
         #region IAnalyticTemperatureModifier
         // Analytic Interface
         public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
         {
             //if (analyticInternalTemp > lowestTankTemperature)
+#if DEBUG
             if(this.supportsBoiloff)
                 print(part.name + " Analytic Temp = " + analyticTemp.ToString() + ", Analytic Internal = " + toBeInternal.ToString() + ", Analytic Skin = " + toBeSkin.ToString());
+#endif
             
             analyticSkinTemp = toBeSkin;
             analyticInternalTemp = toBeInternal;
 
-            if (this.supportsBoiloff && fi.timeSinceLastUpdate < double.MaxValue * 0.99)
-                StartCoroutine(CalculateTankLossFunction(fi.timeSinceLastUpdate, true));
+            if (this.supportsBoiloff)
+            {
+                if (fi.timeSinceLastUpdate < double.MaxValue * 0.99)
+                {
+                    StartCoroutine(CalculateTankLossFunction(fi.timeSinceLastUpdate, true));
+                }
+                else if (CalculateLowestTankTemperature())
+                {
+                    // Vessel is freshly spawned and has cryogenic tanks, set temperatures appropriately
+                    analyticSkinTemp = lowestTankTemperature;
+                    analyticInternalTemp = lowestTankTemperature;
+                }
+            }
         }
 
         public double GetSkinTemperature(out bool lerp)
