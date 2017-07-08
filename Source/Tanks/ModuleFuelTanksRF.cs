@@ -102,7 +102,7 @@ namespace RealFuels.Tanks
                     debug0Display = "";
                 }
 
-                if(!_flightIntegrator.isAnalytical)
+                if(!_flightIntegrator.isAnalytical && supportsBoiloff)
                     StartCoroutine(CalculateTankLossFunction((double)TimeWarp.fixedDeltaTime));
             }
         }
