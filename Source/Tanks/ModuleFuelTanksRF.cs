@@ -253,7 +253,7 @@ namespace RealFuels.Tanks
                         else
                         {
                             analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal);
-                            previewInternalFluxAdjust -= heatLost * deltaTimeRecip;
+                            previewInternalFluxAdjust += heatLost * deltaTimeRecip;
 #if DEBUG
                             if (deltaTime > 0)
                                 print(part.name + " deltaTime = " + deltaTime + ", heat lost = " + heatLost + ", thermalMassReciprocal = " + part.thermalMassReciprocal);
