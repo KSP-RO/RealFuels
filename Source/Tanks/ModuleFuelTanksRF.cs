@@ -223,8 +223,6 @@ namespace RealFuels.Tanks
 
                             heatLost = -massLost * tank.vsp;
 
-                            heatLost *= ConductionFactors;
-
                             // See if there is boiloff byproduct and see if any other parts want to accept it.
                             if (tank.boiloffProductResource != null)
                             {
@@ -244,6 +242,8 @@ namespace RealFuels.Tanks
 
                         if (!analyticalMode)
                         {
+                            heatLost *= ConductionFactors;
+
                             if (hasMLI)
                                 part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
                             else
