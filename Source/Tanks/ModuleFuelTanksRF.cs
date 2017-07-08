@@ -120,15 +120,18 @@ namespace RealFuels.Tanks
 
             previewInternalFluxAdjust = 0;
 
-            CalculateLowestTankTemperature(analyticalMode ? analyticInternalTemp : part.temperature);
+            bool hasCryoFuels = CalculateLowestTankTemperature();
 
             if (tankList.Count > 0 && lowestTankTemperature < 300d && MFSSettings.radiatorMinTempMult >= 0d)
                 part.radiatorMax = (lowestTankTemperature * MFSSettings.radiatorMinTempMult) / part.maxTemp;
 
             if (fueledByLaunchClamp)
             {
-                part.temperature = lowestTankTemperature;
-                part.skinTemperature = lowestTankTemperature;
+                if (hasCryoFuels)
+                {
+                    part.temperature = lowestTankTemperature;
+                    part.skinTemperature = lowestTankTemperature;
+                }
                 fueledByLaunchClamp = false;
                 yield break;
             }
@@ -379,17 +382,20 @@ namespace RealFuels.Tanks
             GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
         }
 
-        private void CalculateLowestTankTemperature(double tankTemperature)
+        private bool CalculateLowestTankTemperature()
         {
-            lowestTankTemperature = tankTemperature;
+            bool result = false;
+            lowestTankTemperature = 300;
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
                 if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
                 {
                     lowestTankTemperature = Math.Min(lowestTankTemperature, tank.temperature);
+                    result = true;
                 }
             }
+            return result;
         }
 
         #region IAnalyticTemperatureModifier
@@ -411,11 +417,9 @@ namespace RealFuels.Tanks
                 {
                     StartCoroutine(CalculateTankLossFunction(fi.timeSinceLastUpdate, true));
                 }
-                else
+                else if (CalculateLowestTankTemperature())
                 {
-                    // Vessel is freshly spawned, set temperatures appropriately
-                    CalculateLowestTankTemperature(analyticInternalTemp);
-
+                    // Vessel is freshly spawned and has cryogenic tanks, set temperatures appropriately
                     analyticSkinTemp = lowestTankTemperature;
                     analyticInternalTemp = lowestTankTemperature;
                 }
