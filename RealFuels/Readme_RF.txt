@@ -50,6 +50,14 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.2.1
+
+* Fix tank's initial temperature not being set correctly on vessel spawn and when launch clamps are attached
+* Remove some logspam for boiloff in analytic mode (high timewarp)
+* Make sure tank's lowest temperature is calculated correctly and that part temp is only set if cryogenic resources are present
+* Fix negative temperature caused by conduction compensation in analytic mode (high timewarp)
+* Fix sign error on flux in analytic mode (high timewarp)
+
 v12.2.0
 
 * Fix for engines not properly loading pressure fed setting from
