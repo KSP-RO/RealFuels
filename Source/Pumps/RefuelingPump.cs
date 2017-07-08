@@ -100,7 +100,6 @@ namespace RealFuels
                 Tanks.ModuleFuelTanks m = p.FindModuleImplementing<Tanks.ModuleFuelTanks>();
                 if (m != null)
                 {
-                    double minTemp = p.temperature;
                     m.fueledByLaunchClamp = true;
                     // look through all tanks inside this part
                     for (int j = m.tankList.Count - 1; j >= 0; --j)
@@ -116,8 +115,6 @@ namespace RealFuels
                         PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(r.resourceName);
                         if (d == null) continue;
                         
-                        if (tank.loss_rate > 0d)
-                            minTemp = Math.Min(minTemp, tank.temperature);
                         if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
                         {
                             double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
@@ -138,7 +135,6 @@ namespace RealFuels
                             p.TransferResource(r, amount, this.part);
                         }
                     }
-                    p.temperature = minTemp;
                 }
                 else
                 {

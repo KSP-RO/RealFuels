@@ -120,18 +120,15 @@ namespace RealFuels.Tanks
 
             previewInternalFluxAdjust = 0;
 
-            for (int i = tankList.Count - 1; i >= 0; --i)
-            {
-                FuelTank tank = tankList[i];
-                if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
-                    lowestTankTemperature = Math.Min(lowestTankTemperature, tank.temperature);
-            }
+            CalculateLowestTankTemperature(analyticalMode ? analyticInternalTemp : part.temperature);
 
             if (tankList.Count > 0 && lowestTankTemperature < 300d && MFSSettings.radiatorMinTempMult >= 0d)
                 part.radiatorMax = (lowestTankTemperature * MFSSettings.radiatorMinTempMult) / part.maxTemp;
 
             if (fueledByLaunchClamp)
             {
+                part.temperature = lowestTankTemperature;
+                part.skinTemperature = lowestTankTemperature;
                 fueledByLaunchClamp = false;
                 yield break;
             }
@@ -377,6 +374,19 @@ namespace RealFuels.Tanks
             GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
         }
 
+        private void CalculateLowestTankTemperature(double tankTemperature)
+        {
+            lowestTankTemperature = tankTemperature;
+            for (int i = tankList.Count - 1; i >= 0; --i)
+            {
+                FuelTank tank = tankList[i];
+                if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
+                {
+                    lowestTankTemperature = Math.Min(lowestTankTemperature, tank.temperature);
+                }
+            }
+        }
+
         #region IAnalyticTemperatureModifier
         // Analytic Interface
         public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
@@ -388,8 +398,21 @@ namespace RealFuels.Tanks
             analyticSkinTemp = toBeSkin;
             analyticInternalTemp = toBeInternal;
 
-            if (this.supportsBoiloff && fi.timeSinceLastUpdate < double.MaxValue * 0.99)
-                StartCoroutine(CalculateTankLossFunction(fi.timeSinceLastUpdate, true));
+            if (this.supportsBoiloff)
+            {
+                if (fi.timeSinceLastUpdate < double.MaxValue * 0.99)
+                {
+                    StartCoroutine(CalculateTankLossFunction(fi.timeSinceLastUpdate, true));
+                }
+                else
+                {
+                    // Vessel is freshly spawned, set temperatures appropriately
+                    CalculateLowestTankTemperature(analyticInternalTemp);
+
+                    analyticSkinTemp = lowestTankTemperature;
+                    analyticInternalTemp = lowestTankTemperature;
+                }
+            }
         }
 
         public double GetSkinTemperature(out bool lerp)
