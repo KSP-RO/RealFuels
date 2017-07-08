@@ -177,8 +177,11 @@ namespace RealFuels.Tanks
 
                     if (deltaTemp > 0)
                     {
+#if DEBUG
                         if (analyticalMode)
                             print("Tank " + tank.name + " surface area = " + tank.totalArea);
+#endif
+
                         double wettedArea = tank.totalArea;// disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
 
                         double Q = deltaTemp /
@@ -248,8 +251,10 @@ namespace RealFuels.Tanks
                         {
                             analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal);
                             previewInternalFluxAdjust -= heatLost * deltaTimeRecip;
+#if DEBUG
                             if (deltaTime > 0)
                                 print(part.name + " deltaTime = " + deltaTime + ", heat lost = " + heatLost + ", thermalMassReciprocal = " + part.thermalMassReciprocal);
+#endif
                         }
                     }
                 }
@@ -392,8 +397,10 @@ namespace RealFuels.Tanks
         public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
         {
             //if (analyticInternalTemp > lowestTankTemperature)
+#if DEBUG
             if(this.supportsBoiloff)
                 print(part.name + " Analytic Temp = " + analyticTemp.ToString() + ", Analytic Internal = " + toBeInternal.ToString() + ", Analytic Skin = " + toBeSkin.ToString());
+#endif
             
             analyticSkinTemp = toBeSkin;
             analyticInternalTemp = toBeInternal;
