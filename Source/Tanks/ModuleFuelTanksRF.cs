@@ -352,7 +352,7 @@ namespace RealFuels.Tanks
                     tankMaxAmount = tank.maxAmount;
 
                     if (tank.utilization > 1.0)
-                        tankMaxAmount /= utilization;
+                        tankMaxAmount /= tank.utilization;
 
                     tank.tankRatio = tankMaxAmount / volume;
 
