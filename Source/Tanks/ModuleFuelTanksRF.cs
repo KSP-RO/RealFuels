@@ -14,7 +14,6 @@ namespace RealFuels.Tanks
         private double previewInternalFluxAdjust;
         private bool supportsBoiloff = false;
         public double sunAndBodyFlux = 0;
-        public bool fueledByLaunchClamp = false;
 
         public double outerInsulationFactor = 0.0;
 

@@ -19,6 +19,8 @@ namespace RealFuels.Tanks
 		bool compatible = true;
 		bool started;
 
+        public bool fueledByLaunchClamp = false;
+
         private static double MassMult
 		{
 			get {
