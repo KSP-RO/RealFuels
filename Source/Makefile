@@ -3,7 +3,6 @@ MANAGED		:= ${KSPDIR}/KSP_Data/Managed
 GAMEDATA	:= ${KSPDIR}/GameData
 MODGAMEDATA	:= ${GAMEDATA}/ModularFuelTanks
 PLUGINDIR	:= ${MODGAMEDATA}/Plugins
-APIEXTDATA	:= ${PLUGINDIR}
 TSGAMEDATA	:= ${GAMEDATA}/TweakScale
 TSPLUGIN	:= ${TSGAMEDATA}/Plugins
 TSINTERACT	:= ${TSGAMEDATA}/TweakScaleInteraction
@@ -56,7 +55,10 @@ info:
 
 bin/modularFuelTanks.dll: ${MFT_FILES}
 	@mkdir -p bin
-	${GMCS} /t:library /lib:${APIEXTDATA},${MANAGED} \
+	${GMCS} /highentropyva- /noconfig /nostdlib+ /t:library \
+		/r:/usr/lib/mono/2.0-api/mscorlib.dll \
+		/r:/usr/lib/mono/2.0-api/System.Core.dll \
+		/lib:${MANAGED} \
 		/r:Assembly-CSharp.dll,Assembly-CSharp-firstpass.dll \
 		/r:UnityEngine.dll,UnityEngine.UI.dll \
 		/out:$@ $^
