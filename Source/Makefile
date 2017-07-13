@@ -33,7 +33,7 @@ MFT_TS_FILES := \
 	$e
 
 RESGEN2	:= resgen2
-GMCS	:= mcs
+GMCS	:= csc
 GIT		:= git
 TAR		:= tar
 ZIP		:= zip
@@ -56,15 +56,15 @@ info:
 
 bin/modularFuelTanks.dll: ${MFT_FILES}
 	@mkdir -p bin
-	${GMCS} -t:library -lib:${APIEXTDATA},${MANAGED} \
-		-r:Assembly-CSharp,Assembly-CSharp-firstpass \
-		-r:UnityEngine,UnityEngine.UI \
-		-out:$@ $^
+	${GMCS} /t:library /lib:${APIEXTDATA},${MANAGED} \
+		/r:Assembly-CSharp.dll,Assembly-CSharp-firstpass.dll \
+		/r:UnityEngine.dll,UnityEngine.UI.dll \
+		/out:$@ $^
 
 bin/TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} bin/modularFuelTanks.dll
 	@mkdir -p bin
 	${GMCS} -t:library -lib:${TSPLUGIN},${MANAGED} \
-		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
+		-r:Assembly-CSharp.dll,Assembly-CSharp-firstpass.dll,UnityEngine.dll \
 		-r:Scale_Redist.dll \
 		-r:bin/modularFuelTanks.dll \
 		-out:$@ ${MFT_TS_FILES}
