@@ -158,7 +158,7 @@ namespace RealFuels.Tanks
 				return "";
 			}
 
-			UpdateTankType ();
+			UpdateTankType (false);
 
 			StringBuilder info = new StringBuilder ();
 			info.AppendLine ("Modular Fuel Tank:");
@@ -393,7 +393,7 @@ namespace RealFuels.Tanks
                     Fields["type"].guiActiveEditor = false;
 			}
 
-			UpdateTankType ();
+			UpdateTankType (false);
 		}
 
 		private void UpdateTankType (bool initializeAmounts = true)
