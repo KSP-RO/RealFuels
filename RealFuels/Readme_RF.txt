@@ -50,6 +50,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.2.3
+
+* Recompile for KSP 1.3
+
 v12.2.2
 
 * Fix bug in how tank surface area is calculated
