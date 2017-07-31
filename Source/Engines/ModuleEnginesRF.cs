@@ -492,7 +492,8 @@ namespace RealFuels
             rfSolver.SetPartTemp(part.temperature);
 
             // do heat
-            heatProduction = (float)(scaleRecip * extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
+            // heatProduction = (float)(scaleRecip * extHeatkW / PhysicsGlobals.InternalHeatProductionFactor * part.thermalMassReciprocal);
+            heatProduction = 0;
 
             // run base method code
             base.UpdateSolver(ambientTherm, altitude, vel, mach, ignited, oxygen, CheckTransformsUnderwater());
