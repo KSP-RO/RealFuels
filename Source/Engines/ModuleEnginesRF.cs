@@ -45,7 +45,7 @@ namespace RealFuels
         //[KSPField]
         //public FloatCurve thrustCurve;
         [KSPField]
-        public string curveResource = "";
+        public string curveResource = string.Empty;
 
         protected int curveProp = -1;
 
@@ -191,7 +191,7 @@ namespace RealFuels
                     thrustCurve.Load(node.GetNode("thrustCurve"));
                 }
 
-                if (curveResource != "")
+                if (curveResource != string.Empty)
                 {
                     for (int i = 0; i < pCount; ++i)
                     {
@@ -513,7 +513,7 @@ namespace RealFuels
         #region Info
         protected string ThrottleString()
         {
-            string output = "";
+            string output = string.Empty;
             if (!throttleLocked)
             {
                 if (minThrottle > 0f && minThrottle < 1f)
@@ -528,7 +528,7 @@ namespace RealFuels
         }
         protected string GetThrustInfo()
         {
-            string output = "";
+            string output = string.Empty;
             if (engineSolver == null || !(engineSolver is SolverRF))
                 CreateEngine();
             rfSolver.SetPropellantStatus(true, true);
@@ -593,14 +593,14 @@ namespace RealFuels
         }
         public string GetUllageIgnition()
         {
-            string output = "";
+            string output = string.Empty;
             if (pressureFed)
                 output += "Pressure-fed";
             if (ignitions >= 0 && RFSettings.Instance.limitedIgnitions)
-                output += (output != "" ? ", " : "") + "Ignitions: " + (ignitions > 0 ? ignitions.ToString() : "Ground only");
+                output += (output != string.Empty ? ", " : string.Empty) + "Ignitions: " + (ignitions > 0 ? ignitions.ToString() : "Ground only");
             if (!ullage)
-                output += (output != "" ? ", " : "") + "Not subject to ullage";
-            if (output != "")
+                output += (output != string.Empty ? ", " : string.Empty) + "Not subject to ullage";
+            if (output != string.Empty)
                 output += "\n";
 
             return output;
@@ -626,7 +626,7 @@ namespace RealFuels
                 if (p.name == "ElectricCharge")
                 {
                     units = "kW";
-                    rate = "";
+                    rate = string.Empty;
                 }
                 float unitsSec = getMaxFuelFlow(p);
                 string unitsUsed = unitsSec.ToString("N4") + units;

@@ -76,7 +76,7 @@ namespace RealFuels
         protected bool compatible = true;
 
         [KSPField(isPersistant = true)]
-        public string configuration = "";
+        public string configuration = string.Empty;
 
         // Tech Level stuff
         [KSPField(isPersistant = true)]
@@ -90,7 +90,7 @@ namespace RealFuels
         protected float massDelta = 0;
 
         [KSPField]
-        public string gimbalTransform = "";
+        public string gimbalTransform = string.Empty;
         [KSPField]
         public float gimbalMult = 1f;
         [KSPField]
@@ -111,7 +111,7 @@ namespace RealFuels
         public float throttle = 0.0f; // default min throttle level
         public float configThrottle;
 
-        public string configDescription = "";
+        public string configDescription = string.Empty;
 
         public ConfigNode techNodes = new ConfigNode();
 
@@ -128,7 +128,7 @@ namespace RealFuels
         public bool useWeakType = true; // match any ModuleEngines*
 
         [KSPField]
-        public string engineID = "";
+        public string engineID = string.Empty;
 
         [KSPField]
         public int moduleIndex = -1;
@@ -346,8 +346,8 @@ namespace RealFuels
         #region Info Methods
         private string TLTInfo()
         {
-            string retStr = "";
-            if (engineID != "")
+            string retStr = string.Empty;
+            if (engineID != string.Empty)
                 retStr += "(Bound to " + engineID + ")\n";
             if(moduleIndex >= 0)
                 retStr += "(Bound to engine " + moduleIndex + " in part)\n";
@@ -369,7 +369,7 @@ namespace RealFuels
                 float gimbalR = -1f;
                 if (config.HasValue("gimbalRange"))
                     gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                else if (!gimbalTransform.Equals("") || useGimbalAnyway)
+                else if (!gimbalTransform.Equals(string.Empty) || useGimbalAnyway)
                 {
                     if (cTL != null)
                         gimbalR = cTL.GimbalRange;
@@ -380,13 +380,13 @@ namespace RealFuels
                 return retStr;
             }
             else
-                return "";
+                return string.Empty;
         }
 
         public override string GetInfo ()
         {
             if (!compatible)
-                return "";
+                return string.Empty;
             if (configs.Count < 2)
                 return TLTInfo();
 
@@ -465,7 +465,7 @@ namespace RealFuels
             if (config.HasValue("gimbalRange"))
                 gimbalR = float.Parse(config.GetValue("gimbalRange"));
             // Don't do per-TL checks here, they're misleading.
-            /*else if (!gimbalTransform.Equals("") || useGimbalAnyway)
+            /*else if (!gimbalTransform.Equals(string.Empty) || useGimbalAnyway)
             {
                 if (cTL != null)
                     gimbalR = cTL.GimbalRange;
@@ -498,7 +498,7 @@ namespace RealFuels
                         if (comma)
                             info += ", ";
                         if (ignitions > 0)
-                            info += ignitions + " ignition" + (ignitions > 1 ? "s" : "");
+                            info += ignitions + " ignition" + (ignitions > 1 ? "s" : string.Empty);
                         else if (literalZeroIgnitions && ignitions == 0)
                             info += "ground ignition only";
                         else
@@ -742,7 +742,7 @@ namespace RealFuels
                             }
                             ConfigNode tNode = new ConfigNode("MODULE");
                             eiNode.CopyTo(tNode);
-                            tNode.SetAddValue("name", "ModuleEngineIgnitor");
+                            tNode.SetValue("name", "ModuleEngineIgnitor", true);
                             part.Modules["ModuleEngineIgnitor"].Load(tNode);
                         }
                         else // backwards compatible with EI nodes when using RF ullage etc.
@@ -796,7 +796,7 @@ namespace RealFuels
                         if (part.Modules[m] is ModuleGimbal)
                         {
                             ModuleGimbal g = part.Modules[m] as ModuleGimbal;
-                            if (gimbalTransform.Equals("") || g.gimbalTransformName.Equals(gimbalTransform))
+                            if (gimbalTransform.Equals(string.Empty) || g.gimbalTransformName.Equals(gimbalTransform))
                             {
                                 g.gimbalRange = newGimbal;
                                 break;
@@ -838,7 +838,7 @@ namespace RealFuels
                 if (config.HasValue("description"))
                     configDescription = config.GetValue("description");
                 else
-                    configDescription = "";
+                    configDescription = string.Empty;
             }
             else
             {
@@ -974,7 +974,7 @@ namespace RealFuels
                 // Don't want to change gimbals on TL-enabled engines willy-nilly
                 // So we don't unless either a transform is specified, or we override.
                 // We assume if it was specified in the CONFIG that we should use it anyway.
-                if (gimbal < 0 && (!gimbalTransform.Equals("") || useGimbalAnyway))
+                if (gimbal < 0 && (!gimbalTransform.Equals(string.Empty) || useGimbalAnyway))
                     gimbal = cTL.GimbalRange;
                 if (gimbal >= 0)
                 {
@@ -997,13 +997,13 @@ namespace RealFuels
             // Now update the cfg from what we did.
             // thrust updates
             if(configMaxThrust >= 0f)
-                cfg.SetAddValue(thrustRating, configMaxThrust.ToString("0.0000"));
+                cfg.SetValue(thrustRating, configMaxThrust.ToString("0.0000"), true);
             if(configMinThrust >= 0f)
-                cfg.SetAddValue("minThrust", configMinThrust.ToString("0.0000")); // will be ignored by RCS, so what.
+                cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"), true); // will be ignored by RCS, so what.
 
             // heat update
             if(configHeat >= 0f)
-                cfg.SetAddValue("heatProduction", configHeat.ToString("0"));
+                cfg.SetValue("heatProduction", configHeat.ToString("0"), true);
             
             // mass change
             if (origMass > 0)
@@ -1080,8 +1080,8 @@ namespace RealFuels
                 return false;
             if (!config.HasValue("name"))
                 return false;
-            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
-                return RFUpgradeManager.Instance.ConfigUnlocked((RFSettings.Instance.usePartNameInConfigUnlock ? Utilities.GetPartName(p) : "") + config.GetValue("name"));
+            if (EntryCostManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
+                return EntryCostManager.Instance.ConfigUnlocked((RFSettings.Instance.usePartNameInConfigUnlock ? Utilities.GetPartName(p) : string.Empty) + config.GetValue("name"));
             return true;
         }
         public static bool CanConfig(ConfigNode config)
@@ -1096,8 +1096,8 @@ namespace RealFuels
         }
         public static bool UnlockedTL(string tlName, int newTL)
         {
-            if (RFUpgradeManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
-                return RFUpgradeManager.Instance.TLUnlocked(tlName) >= newTL;
+            if (EntryCostManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
+                return EntryCostManager.Instance.TLUnlocked(tlName) >= newTL;
             return true;
         }
 
@@ -1226,7 +1226,7 @@ namespace RealFuels
 
         private static Vector3 mousePos = Vector3.zero;
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
-        public static string myToolTip = "";
+        public static string myToolTip = string.Empty;
         private int counterTT;
         private bool styleSetup = false;
         public void OnGUI()
@@ -1351,7 +1351,7 @@ namespace RealFuels
                 GUILayout.BeginHorizontal();
 
                 // get cost
-                string costString = "";
+                string costString = string.Empty;
                 if (node.HasValue("cost"))
                 {
                     float curCost = scale * float.Parse(node.GetValue("cost"));
@@ -1360,7 +1360,7 @@ namespace RealFuels
                     {
                         curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
                     }
-                    costString = " (" + ((curCost < 0) ? "" : "+") + curCost.ToString("N0") + "f)";
+                    costString = " (" + ((curCost < 0) ? string.Empty : "+") + curCost.ToString("N0") + "f)";
                 }
 
                 if (nName.Equals(configuration))
@@ -1381,28 +1381,14 @@ namespace RealFuels
                         }
                         else
                         {
-                            double upgradeCost = RFUpgradeManager.Instance.ConfigEntryCost(nName);
-                            double sciCost = RFUpgradeManager.Instance.ConfigSciEntryCost(nName);
-                            costString = "";
-                            bool foundCost = false;
+                            double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
+                            costString = string.Empty;
                             if (upgradeCost > 0d)
                             {
-                                costString = "(" + upgradeCost.ToString("N0") + "f";
-                                foundCost = true;
-                            }
-                            if (sciCost > 0d)
-                            {
-                                if (foundCost)
-                                    costString += "/";
-                                costString += sciCost.ToString("N1") + "s";
-                                foundCost = true;
-                            }
-                            if (foundCost)
-                            {
-                                costString += ")";
+                                costString = "(" + upgradeCost.ToString("N0") + "f)";
                                 if (GUILayout.Button(new GUIContent("Purchase " + nName + costString, GetConfigInfo(node))))
                                 {
-                                    RFUpgradeManager.Instance.PurchaseConfig(nName);
+                                    EntryCostManager.Instance.PurchaseConfig(nName);
                                     SetConfiguration(nName, true);
                                     UpdateSymmetryCounterparts();
                                 }
@@ -1410,7 +1396,7 @@ namespace RealFuels
                             else
                             {
                                 // autobuy
-                                RFUpgradeManager.Instance.PurchaseConfig(nName);
+                                EntryCostManager.Instance.PurchaseConfig(nName);
                                 if (GUILayout.Button(new GUIContent("Switch to " + nName + costString, GetConfigInfo(node))))
                                 {
                                     SetConfiguration(nName, true);
@@ -1421,7 +1407,7 @@ namespace RealFuels
                     }
                     else
                     {
-                        string techStr = "";
+                        string techStr = string.Empty;
                         if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out techStr))
                             techStr = "\nRequires: " + techStr;
                         GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node) + techStr));
@@ -1463,10 +1449,10 @@ namespace RealFuels
                     }
                     else
                     {
-                        double cost = RFUpgradeManager.Instance.TLEntryCost(tlName) * tlIncrMult;
-                        double sciCost = RFUpgradeManager.Instance.TLSciEntryCost(tlName) * tlIncrMult;
+                        double cost = EntryCostManager.Instance.TLEntryCost(tlName) * tlIncrMult;
+                        double sciCost = EntryCostManager.Instance.TLSciEntryCost(tlName) * tlIncrMult;
                         bool autobuy = true;
-                        plusStr = "";
+                        plusStr = string.Empty;
                         if (cost > 0d)
                         {
                             plusStr += cost.ToString("N0") + "f";
@@ -1484,7 +1470,7 @@ namespace RealFuels
                         if (autobuy)
                         {
                             // auto-upgrade
-                            RFUpgradeManager.Instance.SetTLUnlocked(tlName, techLevel + 1);
+                            EntryCostManager.Instance.SetTLUnlocked(tlName, techLevel + 1);
                             plusStr = "+";
                             canPlus = true;
                             canBuy = false;
@@ -1494,7 +1480,7 @@ namespace RealFuels
                 if (GUILayout.Button(plusStr) && (canPlus || canBuy))
                 {
                     if (canBuy)
-                        RFUpgradeManager.Instance.PurchaseTL(tlName, techLevel + 1, tlIncrMult);
+                        EntryCostManager.Instance.PurchaseTL(tlName, techLevel + 1, tlIncrMult);
 
                     techLevel++;
                     SetConfiguration();
@@ -1511,7 +1497,7 @@ namespace RealFuels
                 GUILayout.EndHorizontal();
             }
 
-            if (!(myToolTip.Equals("")) && GUI.tooltip.Equals(""))
+            if (!(myToolTip.Equals(string.Empty)) && GUI.tooltip.Equals(string.Empty))
             {
                 if (counterTT > 4)
                 {
@@ -1542,7 +1528,7 @@ namespace RealFuels
                 return i;
 
             int mIdx = moduleIndex;
-            if (engineID == "" && mIdx < 0)
+            if (engineID == string.Empty && mIdx < 0)
                 mIdx = 0;
 
             int pCount = part.symmetryCounterparts.Count;
@@ -1648,9 +1634,9 @@ namespace RealFuels
                         tmpIdx++;
                         continue; // skip the next test
                     }
-                    else if (eID != "")
+                    else if (eID != string.Empty)
                     {
-                        string testID = "";
+                        string testID = string.Empty;
                         if (pM is ModuleEngines)
                             testID = (pM as ModuleEngines).engineID;
                         else if (pM is ModuleEngineConfigs)

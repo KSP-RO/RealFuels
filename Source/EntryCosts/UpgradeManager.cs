@@ -6,33 +6,31 @@ using UnityEngine;
 
 namespace RealFuels
 {
-    [KSPAddon(KSPAddon.Startup.MainMenu, true)]
-    public class RFUpgradeFiller : MonoBehaviour
-    {
-        public void Start()
-        {
-            RFUpgradeManager.FillUpgrades();
-        }
-    }
     [KSPScenario(ScenarioCreationOptions.AddToAllGames, new GameScenes[] { GameScenes.EDITOR, GameScenes.SPACECENTER })]
-    public class RFUpgradeManager : ScenarioModule
+    public class EntryCostManager : ScenarioModule
     {
         #region Fields
+
         protected static Dictionary<string, EngineConfigUpgrade> configUpgrades;
         protected static Dictionary<string, TLUpgrade> techLevelUpgrades;
+
         #region Instance
-        private static RFUpgradeManager _instance = null;
-        public static RFUpgradeManager Instance
+
+        private static EntryCostManager _instance = null;
+        public static EntryCostManager Instance
         {
             get
             {
                 return _instance;
             }
         }
+
         #endregion
+
         #endregion
 
         #region Overrides and Monobehaviour methods
+
         public override void OnAwake()
         {
             base.OnAwake();
@@ -47,29 +45,21 @@ namespace RealFuels
             if (configUpgrades == null) // just in case
                 FillUpgrades();
 
+            EntryCostDatabase.Initialize(); // should not be needed though.
+
             GameEvents.OnPartPurchased.Add(new EventData<AvailablePart>.OnEvent(onPartPurchased));
         }
 
         public override void OnLoad(ConfigNode node)
         {
             base.OnLoad(node);
+
+            EntryCostDatabase.Load(node.GetNode("Unlocks"));
+
+            UpdatePartEntryCosts();
+
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
             {
-                foreach (ConfigNode n in node.GetNodes("EngineConfigUpgrade"))
-                {
-                    EngineConfigUpgrade eCfg = null;
-                    if (n.HasValue("name"))
-                    {
-                        string cfgName = n.GetValue("name");
-                        if (configUpgrades.TryGetValue(cfgName, out eCfg))
-                            eCfg.Load(n);
-                        else
-                        {
-                            eCfg = new EngineConfigUpgrade(n);
-                            configUpgrades[cfgName] = eCfg;
-                        }
-                    }
-                }
                 foreach (ConfigNode n in node.GetNodes("TLUpgrade"))
                 {
                     TLUpgrade tU = null;
@@ -92,16 +82,12 @@ namespace RealFuels
             base.OnSave(node);
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
             {
-                foreach (EngineConfigUpgrade eCfg in configUpgrades.Values)
-                {
-                    ConfigNode n = node.AddNode("EngineConfigUpgrade");
-                    eCfg.Save(n);
-                }
                 foreach (TLUpgrade tU in techLevelUpgrades.Values)
                 {
-                    ConfigNode n = node.AddNode("TLUpgrade");
-                    tU.Save(n);
+                    tU.Save(node.AddNode("TLUpgrade"));
                 }
+
+                EntryCostDatabase.Save(node.AddNode("Unlocks"));
             }
         }
         public void OnDestroy()
@@ -111,6 +97,20 @@ namespace RealFuels
         #endregion
 
         #region Methods
+
+        protected void UpdatePartEntryCosts()
+        {
+            for (int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
+            {
+                AvailablePart ap = PartLoader.LoadedPartsList[a];
+
+                if (ap == null || ap.partPrefab == null)
+                    continue;
+
+                EntryCostDatabase.UpdateEntryCost(ap);
+            }
+        }
+
         public static void FillUpgrades()
         {
             if (PartLoader.Instance == null || PartLoader.LoadedPartsList == null)
@@ -118,50 +118,49 @@ namespace RealFuels
                 Debug.LogError("*RFUM: ERROR: Partloader instance null or list null!");
                 return;
             }
-            
+
             configUpgrades = new Dictionary<string, EngineConfigUpgrade>();
             techLevelUpgrades = new Dictionary<string, TLUpgrade>();
 
-            for(int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
+            for (int a = PartLoader.LoadedPartsList.Count; a-- > 0;)
             {
                 AvailablePart ap = PartLoader.LoadedPartsList[a];
-                if (ap == null)
-                {
-                    continue;
-                }
-                Part part = ap.partPrefab;
-                if(part != null)
-                {
-                    if (part.Modules == null)
-                        continue;
 
-                    for(int i = part.Modules.Count - 1; i >= 0; --i)
+                if (ap == null || ap.partPrefab == null)
+                    continue;
+
+                Part part = ap.partPrefab;
+                if (part.Modules == null)
+                    continue;
+
+                for (int i = part.Modules.Count; i-- > 0;)
+                {
+                    PartModule m = part.Modules[i];
+                    if (m is ModuleEngineConfigs)
                     {
-                        PartModule m = part.Modules[i];
-                        if(m is ModuleEngineConfigs)
+                        ModuleEngineConfigs mec = m as ModuleEngineConfigs;
+                        mec.CheckConfigs();
+                        for (int j = mec.configs.Count; j-- > 0;)
                         {
-                            ModuleEngineConfigs mec = m as ModuleEngineConfigs;
-                            mec.CheckConfigs();
-                            for(int j = mec.configs.Count - 1; j >= 0; --j)
+                            ConfigNode cfg = mec.configs[j];
+                            string cfgName = cfg.GetValue("name");
+                            if (!string.IsNullOrEmpty(cfgName))
                             {
-                                ConfigNode cfg = mec.configs[j];
-                                if(cfg.HasValue("name"))
+                                if (RFSettings.Instance.usePartNameInConfigUnlock)
+                                    cfgName = Utilities.GetPartName(ap) + cfgName;
+
+                                // config upgrades
+                                if (!configUpgrades.ContainsKey(cfgName))
                                 {
-                                    string cfgName = cfg.GetValue("name");
-                                    if (RFSettings.Instance.usePartNameInConfigUnlock)
-                                        cfgName = Utilities.GetPartName(ap) + cfgName;
-                                    
-                                    // config upgrades
                                     EngineConfigUpgrade eConfig = new EngineConfigUpgrade(cfg, cfgName);
                                     configUpgrades[cfgName] = eConfig;
-                                    eConfig.unlocked = false;
+                                }
 
-                                    // TL upgrades
-                                    if (mec.techLevel >= 0)
-                                    {
-                                        TLUpgrade tU = new TLUpgrade(cfg, mec);
-                                        techLevelUpgrades[tU.name] = tU;
-                                    }
+                                // TL upgrades
+                                if (mec.techLevel >= 0)
+                                {
+                                    TLUpgrade tU = new TLUpgrade(cfg, mec);
+                                    techLevelUpgrades[tU.name] = tU;
                                 }
                             }
                         }
@@ -171,6 +170,10 @@ namespace RealFuels
         }
         public void onPartPurchased(AvailablePart ap)
         {
+            EntryCostDatabase.SetUnlocked(ap);
+
+            UpdatePartEntryCosts();
+
             Part part = ap.partPrefab;
             if(part != null)
             {
@@ -194,58 +197,23 @@ namespace RealFuels
                                     string tUName = Utilities.GetPartName(ap) + cfgName;
                                     SetTLUnlocked(tUName, mec.techLevel);
                                 }
-                                // unlock the config if it defaults to unlocked, or if autoUnlock is on.
-                                bool auto = mec.autoUnlock;
-                                if (cfg.HasValue("techRequired"))
-                                {
-                                    string tech = cfg.GetValue("techRequired");
-                                    if (tech != "" && tech != ap.TechRequired)
-                                        auto = false;
-                                }
-                                bool unlocked = false;
-                                if (cfg.HasValue("unlocked"))
-                                    bool.TryParse(cfg.GetValue("unlocked"), out unlocked);
-                                if (auto || unlocked)
-                                    SetConfigUnlock(cfgName, true);
                             }
                         }
                     }
                 }
             }
         }
+
         public bool ConfigUnlocked(string cfgName)
         {
-            EngineConfigUpgrade cfg = null;
-            if (configUpgrades.TryGetValue(cfgName, out cfg))
-                return cfg.unlocked;
-            else
-                return true;
+            return EntryCostDatabase.IsUnlocked(cfgName);
         }
 
-        public void SetConfigUnlock(string cfgName, bool newVal)
-        {
-            EngineConfigUpgrade cfg = null;
-            if(configUpgrades.TryGetValue(cfgName, out cfg))
-                cfg.unlocked = newVal;
-            else
-                Debug.LogError("*RFUM: ERROR: upgrade " + cfgName + " does not exist!1");
-        }
         public double ConfigEntryCost(string cfgName)
         {
-            EngineConfigUpgrade cfg = null;
-            if (configUpgrades.TryGetValue(cfgName, out cfg))
-                return cfg.EntryCost();
-            else
-                return 0d;
+            return EntryCostDatabase.GetCost(cfgName);
         }
-        public double ConfigSciEntryCost(string cfgName)
-        {
-            EngineConfigUpgrade cfg = null;
-            if (configUpgrades.TryGetValue(cfgName, out cfg))
-                return cfg.SciEntryCost();
-            else
-                return 0d;
-        }
+
         public bool PurchaseConfig(string cfgName)
         {
             if (ConfigUnlocked(cfgName))
@@ -259,15 +227,9 @@ namespace RealFuels
 
                 Funding.Instance.AddFunds(-cfgCost, TransactionReasons.RnDPartPurchase);
             }
-            float sciCost = (float)ConfigSciEntryCost(cfgName);
-            if (sciCost > 0f && ResearchAndDevelopment.Instance != null)
-            {
-                if (!ResearchAndDevelopment.CanAfford(sciCost))
-                    return false;
-                ResearchAndDevelopment.Instance.AddScience(-sciCost, TransactionReasons.RnDPartPurchase);
-            }
 
-            SetConfigUnlock(cfgName, true);
+            EntryCostDatabase.SetUnlocked(cfgName);
+
             return true;
         }
 
