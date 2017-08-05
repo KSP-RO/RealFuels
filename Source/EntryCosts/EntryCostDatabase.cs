@@ -95,7 +95,7 @@ namespace RealFuels
         #region Interface
         public static bool IsUnlocked(string name)
         {
-            return unlocks.Contains(name) || RealFuels.EntryCostManager.Instance.ConfigUnlocked(name);
+            return unlocks.Contains(name);
         }
 
         public static void SetUnlocked(AvailablePart ap)
