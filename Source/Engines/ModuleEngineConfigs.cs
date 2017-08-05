@@ -1388,9 +1388,11 @@ namespace RealFuels
                                 costString = "(" + upgradeCost.ToString("N0") + "f)";
                                 if (GUILayout.Button(new GUIContent("Purchase " + nName + costString, GetConfigInfo(node))))
                                 {
-                                    EntryCostManager.Instance.PurchaseConfig(nName);
-                                    SetConfiguration(nName, true);
-                                    UpdateSymmetryCounterparts();
+                                    if (EntryCostManager.Instance.PurchaseConfig(nName))
+                                    {
+                                        SetConfiguration(nName, true);
+                                        UpdateSymmetryCounterparts();
+                                    }
                                 }
                             }
                             else
@@ -1479,12 +1481,12 @@ namespace RealFuels
                 }
                 if (GUILayout.Button(plusStr) && (canPlus || canBuy))
                 {
-                    if (canBuy)
-                        EntryCostManager.Instance.PurchaseTL(tlName, techLevel + 1, tlIncrMult);
-
-                    techLevel++;
-                    SetConfiguration();
-                    UpdateSymmetryCounterparts();
+                    if (!canBuy || EntryCostManager.Instance.PurchaseTL(tlName, techLevel + 1, tlIncrMult))
+                    {
+                        techLevel++;
+                        SetConfiguration();
+                        UpdateSymmetryCounterparts();
+                    }
                 }
                 GUILayout.EndHorizontal();
             }
