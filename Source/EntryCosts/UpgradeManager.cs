@@ -230,6 +230,8 @@ namespace RealFuels
 
             EntryCostDatabase.SetUnlocked(cfgName);
 
+            UpdatePartEntryCosts();
+
             return true;
         }
 
