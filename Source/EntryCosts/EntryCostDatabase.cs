@@ -12,6 +12,8 @@ namespace RealFuels
         protected static Dictionary<string, PartEntryCostHolder> holders = null;
         protected static Dictionary<string, AvailablePart> nameToPart = null;
         protected static HashSet<string> unlocks = null;
+
+        protected static HashSet<string> unlockPathTracker = new HashSet<string>();
         #endregion
 
         #region Setup
@@ -117,6 +119,18 @@ namespace RealFuels
 
         public static int GetCost(string name)
         {
+            if (unlockPathTracker.Contains(name))
+            {
+                string msg = "[EntryCostDatabase]: Circular reference on " + name;
+                foreach (string s in unlockPathTracker)
+                    msg += "\n" + s;
+
+                Debug.LogError(msg);
+                return 0;
+            }
+
+            unlockPathTracker.Add(name);
+
             PartEntryCostHolder h;
             if (holders.TryGetValue(name, out h))
                 return h.GetCost();
@@ -127,6 +141,8 @@ namespace RealFuels
         public static void UpdateEntryCost(AvailablePart ap)
         {
             string name = GetPartName(ap);
+
+            EntryCostDatabase.ClearTracker();
 
             PartEntryCostHolder h;
             if (holders.TryGetValue(name, out h))
@@ -152,6 +168,11 @@ namespace RealFuels
             {
                 unlocks.Add(v.name);
             }
+        }
+
+        public static void ClearTracker()
+        {
+            unlockPathTracker.Clear();
         }
         #endregion
     }
