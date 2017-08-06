@@ -203,7 +203,7 @@ namespace RealFuels
                 }
             }
         }
-
+        
         public bool ConfigUnlocked(string cfgName)
         {
             return EntryCostDatabase.IsUnlocked(cfgName);
@@ -211,6 +211,7 @@ namespace RealFuels
 
         public double ConfigEntryCost(string cfgName)
         {
+            EntryCostDatabase.ClearTracker();
             return EntryCostDatabase.GetCost(cfgName);
         }
 
