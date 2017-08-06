@@ -103,6 +103,11 @@ namespace RealFuels.Tanks
 				return;
 			}
 
+            UI_FloatRange f = (UI_FloatRange)(Fields["utilization"].uiControlEditor);
+            f.minValue = minUtilization;
+            f.maxValue = maxUtilization;
+            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
+
 			if (MFSSettings.tankDefinitions == null) {
 				MFSSettings.Initialize ();
 			}
@@ -479,6 +484,12 @@ namespace RealFuels.Tanks
 
 		[KSPField]
 		public bool utilizationTweakable = false;
+
+        [KSPField]
+        public float minUtilization = 1f;
+
+        [KSPField]
+        public float maxUtilization = 100f;
 
 		// no double support for KSPFields - [KSPField (isPersistant = true)]
 		public double volume;
