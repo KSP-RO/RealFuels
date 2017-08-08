@@ -206,6 +206,8 @@ namespace RealFuels
                         useThrustCurve = true;
                     }
                 }
+
+                Fields["thrustPercentage"].guiActive = Fields["thrustPercentage"].guiActiveEditor = (minFuelFlow != maxFuelFlow);
             }
 
             // Set from propellants
