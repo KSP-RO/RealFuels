@@ -468,5 +468,19 @@ namespace RealFuels.Tanks
         {
             MonoBehaviour.print("[RealFuels.ModuleFuelTankRF] " + msg);
         }
+
+        #region Cryogenics
+
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Insulation Type"), UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string insulationType;
+        private string oldInsulationType;
+
+        public string[] insulationLevelsAvailable = { "None", "Old", "MLI", "Dewar" };
+
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Insulation Level", guiUnits = "%", guiFormat = "F0"),
+         UI_FloatRange(minValue = 0, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
+        public float insulationLevel = 0;
+
+        #endregion
     }
 }
