@@ -36,8 +36,9 @@ namespace RealFuels.Tanks
 		public override void OnAwake ()
 		{
 			enabled = false;
-			// Initialize utilization from the settings file
-			utilization = MFSSettings.partUtilizationDefault;
+            // Initialize utilization from the settings file
+            if (utilization == -1)
+                utilization = MFSSettings.partUtilizationDefault;
 		}
 
 		public override void OnInactive ()
