@@ -56,7 +56,7 @@ namespace RealFuels
 
             EntryCostDatabase.Load(node.GetNode("Unlocks"));
 
-            UpdatePartEntryCosts();
+            EntryCostDatabase.UpdatePartEntryCosts();
 
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
             {
@@ -97,19 +97,6 @@ namespace RealFuels
         #endregion
 
         #region Methods
-
-        protected void UpdatePartEntryCosts()
-        {
-            for (int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
-            {
-                AvailablePart ap = PartLoader.LoadedPartsList[a];
-
-                if (ap == null || ap.partPrefab == null)
-                    continue;
-
-                EntryCostDatabase.UpdateEntryCost(ap);
-            }
-        }
 
         public static void FillUpgrades()
         {
@@ -172,7 +159,7 @@ namespace RealFuels
         {
             EntryCostDatabase.SetUnlocked(ap);
 
-            UpdatePartEntryCosts();
+            EntryCostDatabase.UpdatePartEntryCosts();
 
             Part part = ap.partPrefab;
             if(part != null)
@@ -231,7 +218,7 @@ namespace RealFuels
 
             EntryCostDatabase.SetUnlocked(cfgName);
 
-            UpdatePartEntryCosts();
+            EntryCostDatabase.UpdatePartEntryCosts();
 
             return true;
         }

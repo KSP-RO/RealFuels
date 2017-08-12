@@ -121,11 +121,11 @@ namespace RealFuels
         {
             if (unlockPathTracker.Contains(name))
             {
-                string msg = "[EntryCostDatabase]: Circular reference on " + name;
+                /*string msg = "[EntryCostDatabase]: Circular reference on " + name;
                 foreach (string s in unlockPathTracker)
                     msg += "\n" + s;
 
-                Debug.LogError(msg);
+                Debug.LogError(msg);*/
                 return 0;
             }
 
@@ -173,6 +173,19 @@ namespace RealFuels
         public static void ClearTracker()
         {
             unlockPathTracker.Clear();
+        }
+
+        public static void UpdatePartEntryCosts()
+        {
+            for (int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
+            {
+                AvailablePart ap = PartLoader.LoadedPartsList[a];
+
+                if (ap == null || ap.partPrefab == null)
+                    continue;
+
+                UpdateEntryCost(ap);
+            }
         }
         #endregion
     }

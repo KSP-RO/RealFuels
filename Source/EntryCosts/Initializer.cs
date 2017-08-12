@@ -14,6 +14,8 @@ namespace RealFuels
             EntryCostManager.FillUpgrades();
 
             EntryCostDatabase.Initialize();
+
+            EntryCostDatabase.UpdatePartEntryCosts();
         }
     }
 }
