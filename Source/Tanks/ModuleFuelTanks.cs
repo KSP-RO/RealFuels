@@ -119,6 +119,7 @@ namespace RealFuels.Tanks
 				ParseBaseMass(node);
 				ParseBaseCost(node);
                 ParseInsulationFactor(node);
+                ParseUnmanagedResources(node);
                 typesAvailable = node.GetValues ("typeAvailable");
 				RecordManagedResources ();
 			} else if (isEditorOrFlight) {
@@ -981,6 +982,7 @@ namespace RealFuels.Tanks
         partial void UpdateTestFlight();
         partial void ParseInsulationFactor(ConfigNode node);
         partial void UpdateTankTypeRF(TankDefinition def);
+        partial void ParseUnmanagedResources(ConfigNode node);
 
         #endregion
     }
