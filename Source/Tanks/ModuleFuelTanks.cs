@@ -33,19 +33,6 @@ namespace RealFuels.Tanks
 			}
 		}
 
-		public override void OnCopy (PartModule fromModule)
-		{
-			ModuleFuelTanks from = fromModule as ModuleFuelTanks;
-			Debug.LogFormat ("[ModuleFuelTanks] OnCopy {0}", fromModule);
-			UpdateTankType (false);
-			for (int i = 0; i < tankList.Count; i++) {
-				if (from.tankList[i].maxAmount > 0) {
-					tankList[i].maxAmount = from.tankList[i].maxAmount;
-					tankList[i].amount = from.tankList[i].amount;
-				}
-			}
-		}
-
 		public override void OnAwake ()
 		{
 			enabled = false;

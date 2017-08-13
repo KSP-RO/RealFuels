@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Linq;
 using System.Text;
 using UnityEngine;
@@ -157,7 +156,6 @@ namespace RealFuels.Tanks
 				if (module == null) {
 					throw new InvalidOperationException ("Amount is not defined until instantiated in a tank");
 				}
-				//Debug.Log ("[FuelTank] Setting amount of tank " + name + " of part " + part.name + " to " + value);
 
 				PartResource partResource = resource;
 				if (partResource == null) {
@@ -292,8 +290,7 @@ namespace RealFuels.Tanks
 			}
 		}
 
-		public double maxAmount
-		{
+		public double maxAmount {
 			get {
 				if (module == null) {
 					throw new InvalidOperationException ("Maxamount is not defined until instantiated in a tank");
@@ -309,7 +306,7 @@ namespace RealFuels.Tanks
 				if (module == null) {
 					throw new InvalidOperationException ("Maxamount is not defined until instantiated in a tank");
 				}
-				//Debug.Log ("[FuelTank] Setting maxAmount of tank " + name + " of part " + part.name + " to " + value);
+				//print ("*RK* Setting maxAmount of tank " + name + " of part " + part.name + " to " + value);
 
 				PartResource partResource = resource;
 				if (partResource != null && value <= 0.0) {
@@ -444,29 +441,9 @@ namespace RealFuels.Tanks
 			Load (node);
 		}
 
-		FuelTank ()
-		{
-		}
-
-		static FieldInfo[] fields;
-		static FuelTank CopyTank (FuelTank src)
-		{
-			// do our own copying to avoid reading/writing the properties
-			// MemberwiseClone does copy the properties and that doesn't work
-			// for FuelTank
-			FuelTank dst = new FuelTank ();
-			if (fields == null) {
-				fields = typeof (FuelTank).GetFields (BindingFlags.Public | BindingFlags.Instance);
-			}
-			foreach (var f in fields) {
-				f.SetValue (dst, f.GetValue (src));
-			}
-			return dst;
-		}
-
 		internal FuelTank CreateCopy (ModuleFuelTanks toModule, ConfigNode overNode, bool initializeAmounts)
 		{
-			FuelTank clone = CopyTank (this);
+			FuelTank clone = (FuelTank)MemberwiseClone ();
 			clone.module = toModule;
 
 			if (overNode != null) {
