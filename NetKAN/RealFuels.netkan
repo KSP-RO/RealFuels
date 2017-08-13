@@ -6,7 +6,7 @@
     "$kref"        : "#/ckan/github/NathanKell/ModularFuelSystem",
     "$vref"        : "#/ckan/ksp-avc",
     "license"      : "CC-BY-SA",
-    "author"       : [ "ialdabaoth", "NathanKell", "taniwha", "Starwaster", "blwofish" ],
+    "author"       : [ "ialdabaoth", "NathanKell", "taniwha", "Starwaster", "blowfish" ],
     "release_status" : "stable",
     "resources" : { "homepage" : "http://forum.kerbalspaceprogram.com/threads/64118" },
     "install" : [
