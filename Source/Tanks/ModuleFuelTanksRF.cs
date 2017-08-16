@@ -107,6 +107,20 @@ namespace RealFuels.Tanks
             }
         }
 
+        private double GetMLITransferRate()
+        {
+            // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added between layers. (actual contribution minimal?)
+            double QrCoefficient = 0.000000000539; // typical MLI radiation flux coefficient
+            double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target?
+            double Emissivity = 0.032; // typical reflective mylar emissivity...?
+            int layers = 9; // TODO REPLACE this with actual configured layers value once we have that
+            float layerDensity = 8.51; // distance between layers in cm
+
+            double radiation = (QrCoefficient * Emissivity * (Math.Pow(part.skinTemperature, 4.67) - Math.Pow(part.temperature, 4.67))) / layers;
+            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.56) * ((part.skinTemperature + part.temperature) /2)) / (layers + 1)) * (part.skinTemperature - part.temperature);
+            return radiation + conduction;
+        }
+
         private IEnumerator CalculateTankLossFunction(double deltaTime, bool analyticalMode = false)
         {
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
