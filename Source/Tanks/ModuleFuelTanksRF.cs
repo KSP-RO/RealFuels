@@ -107,20 +107,6 @@ namespace RealFuels.Tanks
             }
         }
 
-        private double GetMLITransferRate()
-        {
-            // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added between layers. (actual contribution minimal?)
-            double QrCoefficient = 0.000000000539; // typical MLI radiation flux coefficient
-            double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target?
-            double Emissivity = 0.032; // typical reflective mylar emissivity...?
-            int layers = 9; // TODO REPLACE this with actual configured layers value once we have that
-            float layerDensity = 8.51; // distance between layers in cm
-
-            double radiation = (QrCoefficient * Emissivity * (Math.Pow(part.skinTemperature, 4.67) - Math.Pow(part.temperature, 4.67))) / layers;
-            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.56) * ((part.skinTemperature + part.temperature) /2)) / (layers + 1)) * (part.skinTemperature - part.temperature);
-            return radiation + conduction;
-        }
-
         private IEnumerator CalculateTankLossFunction(double deltaTime, bool analyticalMode = false)
         {
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
@@ -494,6 +480,31 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Insulation Level", guiUnits = "%", guiFormat = "F0"),
          UI_FloatRange(minValue = 0, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
         public float insulationLevel = 0;
+
+        /// <summary>
+        /// Transfer rate through multilayer insulation in watts/m2 via radiation and conduction. (convection when in atmo not handled at this time)
+        /// </summary>
+        private double GetMLITransferRate()
+        {
+            
+            // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added between layers. (actual contribution minimal?)
+            double QrCoefficient = 0.000000000539; // typical MLI radiation flux coefficient
+            double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target?
+            double Emissivity = 0.032; // typical reflective mylar emissivity...?
+            int layers = 9; // TODO REPLACE this with actual configured layers value once we have that
+            float layerDensity = 8.51f; // distance between layers in cm
+
+            double radiation = (QrCoefficient * Emissivity * (Math.Pow(part.skinTemperature, 4.67) - Math.Pow(part.temperature, 4.67))) / layers;
+            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.56) * ((part.skinTemperature + part.temperature) / 2)) / (layers + 1)) * (part.skinTemperature - part.temperature);
+            return radiation + conduction;
+        }
+
+        private double GetDewarTransferRate(double hot, double cold, double area)
+        {
+            // TODO Just radiation now; need to calculate conduction through piping/lid, etc
+            double emissivity = 0.02;
+            return PhysicsGlobals.StefanBoltzmanConstant * emissivity * area * ((hot * hot) - (cold * cold));
+        }
 
         #endregion
     }
