@@ -41,7 +41,12 @@ namespace RealFuels.Tanks
             // Initialize utilization from the settings file
             if (utilization == -1)
                 utilization = MFSSettings.partUtilizationDefault;
-		}
+
+            UI_FloatRange f = (UI_FloatRange)(Fields["utilization"].uiControlEditor);
+            f.minValue = minUtilization;
+            f.maxValue = maxUtilization;
+            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
+        }
 
 		public override void OnInactive ()
 		{
