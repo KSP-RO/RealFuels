@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
@@ -155,11 +156,19 @@ namespace RealFuels
                 }
             }
         }
+
+        protected IEnumerator updatePartEntryCosts()
+        {
+            yield return new WaitForEndOfFrame();
+
+            EntryCostDatabase.UpdatePartEntryCosts();
+        }
+
         public void onPartPurchased(AvailablePart ap)
         {
             EntryCostDatabase.SetUnlocked(ap);
 
-            EntryCostDatabase.UpdatePartEntryCosts();
+            StartCoroutine(updatePartEntryCosts());
 
             Part part = ap.partPrefab;
             if(part != null)
