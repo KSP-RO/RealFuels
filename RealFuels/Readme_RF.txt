@@ -50,6 +50,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.3.1
+
+* Actually fix the bug with tanks not getting their contents correctly (not fixed in v12.3.0)
+
 v12.3.0
 
 * For KSP 1.3 again
