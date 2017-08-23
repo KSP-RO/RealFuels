@@ -68,7 +68,8 @@ namespace RealFuels.Tanks
 
             if (outerInsulationFactor > 0.0)
             {
-                // changed from skin-internal to part.heatConductivity which affects
+                // TODO Deprecated! Leave in place for legacy purposes but this is moving back to part.skinInternalConductionMult based on calculated Lockheed MLI equations
+                // changed from skin-internal to part.heatConductivity which affects only skin-internal
                 part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
                 // affects how fast internal temperatures change during analytic mode
                 part.analyticInternalInsulationFactor *= outerInsulationFactor;
@@ -86,6 +87,17 @@ namespace RealFuels.Tanks
             Fields[nameof(debug0Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
             Fields[nameof(debug1Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
             Fields[nameof(debug2Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
+
+            CalculateInsulation();
+        }
+
+        private void CalculateInsulation()
+        {
+            // TODO tie this into insulation configuration GUI! Also, we should handle MLI separately and as part skin-internal conduction. 
+            // Dewars and SOFI should be handled separately as part of the boiloff code on a per-tank basis (if Dewar then use dewar heat transfer code instead of conductive)
+            // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
+            double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * (PhysicsGlobals.ConductionFactor * 10 * part.heatConductivity * 0.5));
+            part.skinInternalConductionMult = normalizationFactor * GetMLITransferRate();
         }
 
         public void FixedUpdate()
@@ -95,8 +107,6 @@ namespace RealFuels.Tanks
             {
                 if (RFSettings.Instance.debugBoilOff)
                 {
-                    //debug1Display = part.heatConductivity.ToString ("F12");
-                    //debug2Display = FormatFlux (part.skinToInternalFlux);
                     debug1Display = "";
                     debug2Display = "";
                     debug0Display = "";
