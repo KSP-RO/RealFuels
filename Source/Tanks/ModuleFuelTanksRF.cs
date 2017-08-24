@@ -493,8 +493,9 @@ namespace RealFuels.Tanks
 
         /// <summary>
         /// Transfer rate through multilayer insulation in watts/m2 via radiation and conduction. (convection when in atmo not handled at this time)
+        /// Default hot and cold values of 300 / 70. Can be called in real time substituting skin temp and internal temp for hot and cold. 
         /// </summary>
-        private double GetMLITransferRate()
+        private double GetMLITransferRate(double hotTemperature = 300, double coldTemperature = 70)
         {
             
             // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added between layers. (actual contribution minimal?)
@@ -504,16 +505,20 @@ namespace RealFuels.Tanks
             int layers = 9; // TODO REPLACE this with actual configured layers value once we have that
             float layerDensity = 8.51f; // distance between layers in cm
 
-            double radiation = (QrCoefficient * Emissivity * (Math.Pow(part.skinTemperature, 4.67) - Math.Pow(part.temperature, 4.67))) / layers;
-            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.56) * ((part.skinTemperature + part.temperature) / 2)) / (layers + 1)) * (part.skinTemperature - part.temperature);
+            double radiation = (QrCoefficient * Emissivity * (Math.Pow(hotTemperature, 4.67) - Math.Pow(coldTemperature, 4.67))) / layers;
+            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.56) * ((hotTemperature + coldTemperature) / 2)) / (layers + 1)) * (hotTemperature - coldTemperature);
             return radiation + conduction;
         }
 
+        /// <summary>
+        /// Transfer rate through Dewar walls
+        /// This is simplified down to basic radiation formula using corrected emissivity values for concentric walls for sake of performance
+        /// </summary>
         private double GetDewarTransferRate(double hot, double cold, double area)
         {
             // TODO Just radiation now; need to calculate conduction through piping/lid, etc
-            double emissivity = 0.02;
-            return PhysicsGlobals.StefanBoltzmanConstant * emissivity * area * ((hot * hot) - (cold * cold));
+            double emissivity = 0.005; // corrected and rounded value for concentric surfaces, actual emissivity of surfaces is assumed to be 0.01 for silvered or aluminized coating
+            return PhysicsGlobals.StefanBoltzmanConstant * emissivity * area * (Math.Pow(hot,4) - Math.Pow(cold,4));
         }
 
         #endregion
