@@ -18,6 +18,12 @@ namespace RealFuels.Tanks
 
         public double outerInsulationFactor = 0.0;
 
+        public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
+
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "MLI Layers", guiUnits = "#", guiFormat = "F0"), UI_FloatRange(minValue = 0, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
+        public float numberOfAddedMLILayers; // This is the number of layers added by the player.
+
+
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
         [NonSerialized]
         public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool>();
@@ -70,9 +76,9 @@ namespace RealFuels.Tanks
             {
                 // TODO Deprecated! Leave in place for legacy purposes but this is moving back to part.skinInternalConductionMult based on calculated Lockheed MLI equations
                 // changed from skin-internal to part.heatConductivity which affects only skin-internal
-                part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
+                //part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
                 // affects how fast internal temperatures change during analytic mode
-                part.analyticInternalInsulationFactor *= outerInsulationFactor;
+                //part.analyticInternalInsulationFactor *= outerInsulationFactor;
             }
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
@@ -88,6 +94,7 @@ namespace RealFuels.Tanks
             Fields[nameof(debug1Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
             Fields[nameof(debug2Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
 
+            numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
             CalculateInsulation();
         }
 
@@ -96,8 +103,11 @@ namespace RealFuels.Tanks
             // TODO tie this into insulation configuration GUI! Also, we should handle MLI separately and as part skin-internal conduction. 
             // Dewars and SOFI should be handled separately as part of the boiloff code on a per-tank basis (if Dewar then use dewar heat transfer code instead of conductive)
             // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
-            double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * (PhysicsGlobals.ConductionFactor * 10 * part.heatConductivity * 0.5));
-            part.skinInternalConductionMult = normalizationFactor * GetMLITransferRate();
+            if (numberOfMLILayers + (int)numberOfAddedMLILayers > 0)
+            {
+                double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * (PhysicsGlobals.ConductionFactor * 10 * part.heatConductivity * 0.5));
+                part.heatConductivity = normalizationFactor * Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature)) * part.partInfo.partPrefab.heatConductivity;
+            }
         }
 
         public void FixedUpdate()
@@ -122,7 +132,10 @@ namespace RealFuels.Tanks
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
             if (tankArea <= 0)
                 CalculateTankArea(out tankArea);
-            
+
+            if (numberOfMLILayers > 0)
+                CalculateInsulation();
+
             if (!analyticalMode)
                 yield return new WaitForFixedUpdate();
             
@@ -153,6 +166,9 @@ namespace RealFuels.Tanks
 
             double cooling = analyticalMode ? Math.Min(0, part.thermalInternalFluxPrevious) : 0;
 
+            if (RFSettings.Instance.debugBoilOff)
+                debug0Display = part.temperature.ToString("F4") + "(" + GetMLITransferRate(part.skinTemperature, part.temperature).ToString("F4") + ")";
+
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -164,8 +180,10 @@ namespace RealFuels.Tanks
                     double massLost = 0.0;
                     double deltaTemp;
                     // should cache the insulation check as long as it's not liable to change between updates.
-                    bool hasMLI = part.heatConductivity < part.partInfo.partPrefab.heatConductivity;
-                    double hotTemp = (hasMLI ? part.temperature : part.skinTemperature) - (cooling * part.thermalMassReciprocal);
+                    bool hasMLI = numberOfMLILayers + (int)numberOfAddedMLILayers > 0;
+                    // TODO with new MLI system, go back to only using part.temperature
+                    //double hotTemp = (hasMLI ? part.temperature : part.skinTemperature) - (cooling * part.thermalMassReciprocal); 
+                    double hotTemp = part.temperature;
                     double tankRatio = tank.maxAmount / volume;
 
                     if (RFSettings.Instance.ferociousBoilOff)
@@ -180,13 +198,7 @@ namespace RealFuels.Tanks
 
                         if (debug1Display != "")
                             debug1Display += " / ";
-
-                        if (debug0Display != "")
-                            debug0Display += " / ";
                     }
-
-                    if (RFSettings.Instance.debugBoilOff)
-                        debug0Display += hotTemp.ToString("F6");
 
                     if (deltaTemp > 0)
                     {
@@ -254,11 +266,7 @@ namespace RealFuels.Tanks
                         {
                             heatLost *= ConductionFactors;
 
-                            if (hasMLI)
                                 part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
-                            else
-                                part.AddSkinThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
-
                         }
                         else
                         {
@@ -320,17 +328,10 @@ namespace RealFuels.Tanks
 
         partial void ParseInsulationFactor(ConfigNode node)
         {
-            if (!node.HasValue("outerInsulationFactor"))
-                return;
-
-            string insulationFactor = node.GetValue("outerInsulationFactor");
-            ParseInsulationFactor(insulationFactor);
-        }
-
-        private void ParseInsulationFactor(string insulationFactor)
-        {
-            if (!double.TryParse(insulationFactor, out outerInsulationFactor))
-                Debug.LogWarning("[RF] Unable to parse outerInsulationFactor");
+            if (node.HasValue("numberOfMLILayers"))
+                int.TryParse(node.GetValue("numberOfMLILayers"), out numberOfMLILayers);
+            else if (node.HasValue("outerInsulationFactor"))
+                double.TryParse(node.GetValue("outerInsulationFactor"), out outerInsulationFactor);
         }
 
         public void CalculateTankArea(out float totalTankArea)
@@ -495,18 +496,17 @@ namespace RealFuels.Tanks
         /// Transfer rate through multilayer insulation in watts/m2 via radiation and conduction. (convection when in atmo not handled at this time)
         /// Default hot and cold values of 300 / 70. Can be called in real time substituting skin temp and internal temp for hot and cold. 
         /// </summary>
-        private double GetMLITransferRate(double hotTemperature = 300, double coldTemperature = 70)
-        {
-            
+        private double GetMLITransferRate(double outerTemperature = 300, double innerTemperature = 70)
+        {            
             // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added between layers. (actual contribution minimal?)
             double QrCoefficient = 0.000000000539; // typical MLI radiation flux coefficient
-            double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target?
+            double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target based on spacing mechanism between layers?
             double Emissivity = 0.032; // typical reflective mylar emissivity...?
-            int layers = 9; // TODO REPLACE this with actual configured layers value once we have that
-            float layerDensity = 8.51f; // distance between layers in cm
+            float layerDensity = 8.51f; // layer density (layers/cm)
+            int layers = numberOfMLILayers + (int)numberOfAddedMLILayers;
 
-            double radiation = (QrCoefficient * Emissivity * (Math.Pow(hotTemperature, 4.67) - Math.Pow(coldTemperature, 4.67))) / layers;
-            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.56) * ((hotTemperature + coldTemperature) / 2)) / (layers + 1)) * (hotTemperature - coldTemperature);
+            double radiation = (QrCoefficient * Emissivity * (Math.Pow(outerTemperature, 4.67) - Math.Pow(innerTemperature, 4.67))) / layers;
+            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.56) * ((outerTemperature + innerTemperature) / 2)) / (layers + 1)) * (outerTemperature - innerTemperature);
             return radiation + conduction;
         }
 
@@ -517,7 +517,7 @@ namespace RealFuels.Tanks
         private double GetDewarTransferRate(double hot, double cold, double area)
         {
             // TODO Just radiation now; need to calculate conduction through piping/lid, etc
-            double emissivity = 0.005; // corrected and rounded value for concentric surfaces, actual emissivity of surfaces is assumed to be 0.01 for silvered or aluminized coating
+            double emissivity = 0.005074871897; // corrected and rounded value for concentric surfaces, actual emissivity of each surface is assumed to be 0.01 for silvered or aluminized coating
             return PhysicsGlobals.StefanBoltzmanConstant * emissivity * area * (Math.Pow(hot,4) - Math.Pow(cold,4));
         }
 
