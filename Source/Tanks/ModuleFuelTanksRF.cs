@@ -105,8 +105,8 @@ namespace RealFuels.Tanks
             // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
             if (numberOfMLILayers + (int)numberOfAddedMLILayers > 0)
             {
-                double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * (PhysicsGlobals.ConductionFactor * 10 * part.heatConductivity * 0.5));
-                part.heatConductivity = normalizationFactor * Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature)) * part.partInfo.partPrefab.heatConductivity;
+                double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * (PhysicsGlobals.ConductionFactor * 10 * part.partInfo.partPrefab.heatConductivity * 0.5));
+                part.heatConductivity = normalizationFactor * Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature)/(part.temperature-part.skinTemperature)) * part.partInfo.partPrefab.heatConductivity;
             }
         }
 
@@ -122,6 +122,9 @@ namespace RealFuels.Tanks
                     debug0Display = "";
                 }
 
+                // MLI performance varies by temperature delta
+                CalculateInsulation();
+
                 if(!_flightIntegrator.isAnalytical && supportsBoiloff)
                     StartCoroutine(CalculateTankLossFunction((double)TimeWarp.fixedDeltaTime));
             }
@@ -132,9 +135,6 @@ namespace RealFuels.Tanks
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
             if (tankArea <= 0)
                 CalculateTankArea(out tankArea);
-
-            if (numberOfMLILayers > 0)
-                CalculateInsulation();
 
             if (!analyticalMode)
                 yield return new WaitForFixedUpdate();
@@ -179,8 +179,6 @@ namespace RealFuels.Tanks
                     // Opposite of original boil off code. Finds massLost first.
                     double massLost = 0.0;
                     double deltaTemp;
-                    // should cache the insulation check as long as it's not liable to change between updates.
-                    bool hasMLI = numberOfMLILayers + (int)numberOfAddedMLILayers > 0;
                     // TODO with new MLI system, go back to only using part.temperature
                     //double hotTemp = (hasMLI ? part.temperature : part.skinTemperature) - (cooling * part.thermalMassReciprocal); 
                     double hotTemp = part.temperature;
