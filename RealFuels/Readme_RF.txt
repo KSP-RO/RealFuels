@@ -50,6 +50,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.4.0
+
+* Recompile for KSP 1.3.1
+* Fix MM configs with more than one pass in kethane tanks config
+
 v12.3.1
 
 * Actually fix the bug with tanks not getting their contents correctly (not fixed in v12.3.0)
