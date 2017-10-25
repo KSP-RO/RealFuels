@@ -244,9 +244,9 @@ namespace RealFuels.Tanks
                             heatLost *= ConductionFactors;
 
                             if (hasMLI)
-                                part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
+                                part.AddThermalFlux(heatLost * deltaTimeRecip);
                             else
-                                part.AddSkinThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
+                                part.AddSkinThermalFlux(heatLost * deltaTimeRecip);
 
                         }
                         else
