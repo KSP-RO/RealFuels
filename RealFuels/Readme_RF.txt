@@ -50,6 +50,11 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.4.1
+
+* Don't double heat flux (workaround which is no longer necessary in KSP 1.3.1)
+* Actually update .version file
+
 v12.4.0
 
 * Recompile for KSP 1.3.1
