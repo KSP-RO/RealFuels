@@ -49,6 +49,64 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+
+v12.4.1
+
+* Don't double heat flux (workaround which is no longer necessary in KSP 1.3.1)
+* Actually update .version file
+
+v12.4.0
+
+* Recompile for KSP 1.3.1
+* Fix MM configs with more than one pass in kethane tanks config
+
+v12.3.1
+
+* Actually fix the bug with tanks not getting their contents correctly (not fixed in v12.3.0)
+
+v12.3.0
+
+* For KSP 1.3 again
+* Fix bug with tanks not loading their contents correctly
+* Add .version file
+
+v12.2.4
+
+* Note: this version is for KSP 1.2.2
+* Fix bug with tanks not loading their contents correctly
+* Add .version file
+
+v12.2.3
+
+* Recompile for KSP 1.3
+
+v12.2.2
+
+* Fix bug in how tank surface area is calculated
+* Fix tank copying when cloning via symmetry
+* Don't delete tanks during loading or part placement
+* Fix patches marked :FINAL
+* Disable part heating due to engine on RF engines, since engine overheat is handled separately and engine heat shouldn't spill to other parts
+
+v12.2.1
+
+* Fix tank's initial temperature not being set correctly on vessel spawn and when launch clamps are attached
+* Remove some logspam for boiloff in analytic mode (high timewarp)
+* Make sure tank's lowest temperature is calculated correctly and that part temp is only set if cryogenic resources are present
+* Fix negative temperature caused by conduction compensation in analytic mode (high timewarp)
+* Fix sign error on flux in analytic mode (high timewarp)
+
+v12.2.0
+
+* Fix for engines not properly loading pressure fed setting from
+ModuleEngineConfig
+* Fix for cryogenic tanks exploding during analytic mode after long
+periods unloaded
+* Avoid possible NRE on fuel pumps when launching with Extraplanetary Launchpads
+* Fuel pumps must now be present and active in order to avoid boiloff during prelaunch (previously being on the launch pad was enough)
+* Fuel pumps are now enabled by default and enabled setting respects symmetry in the editor
+* Streamline fuel pump enable/disable UI - now a simple button rather than display + button
+
 v12.1.0
 * Reinstate analytic boiloff with improvements
 * Set specific heat to zero for cryogenic resources (assumption that part and resource temperature are the same doesn't make sense here)

@@ -157,7 +157,7 @@ namespace RealFuels
         [KSPField]
         public bool useConfigAsTitle = false;
 
-        
+
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
         public float configMassMult = 1.0f;
@@ -209,7 +209,7 @@ namespace RealFuels
         public ModifierChangeWhen GetModuleMassChangeWhen() { return ModifierChangeWhen.FIXED; }
 
         [KSPEvent(guiActive = false, active = true)]
-        void OnPartScaleChanged(BaseEventData data)
+        void OnPartScaleChanged(BaseEventDetails data)
         {
             float factorAbsolute = data.Get<float>("factorAbsolute");
             float factorRelative = data.Get<float>("factorRelative");
@@ -588,7 +588,7 @@ namespace RealFuels
 
             if (newConfiguration == null)
                 newConfiguration = configuration;
-            
+
             ConfigSaveLoad();
 
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
@@ -893,7 +893,7 @@ namespace RealFuels
             else if (configMinThrust >= 0f && configMaxThrust >= 0f)
                 configThrottle = configMinThrust / configMaxThrust;
 
-                        
+
             float TLMassMult = 1.0f;
 
             float gimbal = -1f;
@@ -917,19 +917,19 @@ namespace RealFuels
                 if (cfg.HasValue("IspSL") && cfg.HasValue("IspV"))
                 {
                     cfg.RemoveNode("atmosphereCurve");
-                    
+
                     ConfigNode curve = new ConfigNode("atmosphereCurve");
-                    
+
                     // get the multipliers
                     float ispSL = 1f, ispV = 1f;
                     float.TryParse(cfg.GetValue("IspSL"), out ispSL);
                     float.TryParse(cfg.GetValue("IspV"), out ispV);
-                    
+
                     // Mod the curve by the multipliers
                     FloatCurve newAtmoCurve = new FloatCurve();
                     newAtmoCurve = Utilities.Mod(cTL.AtmosphereCurve, ispSL, ispV);
                     newAtmoCurve.Save(curve);
-                    
+
                     cfg.AddNode(curve);
                 }
 
@@ -993,7 +993,7 @@ namespace RealFuels
                     configMinThrust = configThrottle * configMaxThrust;
                 }
             }
-            
+
             // Now update the cfg from what we did.
             // thrust updates
             if(configMaxThrust >= 0f)
@@ -1004,7 +1004,7 @@ namespace RealFuels
             // heat update
             if(configHeat >= 0f)
                 cfg.SetAddValue("heatProduction", configHeat.ToString("0"));
-            
+
             // mass change
             if (origMass > 0)
             {
@@ -1259,9 +1259,9 @@ namespace RealFuels
                     posMult = 1;
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
-                
+
                 tooltipRect = new Rect(guiWindowRect.xMin + 440, mousePos.y - 5, 300, 200);
-                
+
                 cursorInGUI = guiWindowRect.Contains(mousePos);
                 if (cursorInGUI)
                 {
@@ -1327,7 +1327,7 @@ namespace RealFuels
             else
                 Events["NextTech"].guiActiveEditor = false;
 
-            // Sorry about this dirty hack. Otherwise we end up with loops. Will try to get something tidier 
+            // Sorry about this dirty hack. Otherwise we end up with loops. Will try to get something tidier
             // some time in the future.
             if (oldConfiguration != null && (techLevel != oldTechLevel || oldConfiguration != configuration))
             {
@@ -1528,7 +1528,7 @@ namespace RealFuels
                 myToolTip = GUI.tooltip;
                 counterTT = 0;
             }
-            
+
             GUI.DragWindow();
         }
 
@@ -1655,7 +1655,7 @@ namespace RealFuels
                             testID = (pM as ModuleEngines).engineID;
                         else if (pM is ModuleEngineConfigs)
                             testID = (pM as ModuleEngineConfigs).engineID;
-                        
+
                         if (testID.Equals(eID))
                             return pM;
                     }
@@ -1668,4 +1668,3 @@ namespace RealFuels
         #endregion
     }
 }
-

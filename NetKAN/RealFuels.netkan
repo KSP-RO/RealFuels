@@ -1,0 +1,32 @@
+{
+    "spec_version" : "v1.4",
+    "name"         : "Real Fuels",
+    "abstract"     : "Real fuels and tanks for KSP",
+    "identifier"   : "RealFuels",
+    "$kref"        : "#/ckan/github/NathanKell/ModularFuelSystem",
+    "$vref"        : "#/ckan/ksp-avc",
+    "license"      : "CC-BY-SA",
+    "author"       : [ "ialdabaoth", "NathanKell", "taniwha", "Starwaster", "blowfish" ],
+    "release_status" : "stable",
+    "resources" : { "homepage" : "http://forum.kerbalspaceprogram.com/threads/64118" },
+    "install" : [
+        {
+            "find"       : "RealFuels",
+            "install_to" : "GameData",
+            "filter"     : ".DS_Store"
+        }
+    ],
+    "depends" : [
+        { "name" : "ModuleManager" },
+        { "name" : "RealFuels-Engine-Configs" },
+        { "name" : "CommunityResourcePack" },
+        { "name" : "SolverEngines" }
+    ],
+    "conflicts" : [
+        { "name" : "ModularFuelSystem" },
+        { "name" : "ModularFuelTanks"  },
+        { "name" : "Fuelswitchtoeverytank" },
+        { "name" : "StockFuelSwitch" },
+        { "name" : "EngineIgnitor" }
+    ]
+}

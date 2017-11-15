@@ -7,7 +7,8 @@ using RUI.Icons.Selectable;
 
 using KSP.UI.Screens;
 
-namespace ExtraplanetaryLaunchpads {
+namespace RealFuels {
+
 	[KSPAddon (KSPAddon.Startup.EditorAny, false) ]
 	public class MFTEditorToolbar : MonoBehaviour
 	{
@@ -17,11 +18,10 @@ namespace ExtraplanetaryLaunchpads {
 		void onGUIEditorToolbarReady ()
 		{
 			if (icon == null) {
-				//texture = GameDatabase.Instance.GetTexture ("ExtraplanetaryLaunchpads/Textures/icon_button", false);
 				var iconloader = PartCategorizer.Instance.iconLoader;
 				icon = iconloader.GetIcon("R&D_node_icon_fuelsystems");
 			}
-			var cat = PartCategorizer.Instance.filters.Find (c => c.button.categoryName == "Filter by Module");
+			var cat = PartCategorizer.Instance.filters.Find (c => c.button.categoryName == "Filter by module");
 			var subcat = cat.subcategories.Find (c => c.button.categoryName == "Modular Fuel Tank");
 			subcat.button.SetIcon (icon);
 		}

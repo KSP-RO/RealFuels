@@ -19,6 +19,8 @@ namespace RealFuels.Tanks
 		bool compatible = true;
 		bool started;
 
+        public bool fueledByLaunchClamp = false;
+
         private static double MassMult
 		{
 			get {
@@ -504,7 +506,7 @@ namespace RealFuels.Tanks
 		public float tankVolumeConversion = 1000;
 
 		[KSPEvent (guiActive=false, active = true)]
-		void OnPartVolumeChanged (BaseEventData data)
+		void OnPartVolumeChanged (BaseEventDetails data)
 		{
 			string volName = data.Get<string> ("volName");
 			double newTotalVolume = data.Get<double> ("newTotalVolume") * tankVolumeConversion;
@@ -781,7 +783,7 @@ namespace RealFuels.Tanks
 
 		public void RaiseResourceInitialChanged(PartResource resource, double amount)
 		{
-			var data = new BaseEventData (BaseEventData.Sender.USER);
+			var data = new BaseEventDetails (BaseEventDetails.Sender.USER);
 			data.Set<PartResource> ("resource", resource);
 			data.Set<double> ("amount", amount);
 			part.SendEvent ("OnResourceInitialChanged", data, 0);
@@ -789,7 +791,7 @@ namespace RealFuels.Tanks
 
 		public void RaiseResourceMaxChanged (PartResource resource, double amount)
 		{
-			var data = new BaseEventData (BaseEventData.Sender.USER);
+			var data = new BaseEventDetails (BaseEventDetails.Sender.USER);
 			data.Set<PartResource> ("resource", resource);
 			data.Set<double> ("amount", amount);
 			part.SendEvent ("OnResourceMaxChanged", data, 0);

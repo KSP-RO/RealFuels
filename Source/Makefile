@@ -3,7 +3,6 @@ MANAGED		:= ${KSPDIR}/KSP_Data/Managed
 GAMEDATA	:= ${KSPDIR}/GameData
 MODGAMEDATA	:= ${GAMEDATA}/ModularFuelTanks
 PLUGINDIR	:= ${MODGAMEDATA}/Plugins
-APIEXTDATA	:= ${PLUGINDIR}
 TSGAMEDATA	:= ${GAMEDATA}/TweakScale
 TSPLUGIN	:= ${TSGAMEDATA}/Plugins
 TSINTERACT	:= ${TSGAMEDATA}/TweakScaleInteraction
@@ -33,7 +32,7 @@ MFT_TS_FILES := \
 	$e
 
 RESGEN2	:= resgen2
-GMCS	:= mcs
+GMCS	:= csc
 GIT		:= git
 TAR		:= tar
 ZIP		:= zip
@@ -56,15 +55,18 @@ info:
 
 bin/modularFuelTanks.dll: ${MFT_FILES}
 	@mkdir -p bin
-	${GMCS} -t:library -lib:${APIEXTDATA},${MANAGED} \
-		-r:Assembly-CSharp,Assembly-CSharp-firstpass \
-		-r:UnityEngine,UnityEngine.UI \
-		-out:$@ $^
+	${GMCS} /highentropyva- /noconfig /nostdlib+ /t:library \
+		/r:/usr/lib/mono/2.0-api/mscorlib.dll \
+		/r:/usr/lib/mono/2.0-api/System.Core.dll \
+		/lib:${MANAGED} \
+		/r:Assembly-CSharp.dll,Assembly-CSharp-firstpass.dll \
+		/r:UnityEngine.dll,UnityEngine.UI.dll \
+		/out:$@ $^
 
 bin/TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} bin/modularFuelTanks.dll
 	@mkdir -p bin
 	${GMCS} -t:library -lib:${TSPLUGIN},${MANAGED} \
-		-r:Assembly-CSharp,Assembly-CSharp-firstpass,UnityEngine \
+		-r:Assembly-CSharp.dll,Assembly-CSharp-firstpass.dll,UnityEngine.dll \
 		-r:Scale_Redist.dll \
 		-r:bin/modularFuelTanks.dll \
 		-out:$@ ${MFT_TS_FILES}
