@@ -14,40 +14,6 @@ namespace RealFuels.Tanks
         private double previewInternalFluxAdjust;
         private bool supportsBoiloff = false;
         public double sunAndBodyFlux = 0;
-        private List<ResourceData> unmanagedResources;
-
-        public class ResourceData
-        {
-            public string name
-            {
-                get { return _name; }
-            }
-            private string _name;
-
-            public double amount
-            {
-                get { return _amount; }
-            }
-            private double _amount;
-
-            public double maxAmount
-            {
-                get { return _maxAmount; }
-            }
-            private double _maxAmount;
-
-            public int id
-            {
-                get { return _name.GetHashCode(); }
-            }
-
-            public ResourceData(string name, double amount, double maxAmount)
-            {
-                _name = name;
-                _amount = amount;
-                _maxAmount = this.maxAmount;
-            }
-        }
 
         public double outerInsulationFactor = 0.0;
 
@@ -255,6 +221,8 @@ namespace RealFuels.Tanks
 
                                     heatLost = -massLost * tank.vsp;
 
+                                    heatLost *= ConductionFactors;
+
                                     // See if there is boiloff byproduct and see if any other parts want to accept it.
                                     if (tank.boiloffProductResource != null)
                                     {
@@ -274,7 +242,6 @@ namespace RealFuels.Tanks
 
                                 if (!analyticalMode)
                                 {
-                                    heatLost *= ConductionFactors;
                                     if (hasMLI)
                                         part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
                                     else
@@ -284,7 +251,7 @@ namespace RealFuels.Tanks
                                 else
                                 {
                                     analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal);
-                                    previewInternalFluxAdjust += heatLost * deltaTimeRecip;
+                                    previewInternalFluxAdjust -= heatLost * deltaTimeRecip;
                                     if (deltaTime > 0)
                                         print(part.name + " deltaTime = " + deltaTime + ", heat lost = " + heatLost + ", thermalMassReciprocal = " + part.thermalMassReciprocal);
                                 }
@@ -354,27 +321,6 @@ namespace RealFuels.Tanks
                 Debug.LogWarning("[RF] Unable to parse outerInsulationFactor");
         }
 
-        partial void ParseUnmanagedResources(ConfigNode node)
-        {
-            if (!node.name.Equals("UNMANAGED_RESOURCES"))
-                return;
-
-            foreach (ConfigNode n in node.GetNodes("RESOURCE"))
-            {
-                double amount;
-                double maxAmount;
-                if (n.HasValue("name") && n.HasValue("amount") && n.HasValue("maxAmount"))
-                {
-                    double.TryParse(n.GetValue("amount"), out amount);
-                    double.TryParse(n.GetValue("maxAmount"), out maxAmount);
-                    string name = n.GetValue("name");
-
-                    if (PartResourceLibrary.Instance.GetDefinition(name) != null && amount >= 0 && maxAmount > 0)
-                        unmanagedResources.Add(new ResourceData(name, amount, maxAmount));
-                }
-            }
-        }
-
         public void CalculateTankArea(out float totalTankArea)
         {
             // TODO: Codify a more accurate tank area calculator.
@@ -404,7 +350,7 @@ namespace RealFuels.Tanks
                     tankMaxAmount = tank.maxAmount;
 
                     if (tank.utilization > 1.0)
-                        tankMaxAmount /= tank.utilization;
+                        tankMaxAmount /= utilization;
 
                     tank.tankRatio = tankMaxAmount / volume;
 

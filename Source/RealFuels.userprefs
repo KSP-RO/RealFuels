@@ -7,15 +7,11 @@
   <MonoDevelop.Ide.ItemProperties.RealFuels PreferredExecutionTarget="MonoDevelop.Default" />
   <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanksRF.cs">
     <Files>
-      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="262" Column="172" />
-      <File FileName="Tanks\MFSSettings.cs" Line="15" Column="29" />
-      <File FileName="assembly\VersionReport.cs" Line="60" Column="4" />
-      <File FileName="Engines\ModuleEngineConfigs.cs" Line="1595" Column="21" />
-      <File FileName="Tanks\FuelInfo.cs" Line="30" Column="10" />
-      <File FileName="Tanks\ModuleFuelTanks.cs" Line="461" Column="13" />
-      <File FileName="Engines\EngineConfigUpgrade.cs" Line="68" Column="49" />
-      <File FileName="Engines\UpgradeManager.cs" Line="151" Column="43" />
-      <File FileName="Engines\RFSettings.cs" Line="115" Column="28" />
+      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="192" Column="37" />
+      <File FileName="Engines\ModuleEnginesRF.cs" Line="692" Column="50" />
+      <File FileName="Tanks\FuelTank.cs" Line="60" Column="27" />
+      <File FileName="Utilities\ConfigNodeExtensions.cs" Line="1" Column="14" />
+      <File FileName="Engines\RFSettings.cs" Line="39" Column="15" />
     </Files>
   </MonoDevelop.Ide.Workbench>
 </Properties>
