@@ -415,6 +415,8 @@ namespace RealFuels
             string info = "   " + config.GetValue("name") + "\n";
             if (config.HasValue("description"))
                 info += "    " + config.GetValue("description") + "\n";
+            if (config.HasValue("tfRatedBurnTime"))
+                info += "    " + config.GetValue("tfRatedBurnTime") + "\n";
             if (config.HasValue(thrustRating))
             {
                 info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.###") + " kN";
