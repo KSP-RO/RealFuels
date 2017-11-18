@@ -11,8 +11,6 @@ namespace TestFlightRF
     [KSPAddon(KSPAddon.Startup.MainMenu, true)]
     public class TestFlightRealFuels : MonoBehaviour
     {
-        protected Dictionary<string, float> burnTimes = null;
-
         IEnumerator Setup()
         {
             if (!PartLoader.Instance.IsReady() || PartResourceLibrary.Instance == null)
@@ -24,7 +22,7 @@ namespace TestFlightRF
 
         public void Startup()
         {
-            burnTimes = new Dictionary<string, float>();
+            var burnTimes = new Dictionary<string, float>();
             foreach (AvailablePart part in PartLoader.LoadedPartsList)
             {
                 // cache up the burn times first
