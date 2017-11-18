@@ -1365,7 +1365,7 @@ namespace RealFuels
 
                 if (nName.Equals(configuration))
                 {
-                    GUILayout.Label("Current config: " + nName + costString);
+                    GUILayout.Label(new GUIContent("Current config: " + nName + costString, GetConfigInfo(node)));
                 }
                 else
                 {
