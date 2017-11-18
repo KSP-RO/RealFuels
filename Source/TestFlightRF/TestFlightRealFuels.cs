@@ -39,8 +39,7 @@ namespace TestFlightRF
                     }
                 }
                 // now add that info to the RF configs
-                List<ModuleEngineConfigs> allConfigs = new List<ModuleEngineConfigs>();
-                allConfigs.AddRange(part.partPrefab.Modules.GetModules<ModuleEngineConfigs>());
+                var allConfigs = part.partPrefab.Modules.GetModules<ModuleEngineConfigs>();
                 if (allConfigs.Count <= 0)
                     continue;
 
