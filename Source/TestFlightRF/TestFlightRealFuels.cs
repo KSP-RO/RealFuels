@@ -26,26 +26,16 @@ namespace TestFlightRF
             foreach (AvailablePart part in PartLoader.LoadedPartsList)
             {
                 // cache up the burn times first
-                List<ITestFlightReliability> engineCycles = new List<ITestFlightReliability>();
                 burnTimes.Clear();
-                foreach (PartModule pm in part.partPrefab.Modules)
-                {
-                    ITestFlightReliability reliabilityModule = pm as ITestFlightReliability;
-                    if (reliabilityModule != null)
-                        engineCycles.Add(reliabilityModule);
-                }
+                var engineCycles = part.partPrefab.Modules.GetModules<TestFlightReliability_EngineCycle>();
                 if (engineCycles.Count <= 0)
                     continue;
 
-                foreach (ITestFlightReliability rm in engineCycles)
+                foreach (var engineCycle in engineCycles)
                 {
-                    TestFlightReliability_EngineCycle engineCycle = rm as TestFlightReliability_EngineCycle;
-                    if (engineCycle != null)
+                    if (engineCycle.engineConfig != "")
                     {
-                        if (engineCycle.engineConfig != "")
-                        {
-                            burnTimes[engineCycle.engineConfig] = engineCycle.ratedBurnTime;
-                        }
+                        burnTimes[engineCycle.engineConfig] = engineCycle.ratedBurnTime;
                     }
                 }
                 // now add that info to the RF configs
