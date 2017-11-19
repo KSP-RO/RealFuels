@@ -506,18 +506,10 @@ namespace RealFuels
         #region Info
         protected string ThrottleString()
         {
-            string output = string.Empty;
-            if (!throttleLocked)
-            {
-                if (minThrottle > 0f && minThrottle < 1f)
-                    output += ", " + (minThrottle*100f).ToString("N0") + "% min throttle";
-                else if(minThrottle == 1f)
-                    output += ", unthrottleable";
-            }
-            else
-                output += ", throttle locked";
-
-            return output;
+            if (throttleLocked) { return ", throttle locked"; }
+            if (minThrottle == 1f) { return ", unthrottleable"; }
+            if (minThrottle < 0f || minThrottle > 1f) { return string.Empty; }
+            return ", " + (minThrottle * 100f).ToString("N0") + "% min throttle";
         }
         protected string GetThrustInfo()
         {
