@@ -1497,7 +1497,12 @@ namespace RealFuels
             if (pModule != null && part.partInfo != null)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
+                var ratedBurnTime = string.Empty;
+                if (config.HasValue("tfRatedBurnTime"))
+                {
+                    ratedBurnTime += config.GetValue("tfRatedBurnTime") + "\n";
+                }
+                GUILayout.Label(ratedBurnTime + pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
                 GUILayout.EndHorizontal();
             }
 
