@@ -583,8 +583,7 @@ namespace RealFuels
                 output += "Pressure-fed";
             if (ignitions >= 0 && RFSettings.Instance.limitedIgnitions)
                 output += (output != string.Empty ? ", " : string.Empty) + "Ignitions: " + (ignitions > 0 ? ignitions.ToString() : "Ground only");
-            if (!ullage)
-                output += (output != string.Empty ? ", " : string.Empty) + "Not subject to ullage";
+            output += (output != string.Empty ? ", " : string.Empty) + (ullage ? "Subject" : "Not subject") + " to ullage";
             if (output != string.Empty)
                 output += "\n";
 
