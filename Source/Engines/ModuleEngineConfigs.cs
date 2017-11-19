@@ -1502,7 +1502,7 @@ namespace RealFuels
                 {
                     ratedBurnTime += config.GetValue("tfRatedBurnTime") + "\n";
                 }
-                GUILayout.Label(ratedBurnTime + pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
+                GUILayout.Label(ratedBurnTime + "<b>Engine mass:</b> " + part.mass.ToString("N3") + "t\n" + pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
                 GUILayout.EndHorizontal();
             }
 
