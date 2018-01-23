@@ -61,16 +61,18 @@ namespace RealFuels
 
         private void FindFlightIntegrator()
         {
+            flightIntegrator = null;
+
             foreach (VesselModule module in vessel.vesselModules)
             {
-                if (module is FlightIntegrator fi)
+                if (module is FlightIntegrator)
                 {
-                    flightIntegrator = fi;
+                    flightIntegrator = module as FlightIntegrator;
                     break;
                 }
             }
 
-            if (flightIntegrator is null)
+            if (flightIntegrator == null)
                 Debug.LogError("[RefuelingPump] could not find flight integrator!");
         }
 
