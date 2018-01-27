@@ -14,7 +14,6 @@ namespace RealFuels.Tanks
         private double previewInternalFluxAdjust;
         private bool supportsBoiloff = false;
         public double sunAndBodyFlux = 0;
-        public bool fueledByLaunchClamp = false;
 
         public double outerInsulationFactor = 0.0;
 
@@ -264,7 +263,7 @@ namespace RealFuels.Tanks
                         {
                             heatLost *= ConductionFactors;
 
-                                part.AddThermalFlux(heatLost * deltaTimeRecip * 2.0d); // double because there is a bug in FlightIntegrator that cuts added flux in half
+                                part.AddThermalFlux(heatLost * deltaTimeRecip);
                         }
                         else
                         {
