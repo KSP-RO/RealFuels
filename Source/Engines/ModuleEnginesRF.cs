@@ -325,7 +325,7 @@ namespace RealFuels
                 else if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetBackgroundColor(ullageColor);
+                    part.stackIcon.SetIconColor(ullageColor);
                 }
                 else
                     propellantStatus = "Nominal";
@@ -434,7 +434,7 @@ namespace RealFuels
                 if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetBackgroundColor(ullageColor);
+                    part.stackIcon.SetIconColor(ullageColor);
                     if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
                     {
                         double state = ullageSet.GetUllageStability();
