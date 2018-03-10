@@ -594,19 +594,6 @@ namespace RealFuels
             ConfigSaveLoad();
 
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
-            if (!UnlockedConfig(newConfig, part))
-            {
-                if(newConfig == null)
-                    Debug.LogError("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
-
-                foreach(ConfigNode cfg in configs)
-                    if (UnlockedConfig(cfg, part))
-                    {
-                        newConfig = cfg;
-                        newConfiguration = cfg.GetValue("name");
-                        break;
-                    }
-            }
             if (newConfig != null)
             {
                 if (configuration != newConfiguration)
