@@ -1,17 +1,13 @@
-﻿<Properties StartupItem="RealFuels.csproj">
+﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release" />
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
-  <MonoDevelop.Ide.ItemProperties.RealFuels PreferredExecutionTarget="MonoDevelop.Default" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanksRF.cs">
+  <MonoDevelop.Ide.Workbench>
     <Files>
-      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="192" Column="37" />
-      <File FileName="Engines\ModuleEnginesRF.cs" Line="692" Column="50" />
-      <File FileName="Tanks\FuelTank.cs" Line="60" Column="27" />
-      <File FileName="Utilities\ConfigNodeExtensions.cs" Line="1" Column="14" />
-      <File FileName="Engines\RFSettings.cs" Line="39" Column="15" />
+      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="108" Column="23" />
     </Files>
   </MonoDevelop.Ide.Workbench>
+  <MultiItemStartupConfigurations />
 </Properties>

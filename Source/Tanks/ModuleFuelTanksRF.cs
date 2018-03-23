@@ -104,9 +104,60 @@ namespace RealFuels.Tanks
             // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
             if (numberOfMLILayers + (int)numberOfAddedMLILayers > 0)
             {
-                double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * (PhysicsGlobals.ConductionFactor * 10 * part.partInfo.partPrefab.heatConductivity * 0.5));
-                part.heatConductivity = normalizationFactor * Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature)/(part.temperature-part.skinTemperature)) * part.partInfo.partPrefab.heatConductivity;
+                double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * PhysicsGlobals.ConductionFactor * PhysicsGlobals.ThermalConvergenceFactor * part.partInfo.partPrefab.skinInternalConductionMult * 10 * 0.5);
+                part.heatConductivity = normalizationFactor * Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / (part.skinTemperature - part.temperature)) * 0.001;
             }
+#if DEBUG
+            DebugSkinInternalConduction();
+#endif
+
+        }
+
+        public void DebugSkinInternalConduction()
+        {
+            double num12 = part.ptd.conductionMult * 0.5;
+            double num13 = part.temperature * part.thermalMass;
+            double num14 = part.skinTemperature - part.temperature;
+            if (num14 > 0.001 || num14 < -0.001)
+            {
+                double num15 = part.skinExposedAreaFrac * part.radiativeArea * num12 * PhysicsGlobals.SkinInternalConductionFactor * part.skinInternalConductionMult;
+                double num27 = part.skinThermalMass * part.skinExposedAreaFrac;
+                double num28 = (num13 + part.skinTemperature * num27) / (part.thermalMass + num27);
+                double num23 = -num14 * num15 * part.skinThermalMassRecip * part.skinExposedMassMult;
+                double num24 = num14 * num15 * part.thermalMassReciprocal;
+                double num25 = part.skinTemperature + num23 - num28;
+                double num26 = part.temperature + num24 - num28;
+                double val4;
+                double val3 = val4 = 1.0;
+                if (num14 > 0.0)
+                {
+                    if (num25< 0.0)
+                    {
+                        val3 = (num23 - num25) / num23;
+                    }
+                    if (num26 > 0.0)
+                    {
+                        val4 = (num24 - num26) / num24;
+                    }
+                }
+                else
+                {
+                    if (num25 > 0.0)
+                    {
+                        val3 = (num23 - num25) / num23;
+                    }
+                    if (num26 < 0.0)
+                    {
+                        val4 = (num24 - num26) / num24;
+                    }
+                }
+                double num20 = Math.Max(0.0, Math.Min(val4, val3));
+                print("part.ptd.skinInteralConductionFlux = " + part.ptd.skinInteralConductionFlux.ToString("F16"));
+                print("num15                 = " + num15.ToString("F16"));
+                print("num20 (unknownFactor) = " + num20.ToString("F16"));
+                print("num14                 = " + num14.ToString("F16"));
+            }
+            //Debug.Log("part.skinInteralConductionFlux = " + part.ptd.skinInteralConductionFlux.ToString("F16"));
         }
 
         public void FixedUpdate()
@@ -166,7 +217,7 @@ namespace RealFuels.Tanks
             double cooling = analyticalMode ? Math.Min(0, part.thermalInternalFluxPrevious) : 0;
 
             if (RFSettings.Instance.debugBoilOff)
-                debug0Display = part.temperature.ToString("F4") + "(" + GetMLITransferRate(part.skinTemperature, part.temperature).ToString("F4") + ")";
+                debug0Display = part.temperature.ToString("F4") + "(" + GetMLITransferRate(part.skinTemperature, part.temperature).ToString("F4") + " * " + (part.radiativeArea * part.skinExposedAreaFrac).ToString("F2") + "m2)";
 
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
@@ -178,8 +229,6 @@ namespace RealFuels.Tanks
                     // Opposite of original boil off code. Finds massLost first.
                     double massLost = 0.0;
                     double deltaTemp;
-                    // TODO with new MLI system, go back to only using part.temperature
-                    //double hotTemp = (hasMLI ? part.temperature : part.skinTemperature) - (cooling * part.thermalMassReciprocal); 
                     double hotTemp = part.temperature;
                     double tankRatio = tank.maxAmount / volume;
 
@@ -498,8 +547,8 @@ namespace RealFuels.Tanks
             // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added between layers. (actual contribution minimal?)
             double QrCoefficient = 0.000000000539; // typical MLI radiation flux coefficient
             double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target based on spacing mechanism between layers?
-            double Emissivity = 0.032; // typical reflective mylar emissivity...?
-            float layerDensity = 8.51f; // layer density (layers/cm)
+            double Emissivity = 0.03; // typical reflective mylar emissivity...?
+            float layerDensity = 14.99813f; // 8.51f; // layer density (layers/cm)
             int layers = numberOfMLILayers + (int)numberOfAddedMLILayers;
 
             double radiation = (QrCoefficient * Emissivity * (Math.Pow(outerTemperature, 4.67) - Math.Pow(innerTemperature, 4.67))) / layers;
