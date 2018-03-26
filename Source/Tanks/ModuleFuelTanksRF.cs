@@ -7,7 +7,7 @@ namespace RealFuels.Tanks
 {
     public partial class ModuleFuelTanks : IAnalyticTemperatureModifier, IAnalyticPreview
     {
-        protected float tankArea;
+        protected double totalTankArea;
         private double boiloffMass = 0d;
         private double analyticSkinTemp;
         private double analyticInternalTemp;
@@ -20,8 +20,14 @@ namespace RealFuels.Tanks
         public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "MLI Layers", guiUnits = "#", guiFormat = "F0"), UI_FloatRange(minValue = 0, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
-        public float numberOfAddedMLILayers; // This is the number of layers added by the player.
-
+        public float _numberOfAddedMLILayers = 0; // This is the number of layers added by the player.
+        public int numberOfAddedMLILayers
+        {
+           get
+            {
+                return (int)_numberOfAddedMLILayers;
+            }
+        }
 
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
         [NonSerialized]
@@ -69,15 +75,15 @@ namespace RealFuels.Tanks
             }
 
 
-            CalculateTankArea(out tankArea);
+            CalculateTankArea(out totalTankArea);
 
             if (outerInsulationFactor > 0.0)
             {
                 // TODO Deprecated! Leave in place for legacy purposes but this is moving back to part.skinInternalConductionMult based on calculated Lockheed MLI equations
                 // changed from skin-internal to part.heatConductivity which affects only skin-internal
-                //part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
+                // part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
                 // affects how fast internal temperatures change during analytic mode
-                //part.analyticInternalInsulationFactor *= outerInsulationFactor;
+                // part.analyticInternalInsulationFactor *= outerInsulationFactor;
             }
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
@@ -93,7 +99,7 @@ namespace RealFuels.Tanks
             Fields[nameof(debug1Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
             Fields[nameof(debug2Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
 
-            numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
+            //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
             CalculateInsulation();
         }
 
@@ -160,6 +166,29 @@ namespace RealFuels.Tanks
             //Debug.Log("part.skinInteralConductionFlux = " + part.ptd.skinInteralConductionFlux.ToString("F16"));
         }
 
+        partial void GetModuleMassRF()
+        {
+            massDirty = true;
+            CalculateMass();
+            if (totalTankArea <= 0)
+                CalculateTankArea(out totalTankArea);
+            
+            //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
+            massDelta += (float)(0.000015 * totalTankArea * (numberOfMLILayers + numberOfAddedMLILayers));
+        }
+
+        partial void GetModuleCostRF()
+        {
+            if (totalTankArea <= 0)
+                CalculateTankArea(out totalTankArea);
+
+            //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
+            // TODO Determine cost and add that to cst
+            // Estimate material cost at 0.10764/m2 treating as Fund = $1000 (for RO purposes)
+            // Plus another 0.1 for installation
+            cst += (float)(0.20764 * totalTankArea * (numberOfMLILayers + numberOfAddedMLILayers));
+        }
+
         public void FixedUpdate()
         {
             //print ("[Real Fuels]" + Time.time.ToString ());
@@ -183,8 +212,8 @@ namespace RealFuels.Tanks
         private IEnumerator CalculateTankLossFunction(double deltaTime, bool analyticalMode = false)
         {
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
-            if (tankArea <= 0)
-                CalculateTankArea(out tankArea);
+            if (totalTankArea <= 0)
+                CalculateTankArea(out totalTankArea);
 
             if (!analyticalMode)
                 yield return new WaitForFixedUpdate();
@@ -380,12 +409,23 @@ namespace RealFuels.Tanks
                 double.TryParse(node.GetValue("outerInsulationFactor"), out outerInsulationFactor);
         }
 
-        public void CalculateTankArea(out float totalTankArea)
+        public void CalculateTankArea(out double totalTankArea)
         {
             // TODO: Codify a more accurate tank area calculator.
             // Thought: cube YN/YP can be used to find the part diameter / circumference... X or Z finds the length
             // Also should try to determine if tank has a common bulkhead - and adjust heat flux into individual tanks accordingly
             print("CalculateTankArea() running");
+
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                if (!this.part.DragCubes.None)
+                {
+                    this.part.DragCubes.SetDragWeights();
+                    this.part.DragCubes.RequestOcclusionUpdate();
+                    this.part.DragCubes.SetPartOcclusion();
+                }
+            }
+
             totalTankArea = 0f;
 
             for (int i = 0; i< 6; ++i)
@@ -401,6 +441,7 @@ namespace RealFuels.Tanks
             // if for any reason our totalTankArea is still 0 (no drag cubes available yet or analytic temp routines executed first)
             // then we're going to be defaulting to spherical calculation
             double tankMaxAmount;
+            double tempTotal = 0;
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -414,6 +455,7 @@ namespace RealFuels.Tanks
                     tank.tankRatio = tankMaxAmount / volume;
 
                     tank.totalArea = Math.Max(Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tankMaxAmount / 1000.0) * 6, 2.0 / 3.0), tank.totalArea = totalTankArea * tank.tankRatio);
+                    tempTotal += tank.totalArea;
 
                     if (RFSettings.Instance.debugBoilOff)
                     {
@@ -424,13 +466,15 @@ namespace RealFuels.Tanks
                     }
                 }
             }
+            if (!(totalTankArea > 0) || tempTotal > totalTankArea)
+                totalTankArea = tempTotal;
         }
 
         public void OnVesselWasModified(Vessel v)
         {
             Debug.Log("ModuleFuelTanksRF.OnVesselWasModified()");
             if (v != null && v == this.vessel)
-                CalculateTankArea(out tankArea);
+                CalculateTankArea(out totalTankArea);
         }
 
         private void OnPartDestroyed(Part p)
