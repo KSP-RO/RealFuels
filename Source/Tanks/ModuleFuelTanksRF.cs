@@ -205,11 +205,11 @@ namespace RealFuels.Tanks
                 CalculateInsulation();
 
                 if(!_flightIntegrator.isAnalytical && supportsBoiloff)
-                    StartCoroutine(CalculateTankLossFunction((double)TimeWarp.fixedDeltaTime));
+                    StartCoroutine(CalculateTankBoiloff(_flightIntegrator.timeSinceLastUpdate));
             }
         }
 
-        private IEnumerator CalculateTankLossFunction(double deltaTime, bool analyticalMode = false)
+        private IEnumerator CalculateTankBoiloff(double deltaTime, bool analyticalMode = false)
         {
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
             if (totalTankArea <= 0)
@@ -284,10 +284,15 @@ namespace RealFuels.Tanks
 
                         double wettedArea = tank.totalArea;// disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
 
-                        double Q = deltaTemp /
-                            ((tank.wallThickness / (tank.wallConduction * wettedArea))
-                             + (tank.insulationThickness / (tank.insulationConduction * wettedArea))
-                             + (tank.resourceConductivity > 0 ? (0.01 / (tank.resourceConductivity * wettedArea)) : 0));
+                        double Q = 0;
+
+                        if (tank.isDewar)
+                            Q = GetDewarTransferRate(hotTemp, tank.temperature, tank.totalArea);
+                        else
+                            Q = deltaTemp /
+                                ((tank.wallThickness / (tank.wallConduction * wettedArea))
+                                 + (tank.insulationThickness / (tank.insulationConduction * wettedArea))
+                                 + (tank.resourceConductivity > 0 ? (0.01 / (tank.resourceConductivity * wettedArea)) : 0));
 
                         Q *= 0.001d; // convert to kilowatts
 
@@ -516,7 +521,7 @@ namespace RealFuels.Tanks
             {
                 if (fi.timeSinceLastUpdate < double.MaxValue * 0.99)
                 {
-                    StartCoroutine(CalculateTankLossFunction(fi.timeSinceLastUpdate, true));
+                    StartCoroutine(CalculateTankBoiloff(fi.timeSinceLastUpdate, true));
                 }
                 else if (CalculateLowestTankTemperature())
                 {
@@ -555,7 +560,7 @@ namespace RealFuels.Tanks
             //float deltaTime = (float)(Planetarium.GetUniversalTime() - vessel.lastUT);
             //if (this.supportsBoiloff)
             //{
-            //    StartCoroutine(CalculateTankLossFunction(TimeWarp.fixedDeltaTime, true));
+            //    StartCoroutine(CalculateTankBoiloff(TimeWarp.fixedDeltaTime, true));
             //}
         }
 
@@ -588,7 +593,7 @@ namespace RealFuels.Tanks
         /// </summary>
         private double GetMLITransferRate(double outerTemperature = 300, double innerTemperature = 70)
         {            
-            // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added between layers. (actual contribution minimal?)
+            // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added (return radiation + conduction + convection). (actual contribution minimal?)
             double QrCoefficient = 0.000000000539; // typical MLI radiation flux coefficient
             double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target based on spacing mechanism between layers?
             double Emissivity = 0.03; // typical reflective mylar emissivity...?

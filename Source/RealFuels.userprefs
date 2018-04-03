@@ -4,10 +4,11 @@
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
-  <MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanksRF.cs">
     <Files>
-      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="28" Column="52" />
-      <File FileName="Tanks\ModuleFuelTanks.cs" Line="719" Column="5" />
+      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="596" Column="178" />
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="159" Column="5" />
+      <File FileName="Tanks\FuelTank.cs" Line="376" Column="17" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MultiItemStartupConfigurations />
