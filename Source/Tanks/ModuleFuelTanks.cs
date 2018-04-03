@@ -38,9 +38,15 @@ namespace RealFuels.Tanks
 		public override void OnAwake ()
 		{
 			enabled = false;
-			// Initialize utilization from the settings file
-			utilization = MFSSettings.partUtilizationDefault;
-		}
+            // Initialize utilization from the settings file
+            if (utilization == -1)
+                utilization = MFSSettings.partUtilizationDefault;
+
+            UI_FloatRange f = (UI_FloatRange)(Fields["utilization"].uiControlEditor);
+            f.minValue = minUtilization;
+            f.maxValue = maxUtilization;
+            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
+        }
 
 		public override void OnInactive ()
 		{
@@ -104,6 +110,11 @@ namespace RealFuels.Tanks
 			if (!compatible) {
 				return;
 			}
+
+            UI_FloatRange f = (UI_FloatRange)(Fields["utilization"].uiControlEditor);
+            f.minValue = minUtilization;
+            f.maxValue = maxUtilization;
+            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
 
 			if (MFSSettings.tankDefinitions == null) {
 				MFSSettings.Initialize ();
@@ -482,6 +493,12 @@ namespace RealFuels.Tanks
 		[KSPField]
 		public bool utilizationTweakable = false;
 
+        [KSPField]
+        public float minUtilization = 1f;
+
+        [KSPField]
+        public float maxUtilization = 100f;
+
 		// no double support for KSPFields - [KSPField (isPersistant = true)]
 		public double volume;
 
@@ -675,9 +692,11 @@ namespace RealFuels.Tanks
 
 			double basemass = basemassConst + basemassPV * (MFSSettings.basemassUseTotalVolume ? totalVolume : volume);
 
-			if (basemass >= 0) {
+			if (basemass >= 0)
+            {
 				double tankDryMass = 0;
-				for (int i = 0; i < tankList.Count; i++) {
+				for (int i = 0; i < tankList.Count; i++)
+                {
 					var tank = tankList[i];
 					tankDryMass += tank.maxAmount * tank.mass / tank.utilization;
 
@@ -685,14 +704,18 @@ namespace RealFuels.Tanks
 				mass = (float) ((basemass + tankDryMass) * MassMult);
 
 				// compute massDelta based on prefab, if available.
-				if (part.partInfo == null
-					|| part.partInfo.partPrefab == null) {
+				if (part.partInfo == null || part.partInfo.partPrefab == null)
+                {
 					part.mass = mass;
 					massDelta = 0;
-				} else {
+				}
+                else
+                {
 					massDelta = mass - part.partInfo.partPrefab.mass;
 				}
-			} else {
+			}
+            else
+            {
 				mass = part.mass; // display dry mass even in this case.
                 massDelta = 0f;
 			}
@@ -720,8 +743,10 @@ namespace RealFuels.Tanks
 
 		// mass-change interface, so Engineer's Report / Pad limit checking is correct.
 		public float massDelta = 0f; // assigned whenever part.mass is changed.
-		public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
+		
+        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
 		{
+            GetModuleMassRF();
 			return massDelta;
 		}
 
@@ -756,9 +781,11 @@ namespace RealFuels.Tanks
             }
         }
 
+        double cst;
+
 		public float GetModuleCost (float defaultCost, ModifierStagingSituation sit)
 		{
-			double cst = 0;
+			cst = 0;
 			if (baseCostPV >= 0) {
 				cst = volume * baseCostPV;
 				if (PartResourceLibrary.Instance != null && tankList != null) {
@@ -773,6 +800,7 @@ namespace RealFuels.Tanks
 					}
 				}
 			}
+            GetModuleCostRF();
 			return (float)cst;
 		}
 
@@ -983,6 +1011,8 @@ namespace RealFuels.Tanks
         partial void UpdateTestFlight();
         partial void ParseInsulationFactor(ConfigNode node);
         partial void UpdateTankTypeRF(TankDefinition def);
+        partial void GetModuleCostRF();
+        partial void GetModuleMassRF();
 
         #endregion
     }
