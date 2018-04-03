@@ -50,6 +50,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.5.0
+
+* Fix vesion checker which reported KSP 1.3.1 as incompatible
+* Implement new entry cost system for RP-0/1
+* Disable thrust limiter when no throttling
+* Implement min and max utilization support on tanks
+
 v12.4.1
 
 * Don't double heat flux (workaround which is no longer necessary in KSP 1.3.1)
