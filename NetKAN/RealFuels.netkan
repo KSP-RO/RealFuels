@@ -8,7 +8,7 @@
     "license"      : "CC-BY-SA",
     "author"       : [ "ialdabaoth", "NathanKell", "taniwha", "Starwaster", "blowfish" ],
     "release_status" : "stable",
-    "resources" : { "homepage" : "http://forum.kerbalspaceprogram.com/threads/64118" },
+    "resources" : { "homepage" : "https://forum.kerbalspaceprogram.com/index.php?/topic/58236-13-real-fuels-v1223-july-30/&" },
     "install" : [
         {
             "find"       : "RealFuels",
