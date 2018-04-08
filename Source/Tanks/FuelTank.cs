@@ -38,7 +38,7 @@ namespace RealFuels.Tanks
 		public float mass = 0.0f;
 		[Persistent]
 		public float cost = 0.0f;
-        // TODO Retaining for fallback purposes but should be deprecated eventually
+        // TODO Retaining for fallback purposes but should be deprecated
 		[Persistent]
 		public double loss_rate = 0.0;
 
@@ -46,7 +46,7 @@ namespace RealFuels.Tanks
 
         public double resourceConductivity = 10;
 
-        // cache for tank.totalArea and tank.tankRatio for use by ModuleFuelTanks
+        // cache for tank.totalArea and tank.tankRatio for use by ModuleFuelTanksRF
         public double totalArea = -1;
         public double tankRatio = -1;
 
@@ -58,6 +58,7 @@ namespace RealFuels.Tanks
         public double insulationThickness = 0.0;
         //[Persistent]
         public double insulationConduction = 1.0;
+        public bool isDewar;
 
 		[Persistent]
 		public float temperature = 300.0f;
@@ -371,6 +372,8 @@ namespace RealFuels.Tanks
                 double.TryParse(node.GetValue("insulationConduction"), out insulationConduction);
             if (node.HasValue("boiloffProduct"))
                 boiloffProductResource = PartResourceLibrary.Instance.GetDefinition(node.GetValue("boiloffProduct"));
+            if (node.HasValue("isDewar"))
+                bool.TryParse(node.GetValue("isDewar"), out isDewar);
 
             GetDensity();
 		}
