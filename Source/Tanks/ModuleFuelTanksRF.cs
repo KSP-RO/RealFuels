@@ -113,7 +113,7 @@ namespace RealFuels.Tanks
                 double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * PhysicsGlobals.ConductionFactor * PhysicsGlobals.ThermalConvergenceFactor * part.partInfo.partPrefab.skinInternalConductionMult * 10 * 0.5);
                 double insulationFactor = Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / (part.skinTemperature - part.temperature)) * 0.001;
                 part.heatConductivity = normalizationFactor * insulationFactor;
-                part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * insulationFactor * 0.001;
+                part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * insulationFactor;
             }
 #if DEBUG
             DebugSkinInternalConduction();
@@ -240,7 +240,10 @@ namespace RealFuels.Tanks
                 yield break;
             }
 
-            partPrevTemperature = part.temperature;
+            if (!double.IsNaN(part.temperature))
+                partPrevTemperature = part.temperature;
+            else
+                part.temperature = supportsBoiloff ? lowestTankTemperature : part.skinTemperature;
 
             if (deltaTime > 0)
             {
@@ -298,7 +301,22 @@ namespace RealFuels.Tanks
 
                             Q *= 0.001d; // convert to kilowatts
 
-                            massLost = Q / tank.vsp;
+                            if (Q > 0 && analyticalMode)
+                            {
+                                double cooling = 0;
+                                if (part.thermalInternalFlux < 0)
+                                    cooling = part.thermalInternalFlux;
+                                else if (part.thermalInternalFluxPrevious < 0)
+                                    cooling = part.thermalInternalFluxPrevious;
+                                if (cooling < 0)
+                                    Q += cooling;
+                                Q = Math.Max(Q, 0);
+                            }
+
+                            if (!double.IsNaN(Q))
+                                massLost = Q / tank.vsp;
+                            else
+                                DebugLog("Q = NaN! W - T - F!!!");
 
                             if (RFSettings.Instance.debugBoilOff)
                             {
@@ -593,7 +611,6 @@ namespace RealFuels.Tanks
 
         public double InternalFluxAdjust()
         {
-            print("InternalFluxAdjust = " + previewInternalFluxAdjust.ToString("F4"));
             return previewInternalFluxAdjust;
         }
         #endregion
@@ -610,23 +627,23 @@ namespace RealFuels.Tanks
 
         #region Cryogenics
         /// <summary>
-        /// Transfer rate through multilayer insulation in watts/m2 via radiation and conduction. (convection when in atmo not handled at this time)
+        /// Transfer rate through multilayer insulation in watts/m2 via radiation, conduction and convection (conduction through gas in the layers).
         /// Default hot and cold values of 300 / 70. Can be called in real time substituting skin temp and internal temp for hot and cold. 
         /// </summary>
         private double GetMLITransferRate(double outerTemperature = 300, double innerTemperature = 70)
         {            
-            // This function assumes vacuum. If we need more accuracy in atmosphere then a convective equation will need to be added (return radiation + conduction + convection). 
+            // 
             double QrCoefficient = 0.0000000004944; // typical MLI radiation flux coefficient
             double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target based on spacing mechanism between layers?
-            double QvCoefficient = 14600; // not even sure how this is right: convective contribution will be MURDEROUS.
+            double QvCoefficient = 3.65; // 14.600; // 14600; // not even sure how this is right: convective contribution will be MURDEROUS.
             double Emissivity = 0.03; // typical reflective mylar emissivity...?
             double layerDensity = 10.055; //14.99813f; // 8.51f; // layer density (layers/cm)
             int layers = numberOfMLILayers + (int)numberOfAddedMLILayers;
 
             double radiation = (QrCoefficient * Emissivity * (Math.Pow(outerTemperature, 4.67) - Math.Pow(innerTemperature, 4.67))) / layers;
             double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.63) * ((outerTemperature + innerTemperature) / 2)) / (layers + 1)) * (outerTemperature - innerTemperature);
-            double convection = QvCoefficient * (vessel.staticPressurekPa * 7.500616851) * (Math.Pow(outerTemperature, 0.52) - Math.Pow(innerTemperature, 0.52));
-            return radiation + conduction;
+            double convection = QvCoefficient * ((vessel.staticPressurekPa * 7.500616851) * (Math.Pow(outerTemperature, 0.52) - Math.Pow(innerTemperature, 0.52))) / layers;
+            return radiation + conduction + convection;
         }
 
         /// <summary>
