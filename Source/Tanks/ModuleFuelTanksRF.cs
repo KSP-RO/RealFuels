@@ -29,6 +29,11 @@ namespace RealFuels.Tanks
             }
         }
 
+        public int totalMLILayers
+        {
+            get { return numberOfMLILayers + numberOfAddedMLILayers; }
+        }
+
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
         [NonSerialized]
         public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool>();
@@ -44,6 +49,9 @@ namespace RealFuels.Tanks
 
         [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "")]
         public string debug2Display;
+
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Analytic Cooling", guiUnits = "")]
+        public string debug3Display;
 
         [KSPField(isPersistant = true)]
         public double partPrevTemperature = -1;
@@ -108,12 +116,12 @@ namespace RealFuels.Tanks
             // TODO tie this into insulation configuration GUI! Also, we should handle MLI separately and as part skin-internal conduction. 
             // Dewars and SOFI should be handled separately as part of the boiloff code on a per-tank basis (if Dewar then use dewar heat transfer code instead of conductive)
             // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
-            if (numberOfMLILayers + (int)numberOfAddedMLILayers > 0)
+            if (totalMLILayers > 0)
             {
                 double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * PhysicsGlobals.ConductionFactor * PhysicsGlobals.ThermalConvergenceFactor * part.partInfo.partPrefab.skinInternalConductionMult * 10 * 0.5);
                 double insulationFactor = Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / (part.skinTemperature - part.temperature)) * 0.001;
                 part.heatConductivity = normalizationFactor * insulationFactor;
-                part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * insulationFactor;
+                part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * (part.partInfo.partPrefab.heatConductivity / part.heatConductivity);
             }
 #if DEBUG
             DebugSkinInternalConduction();
@@ -176,7 +184,7 @@ namespace RealFuels.Tanks
                 CalculateTankArea(out totalTankArea);
             
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
-            massDelta += (float)(0.000015 * totalTankArea * (numberOfMLILayers + numberOfAddedMLILayers));
+            massDelta += (float)(0.000015 * totalTankArea * totalMLILayers);
         }
 
         partial void GetModuleCostRF()
@@ -188,7 +196,7 @@ namespace RealFuels.Tanks
             // TODO Determine cost and add that to cst
             // Estimate material cost at 0.10764/m2 treating as Fund = $1000 (for RO purposes)
             // Plus another 0.1 for installation
-            cst += (float)(0.20764 * totalTankArea * (numberOfMLILayers + numberOfAddedMLILayers));
+            cst += (float)(0.20764 * totalTankArea * totalMLILayers);
         }
 
         public void FixedUpdate()
@@ -201,6 +209,8 @@ namespace RealFuels.Tanks
                     debug1Display = "";
                     debug2Display = "";
                     debug0Display = "";
+                    debug3Display = "";
+                    Fields[nameof(debug3Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff && TimeWarp.CurrentRate > PhysicsGlobals.ThermalMaxIntegrationWarp;
                 }
 
                 // MLI performance varies by temperature delta
@@ -251,7 +261,29 @@ namespace RealFuels.Tanks
                 //Debug.Log("internalFlux = " + part.thermalInternalFlux.ToString() + ", thermalInternalFluxPrevious =" + part.thermalInternalFluxPrevious.ToString() + ", analytic internal flux = " + previewInternalFluxAdjust.ToString());
 
                 if (RFSettings.Instance.debugBoilOff)
-                    debug0Display = part.temperature.ToString("F4") + "(" + GetMLITransferRate(part.skinTemperature, part.temperature).ToString("F4") + " * " + (part.radiativeArea * part.skinExposedAreaFrac).ToString("F2") + "m2)";
+                {
+                    string MLIText = totalMLILayers > 0 ? GetMLITransferRate(part.skinTemperature, part.temperature).ToString("F4") : "No MLI";
+                    debug0Display = part.temperature.ToString("F4") + "(" + MLIText + " * " + (part.radiativeArea * part.skinExposedAreaFrac).ToString("F2") + "m2)";
+                }
+
+
+                double cooling = 0;
+
+                if (analyticalMode)
+                {
+                    if (part.thermalInternalFlux < 0)
+                        cooling = part.thermalInternalFlux;
+                    else if (part.thermalInternalFluxPrevious < 0)
+                        cooling = part.thermalInternalFluxPrevious;
+
+                    if (cooling < 0)
+                    {
+                        // in analytic mode, MFTRF interprets this as an attempt to cool the tanks
+                        analyticInternalTemp += cooling * part.thermalMassReciprocal * deltaTime;
+                    }
+                }
+
+                debug3Display = Utilities.FormatFlux(cooling);
 
                 for (int i = tankList.Count - 1; i >= 0; --i)
                 {
@@ -280,6 +312,7 @@ namespace RealFuels.Tanks
                                 debug1Display += " / ";
                         }
 
+                        double Q = 0;
                         if (deltaTemp > 0)
                         {
 #if DEBUG
@@ -288,8 +321,6 @@ namespace RealFuels.Tanks
 #endif
 
                             double wettedArea = tank.totalArea;// disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
-
-                            double Q = 0;
 
                             if (tank.isDewar)
                                 Q = GetDewarTransferRate(hotTemp, tank.temperature, tank.totalArea);
@@ -300,18 +331,6 @@ namespace RealFuels.Tanks
                                      + (tank.resourceConductivity > 0 ? (0.01 / (tank.resourceConductivity * wettedArea)) : 0));
 
                             Q *= 0.001d; // convert to kilowatts
-
-                            if (Q > 0 && analyticalMode)
-                            {
-                                double cooling = 0;
-                                if (part.thermalInternalFlux < 0)
-                                    cooling = part.thermalInternalFlux;
-                                else if (part.thermalInternalFluxPrevious < 0)
-                                    cooling = part.thermalInternalFluxPrevious;
-                                if (cooling < 0)
-                                    Q += cooling;
-                                Q = Math.Max(Q, 0);
-                            }
 
                             if (!double.IsNaN(Q))
                                 massLost = Q / tank.vsp;
@@ -334,17 +353,14 @@ namespace RealFuels.Tanks
                             print(tank.name + " lossAmount is NaN!");
                         else
                         {
-                            double heatLost = 0d;
                             if (lossAmount > tank.amount)
                             {
-                                
+
                                 tank.amount = 0d;
                             }
                             else
                             {
                                 tank.amount -= lossAmount;
-
-                                heatLost = -massLost * tank.vsp;
 
                                 // See if there is boiloff byproduct and see if any other parts want to accept it.
                                 if (tank.boiloffProductResource != null)
@@ -363,35 +379,36 @@ namespace RealFuels.Tanks
                             // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels Analytic Temp = 256.679360297684, Analytic Internal = 256.679360297684, Analytic Skin = 256.679360297684
                             // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels deltaTime = 17306955.5092776, heat lost = 6638604.21227684, thermalMassReciprocal = 0.00444787360733243
 
-                            if (!analyticalMode)
+                            if (!double.IsNaN(Q))
                             {
-                                double flux = heatLost * deltaTimeRecip;
-                                if (!double.IsNaN(flux))
-                                    part.AddThermalFlux(flux);
+                                double heatLost = -Q;
+                                if (!analyticalMode)
+                                {
+                                    part.AddThermalFlux(heatLost);
+                                }
                                 else
                                 {
-                                    DebugLog("WHO WOULD WIN? Some Well Written Code or One Misplaced NaN?");
-                                    DebugLog("heatLost = " + heatLost.ToString());
-                                    DebugLog("deltaTime = " + deltaTime.ToString());
-                                    DebugLog("deltaTimeRecip = " + deltaTimeRecip.ToString());
-                                    DebugLog("massLost = " + massLost.ToString());
-                                    DebugLog("tank.vsp = " + tank.vsp.ToString());
-
-                                }
-                            }
-                            else
-                            {
-                                analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal);
-                                // Don't try to adjust flux if significant time has passed; it never works out.
-                                // Analytic mode flux only gets applied if timewarping AND analytic mode was set.
-                                if (TimeWarp.CurrentRate > 1)
-                                    previewInternalFluxAdjust += heatLost * deltaTimeRecip;
-                                else
-                                    print("boiloff function running with delta time of " + deltaTime.ToString() + "(vessel.lastUT =" + (Planetarium.GetUniversalTime() - vessel.lastUT).ToString("F4") + " seconds ago)");
+                                    analyticInternalTemp = analyticInternalTemp + (heatLost * part.thermalMassReciprocal * deltaTime);
+                                    // Don't try to adjust flux if significant time has passed; it never works out.
+                                    // Analytic mode flux only gets applied if timewarping AND analytic mode was set.
+                                    if (TimeWarp.CurrentRate > 1)
+                                        previewInternalFluxAdjust += heatLost;
+                                    else
+                                        print("boiloff function running with delta time of " + deltaTime.ToString() + "(vessel.lastUT =" + (Planetarium.GetUniversalTime() - vessel.lastUT).ToString("F4") + " seconds ago)");
 #if DEBUG
                             if (deltaTime > 0)
                                 print(part.name + " deltaTime = " + deltaTime + ", heat lost = " + heatLost + ", thermalMassReciprocal = " + part.thermalMassReciprocal);
 #endif
+                                }
+                            }
+                            else
+                            {
+                                DebugLog("WHO WOULD WIN? Some Well Written Code or One Misplaced NaN?");
+                                DebugLog("heatLost = " + Q.ToString());
+                                DebugLog("deltaTime = " + deltaTime.ToString());
+                                DebugLog("deltaTimeRecip = " + deltaTimeRecip.ToString());
+                                DebugLog("massLost = " + massLost.ToString());
+                                DebugLog("tank.vsp = " + tank.vsp.ToString());
                             }
                         }
                     }
@@ -543,16 +560,16 @@ namespace RealFuels.Tanks
 
         #region IAnalyticTemperatureModifier
         // Analytic Interface
-        public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double toBeInternal, double toBeSkin)
+        public void SetAnalyticTemperature(FlightIntegrator fi, double analyticTemp, double predictedInternalTemp, double predictedSkinTemp)
         {
             //if (analyticInternalTemp > lowestTankTemperature)
 #if DEBUG
             if(this.supportsBoiloff)
-                print(part.name + " Analytic Temp = " + analyticTemp.ToString() + ", Analytic Internal = " + toBeInternal.ToString() + ", Analytic Skin = " + toBeSkin.ToString());
+                print(part.name + " Analytic Temp = " + analyticTemp.ToString() + ", Analytic Internal = " + predictedInternalTemp.ToString() + ", Analytic Skin = " + predictedSkinTemp.ToString());
 #endif
             
-            analyticSkinTemp = toBeSkin;
-            analyticInternalTemp = toBeInternal;
+            analyticSkinTemp = predictedSkinTemp;
+            analyticInternalTemp = predictedInternalTemp;
 
             if (this.supportsBoiloff)
             {
@@ -571,14 +588,14 @@ namespace RealFuels.Tanks
 
         public double GetSkinTemperature(out bool lerp)
         {
-            lerp = true;
+            lerp = false;
             return analyticSkinTemp;
         }
 
         public double GetInternalTemperature(out bool lerp)
         {
             // During analytic, pin our internal temperature. We'll figure out the difference and apply as much boiloff flux as needed for this to be valid.
-            lerp = true;
+            lerp = false;
             return analyticInternalTemp;
         }
         #endregion
@@ -638,11 +655,10 @@ namespace RealFuels.Tanks
             double QvCoefficient = 3.65; // 14.600; // 14600; // not even sure how this is right: convective contribution will be MURDEROUS.
             double Emissivity = 0.03; // typical reflective mylar emissivity...?
             double layerDensity = 10.055; //14.99813f; // 8.51f; // layer density (layers/cm)
-            int layers = numberOfMLILayers + (int)numberOfAddedMLILayers;
 
-            double radiation = (QrCoefficient * Emissivity * (Math.Pow(outerTemperature, 4.67) - Math.Pow(innerTemperature, 4.67))) / layers;
-            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.63) * ((outerTemperature + innerTemperature) / 2)) / (layers + 1)) * (outerTemperature - innerTemperature);
-            double convection = QvCoefficient * ((vessel.staticPressurekPa * 7.500616851) * (Math.Pow(outerTemperature, 0.52) - Math.Pow(innerTemperature, 0.52))) / layers;
+            double radiation = (QrCoefficient * Emissivity * (Math.Pow(outerTemperature, 4.67) - Math.Pow(innerTemperature, 4.67))) / totalMLILayers;
+            double conduction = ((QcCoefficient * Math.Pow(layerDensity, 2.63) * ((outerTemperature + innerTemperature) / 2)) / (totalMLILayers + 1)) * (outerTemperature - innerTemperature);
+            double convection = QvCoefficient * ((vessel.staticPressurekPa * 7.500616851) * (Math.Pow(outerTemperature, 0.52) - Math.Pow(innerTemperature, 0.52))) / totalMLILayers;
             return radiation + conduction + convection;
         }
 
