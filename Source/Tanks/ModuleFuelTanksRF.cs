@@ -113,15 +113,15 @@ namespace RealFuels.Tanks
 
         private void CalculateInsulation()
         {
-            // TODO tie this into insulation configuration GUI! Also, we should handle MLI separately and as part skin-internal conduction. 
-            // Dewars and SOFI should be handled separately as part of the boiloff code on a per-tank basis (if Dewar then use dewar heat transfer code instead of conductive)
+            // TODO tie this into insulation configuration GUI! Also, we should handle MLI separately and as part skin-internal conduction. (DONE)
+            // Dewars and SOFI should be handled separately as part of the boiloff code on a per-tank basis (DONE)
             // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
             if (totalMLILayers > 0)
             {
                 double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * PhysicsGlobals.ConductionFactor * PhysicsGlobals.ThermalConvergenceFactor * part.partInfo.partPrefab.skinInternalConductionMult * 10 * 0.5);
                 double insulationFactor = Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / (part.skinTemperature - part.temperature)) * 0.001;
                 part.heatConductivity = normalizationFactor * insulationFactor;
-                part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * (part.partInfo.partPrefab.heatConductivity / part.heatConductivity) * RFSettings.Instance.AnalyticInsulationMultiplier;
+                part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * (part.heatConductivity / part.partInfo.partPrefab.heatConductivity) * RFSettings.Instance.AnalyticInsulationMultiplier;
             }
 #if DEBUG
             DebugSkinInternalConduction();
@@ -253,7 +253,7 @@ namespace RealFuels.Tanks
             if (!double.IsNaN(part.temperature))
                 partPrevTemperature = part.temperature;
             else
-                part.temperature = supportsBoiloff ? lowestTankTemperature : part.skinTemperature;
+                part.temperature = partPrevTemperature;
 
             if (deltaTime > 0)
             {
@@ -513,7 +513,7 @@ namespace RealFuels.Tanks
 
                     tank.tankRatio = tankMaxAmount / volume;
 
-                    tank.totalArea = Math.Max(Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tankMaxAmount / 1000.0) * 6, 2.0 / 3.0), tank.totalArea = totalTankArea * tank.tankRatio);
+                    tank.totalArea = Math.Max(Math.Pow(Math.PI, 1.0 / 3.0) * Math.Pow((tankMaxAmount / 1000.0) * 6, 2.0 / 3.0), totalTankArea * tank.tankRatio);
                     tempTotal += tank.totalArea;
 
                     if (RFSettings.Instance.debugBoilOff)
@@ -522,6 +522,7 @@ namespace RealFuels.Tanks
                         Debug.Log("[RealFuels.ModuleFuelTankRF] " + tank.name + ".maxAmount = " + tankMaxAmount.ToString());
                         Debug.Log("[RealFuels.ModuleFuelTankRF] " + part.name + ".totalTankArea = " + totalTankArea.ToString());
                         Debug.Log("[RealFuels.ModuleFuelTankRF] Tank surface area = " + tank.totalArea.ToString());
+                        DebugLog("tank Dewar status = " + tank.isDewar.ToString());
                     }
                 }
             }
