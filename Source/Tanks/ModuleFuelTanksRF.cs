@@ -85,14 +85,6 @@ namespace RealFuels.Tanks
 
             CalculateTankArea(out totalTankArea);
 
-            if (outerInsulationFactor > 0.0)
-            {
-                // TODO Deprecated! Leave in place for legacy purposes but this is moving back to part.skinInternalConductionMult based on calculated Lockheed MLI equations
-                // changed from skin-internal to part.heatConductivity which affects only skin-internal
-                // part.heatConductivity = Math.Min(part.heatConductivity, outerInsulationFactor);
-                // affects how fast internal temperatures change during analytic mode
-                // part.analyticInternalInsulationFactor *= outerInsulationFactor;
-            }
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -108,7 +100,7 @@ namespace RealFuels.Tanks
             Fields[nameof(debug2Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
 
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
-            CalculateInsulation();
+            //CalculateInsulation();
         }
 
         private void CalculateInsulation()
