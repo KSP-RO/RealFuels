@@ -64,11 +64,7 @@ namespace RealFuels
             // Even if you don't lock down functionality, you should return true if your users
             // can expect a future update to be available.
             //
-			if (Versioning.version_major != 1 || Versioning.version_minor != 4) {
-				return false;
-			}
-			// Tested with 1.4.1 but I don't expect any problems for 1.4.0
-            return Versioning.Revision <= 1;
+            return Versioning.version_major == 1 && Versioning.version_minor == 3 && Versioning.Revision == 1;
 
             /*-----------------------------------------------*\
             | IMPLEMENTERS SHOULD NOT EDIT BEYOND THIS POINT! |
