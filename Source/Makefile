@@ -41,7 +41,7 @@ all: version ${TARGETS} ${TSTARGETS}
 
 .PHONY: version
 version:
-	@./tools/git-version.sh
+	@./tools/git-version-mft.sh
 
 info:
 	@echo "Modular Fuel Tanks Build Information"
