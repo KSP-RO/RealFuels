@@ -159,3 +159,5 @@ Source/assembly/AssemblyInfoRF.cs
 Source/RealFuels.sln
 Source/RealFuels.csproj
 .vs
+
+RealFuels/RealFuels.version
