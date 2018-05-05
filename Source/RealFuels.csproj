@@ -92,8 +92,6 @@ sh tools/git-version.sh
 cd $(TargetDir)</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"
-C:\utils\pdb2mdb\pdb2mdb.exe RealFuels.dll
-copy RealFuels.dll ..\..\..\..\..\Dropbox\RFDev\Plugins</PostBuildEvent>
+    <PostBuildEvent>sh -c "TARGET_PATH='$(TargetPath)' TARGET_DIR='$(TargetDir)' sh '$(ProjectDir)/rf_post_build.sh'"</PostBuildEvent>
   </PropertyGroup>
 </Project>
