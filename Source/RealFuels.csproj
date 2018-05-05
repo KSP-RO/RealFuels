@@ -92,6 +92,6 @@ sh tools/git-version-rf.sh
 cd $(TargetDir)</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>sh -c "TARGET_PATH='$(TargetPath)' TARGET_DIR='$(TargetDir)' sh '$(ProjectDir)/rf_post_build.sh'"</PostBuildEvent>
+    <PostBuildEvent>sh -c "TARGET_PATH='$(TargetPath)' TARGET_DIR='$(TargetDir)' sh '$(ProjectDir)/tools/post-build-rf.sh'"</PostBuildEvent>
   </PropertyGroup>
 </Project>
