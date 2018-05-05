@@ -56,7 +56,7 @@
   </ItemGroup>
   <PropertyGroup>
     <PreBuildEvent>cd $(ProjectDir)
-sh git-version.sh</PreBuildEvent>
+sh git-version-mft.sh</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>copy /y "$(TargetPath)" "$(SolutionDir)\..\ModularFuelTanks\Plugins\"
