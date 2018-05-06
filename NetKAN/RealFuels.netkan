@@ -8,7 +8,7 @@
     "license"      : "CC-BY-SA",
     "author"       : [ "ialdabaoth", "NathanKell", "taniwha", "Starwaster", "blowfish" ],
     "release_status" : "stable",
-    "resources" : { "homepage" : "https://forum.kerbalspaceprogram.com/index.php?/topic/58236-13" },
+    "resources" : { "homepage" : "https://forum.kerbalspaceprogram.com/index.php?showtopic=58236" },
     "install" : [
         {
             "find"       : "RealFuels",
