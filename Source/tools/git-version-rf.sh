@@ -16,9 +16,3 @@ sed \
 cmp -s assembly/AssemblyInfoRF.cs assembly/AssemblyInfoRF.cs- || mv assembly/AssemblyInfoRF.cs- assembly/AssemblyInfoRF.cs
 
 rm -f assembly/AssemblyInfoRF.cs-
-
-sed \
-  -e "s/@MAJOR_VERSION@/$major_version/" \
-  -e "s/@MINOR_VERSION@/$minor_version/" \
-  -e "s/@PATCH_VERSION@/$patch_version/" \
-  ../Templates/RealFuels.version.in > ../RealFuels/RealFuels.version
