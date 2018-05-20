@@ -67,8 +67,8 @@ namespace RealFuels
 			if (Versioning.version_major != 1 || Versioning.version_minor != 4) {
 				return false;
 			}
-			// Tested with 1.4.1 but I don't expect any problems for 1.4.0
-            return Versioning.Revision <= 1;
+
+            return true;
 
             /*-----------------------------------------------*\
             | IMPLEMENTERS SHOULD NOT EDIT BEYOND THIS POINT! |
