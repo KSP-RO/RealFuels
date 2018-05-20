@@ -50,6 +50,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.7.0
+
+* Recompile for KSP 1.4.3
+
 v12.6.0
 
 * Add multi-layer insulation and dewar (vacuum) bottles
