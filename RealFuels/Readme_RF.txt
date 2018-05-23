@@ -50,6 +50,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.7.1
+
+* Fix exceptions when initializing ModuleEnginesRF
+* Fix mass display in the part action window not accounting for MLI
+* Remove a bit of log spam
+
 v12.7.0
 
 * Recompile for KSP 1.4.3
