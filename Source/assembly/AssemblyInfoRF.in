@@ -27,5 +27,5 @@ using System.Runtime.CompilerServices;
 //[assembly: AssemblyDelaySign(false)]
 //[assembly: AssemblyKeyFile("")]
 
-[assembly: KSPAssembly("RealFuels", @MAJOR_VERSION@, @MINOR_VERSION@)]
+[assembly: KSPAssembly("RealFuels", @MAJOR_VERSION@, @MINOR_VERSION@, @PATCH_VERSION@)]
 [assembly: KSPAssemblyDependency("SolverEngines", 3, 3)]
