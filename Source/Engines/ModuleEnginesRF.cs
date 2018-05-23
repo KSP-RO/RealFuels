@@ -75,15 +75,6 @@ namespace RealFuels
         [KSPField]
         public bool pressureFed = false;
 
-        [KSPField(guiName = "Pressure Fed", guiActive = true)]
-        public string pressureFedDisplay
-        {
-            get
-            {
-                return pressureFed.ToString();
-            }
-        }
-
         [KSPField]
         public bool ullage = false;
 
