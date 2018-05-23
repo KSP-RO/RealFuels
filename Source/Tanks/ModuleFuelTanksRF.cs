@@ -465,7 +465,9 @@ namespace RealFuels.Tanks
             // TODO: Codify a more accurate tank area calculator.
             // Thought: cube YN/YP can be used to find the part diameter / circumference... X or Z finds the length
             // Also should try to determine if tank has a common bulkhead - and adjust heat flux into individual tanks accordingly
+#if DEBUG
             print("CalculateTankArea() running");
+#endif
 
             if (HighLogic.LoadedSceneIsEditor)
             {
