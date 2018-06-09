@@ -194,7 +194,7 @@ namespace RealFuels.Tanks
         public void FixedUpdate()
         {
             //print ("[Real Fuels]" + Time.time.ToString ());
-            if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready)
+            if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready && !this.vessel.IsFirstFrame())
             {
                 if (RFSettings.Instance.debugBoilOff)
                 {
@@ -432,6 +432,7 @@ namespace RealFuels.Tanks
         {
             // Get pressurization
             highlyPressurized = def.highlyPressurized;
+            numberOfMLILayers = def.numberOfMLILayers;
 
             if (isDatabaseLoad)
                 UpdateEngineIgnitor(def);
@@ -452,13 +453,16 @@ namespace RealFuels.Tanks
             }
         }
 
-        partial void ParseInsulationFactor(ConfigNode node)
+        /*
+        partial void ParseInsulationFactor(TankDefinition tank)
         {
+            tank.numberOfMLILayers;
             if (node.HasValue("numberOfMLILayers"))
                 int.TryParse(node.GetValue("numberOfMLILayers"), out numberOfMLILayers);
             else if (node.HasValue("outerInsulationFactor"))
                 double.TryParse(node.GetValue("outerInsulationFactor"), out outerInsulationFactor);
         }
+        */
 
         public void CalculateTankArea(out double totalTankArea)
         {
@@ -542,7 +546,7 @@ namespace RealFuels.Tanks
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
-                if (tank.amount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
+                if (tank.maxAmount > 0d && (tank.vsp > 0.0 || tank.loss_rate > 0d))
                 {
                     lowestTankTemperature = Math.Min(lowestTankTemperature, tank.temperature);
                     result = true;
