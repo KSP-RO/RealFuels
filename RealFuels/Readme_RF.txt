@@ -50,6 +50,26 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.7.1
+
+* Fix exceptions when initializing ModuleEnginesRF
+* Fix mass display in the part action window not accounting for MLI
+* Remove a bit of log spam
+
+v12.7.0
+
+* Recompile for KSP 1.4.3
+
+v12.6.0
+
+* Add multi-layer insulation and dewar (vacuum) bottles
+  * MLI is configured by `numberOfMLILayers` on the `TANK_DEFINITION`
+    * Each layer adds cost and mass
+    * Cryo and balloon cryo tank types now come with 10 layers of MLI
+  * Dewar / vacuum bottles defind by `isDewar = true` on the `TANK`
+    * Cryogenic fuels in the Serivce Module tank type use this
+    * Does not work with other types of insulation
+
 v12.5.0
 
 * Fix vesion checker which reported KSP 1.3.1 as incompatible

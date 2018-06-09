@@ -82,8 +82,18 @@ namespace RealFuels.Tanks
                 }
             }
 
-
-            CalculateTankArea(out totalTankArea);
+            // Wait to calculate tank area because it depends on drag cubes
+            // MLI depends on tank area so mass will also be recalculated
+            IEnumerator WaitAndRecalculateMass()
+            {
+                yield return null;
+                yield return null;
+                yield return null;
+                CalculateTankArea();
+                massDirty = true;
+                CalculateMass();
+            }
+            if (HighLogic.LoadedSceneIsFlight) StartCoroutine(WaitAndRecalculateMass());
 
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
@@ -94,6 +104,13 @@ namespace RealFuels.Tanks
                     break;
                 }
             }
+
+            if (state == StartState.Editor)
+                Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
+                {
+                    massDirty = true;
+                    CalculateMass();
+                };
 
             Fields[nameof(debug0Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
             Fields[nameof(debug1Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
@@ -168,27 +185,25 @@ namespace RealFuels.Tanks
             //Debug.Log("part.skinInteralConductionFlux = " + part.ptd.skinInteralConductionFlux.ToString("F16"));
         }
 
-        partial void GetModuleMassRF()
+        partial void CalculateMassRF(ref double mass)
         {
-            massDirty = true;
-            CalculateMass();
             if (totalTankArea <= 0)
-                CalculateTankArea(out totalTankArea);
-            
+                CalculateTankArea();
+
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
-            massDelta += (float)(0.000015 * totalTankArea * totalMLILayers);
+            mass += 0.000015 * totalTankArea * totalMLILayers;
         }
 
-        partial void GetModuleCostRF()
+        partial void GetModuleCostRF(ref double cost)
         {
             if (totalTankArea <= 0)
-                CalculateTankArea(out totalTankArea);
+                CalculateTankArea();
 
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
             // TODO Determine cost and add that to cst
             // Estimate material cost at 0.10764/m2 treating as Fund = $1000 (for RO purposes)
             // Plus another 0.1 for installation
-            cst += (float)(0.20764 * totalTankArea * totalMLILayers);
+            cost += (float)(0.20764 * totalTankArea * totalMLILayers);
         }
 
         public void FixedUpdate()
@@ -217,7 +232,7 @@ namespace RealFuels.Tanks
         {
             // Need to ensure that all heat compensation (radiators, heat pumps, etc) run first.
             if (totalTankArea <= 0)
-                CalculateTankArea(out totalTankArea);
+                CalculateTankArea();
 
             if (!analyticalMode)
                 yield return new WaitForFixedUpdate();
@@ -464,12 +479,14 @@ namespace RealFuels.Tanks
         }
         */
 
-        public void CalculateTankArea(out double totalTankArea)
+        public void CalculateTankArea()
         {
             // TODO: Codify a more accurate tank area calculator.
             // Thought: cube YN/YP can be used to find the part diameter / circumference... X or Z finds the length
             // Also should try to determine if tank has a common bulkhead - and adjust heat flux into individual tanks accordingly
+#if DEBUG
             print("CalculateTankArea() running");
+#endif
 
             if (HighLogic.LoadedSceneIsEditor)
             {
@@ -530,7 +547,7 @@ namespace RealFuels.Tanks
         {
             Debug.Log("ModuleFuelTanksRF.OnVesselWasModified()");
             if (v != null && v == this.vessel)
-                CalculateTankArea(out totalTankArea);
+                CalculateTankArea();
         }
 
         private void OnPartDestroyed(Part p)

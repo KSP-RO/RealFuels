@@ -35,22 +35,18 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="SolverEngines">
-      <HintPath>..\..\SolverEngines\GameData\SolverEngines\Plugins\SolverEngines.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System">
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\..\Games\RO_105\KSP_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\..\..\..\..\Games\RO_105\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>..\..\..\..\..\..\Games\RO_105\KSP_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -92,12 +88,10 @@
   <ItemGroup />
   <PropertyGroup>
     <PreBuildEvent>cd $(SolutionDir)
-sh tools/git-version.sh
+sh tools/git-version-rf.sh
 cd $(TargetDir)</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"
-C:\utils\pdb2mdb\pdb2mdb.exe RealFuels.dll
-copy RealFuels.dll ..\..\..\..\..\Dropbox\RFDev\Plugins</PostBuildEvent>
+    <PostBuildEvent>sh -c "TARGET_PATH='$(TargetPath)' TARGET_DIR='$(TargetDir)' sh '$(ProjectDir)/tools/post-build-rf.sh'"</PostBuildEvent>
   </PropertyGroup>
 </Project>

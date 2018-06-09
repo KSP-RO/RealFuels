@@ -234,10 +234,12 @@ namespace RealFuels.Tanks
                 InitializeTankType ();
                 InitializeUtilization ();
             }
-			massDirty = true;
-			CalculateMass ();
 
             OnStartRF(state);
+
+            massDirty = true;
+			CalculateMass ();
+
             UpdateTestFlight();
 			started = true;
         }
@@ -691,6 +693,7 @@ namespace RealFuels.Tanks
 			massDirty = false;
 
 			double basemass = basemassConst + basemassPV * (MFSSettings.basemassUseTotalVolume ? totalVolume : volume);
+            CalculateMassRF(ref basemass);
 
 			if (basemass >= 0)
             {
@@ -746,7 +749,6 @@ namespace RealFuels.Tanks
 		
         public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
 		{
-            GetModuleMassRF();
 			return massDelta;
 		}
 
@@ -781,11 +783,9 @@ namespace RealFuels.Tanks
             }
         }
 
-        double cst;
-
 		public float GetModuleCost (float defaultCost, ModifierStagingSituation sit)
 		{
-			cst = 0;
+			double cst = 0;
 			if (baseCostPV >= 0) {
 				cst = volume * baseCostPV;
 				if (PartResourceLibrary.Instance != null && tankList != null) {
@@ -800,7 +800,7 @@ namespace RealFuels.Tanks
 					}
 				}
 			}
-            GetModuleCostRF();
+            GetModuleCostRF(ref cst);
 			return (float)cst;
 		}
 
@@ -1011,8 +1011,8 @@ namespace RealFuels.Tanks
         partial void UpdateTestFlight();
         partial void ParseInsulationFactor(ConfigNode node);
         partial void UpdateTankTypeRF(TankDefinition def);
-        partial void GetModuleCostRF();
-        partial void GetModuleMassRF();
+        partial void GetModuleCostRF(ref double cost);
+        partial void CalculateMassRF(ref double mass);
 
         #endregion
     }
