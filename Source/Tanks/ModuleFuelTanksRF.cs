@@ -209,7 +209,7 @@ namespace RealFuels.Tanks
         public void FixedUpdate()
         {
             //print ("[Real Fuels]" + Time.time.ToString ());
-            if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready && !this.vessel.IsFirstFrame())
+            if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready)
             {
                 if (RFSettings.Instance.debugBoilOff)
                 {
