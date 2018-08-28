@@ -1,0 +1,21 @@
+{
+    "NAME": "ModularFuelTanks",
+    "URL": "https://github.com/NathanKell/ModularFuelSystem/blob/master/ModularFuelTanks/ModularFuelTanks.version",
+    "DOWNLOAD": "http://forum.kerbalspaceprogram.com/index.php?/topic/58235-11-modular-fuel-tanks-v570/",
+    "VERSION":{
+        "MAJOR": 0,
+        "MINOR": 5,
+        "PATCH": 11,
+        "BUILD": 0
+    },
+    "KSP_VERSION_MIN": {
+        "MAJOR": 1,
+        "MINOR": 4,
+        "PATCH": 1
+    },
+    "KSP_VERSION_MAX": {
+        "MAJOR": 1,
+        "MINOR": 4,
+        "PATCH": 99
+    }
+}
