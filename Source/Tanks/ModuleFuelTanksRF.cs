@@ -65,6 +65,18 @@ namespace RealFuels.Tanks
 
         double lowestTankTemperature = 300d;
 
+        // Wait to calculate tank area because it depends on drag cubes
+        // MLI depends on tank area so mass will also be recalculated
+        IEnumerator WaitAndRecalculateMass()
+        {
+            yield return null;
+            yield return null;
+            yield return null;
+            CalculateTankArea();
+            massDirty = true;
+            CalculateMass();
+        }
+
         partial void OnStartRF(StartState state)
         {
             base.OnStart(state);
@@ -82,17 +94,6 @@ namespace RealFuels.Tanks
                 }
             }
 
-            // Wait to calculate tank area because it depends on drag cubes
-            // MLI depends on tank area so mass will also be recalculated
-            IEnumerator WaitAndRecalculateMass()
-            {
-                yield return null;
-                yield return null;
-                yield return null;
-                CalculateTankArea();
-                massDirty = true;
-                CalculateMass();
-            }
             if (HighLogic.LoadedSceneIsFlight) StartCoroutine(WaitAndRecalculateMass());
 
             for (int i = tankList.Count - 1; i >= 0; --i)
