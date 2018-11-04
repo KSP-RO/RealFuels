@@ -64,7 +64,8 @@ namespace RealFuels
             // Even if you don't lock down functionality, you should return true if your users
             // can expect a future update to be available.
             //
-			if (Versioning.version_major != 1 || Versioning.version_minor != 4) {
+			if (Versioning.version_major != 1
+				|| Versioning.version_minor < 4) {	// works in 1.5.1 too
 				return false;
 			}
 
