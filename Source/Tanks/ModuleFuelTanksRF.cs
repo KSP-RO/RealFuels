@@ -108,6 +108,13 @@ namespace RealFuels.Tanks
             Fields[nameof(debug2Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
 
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
+            if (double.IsNaN(part.temperature))
+                part.temperature = supportsBoiloff ? lowestTankTemperature : (partPrevTemperature > 0 ? partPrevTemperature : part.skinTemperature);
+
+            // should calculate skin temp analytically if it's NaN but this will do for now.
+            if (double.IsNaN(part.skinTemperature))
+                part.skinTemperature = 240;
+                
             CalculateInsulation();
         }
 
@@ -202,7 +209,7 @@ namespace RealFuels.Tanks
         public void FixedUpdate()
         {
             //print ("[Real Fuels]" + Time.time.ToString ());
-            if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready)
+            if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready && !vessel.IsFirstFrame())
             {
                 if (RFSettings.Instance.debugBoilOff)
                 {
@@ -215,6 +222,12 @@ namespace RealFuels.Tanks
 
                 // MLI performance varies by temperature delta
                 CalculateInsulation();
+
+                // Moved this out of CalculateTankBoiloff or temperature sanity checks don't happen for non-cryo tanks.
+                if (!double.IsNaN(part.temperature))
+                    partPrevTemperature = part.temperature;
+                else
+                    part.temperature = supportsBoiloff? lowestTankTemperature : (partPrevTemperature > 0 ? partPrevTemperature : part.skinTemperature);
 
                 if(!_flightIntegrator.isAnalytical && supportsBoiloff)
                     StartCoroutine(CalculateTankBoiloff(_flightIntegrator.timeSinceLastUpdate));
@@ -250,10 +263,6 @@ namespace RealFuels.Tanks
                 yield break;
             }
 
-            if (!double.IsNaN(part.temperature))
-                partPrevTemperature = part.temperature;
-            else
-                part.temperature = supportsBoiloff ? lowestTankTemperature : part.skinTemperature;
 
             if (deltaTime > 0)
             {
@@ -279,6 +288,7 @@ namespace RealFuels.Tanks
                     if (cooling < 0)
                     {
                         // in analytic mode, MFTRF interprets this as an attempt to cool the tanks
+                        DebugLog("Analytic cooling from external sources = " + cooling.ToString("F4"));
                         analyticInternalTemp += cooling * part.thermalMassReciprocal * deltaTime;
                     }
                 }
