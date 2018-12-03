@@ -129,7 +129,7 @@ namespace RealFuels.Tanks
             {
                 double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * PhysicsGlobals.ConductionFactor * PhysicsGlobals.ThermalConvergenceFactor * part.partInfo.partPrefab.skinInternalConductionMult * 10 * 0.5);
                 double insulationFactor = Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / (part.skinTemperature - part.temperature)) * 0.001;
-                part.heatConductivity = normalizationFactor * insulationFactor;
+                part.heatConductivity = normalizationFactor * 1/(1/insulationFactor + 1/part.partInfo.partPrefab.skinInternalConductionMult);
                 part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * (part.heatConductivity / part.partInfo.partPrefab.heatConductivity) * RFSettings.Instance.analyticInsulationMultiplier;
             }
 #if DEBUG
