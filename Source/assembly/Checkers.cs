@@ -65,7 +65,7 @@ namespace RealFuels
             // can expect a future update to be available.
             //
 			if (Versioning.version_major != 1
-				|| Versioning.version_minor < 4) {	// works in 1.5.1 too
+				|| Versioning.version_minor < 5) {
 				return false;
 			}
 
