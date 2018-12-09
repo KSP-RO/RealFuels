@@ -203,6 +203,7 @@ namespace RealFuels.Tanks
 			maxAmountExpression = null;
 
 			part.Resources.Remove (partResource);
+			part.SimulationResources.Remove (partResource);
 			module.RaiseResourceListChanged ();
 			//print ("Removed.");
 
@@ -211,6 +212,7 @@ namespace RealFuels.Tanks
 				foreach (Part sym in part.symmetryCounterparts) {
 					PartResource symResc = sym.Resources[name];
 					sym.Resources.Remove (symResc);
+					sym.SimulationResources.Remove (symResc);
 					RaiseResourceListChanged (sym);
 				}
 			}
