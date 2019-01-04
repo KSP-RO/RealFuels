@@ -38,7 +38,7 @@ namespace RealFuels
         public bool globalConductionCompensation = false;
         public bool debugBoilOff = false;
         public double QvCoefficient = 3.65; // convective coefficient for Real Fuels MLI calculations
-        public double analyticInsulationMultiplier = 0.001;
+        public double analyticInsulationMultiplier = 1;
 
         #region Ullage
         public bool simulateUllage = true;

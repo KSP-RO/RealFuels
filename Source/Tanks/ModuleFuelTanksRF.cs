@@ -125,17 +125,24 @@ namespace RealFuels.Tanks
             // TODO tie this into insulation configuration GUI! Also, we should handle MLI separately and as part skin-internal conduction. (DONE)
             // Dewars and SOFI should be handled separately as part of the boiloff code on a per-tank basis (DONE)
             // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
-            if (totalMLILayers > 0)
+            if (totalMLILayers > 0 && totalVolume > 0 && !(double.IsNaN(part.temperature) || double.IsNaN(part.skinTemperature)))
             {
                 double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * PhysicsGlobals.ConductionFactor * PhysicsGlobals.ThermalConvergenceFactor * 10 * 0.5);
                 double insulationFactor = Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / (part.skinTemperature - part.temperature)) * 0.001;
-                part.heatConductivity = normalizationFactor * 1/((1/insulationFactor) + (1/part.partInfo.partPrefab.skinInternalConductionMult));
-                part.analyticInternalInsulationFactor = part.partInfo.partPrefab.analyticInternalInsulationFactor * (part.heatConductivity / part.partInfo.partPrefab.heatConductivity) * RFSettings.Instance.analyticInsulationMultiplier;
+                part.heatConductivity = normalizationFactor * 1 / ((1 / insulationFactor) + (1 / part.partInfo.partPrefab.skinInternalConductionMult));
+                CalculateAnalyticInsulationFactor(insulationFactor);
             }
 #if DEBUG
             DebugSkinInternalConduction();
 #endif
+        }
 
+        private void CalculateAnalyticInsulationFactor(double insulationFactor)
+        {
+            if (this._flightIntegrator != null)
+                part.analyticInternalInsulationFactor = (1 / PhysicsGlobals.AnalyticLerpRateInternal) * (insulationFactor * totalTankArea / part.thermalMass) * RFSettings.Instance.analyticInsulationMultiplier * part.partInfo.partPrefab.analyticInternalInsulationFactor;
+            else
+                part.analyticInternalInsulationFactor = 0;
         }
 
         public void DebugSkinInternalConduction()
@@ -287,6 +294,8 @@ namespace RealFuels.Tanks
                     {
                         // in analytic mode, MFTRF interprets this as an attempt to cool the tanks
                         analyticInternalTemp += cooling * part.thermalMassReciprocal * deltaTime;
+                        // because of what we're doing in CalculateAnalyticInsulationFactor(), it will take too much time to reach that temperature so
+                        part.temperature += cooling* part.thermalMassReciprocal * deltaTime;
                     }
                 }
 
