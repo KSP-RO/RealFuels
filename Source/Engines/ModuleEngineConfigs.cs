@@ -415,6 +415,8 @@ namespace RealFuels
             string info = "   " + config.GetValue("name") + "\n";
             if (config.HasValue("description"))
                 info += "    " + config.GetValue("description") + "\n";
+            if (config.HasValue("tfRatedBurnTime"))
+                info += "    " + config.GetValue("tfRatedBurnTime") + "\n";
             if (config.HasValue(thrustRating))
             {
                 info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.###") + " kN";
@@ -592,19 +594,6 @@ namespace RealFuels
             ConfigSaveLoad();
 
             ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
-            if (!UnlockedConfig(newConfig, part))
-            {
-                if(newConfig == null)
-                    Debug.LogError("*RFMEC* ERROR Can't find configuration " + newConfiguration + ", falling back to first tech-available config.");
-
-                foreach(ConfigNode cfg in configs)
-                    if (UnlockedConfig(cfg, part))
-                    {
-                        newConfig = cfg;
-                        newConfiguration = cfg.GetValue("name");
-                        break;
-                    }
-            }
             if (newConfig != null)
             {
                 if (configuration != newConfiguration)
@@ -1365,7 +1354,7 @@ namespace RealFuels
 
                 if (nName.Equals(configuration))
                 {
-                    GUILayout.Label("Current config: " + nName + costString);
+                    GUILayout.Label(new GUIContent("Current config: " + nName + costString, GetConfigInfo(node)));
                 }
                 else
                 {
@@ -1495,7 +1484,12 @@ namespace RealFuels
             if (pModule != null && part.partInfo != null)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
+                var ratedBurnTime = string.Empty;
+                if (config.HasValue("tfRatedBurnTime"))
+                {
+                    ratedBurnTime += config.GetValue("tfRatedBurnTime") + "\n";
+                }
+                GUILayout.Label(ratedBurnTime + "<b>Engine mass:</b> " + part.mass.ToString("N3") + "t\n" + pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
                 GUILayout.EndHorizontal();
             }
 

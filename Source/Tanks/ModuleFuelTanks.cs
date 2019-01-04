@@ -144,6 +144,7 @@ namespace RealFuels.Tanks
 					if (!tankList.Contains (partResource.resourceName))
 						continue;
 					part.Resources.Remove(partResource.info.id);
+					part.SimulationResources.Remove(partResource.info.id);
 				}
 				RaiseResourceListChanged ();
                 // Setup the mass
@@ -460,6 +461,7 @@ namespace RealFuels.Tanks
 				if (!managed.Contains(resname) || tankList.Contains(resname))
 					continue;
 				part.Resources.Remove (partResource.info.id);
+				part.SimulationResources.Remove (partResource.info.id);
 				needsMesage = true;
 			}
 			if (needsMesage) {

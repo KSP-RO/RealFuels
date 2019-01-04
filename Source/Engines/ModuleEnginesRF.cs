@@ -325,7 +325,7 @@ namespace RealFuels
                 else if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetBackgroundColor(ullageColor);
+                    part.stackIcon.SetIconColor(ullageColor);
                 }
                 else
                     propellantStatus = "Nominal";
@@ -434,7 +434,7 @@ namespace RealFuels
                 if (ullage && RFSettings.Instance.simulateUllage)
                 {
                     propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetBackgroundColor(ullageColor);
+                    part.stackIcon.SetIconColor(ullageColor);
                     if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
                     {
                         double state = ullageSet.GetUllageStability();
@@ -506,18 +506,10 @@ namespace RealFuels
         #region Info
         protected string ThrottleString()
         {
-            string output = string.Empty;
-            if (!throttleLocked)
-            {
-                if (minThrottle > 0f && minThrottle < 1f)
-                    output += ", " + (minThrottle*100f).ToString("N0") + "% min throttle";
-                else if(minThrottle == 1f)
-                    output += ", unthrottleable";
-            }
-            else
-                output += ", throttle locked";
-
-            return output;
+            if (throttleLocked) { return ", throttle locked"; }
+            if (minThrottle == 1f) { return ", unthrottleable"; }
+            if (minThrottle < 0f || minThrottle > 1f) { return string.Empty; }
+            return ", " + (minThrottle * 100f).ToString("N0") + "% min throttle";
         }
         protected string GetThrustInfo()
         {
@@ -542,14 +534,26 @@ namespace RealFuels
             UpdateSolver(ambientTherm, 0d, Vector3d.zero, 0d, true, true, false);
             double thrustASL = (engineSolver.GetThrust() * 0.001d);
 
+            var weight = part.mass * (Planetarium.fetch?.Home?.GeeASL * 9.80665 ?? 9.80665);
+
             if (atmChangeFlow) // If it's a jet
             {
-                output += "<b>Static Thrust: </b>" + (thrustASL).ToString("0.0##") + " kN" + ThrottleString();
+                if (throttleLocked || minThrottle == 1f)
+                {
+                    output += String.Format("<b> Static Thrust: </b>{0} kN (TWR {1}), {2}\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"), (throttleLocked ? "throttle locked" : "unthrottleable"));
+                }
+                else
+                {
+                    output += String.Format("{0}% min throttle\n", (minThrottle * 100f).ToString("N0"));
+                    output += String.Format("<b>Max. Static Thrust: </b>{0} kN (TWR {1})\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"));
+                    output += String.Format("<b>Min. Static Thrust: </b>{0} kN (TWR {1})\n", (thrustASL * minThrottle).ToString("0.0##"), (thrustASL * minThrottle / weight).ToString("0.0##"));
+                }
+
                 if (useVelCurve) // if thrust changes with mach
                 {
                     float vMin, vMax, tMin, tMax;
                     velCurve.FindMinMaxValue(out vMin, out vMax, out tMin, out tMax); // get the max mult, and thus report maximum thrust possible.
-                    output += "\n<b>Max. Thrust: </b>" + (thrustASL* vMax).ToString("0.0##") + " kN Mach " + tMax.ToString("0.#");
+                    output += String.Format("<b>Max. Thrust: </b>{0} kN at Mach {1} (TWR {2})\n", (thrustASL * vMax).ToString("0.0##"), tMax.ToString("0.#"), (thrustASL * vMax / weight).ToString("0.0##"));
                 }
             }
             else
@@ -560,17 +564,36 @@ namespace RealFuels
                 UpdateSolver(ambientTherm, spaceHeight, Vector3d.zero, 0d, true, true, false);
                 double thrustVac = (engineSolver.GetThrust() * 0.001d);
 
-                if (thrustASL != thrustVac)
+                if (throttleLocked || minThrottle == 1f)
                 {
-                    output += (throttleLocked ? "<b>" : "<b>Max. ") + "Thrust (Vac.): </b>" + (thrustVac).ToString("0.0##") + " kN" + ThrottleString()
-                        + "\n" + (throttleLocked ? "<b>" : "<b>Max. ") + "Thrust (ASL): </b>" + (thrustASL).ToString("0.0##") + " kN";
+                    var suffix = throttleLocked ? "throttle locked" : "unthrottleable";
+                    if (thrustASL != thrustVac)
+                    {
+                        output += String.Format("<b>Thrust (Vac): </b>{0} kN (TWR {1}), {2}\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"), suffix);
+                        output += String.Format("<b>Thrust (ASL): </b>{0} kN (TWR {1}), {2}\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"), suffix);
+                    }
+                    else
+                    {
+                        output += String.Format("<b>Thrust: </b>{0} kN (TWR {1}), {2}\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"), suffix);
+                    }
                 }
                 else
                 {
-                    output += (throttleLocked ? "<b>" : "<b>Max. ") + "Thrust: </b>" + (thrustVac).ToString("0.0##") + " kN" + ThrottleString();
+                    output += String.Format("{0}% min throttle\n", (minThrottle * 100f).ToString("N0"));
+                    if (thrustASL != thrustVac)
+                    {
+                        output += String.Format("<b>Max. Thrust (Vac): </b>{0} kN (TWR {1})\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"));
+                        output += String.Format("<b>Max. Thrust (ASL): </b>{0} kN (TWR {1})\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"));
+                        output += String.Format("<b>Min. Thrust (Vac): </b>{0} kN (TWR {1})\n", (thrustVac * minThrottle).ToString("0.0##"), (thrustVac * minThrottle / weight).ToString("0.0##"));
+                        output += String.Format("<b>Min. Thrust (ASL): </b>{0} kN (TWR {1})\n", (thrustASL * minThrottle).ToString("0.0##"), (thrustASL * minThrottle / weight).ToString("0.0##"));
+                    }
+                    else
+                    {
+                        output += String.Format("<b>Max. Thrust: </b>{0} kN (TWR {1})\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"));
+                        output += String.Format("<b>Min. Thrust: </b>{0} kN (TWR {1})\n", (thrustVac * minThrottle).ToString("0.0##"), (thrustVac * minThrottle / weight).ToString("0.0##"));
+                    }
                 }
             }
-            output += "\n";
             EngineIgnited = oldE;
             ignited = oldIg;
             return output;
@@ -589,12 +612,9 @@ namespace RealFuels
             string output = string.Empty;
             if (pressureFed)
                 output += "Pressure-fed";
-            if (ignitions >= 0 && RFSettings.Instance.limitedIgnitions)
-                output += (output != string.Empty ? ", " : string.Empty) + "Ignitions: " + (ignitions > 0 ? ignitions.ToString() : "Ground only");
-            if (!ullage)
-                output += (output != string.Empty ? ", " : string.Empty) + "Not subject to ullage";
-            if (output != string.Empty)
-                output += "\n";
+            output += (output != string.Empty ? ", " : string.Empty) + "Ignitions: " + ((!RFSettings.Instance.limitedIgnitions || ignitions < 0) ? "Unlimited" : (ignitions > 0 ? ignitions.ToString() : "Ground only"));
+            output += (output != string.Empty ? ", " : string.Empty) + (ullage ? "Subject" : "Not subject") + " to ullage";
+            output += "\n";
 
             return output;
         }

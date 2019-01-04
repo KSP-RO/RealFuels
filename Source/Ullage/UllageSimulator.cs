@@ -209,6 +209,7 @@ namespace RealFuels.Ullage
                 propellantStatus = "Unstable";
             else
                 propellantStatus = "Very Unstable";
+            propellantStatus += " (" + propellantStability.ToString("P2") + ")";
         }
         public double GetPropellantStability()
         {
