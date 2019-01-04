@@ -4,10 +4,29 @@
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
-  <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanksRF.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="assembly\AssemblyInfoRF.cs">
     <Files>
-      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="642" Column="13" />
+      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="87" Column="47" />
+      <File FileName="Engines\RFSettings.cs" Line="41" Column="3" />
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="147" Column="11" />
+      <File FileName="assembly\AssemblyInfoRF.cs" Line="1" Column="1" />
     </Files>
+    <Pads>
+      <Pad Id="ProjectPad">
+        <State name="__root__">
+          <Node name="RealFuels" expanded="True">
+            <Node name="RealFuels" expanded="True">
+              <Node name="References" expanded="True" />
+              <Node name="assembly" expanded="True">
+                <Node name="AssemblyInfoRF.cs" selected="True" />
+              </Node>
+              <Node name="Engines" expanded="True" />
+              <Node name="Tanks" expanded="True" />
+            </Node>
+          </Node>
+        </State>
+      </Pad>
+    </Pads>
   </MonoDevelop.Ide.Workbench>
   <MultiItemStartupConfigurations />
 </Properties>

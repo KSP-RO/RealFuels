@@ -11,6 +11,8 @@
     <TargetFrameworkProfile />
     <ReleaseVersion>10.8.0</ReleaseVersion>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj</BaseIntermediateOutputPath>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>full</DebugType>
@@ -35,7 +37,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="SolverEngines">
-      <Private>False</Private>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System">
       <Private>False</Private>
@@ -85,7 +87,6 @@
     <Compile Include="Utilities\Utilities.cs" />
     <Compile Include="Utilities\Styles.cs" />
   </ItemGroup>
-  <ItemGroup />
   <PropertyGroup>
     <PreBuildEvent>cd $(SolutionDir)
 sh tools/git-version-rf.sh
