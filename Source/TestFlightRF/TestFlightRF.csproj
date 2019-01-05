@@ -9,6 +9,8 @@
     <AssemblyName>TestFlightRF</AssemblyName>
     <ReleaseVersion>0.4.0</ReleaseVersion>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -41,10 +43,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>$(KSP_DLL_PATH)\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Assembly-CSharp">
