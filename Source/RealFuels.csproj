@@ -88,7 +88,7 @@
   <ItemGroup />
   <PropertyGroup>
     <PreBuildEvent>cd $(SolutionDir)
-//sh tools/git-version-rf.sh
+sh tools/git-version-rf.sh
 cd $(TargetDir)</PreBuildEvent>
   </PropertyGroup>
   <PropertyGroup>
