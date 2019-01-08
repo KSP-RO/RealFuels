@@ -40,34 +40,30 @@
     </CustomCommands>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System">
-      <Private>False</Private>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>..\..\RealFuels\Plugins\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>$(KSP_DLL_PATH)\Assembly-CSharp-firstpass.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\RealFuels\Plugins\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>$(KSP_DLL_PATH)\Assembly-CSharp.dll</HintPath>
+    <Reference Include="System">
       <Private>False</Private>
     </Reference>
     <Reference Include="TestFlight, Version=0.4.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\Games\RO_113\GameData\TestFlight\Plugins\TestFlight.dll</HintPath>
+      <HintPath>..\..\..\TestFlight\bin\Release\TestFlight.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="TestFlightAPI, Version=1.0.6032.39999, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\Games\RO_113\GameData\TestFlight\Plugins\TestFlightAPI.dll</HintPath>
+      <HintPath>..\..\..\TestFlight\bin\Release\TestFlightAPI.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>$(KSP_DLL_PATH)\UnityEngine.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\RealFuels\Plugins\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>$(KSP_DLL_PATH)\UnityEngine.UI.dll</HintPath>
-      <Private>False</Private>
+      <HintPath>..\..\RealFuels\Plugins\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
