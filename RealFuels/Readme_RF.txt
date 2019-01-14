@@ -50,6 +50,21 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.7.4
+* Compiled for KSP 1.6.1
+
+v12.7.3.1
+* This is a backport to KSP 1.3.1 - it contains all changes present in RF 12.7.3
+
+v12.7.3
+* Compiled for KSP 1.5.1
+
+v12.7.2
+* Analytic thermal improvements:
+* Assign value to part.analyticInternalInsulationFactor approximating what actual heat transfer would be. (i.e. temperature interpolation at a rate equal to what it should be out of analytic mode)
+* In analytic mode, adjust part.temperature immediately since the lerp rate would retard temperature adjustment.
+* Compiled for KSP 1.4.5
+
 v12.7.1
 
 * Fix exceptions when initializing ModuleEnginesRF
