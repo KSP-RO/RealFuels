@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using ModularFI;
 
 namespace RealFuels.Tanks
 {
@@ -76,6 +77,7 @@ namespace RealFuels.Tanks
         partial void OnStartRF(StartState state)
         {
             base.OnStart(state);
+            ModularFlightIntegrator.RegisterUpdateMassStatsOverride(UpdateMassStats);
 
             GameEvents.onVesselWasModified.Add(OnVesselWasModified);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
@@ -225,6 +227,39 @@ namespace RealFuels.Tanks
             // Estimate material cost at 0.10764/m2 treating as Fund = $1000 (for RO purposes)
             // Plus another 0.1 for installation
             cost += (float)(MLIArealCost * totalTankArea * totalMLILayers);
+        }
+
+        void UpdateMassStats(ModularFlightIntegrator fi)
+        {
+            int partCount = this.vessel.parts.Count;
+            int index = partCount;
+            while (index-- > 0)
+            {
+                Part part = this.vessel.parts[index];
+                part.resourceMass = part.GetResourceMassNoCryo(out part.resourceThermalMass);
+                part.thermalMass = (double)part.mass * PhysicsGlobals.StandardSpecificHeatCapacity * part.thermalMassModifier + part.resourceThermalMass;
+                fi.SetSkinThermalMass(part);
+                part.thermalMass = Math.Max(part.thermalMass - part.skinThermalMass, 0.1);
+                part.thermalMassReciprocal = 1.0 / part.thermalMass;
+            }
+            int index2 = partCount;
+            while (index2-- > 0)
+            {
+                Part part = this.vessel.parts[index2];
+                if (part.rb != null)
+                {
+                    part.physicsMass = (double)(part.mass + part.resourceMass + fi.BaseFIGetPhysicslessChildMass(part));
+                    if (!part.packed)
+                    {
+                        part.rb.mass = (float)part.physicsMass;
+                        part.rb.centerOfMass = part.CoMOffset;
+                    }
+                }
+                else
+                {
+                    part.physicsMass = 0.0;
+                }
+            }
         }
 
         public void FixedUpdate()
