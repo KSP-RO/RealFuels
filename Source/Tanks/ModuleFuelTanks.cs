@@ -151,6 +151,7 @@ namespace RealFuels.Tanks
                 massDirty = true;
                 CalculateMass();
 			}
+            OnLoadRF(node);
 		}
 
 		public override string GetInfo ()
@@ -1015,6 +1016,7 @@ namespace RealFuels.Tanks
         partial void UpdateTankTypeRF(TankDefinition def);
         partial void GetModuleCostRF(ref double cost);
         partial void CalculateMassRF(ref double mass);
+        partial void OnLoadRF(ConfigNode node);
 
         #endregion
     }

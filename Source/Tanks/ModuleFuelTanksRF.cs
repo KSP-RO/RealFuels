@@ -13,9 +13,8 @@ namespace RealFuels.Tanks
         private double analyticInternalTemp;
         private double previewInternalFluxAdjust;
         private bool supportsBoiloff = false;
+        public bool SupportsBoiloff => supportsBoiloff;
         public double sunAndBodyFlux = 0;
-
-        public double outerInsulationFactor = 0.0;
 
         public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
 
@@ -55,6 +54,15 @@ namespace RealFuels.Tanks
 
         [KSPField(isPersistant = true)]
         public double partPrevTemperature = -1;
+
+        [KSPField]
+        public int maxMLILayers = 10;
+
+        [KSPField]
+        public float MLIArealCost = 0.20764f;
+
+        [KSPField]
+        public float MLIArealDensity = 0.000015f;
 
         private static double ConductionFactors => RFSettings.Instance.globalConductionCompensation ? Math.Max(1.0d, PhysicsGlobals.ConductionFactor) : 1d;
 
@@ -106,11 +114,14 @@ namespace RealFuels.Tanks
             }
 
             if (state == StartState.Editor)
+            {
+                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
                 Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
                 {
                     massDirty = true;
                     CalculateMass();
                 };
+            }
 
             Fields[nameof(debug0Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
             Fields[nameof(debug1Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
@@ -118,6 +129,11 @@ namespace RealFuels.Tanks
 
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
             //CalculateInsulation();
+        }
+
+        // TODO: Placeholder for moving RF specific nodes out of ModuleFuelTanks.OnLoad()
+        partial void OnLoadRF(ConfigNode node)
+        {
         }
 
         private void CalculateInsulation()
@@ -198,7 +214,7 @@ namespace RealFuels.Tanks
                 CalculateTankArea();
 
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
-            mass += 0.000015 * totalTankArea * totalMLILayers;
+            mass += MLIArealDensity * totalTankArea * totalMLILayers;
         }
 
         partial void GetModuleCostRF(ref double cost)
@@ -206,11 +222,9 @@ namespace RealFuels.Tanks
             if (totalTankArea <= 0)
                 CalculateTankArea();
 
-            //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
-            // TODO Determine cost and add that to cst
             // Estimate material cost at 0.10764/m2 treating as Fund = $1000 (for RO purposes)
             // Plus another 0.1 for installation
-            cost += (float)(0.20764 * totalTankArea * totalMLILayers);
+            cost += (float)(MLIArealCost * totalTankArea * totalMLILayers);
         }
 
         public void FixedUpdate()
@@ -336,7 +350,7 @@ namespace RealFuels.Tanks
                             print("Tank " + tank.name + " surface area = " + tank.totalArea);
 #endif
 
-                            double wettedArea = tank.totalArea;// disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
+                            double wettedArea = tank.totalArea; // disabled until proper wetted vs ullage conduction can be done (tank.amount / tank.maxAmount);
 
                             if (tank.isDewar)
                                 Q = GetDewarTransferRate(hotTemp, tank.temperature, tank.totalArea);
