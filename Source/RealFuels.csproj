@@ -84,6 +84,7 @@
     <Compile Include="Ullage\UllageModule.cs" />
     <Compile Include="Ullage\UllageSet.cs" />
     <Compile Include="Ullage\UllageSimulator.cs" />
+    <Compile Include="Utilities\MFIRegistration.cs" />
     <Compile Include="Utilities\PartExtensions.cs" />
     <Compile Include="Utilities\TestFlightWrapper.cs" />
     <Compile Include="Utilities\Utilities.cs" />

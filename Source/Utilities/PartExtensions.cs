@@ -13,13 +13,16 @@ namespace RealFuels
             float num = 0f;
             thermalMass = 0.0f;
             int count = part.Resources.Count;
+            Tanks.ModuleFuelTanks m = part.FindModuleImplementing<Tanks.ModuleFuelTanks>() as Tanks.ModuleFuelTanks;
             while (count-- > 0)
             {
                 PartResource partResource = part.Resources[count];
                 float num2 = (float)partResource.amount * partResource.info.density;
                 num += num2;
-                Tanks.ModuleFuelTanks m = part.Modules["ModuleFuelTanks"] as Tanks.ModuleFuelTanks;
-                if (m != null && !m.SupportsBoiloff)
+                if (m != null && m.SupportsBoiloff && m.tankList.Contains(partResource.resourceName) && m.tankList[partResource.resourceName].vsp > 0)
+                {
+                }
+                else
                     thermalMass += (num2 * partResource.info.specificHeatCapacity);
             }
             return num;
