@@ -840,14 +840,14 @@ namespace RealFuels.Tanks
 			massDirty = true;
 		}
 
-		[KSPEvent (guiActiveEditor = true, guiName = "Hide UI", active = false)]
+		[KSPEvent (guiActiveEditor = true, guiName = "Hide Tank UI", active = false)]
 		public void HideUI ()
 		{
 			TankWindow.HideGUI ();
 			UpdateMenus (false);
 		}
 
-		[KSPEvent (guiActiveEditor = true, guiName = "Show UI", active = false)]
+		[KSPEvent (guiActiveEditor = true, guiName = "Show Tank UI", active = false)]
 		public void ShowUI ()
 		{
 			TankWindow.ShowGUI (this);
