@@ -110,10 +110,9 @@ namespace RealFuels.Tanks
 			// Destroy any resources still hanging around from the LOADING phase
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
-				//Debug.Log ($"[ModuleFuelTanks] CleanResources {partResource.resourceName} {partResource.amount} {partResource.maxAmount}");
-				if (HaveTank (partResource.resourceName))
+				// Do not remove any resources not managed by MFT
+				if (!tankList.Contains (partResource.resourceName))
 					continue;
-				//Debug.Log ($"[ModuleFuelTanks]                {partResource.resourceName} {partResource.amount} {partResource.maxAmount}");
 				part.Resources.Remove(partResource.info.id);
 				part.SimulationResources.Remove(partResource.info.id);
 			}
@@ -485,7 +484,7 @@ namespace RealFuels.Tanks
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
 				string resname = partResource.resourceName;
-				if (!managed.Contains(resname) || HaveTank(resname))
+				if (!managed.Contains(resname) || tankList.Contains(resname))
 					continue;
 				part.Resources.Remove (partResource.info.id);
 				part.SimulationResources.Remove (partResource.info.id);
@@ -567,17 +566,6 @@ namespace RealFuels.Tanks
 		public void ChangeVolume (double newVolume)
 		{
 			ChangeTotalVolume (newVolume * 100 / utilization);
-		}
-
-		bool HaveTank (string name)
-		{
-			for (int i = tankList.Count; i-- > 0; ) {
-				if (tankList[i].name == name) {
-					//Debug.Log($"[ModuleFuelTanks] HaveTank {tankList[i].name} {name}");
-					return true;
-				}
-			}
-			return false;
 		}
 
 		protected void ChangeResources (double volumeRatio, bool propagate = false)
