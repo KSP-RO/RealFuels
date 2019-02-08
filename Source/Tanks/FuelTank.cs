@@ -138,6 +138,7 @@ namespace RealFuels.Tanks
 
 		public void RaiseResourceListChanged (Part part)
 		{
+			part.ResetSimulationResources ();
 			part.SendEvent ("OnResourceListChanged", null, 0);
 		}
 
@@ -269,25 +270,31 @@ namespace RealFuels.Tanks
 
 		void AddTank (double value)
 		{
-			PartResource partResource = resource;
 			//Debug.LogWarning ("[MFT] Adding tank from API " + name + " amount: " + value);
+
+
 			maxAmountExpression = null;
 
-			ConfigNode node = new ConfigNode ("RESOURCE");
-			node.AddValue ("name", name);
-			node.AddValue ("amount", value);
-			node.AddValue ("maxAmount", value);
-#if DEBUG
-			MonoBehaviour.print (node.ToString ());
-#endif
-			partResource = part.AddResource (node);
+			var resDef = PartResourceLibrary.Instance.GetDefinition (name);
+			var res = new PartResource (part);
+			res.resourceName = name;
+			res.SetInfo (resDef);
+			res.amount = value;
+			res.maxAmount = value;
+			res._flowState = true;
+			res.isTweakable = resDef.isTweakable;
+			res.isVisible = resDef.isVisible;
+			res.hideFlow = false;
+			res._flowMode = PartResource.FlowMode.Both;
+			part.Resources.dict.Add (resDef.id, res);
+			//Debug.Log ($"[MFT] AddTank {res.resourceName} {res.amount} {res.maxAmount} {res.flowState} {res.isTweakable} {res.isVisible} {res.hideFlow} {res.flowMode}");
 
 			module.RaiseResourceListChanged ();
 
 			// Update symmetry counterparts.
 			if (HighLogic.LoadedSceneIsEditor && propagate) {
 				foreach (Part sym in part.symmetryCounterparts) {
-					sym.AddResource (node);
+					sym.Resources.dict.Add (resDef.id, new PartResource (res));
 					RaiseResourceListChanged (sym);
 				}
 			}

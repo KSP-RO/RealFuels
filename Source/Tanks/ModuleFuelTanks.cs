@@ -830,8 +830,10 @@ namespace RealFuels.Tanks
 
 		public void RaiseResourceListChanged ()
 		{
-			MarkWindowDirty();
+			GameEvents.onPartResourceListChange.Fire (part);
+			part.ResetSimulationResources ();
 			part.SendEvent ("OnResourceListChanged", null, 0);
+			MarkWindowDirty();
 		}
 
 		public void PartResourcesChanged ()
