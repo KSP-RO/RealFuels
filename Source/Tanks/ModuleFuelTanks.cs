@@ -132,13 +132,15 @@ namespace RealFuels.Tanks
 			volume = prefab.volume;
 			type = prefab.type;
 			UpdateTankType (false);
+			CleanResources ();
 			tankList.Clear ();
 			for (int i = 0; i < prefab.tankList.Count; i++) {
 				var tank = prefab.tankList[i];
 				//Debug.Log ($"    {tank.name} {tank.amount} {tank.maxAmount}");
 				tankList.Add (tank.CreateCopy (this, null, false));
+				tankList[i].maxAmount = tank.maxAmount;
+				tankList[i].amount = tank.amount;
 			}
-			CleanResources ();
 		}
 
 		public override void OnLoad (ConfigNode node)
