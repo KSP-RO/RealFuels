@@ -105,6 +105,43 @@ namespace RealFuels.Tanks
 			MFSSettings.managedResources[part.name] = resources;
 		}
 
+		void CleanResources ()
+		{
+			// Destroy any resources still hanging around from the LOADING phase
+			for (int i = part.Resources.Count - 1; i >= 0; --i) {
+				PartResource partResource = part.Resources[i];
+				//Debug.Log ($"[ModuleFuelTanks] CleanResources {partResource.resourceName} {partResource.amount} {partResource.maxAmount}");
+				if (HaveTank (partResource.resourceName))
+					continue;
+				//Debug.Log ($"[ModuleFuelTanks]                {partResource.resourceName} {partResource.amount} {partResource.maxAmount}");
+				part.Resources.Remove(partResource.info.id);
+				part.SimulationResources.Remove(partResource.info.id);
+			}
+			RaiseResourceListChanged ();
+			// Setup the mass
+			massDirty = true;
+			CalculateMass();
+		}
+
+		public override void OnCopy (PartModule fromModule)
+		{
+			//Debug.Log ($"[ModuleFuelTanks] OnCopy: {fromModule}");
+
+			var prefab = fromModule as ModuleFuelTanks;
+			utilization = prefab.utilization;
+			totalVolume = prefab.totalVolume;
+			volume = prefab.volume;
+			type = prefab.type;
+			UpdateTankType (false);
+			tankList.Clear ();
+			for (int i = 0; i < prefab.tankList.Count; i++) {
+				var tank = prefab.tankList[i];
+				//Debug.Log ($"    {tank.name} {tank.amount} {tank.maxAmount}");
+				tankList.Add (tank.CreateCopy (this, null, false));
+			}
+			CleanResources ();
+		}
+
 		public override void OnLoad (ConfigNode node)
 		{
 			if (!compatible) {
@@ -138,18 +175,7 @@ namespace RealFuels.Tanks
 				// The amounts initialized flag is there so that the tank type loading doesn't
 				// try to set up any resources. They'll get loaded directly from the save.
 				UpdateTankType (false);
-				// Destroy any resources still hanging around from the LOADING phase
-				for (int i = part.Resources.Count - 1; i >= 0; --i) {
-					PartResource partResource = part.Resources[i];
-					if (!tankList.Contains (partResource.resourceName))
-						continue;
-					part.Resources.Remove(partResource.info.id);
-					part.SimulationResources.Remove(partResource.info.id);
-				}
-				RaiseResourceListChanged ();
-                // Setup the mass
-                massDirty = true;
-                CalculateMass();
+				CleanResources ();
 			}
             OnLoadRF(node);
 		}
@@ -459,7 +485,7 @@ namespace RealFuels.Tanks
 			for (int i = part.Resources.Count - 1; i >= 0; --i) {
 				PartResource partResource = part.Resources[i];
 				string resname = partResource.resourceName;
-				if (!managed.Contains(resname) || tankList.Contains(resname))
+				if (!managed.Contains(resname) || HaveTank(resname))
 					continue;
 				part.Resources.Remove (partResource.info.id);
 				part.SimulationResources.Remove (partResource.info.id);
@@ -541,6 +567,17 @@ namespace RealFuels.Tanks
 		public void ChangeVolume (double newVolume)
 		{
 			ChangeTotalVolume (newVolume * 100 / utilization);
+		}
+
+		bool HaveTank (string name)
+		{
+			for (int i = tankList.Count; i-- > 0; ) {
+				if (tankList[i].name == name) {
+					//Debug.Log($"[ModuleFuelTanks] HaveTank {tankList[i].name} {name}");
+					return true;
+				}
+			}
+			return false;
 		}
 
 		protected void ChangeResources (double volumeRatio, bool propagate = false)
