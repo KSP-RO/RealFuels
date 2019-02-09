@@ -316,7 +316,8 @@ namespace RealFuels.Tanks
 
 			UpdateTank (tank);
 			RemoveTank (tank);
-		}
+            GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
+        }
 
 		void AddTank (FuelTank tank)
 		{
@@ -351,7 +352,8 @@ namespace RealFuels.Tanks
 			//   Other non UI updated maxAmount:       maxAmountExpression = null (set), maxAmount = non-zero
 			//   User has updated the field:           maxAmountExpression != null, maxAmountExpression != maxAmount.ToStringExt
 
-			if (tank_module.part.Resources.Contains (tank.name) && tank_module.part.Resources[tank.name].maxAmount > 0) {
+            // the unmanaged resource changes make this additional check for tank.maxAmount necessary but it may be that it should replace the other PartResource check outright - needs some thought
+			if (tank_module.part.Resources.Contains (tank.name) && tank_module.part.Resources[tank.name].maxAmount > 0 && tank.maxAmount > 0) {
 				EditTank (tank);
 			} else if (tank_module.AvailableVolume >= 0.001) {
 				AddTank (tank);

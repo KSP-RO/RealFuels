@@ -6,7 +6,8 @@
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.Workbench ActiveDocument="Tanks\ModuleFuelTanksRF.cs">
     <Files>
-      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="642" Column="13" />
+      <File FileName="Tanks\ModuleFuelTanksRF.cs" Line="494" Column="11" />
+      <File FileName="Tanks\ModuleFuelTanks.cs" Line="1076" Column="22" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MultiItemStartupConfigurations />

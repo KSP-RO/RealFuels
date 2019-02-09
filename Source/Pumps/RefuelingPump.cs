@@ -142,14 +142,14 @@ namespace RealFuels
                 {
                     for (int j = p.Resources.Count - 1; j >= 0; --j)
                     {
-                        PartResource r = p.Resources[j];
-                        if (r.info.name == "ElectricCharge")
+                        PartResource partResource = p.Resources[j];
+                        if (partResource.info.name == "ElectricCharge")
                         {
-                            if (r.flowMode != PartResource.FlowMode.None && r.info.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
+                            if (partResource.flowMode != PartResource.FlowMode.None && partResource.info.resourceTransferMode == ResourceTransferMode.PUMP && partResource.flowState)
                             {
                                 double amount = deltaTime * pump_rate;
-                                amount = Math.Min(amount, r.maxAmount - r.amount);
-                                p.TransferResource(r, amount, this.part);
+                                amount = Math.Min(amount, partResource.maxAmount - partResource.amount);
+                                p.TransferResource(partResource, amount, this.part);
                             }
                         }
                     }
