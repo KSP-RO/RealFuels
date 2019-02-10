@@ -335,25 +335,7 @@ namespace RealFuels.Tanks
 
 		void AddTank (double value)
 		{
-			//Debug.LogWarning ("[MFT] Adding tank from API " + name + " amount: " + value);
-
-
-			maxAmountExpression = null;
-
-			var resDef = PartResourceLibrary.Instance.GetDefinition (name);
-			var res = new PartResource (part);
-			res.resourceName = name;
-			res.SetInfo (resDef);
-			res.amount = value;
-			res.maxAmount = value;
-			res._flowState = true;
-			res.isTweakable = resDef.isTweakable;
-			res.isVisible = resDef.isVisible;
-			res.hideFlow = false;
-			res._flowMode = PartResource.FlowMode.Both;
-			part.Resources.dict.Add (resDef.id, res);
-			//Debug.Log ($"[MFT] AddTank {res.resourceName} {res.amount} {res.maxAmount} {res.flowState} {res.isTweakable} {res.isVisible} {res.hideFlow} {res.flowMode}");
-
+            //Debug.LogWarning ("[MFT] Adding tank from API " + name + " amount: " + value);
             // The following is for unmanaged resource; if such a resource is defined then we probably shouldn't be here....
             ModuleFuelTanks.UnmanagedResource unmanagedResource = null;
             double unmanagedAmount = 0;
@@ -367,6 +349,20 @@ namespace RealFuels.Tanks
                 unmanagedMaxAmount = unmanagedResource.maxAmount;
             }
 
+			var resDef = PartResourceLibrary.Instance.GetDefinition (name);
+			var res = new PartResource (part);
+			res.resourceName = name;
+			res.SetInfo (resDef);
+			res.amount = value + unmanagedAmount;
+			res.maxAmount = value + unmanagedMaxAmount;
+			res._flowState = true;
+			res.isTweakable = resDef.isTweakable;
+			res.isVisible = resDef.isVisible;
+			res.hideFlow = false;
+			res._flowMode = PartResource.FlowMode.Both;
+			part.Resources.dict.Add (resDef.id, res);
+			//Debug.Log ($"[MFT] AddTank {res.resourceName} {res.amount} {res.maxAmount} {res.flowState} {res.isTweakable} {res.isVisible} {res.hideFlow} {res.flowMode}");
+
             ConfigNode node = new ConfigNode ("RESOURCE");
 			node.AddValue ("name", name);
 			node.AddValue ("amount", value + unmanagedAmount);
@@ -374,23 +370,25 @@ namespace RealFuels.Tanks
 #if DEBUG
 			MonoBehaviour.print (node.ToString ());
 #endif
-			partResource = part.AddResource (node);
 
 			module.RaiseResourceListChanged ();
 
-			// Update symmetry counterparts.
-			if (HighLogic.LoadedSceneIsEditor && propagate) {
-				foreach (Part sym in part.symmetryCounterparts) {
-					sym.Resources.dict.Add (resDef.id, new PartResource (res));
-
+            // Update symmetry counterparts.
+            if (HighLogic.LoadedSceneIsEditor && propagate)
+            {
+                foreach (Part sym in part.symmetryCounterparts)
+                {
+                    sym.Resources.dict.Add(resDef.id, new PartResource(res));
+                }
+            }
 			if (HighLogic.LoadedSceneIsEditor && propagate)
             {
 				foreach (Part sym in part.symmetryCounterparts)
                 {
-					sym.AddResource (node);
-					RaiseResourceListChanged (sym);
-				}
-			}
+                    sym.Resources.dict.Add(resDef.id, new PartResource(res));
+                    RaiseResourceListChanged(sym);
+                }
+            }
 		}
 
 		public double maxAmount {
