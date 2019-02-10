@@ -9,16 +9,19 @@ using System.Collections.ObjectModel;
 
 namespace RealFuels.Tanks
 {
-	// A FuelTank is a single TANK {} entry from the part.cfg file.
-	// it defines four properties:
-	// name         The name of the resource that can be stored.
-	// utilization  How much of the tank is devoted to that resource (vs.
-	//              how much is wasted in cryogenics or pumps).
-	//              This is in resource units per volume unit.
-	// mass         How much the part's mass is increased per volume unit
-	//              of tank installed for this resource type. Tons per
-	//              volume unit.
-	// loss_rate    How quickly this resource type bleeds out of the tank.
+    // A FuelTank is a single TANK {} entry from the part.cfg file.
+    // it defines four properties:
+    // name         The name of the resource that can be stored.
+    // utilization  How much of the tank is devoted to that resource (vs.
+    //              how much is wasted in cryogenics or pumps).
+    //              This is in resource units per volume unit.
+    // mass         How much the part's mass is increased per volume unit
+    //              of tank installed for this resource type. Tons per
+    //              volume unit.
+    // temperature  the part temperature at which this tank's contents start boiling
+    // loss_rate    How quickly this resource type bleeds out of the tank. 
+    //              (TODO: instead of this unrealistic static loss_rate, all 
+    //              resources should have vsp (heat of vaporization) added and optionally conduction)
     //
     //
 
@@ -202,39 +205,97 @@ namespace RealFuels.Tanks
 			// Delete it
 			//Debug.LogWarning ("[MFT] Deleting tank from API " + name);
 			maxAmountExpression = null;
+            ModuleFuelTanks.UnmanagedResource unmanagedResource = null;
 
-			part.Resources.Remove (partResource);
-			part.SimulationResources.Remove (partResource);
+            if (module.unmanagedResources != null)
+                module.unmanagedResources.TryGetValue(partResource.resourceName, out unmanagedResource);
+
+            if (unmanagedResource == null)
+            {
+                // there are no unmanaged resources of this type so, business as usual
+                part.Resources.Remove(partResource);
+                part.SimulationResources.Remove(partResource);
+            }
+            else if (part.Resources.Contains(partResource.resourceName))
+            {
+                // part has a quantity of this resource which are unmanaged by MFT
+                part.Resources[partResource.resourceName].amount = unmanagedResource.amount;
+                part.Resources[partResource.resourceName].maxAmount = unmanagedResource.maxAmount;
+            }
+            else
+            {
+                // probably shouldn't GET here since the part should already have this resource and we should always have left the unmanaged portion remaining.
+                ConfigNode node = new ConfigNode("RESOURCE");
+                node.AddValue("name", unmanagedResource.name);
+                node.AddValue("amount", unmanagedResource.amount);
+                node.AddValue("maxAmount", unmanagedResource.maxAmount);
+                part.AddResource(node);
+            }
 			module.RaiseResourceListChanged ();
 			//print ("Removed.");
 
 			// Update symmetry counterparts.
-			if (HighLogic.LoadedSceneIsEditor && propagate) {
-				foreach (Part sym in part.symmetryCounterparts) {
-					PartResource symResc = sym.Resources[name];
-					sym.Resources.Remove (symResc);
-					sym.SimulationResources.Remove (symResc);
-					RaiseResourceListChanged (sym);
-				}
-			}
+			if (HighLogic.LoadedSceneIsEditor && propagate)
+            {
+				foreach (Part sym in part.symmetryCounterparts)
+                {
+                    if (unmanagedResource == null)
+                    {
+                        PartResource symResc = sym.Resources[name];
+                        sym.Resources.Remove(symResc);
+                        sym.SimulationResources.Remove(symResc);
+                    }
+                    else if (part.Resources.Contains(partResource.resourceName))
+                    {
+                        sym.Resources[partResource.resourceName].amount = unmanagedResource.amount;
+                        sym.Resources[partResource.resourceName].maxAmount = unmanagedResource.maxAmount;
+                    }
+                    else
+                    {
+                        // probably shouldn't GET here since the part should already have this resource and we should always have left the unmanaged portion remaining.
+                        ConfigNode node = new ConfigNode("RESOURCE");
+                        node.AddValue("name", unmanagedResource.name);
+                        node.AddValue("amount", unmanagedResource.amount);
+                        node.AddValue("maxAmount", unmanagedResource.maxAmount);
+                        sym.AddResource(node);
+                    }
+                    RaiseResourceListChanged(sym);
+                }
+            }
 			//print ("Sym removed");
 		}
 
 		void UpdateTank (double value)
 		{
 			PartResource partResource = resource;
-			if (value > partResource.maxAmount) {
+
+            ModuleFuelTanks.UnmanagedResource unmanagedResource = null;
+            double unmanagedAmount = 0;
+            double unmanagedMaxAmount = 0;
+
+            if (module.unmanagedResources != null)
+                module.unmanagedResources.TryGetValue(partResource.resourceName, out unmanagedResource);
+            
+            if (unmanagedResource != null)
+            {
+                unmanagedAmount = unmanagedResource.amount;
+                unmanagedMaxAmount = unmanagedResource.maxAmount;
+            }
+
+
+            if (value > partResource.maxAmount)
+            {
 				// If expanding, modify it to be less than overfull
-				double maxQty = module.AvailableVolume * utilization + partResource.maxAmount;
-				if (maxQty < value) {
+				double maxQty = (module.AvailableVolume * utilization) + partResource.maxAmount;
+				if (maxQty < value)
+                {
 					value = maxQty;
 				}
 			}
 
 			// Do nothing if unchanged
-			if (value == partResource.maxAmount) {
+			if (value + unmanagedMaxAmount == partResource.maxAmount)
 				return;
-			}
 
 			//Debug.LogWarning ("[MFT] Updating tank from API " + name + " amount: " + value);
 			maxAmountExpression = null;
@@ -242,24 +303,28 @@ namespace RealFuels.Tanks
 			// Keep the same fill fraction
 			double newAmount = value * fillFraction;
 
-			partResource.maxAmount = value;
+			partResource.maxAmount = value + unmanagedMaxAmount;
 			module.RaiseResourceMaxChanged (partResource, value);
 			//print ("Set new maxAmount");
 
-			if (newAmount != partResource.amount) {
-				partResource.amount = newAmount;
+			if (newAmount + unmanagedAmount != partResource.amount)
+            {
+				partResource.amount = newAmount + unmanagedAmount;
 				module.RaiseResourceInitialChanged (partResource, newAmount);
 			}
 
 			// Update symmetry counterparts.
-			if (HighLogic.LoadedSceneIsEditor && propagate) {
-				foreach (Part sym in part.symmetryCounterparts) {
+			if (HighLogic.LoadedSceneIsEditor && propagate)
+            {
+				foreach (Part sym in part.symmetryCounterparts)
+                {
 					PartResource symResc = sym.Resources[name];
-					symResc.maxAmount = value;
+					symResc.maxAmount = value + unmanagedMaxAmount;
 					RaiseResourceMaxChanged (sym, symResc, value);
 
-					if (newAmount != symResc.amount) {
-						symResc.amount = newAmount;
+					if (newAmount != symResc.amount)
+                    {
+						symResc.amount = newAmount + unmanagedAmount;
 						RaiseResourceInitialChanged (sym, symResc, newAmount);
 					}
 				}
@@ -289,12 +354,40 @@ namespace RealFuels.Tanks
 			part.Resources.dict.Add (resDef.id, res);
 			//Debug.Log ($"[MFT] AddTank {res.resourceName} {res.amount} {res.maxAmount} {res.flowState} {res.isTweakable} {res.isVisible} {res.hideFlow} {res.flowMode}");
 
+            // The following is for unmanaged resource; if such a resource is defined then we probably shouldn't be here....
+            ModuleFuelTanks.UnmanagedResource unmanagedResource = null;
+            double unmanagedAmount = 0;
+            double unmanagedMaxAmount = 0;
+
+            if (module != null && module.unmanagedResources != null)
+                module.unmanagedResources.TryGetValue(name, out unmanagedResource);
+            if (unmanagedResource != null)
+            {
+                unmanagedAmount = unmanagedResource.amount;
+                unmanagedMaxAmount = unmanagedResource.maxAmount;
+            }
+
+            ConfigNode node = new ConfigNode ("RESOURCE");
+			node.AddValue ("name", name);
+			node.AddValue ("amount", value + unmanagedAmount);
+			node.AddValue ("maxAmount", value + unmanagedMaxAmount);
+#if DEBUG
+			MonoBehaviour.print (node.ToString ());
+#endif
+			partResource = part.AddResource (node);
+
 			module.RaiseResourceListChanged ();
 
 			// Update symmetry counterparts.
 			if (HighLogic.LoadedSceneIsEditor && propagate) {
 				foreach (Part sym in part.symmetryCounterparts) {
 					sym.Resources.dict.Add (resDef.id, new PartResource (res));
+
+			if (HighLogic.LoadedSceneIsEditor && propagate)
+            {
+				foreach (Part sym in part.symmetryCounterparts)
+                {
+					sym.AddResource (node);
 					RaiseResourceListChanged (sym);
 				}
 			}
@@ -309,7 +402,11 @@ namespace RealFuels.Tanks
 				if (resource == null) {
 					return 0.0f;
 				}
-				return resource.maxAmount;
+                double unmanagedMaxAmount = 0;
+                module.unmanagedResources.TryGetValue(resource.resourceName, out ModuleFuelTanks.UnmanagedResource unmanagedResource);
+                if (unmanagedResource != null)
+                    unmanagedMaxAmount = unmanagedResource.maxAmount;
+                return resource.maxAmount - unmanagedMaxAmount;
 			}
 
 			set {
@@ -319,6 +416,7 @@ namespace RealFuels.Tanks
 				//print ("*RK* Setting maxAmount of tank " + name + " of part " + part.name + " to " + value);
 
 				PartResource partResource = resource;
+                Debug.Log("[RealFuels.Tanks.FuelTanks.set_maxAmount] called with value = " + value);
 				if (partResource != null && value <= 0.0) {
 					DeleteTank ();
 				} else if (partResource != null) {
@@ -326,7 +424,7 @@ namespace RealFuels.Tanks
 				} else if (value > 0.0) {
 					AddTank (value);
 				}
-				module.massDirty = true;
+                module.massDirty = true;
 			}
 
 		}

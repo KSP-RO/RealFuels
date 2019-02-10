@@ -491,16 +491,11 @@ namespace RealFuels.Tanks
             }
         }
 
-        /*
-        partial void ParseInsulationFactor(TankDefinition tank)
+        partial void ParseInsulationFactor(ConfigNode node)
         {
-            tank.numberOfMLILayers;
             if (node.HasValue("numberOfMLILayers"))
                 int.TryParse(node.GetValue("numberOfMLILayers"), out numberOfMLILayers);
-            else if (node.HasValue("outerInsulationFactor"))
-                double.TryParse(node.GetValue("outerInsulationFactor"), out outerInsulationFactor);
         }
-        */
 
         public void CalculateTankArea()
         {
