@@ -30,7 +30,13 @@ namespace RealFuels.Tanks
         [Persistent]
         public int numberOfMLILayers = 0;
 
-		public Tanks.FuelTankList tankList = new Tanks.FuelTankList ();
+        [Persistent]
+        public float minUtilization = 0;
+
+        [Persistent]
+        public float maxUtilization = 0;
+
+        public Tanks.FuelTankList tankList = new Tanks.FuelTankList ();
 
 
 		public TankDefinition () { }

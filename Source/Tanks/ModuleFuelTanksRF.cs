@@ -473,6 +473,14 @@ namespace RealFuels.Tanks
             highlyPressurized = def.highlyPressurized;
             numberOfMLILayers = def.numberOfMLILayers;
 
+            if (def.minUtilization > 0f)
+                minUtilization = def.minUtilization;
+
+            if (def.maxUtilization > 0f)
+                maxUtilization = def.maxUtilization;
+
+            InitUtilization();
+
             if (isDatabaseLoad)
                 UpdateEngineIgnitor(def);
         }
