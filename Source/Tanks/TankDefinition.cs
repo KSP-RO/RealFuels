@@ -31,6 +31,9 @@ namespace RealFuels.Tanks
         public int numberOfMLILayers = 0;
 
         [Persistent]
+        public int maxMLILayers = -1;
+
+        [Persistent]
         public float minUtilization = 0;
 
         [Persistent]

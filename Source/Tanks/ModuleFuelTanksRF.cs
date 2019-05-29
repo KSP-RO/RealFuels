@@ -473,6 +473,16 @@ namespace RealFuels.Tanks
             highlyPressurized = def.highlyPressurized;
             numberOfMLILayers = def.numberOfMLILayers;
 
+            if (def.maxMLILayers >= 0f)
+            {
+                maxMLILayers = def.maxMLILayers;
+                if (HighLogic.LoadedSceneIsEditor)
+                {
+                    ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                    _numberOfAddedMLILayers = Math.Min(_numberOfAddedMLILayers, maxMLILayers);
+                }
+            }
+
             if (def.minUtilization > 0f)
                 minUtilization = def.minUtilization;
 
