@@ -459,7 +459,7 @@ namespace RealFuels.Tanks
 		internal FuelTankList tankList = new FuelTankList ();
 
 		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type"), UI_ChooseOption (scene = UI_Scene.Editor)]
-		public string type;
+		public string type = "Default";
 		private string oldType;
 
 		public string[] typesAvailable;

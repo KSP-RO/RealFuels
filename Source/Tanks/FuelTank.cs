@@ -414,7 +414,6 @@ namespace RealFuels.Tanks
 				//print ("*RK* Setting maxAmount of tank " + name + " of part " + part.name + " to " + value);
 
 				PartResource partResource = resource;
-                Debug.Log("[RealFuels.Tanks.FuelTanks.set_maxAmount] called with value = " + value);
 				if (partResource != null && value <= 0.0) {
 					DeleteTank ();
 				} else if (partResource != null) {
