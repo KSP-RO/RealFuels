@@ -288,6 +288,7 @@ namespace RealFuels.Tanks
 						}
 					}
 				}
+				GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
 			}
 		}
 
@@ -316,7 +317,6 @@ namespace RealFuels.Tanks
 
 			UpdateTank (tank);
 			RemoveTank (tank);
-            GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
         }
 
 		void AddTank (FuelTank tank)
@@ -332,6 +332,7 @@ namespace RealFuels.Tanks
 				tank.amount = tank.fillable ? tank.maxAmount : 0;
 
 				tank.maxAmountExpression = tank.maxAmount.ToString ();
+				GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
 				//Debug.LogWarning ("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
 			}
 		}
