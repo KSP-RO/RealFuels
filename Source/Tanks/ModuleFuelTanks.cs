@@ -1100,6 +1100,7 @@ namespace RealFuels.Tanks
 					}
 				}
 			}
+			GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
 		}
 
         List<Propellant> GetEnginePropellants(PartModule engine)
