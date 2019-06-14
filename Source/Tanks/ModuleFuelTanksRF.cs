@@ -476,18 +476,35 @@ namespace RealFuels.Tanks
             if (def.maxMLILayers >= 0f)
             {
                 maxMLILayers = def.maxMLILayers;
-                if (HighLogic.LoadedSceneIsEditor)
-                {
-                    ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
-                    _numberOfAddedMLILayers = Math.Min(_numberOfAddedMLILayers, maxMLILayers);
-                }
+            }
+            else
+            {
+                maxMLILayers = (int)Fields[nameof(maxMLILayers)].originalValue;
+            }
+
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                _numberOfAddedMLILayers = Math.Min(_numberOfAddedMLILayers, maxMLILayers);
             }
 
             if (def.minUtilization > 0f)
+            {
                 minUtilization = def.minUtilization;
+            }
+            else
+            {
+                minUtilization = (float)Fields[nameof(minUtilization)].originalValue;
+            }
 
             if (def.maxUtilization > 0f)
+            {
                 maxUtilization = def.maxUtilization;
+            }
+            else
+            {
+                maxUtilization = (float)Fields[nameof(maxUtilization)].originalValue;
+            }
 
             InitUtilization();
 
