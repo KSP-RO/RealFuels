@@ -779,7 +779,32 @@ namespace RealFuels
                 // set gimbal
                 if (config.HasValue("gimbalRange"))
                 {
+
                     float newGimbal = float.Parse(config.GetValue("gimbalRange"));
+
+                    float newGimbalXP = -1;
+                    float newGimbalXN = -1;
+                    float newGimbalYP = -1;
+                    float newGimbalYN = -1;
+
+                    if (config.HasValue("gimbalRangeXP"))
+                        newGimbalXP = float.Parse(config.GetValue("gimbalRangeXP"));
+                    if (config.HasValue("gimbalRangeXN"))
+                        newGimbalXN = float.Parse(config.GetValue("gimbalRangeXN"));
+                    if (config.HasValue("gimbalRangeYP"))
+                        newGimbalYP = float.Parse(config.GetValue("gimbalRangeYP"));
+                    if (config.HasValue("gimbalRangeYN"))
+                        newGimbalYN = float.Parse(config.GetValue("gimbalRangeYN"));
+
+                    if (newGimbalXP < 0)
+                        newGimbalXP = newGimbal;
+                    if (newGimbalXN < 0)
+                        newGimbalXN = newGimbal;
+                    if (newGimbalYP < 0)
+                        newGimbalYP = newGimbal;
+                    if (newGimbalYN < 0)
+                        newGimbalYN = newGimbal;
+
                     for (int m = 0; m < part.Modules.Count; ++m)
                     {
                         if (part.Modules[m] is ModuleGimbal)
@@ -788,7 +813,10 @@ namespace RealFuels
                             if (gimbalTransform.Equals(string.Empty) || g.gimbalTransformName.Equals(gimbalTransform))
                             {
                                 g.gimbalRange = newGimbal;
-                                break;
+                                g.gimbalRangeXN = newGimbalXN;
+                                g.gimbalRangeXP = newGimbalXP;
+                                g.gimbalRangeYN = newGimbalYN;
+                                g.gimbalRangeYP = newGimbalYP;
                             }
                         }
                     }
