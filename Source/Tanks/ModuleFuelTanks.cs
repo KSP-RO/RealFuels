@@ -518,20 +518,25 @@ namespace RealFuels.Tanks
             if (!def.canHave)
             {
                 type = oldType;
-                if(oldType != null && oldType != "") // we have an old type
+                if (!string.IsNullOrEmpty(oldType)) // we have an old type
                 {
                     def = MFSSettings.tankDefinitions[type];
                     if (def.canHave)
                         return; // go back to old type
                 }
                 // else find one that does work
-                foreach (TankDefinition newDef in MFSSettings.tankDefinitions)
+                if (typesAvailable != null)
                 {
-                    if (newDef.canHave)
+                    for (int i = 0; i < typesAvailable.Length; i++)
                     {
-                        def = newDef;
-                        type = newDef.name;
-                        break;
+                        string tn = typesAvailable[i];
+                        TankDefinition newDef = MFSSettings.tankDefinitions.Contains(tn) ? MFSSettings.tankDefinitions[tn] : null;
+                        if (newDef != null && newDef.canHave)
+                        {
+                            def = newDef;
+                            type = newDef.name;
+                            break;
+                        }
                     }
                 }
                 if (type == oldType) // if we didn't find a new one
