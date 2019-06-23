@@ -1253,13 +1253,21 @@ namespace RealFuels
             if (!compatible || !isMaster || !HighLogic.LoadedSceneIsEditor || EditorLogic.fetch == null)
                 return;
 
-            EditorLogic editor = EditorLogic.fetch;
-            bool inActions = editor.editorScreen == EditorScreen.Actions;
-            bool inParts = editor.editorScreen == EditorScreen.Parts;
-            if (!(showRFGUI && inParts) && !(inActions && EditorActionGroups.Instance.GetSelectedParts().Contains(part)))
+            bool inPartsEditor = EditorLogic.fetch.editorScreen == EditorScreen.Parts;
+            if (!(showRFGUI && inPartsEditor) && !(EditorLogic.fetch.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part)))
             {
                 editorUnlock();
                 return;
+            }
+            
+            if (inPartsEditor)
+            {
+                List<Part> symmetryParts = part.symmetryCounterparts;
+                for(int i = 0; i < symmetryParts.Count; i++)
+                {
+                    if (symmetryParts[i].persistentId < part.persistentId)
+                        return;
+                }
             }
 
             if (!styleSetup)
@@ -1268,60 +1276,31 @@ namespace RealFuels
                 Styles.InitStyles ();
             }
 
-
-            Rect tooltipRect;
+            if (guiWindowRect.width == 0)
+            {
+                int posAdd = inPartsEditor ? 256 : 0;
+                int posMult = (offsetGUIPos == -1) ? (part.Modules.Contains("ModuleFuelTanks") ? 1 : 0) : offsetGUIPos;
+                guiWindowRect = new Rect(posAdd + 430 * posMult, 365, 430, (Screen.height - 365));
+            }
+            
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
-
-            int posMult = 0;
-            if (offsetGUIPos != -1)
-                posMult = offsetGUIPos;
-            if (inActions)
-            {
-                if (offsetGUIPos == -1 && part.Modules.Contains("ModuleFuelTanks"))
-                    posMult = 1;
-                if (guiWindowRect.width == 0)
-                    guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
-
-                tooltipRect = new Rect(guiWindowRect.xMin + 440, mousePos.y - 5, 300, 200);
-
-                if (guiWindowRect.Contains(mousePos))
-                    editorLock();
-                else
-                    editorUnlock();
-                }
-            else if (inParts)
-            {
-                List<Part> symmetryParts = part.symmetryCounterparts;
-                for(int i = 0; i < symmetryParts.Count; i++)
-                {
-                    if (symmetryParts[i].persistentId < part.persistentId)
-                        return;
-                }
-                
-                if (guiWindowRect.width == 0)
-                    guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
-
-                tooltipRect = new Rect(guiWindowRect.xMin - (230 - 8), mousePos.y - 5, 220, 200);
-
-                if (guiWindowRect.Contains(mousePos))
-                    editorLock();
-                else
-                    editorUnlock();
-                }
+            if (guiWindowRect.Contains(mousePos))
+                editorLock();
             else
-            {
-                showRFGUI = false;
                 editorUnlock();
-                return;
-            }
+
             myToolTip = myToolTip.Trim ();
             if (!String.IsNullOrEmpty(myToolTip))
-                GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
+            {
+                int offset = inPartsEditor ? -222 : 440;
+                int width = inPartsEditor ? 220 : 300;
+                GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, width, 200), myToolTip, Styles.styleEditorTooltip);
+            }
 
             guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
         }
-        
+
         private void editorLock() {
             if (!editorLocked)
             {
