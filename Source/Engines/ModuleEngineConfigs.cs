@@ -1229,7 +1229,7 @@ namespace RealFuels
 
         private void OnPartActionGuiDismiss(Part p)
         {
-            if (p == part)
+            if (p == part || p.isSymmetryCounterPart(part))
                 showRFGUI = false;
         }
 
