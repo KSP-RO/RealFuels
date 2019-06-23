@@ -1243,7 +1243,7 @@ namespace RealFuels
 
         private static Vector3 mousePos = Vector3.zero;
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
-        public static string myToolTip = string.Empty;
+        private string myToolTip = string.Empty;
         private int counterTT;
         private bool styleSetup = false;
         private bool editorLocked = false;
@@ -1287,6 +1287,13 @@ namespace RealFuels
                 }
             else if (showRFGUI && editor.editorScreen == EditorScreen.Parts)
             {
+                List<Part> symmetryParts = part.symmetryCounterparts;
+                for(int i = 0; i < symmetryParts.Count; i++)
+                {
+                    if (symmetryParts[i].persistentId < part.persistentId)
+                        return;
+                }
+                
                 if (guiWindowRect.width == 0)
                     guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
 
@@ -1307,7 +1314,7 @@ namespace RealFuels
             if (!String.IsNullOrEmpty(myToolTip))
                 GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
 
-            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
+            guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
         }
         
         private void editorLock() {
