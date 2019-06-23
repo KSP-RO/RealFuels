@@ -1250,28 +1250,33 @@ namespace RealFuels
         
         public void OnGUI()
         {
+            if (!compatible || !isMaster || !HighLogic.LoadedSceneIsEditor || EditorLogic.fetch == null)
+                return;
+
+            EditorLogic editor = EditorLogic.fetch;
+            bool inActions = editor.editorScreen == EditorScreen.Actions;
+            bool inParts = editor.editorScreen == EditorScreen.Parts;
+            if (!(showRFGUI && inParts) && !(inActions && EditorActionGroups.Instance.GetSelectedParts().Contains(part)))
+            {
+                editorUnlock();
+                return;
+            }
+
             if (!styleSetup)
             {
                 styleSetup = true;
                 Styles.InitStyles ();
             }
 
-            if (!compatible)
-                return;
 
             Rect tooltipRect;
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
-            EditorLogic editor = EditorLogic.fetch;
-            if (!HighLogic.LoadedSceneIsEditor || !editor || !isMaster)
-            {
-                return;
-            }
 
             int posMult = 0;
             if (offsetGUIPos != -1)
                 posMult = offsetGUIPos;
-            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
+            if (inActions)
             {
                 if (offsetGUIPos == -1 && part.Modules.Contains("ModuleFuelTanks"))
                     posMult = 1;
@@ -1285,7 +1290,7 @@ namespace RealFuels
                 else
                     editorUnlock();
                 }
-            else if (showRFGUI && editor.editorScreen == EditorScreen.Parts)
+            else if (inParts)
             {
                 List<Part> symmetryParts = part.symmetryCounterparts;
                 for(int i = 0; i < symmetryParts.Count; i++)
