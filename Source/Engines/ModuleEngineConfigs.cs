@@ -1246,6 +1246,8 @@ namespace RealFuels
         public static string myToolTip = string.Empty;
         private int counterTT;
         private bool styleSetup = false;
+        private bool editorLocked = false;
+        
         public void OnGUI()
         {
             if (!styleSetup)
@@ -1258,7 +1260,6 @@ namespace RealFuels
                 return;
 
             Rect tooltipRect;
-            bool cursorInGUI = false; // nicked the locking code from Ferram
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
             EditorLogic editor = EditorLogic.fetch;
@@ -1279,18 +1280,11 @@ namespace RealFuels
 
                 tooltipRect = new Rect(guiWindowRect.xMin + 440, mousePos.y - 5, 300, 200);
 
-                cursorInGUI = guiWindowRect.Contains(mousePos);
-                if (cursorInGUI)
-                {
-                    editor.Lock(false, false, false, "RFGUILock");
-                    if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
-                        KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
-                }
+                if (guiWindowRect.Contains(mousePos))
+                    editorLock();
                 else
-                {
-                    editor.Unlock("RFGUILock");
+                    editorUnlock();
                 }
-            }
             else if (showRFGUI && editor.editorScreen == EditorScreen.Parts)
             {
                 if (guiWindowRect.width == 0)
@@ -1298,22 +1292,15 @@ namespace RealFuels
 
                 tooltipRect = new Rect(guiWindowRect.xMin - (230 - 8), mousePos.y - 5, 220, 200);
 
-                cursorInGUI = guiWindowRect.Contains(mousePos);
-                if (cursorInGUI)
-                {
-                    editor.Lock(false, false, false, "RFGUILock");
-                    if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
-                        KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
-                }
+                if (guiWindowRect.Contains(mousePos))
+                    editorLock();
                 else
-                {
-                    editor.Unlock("RFGUILock");
+                    editorUnlock();
                 }
-            }
             else
             {
                 showRFGUI = false;
-                editor.Unlock("RFGUILock");
+                editorUnlock();
                 return;
             }
             myToolTip = myToolTip.Trim ();
@@ -1321,6 +1308,24 @@ namespace RealFuels
                 GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
 
             guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
+        }
+        
+        private void editorLock() {
+            if (!editorLocked)
+            {
+                EditorLogic.fetch.Lock(false, false, false, "RFGUILock");
+                editorLocked = true;
+                if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
+                    KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
+            }
+        }
+
+        private void editorUnlock() {
+            if (editorLocked)
+            {
+                EditorLogic.fetch.Unlock("RFGUILock");
+                editorLocked = false;
+            }
         }
 
         /*private int oldTechLevel = -1;
