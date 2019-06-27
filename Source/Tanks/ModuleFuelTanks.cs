@@ -667,6 +667,14 @@ namespace RealFuels.Tanks
 		public void ChangeTotalVolume (double newTotalVolume, bool propagate = false)
 		{
 			double newVolume = Math.Round (newTotalVolume * utilization * 0.01d, 4);
+
+            if (Double.IsInfinity(newVolume / volume))
+            {
+                totalVolume = newTotalVolume;
+                volume = newVolume;
+                Debug.LogWarning("[ModularFuelTanks] caught DIV/0 in ChangeTotalVolume. Setting volume/totalVolume and exiting function");
+                return;
+            }
 			double volumeRatio = newVolume / volume;
 
 			bool doResources = false;
