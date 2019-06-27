@@ -198,13 +198,13 @@ namespace RealFuels.Tanks
             Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
             for (int i = unmanagedResourceNodes.Count() - 1; i >= 0; --i)
             {
-                string name;
+                string name = "";
                 double amount = 0;
                 double maxAmount = 0;
                 // we're going to be strict and demand all of these be present
                 if (!unmanagedResourceNodes[i].HasValue("name") || !unmanagedResourceNodes[i].HasValue("amount") || !unmanagedResourceNodes[i].HasValue("maxAmount"))
                 {
-                    Debug.Log("[ModuleFuelTanks.OnLoad()] was missing either name, amount or maxAmount");
+                    Debug.Log("[ModuleFuelTanks.OnLoad()] was missing either name, amount or maxAmount for UNMANAGED_RESOURCE: " + name);
                     continue;
                 }
                 name = unmanagedResourceNodes[i].GetValue("name");
@@ -215,14 +215,29 @@ namespace RealFuels.Tanks
                 }
                 double.TryParse(unmanagedResourceNodes[i].GetValue("amount"), out amount);
                 double.TryParse(unmanagedResourceNodes[i].GetValue("maxAmount"), out maxAmount);
+                amount = Math.Max(amount, 0d);
                 maxAmount = Math.Max(amount, maxAmount);
-                if (maxAmount > 0 && !unmanagedResources.ContainsKey(name))
+                if (!unmanagedResources.ContainsKey(name))
                 {
-                    unmanagedResources.Add(name, new UnmanagedResource(name, amount, maxAmount));
-                    Debug.Log("[ModuleFuelTanks.OnLoad()] added new UnmanagedResource " + name + " with " + amount + "/" + maxAmount);
+                    if (maxAmount > 0)
+                    {
+                        unmanagedResources.Add(name, new UnmanagedResource(name, amount, maxAmount));
+                        Debug.Log("[ModuleFuelTanks.OnLoad()] added new UnmanagedResource " + name + " with " + amount + "/" + maxAmount);
+                    }
+                    else
+                        Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
                 }
                 else
-                    Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
+                {
+                    if (maxAmount > 0)
+                    {
+                        unmanagedResources[name].amount += amount;
+                        unmanagedResources[name].maxAmount += maxAmount;
+                        Debug.Log("[ModuleFuelTanks.OnLoad()] modified UnmanagedResource: " + name + "; amount = " + amount + " / maxAmount = " + maxAmount);
+                    }
+                    else
+                        Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
+                }
             }
 
             if (isDatabaseLoad)
@@ -323,13 +338,15 @@ namespace RealFuels.Tanks
             Events["ShowUI"].active = true;
 
 
-            if (isEditor) {
+            if (isEditor)
+            {
                 GameEvents.onPartAttach.Add(onPartAttach);
                 GameEvents.onPartRemove.Add(onPartRemove);
                 GameEvents.onEditorShipModified.Add(onEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
                 TankWindow.OnActionGroupEditorOpened.Add(OnActionGroupEditorOpened);
                 TankWindow.OnActionGroupEditorClosed.Add(OnActionGroupEditorClosed);
+
                 if (part.symmetryCounterparts.Count > 0) {
                     UpdateTankType(false);
                 }
