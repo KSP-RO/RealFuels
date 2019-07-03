@@ -270,7 +270,7 @@ namespace RealFuels
                     minTechLevel = (origTechLevel < techLevel ? origTechLevel : techLevel);
             }
 
-            if(origMass >= 0)
+            if(origMass > 0)
             {
                 massDelta = 0;
                 part.mass = origMass * RFSettings.Instance.EngineMassMultiplier;

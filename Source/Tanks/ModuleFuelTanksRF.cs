@@ -385,12 +385,13 @@ namespace RealFuels.Tanks
                         {
                             if (lossAmount > tank.amount)
                             {
-
-                                tank.amount = 0d;
+                                if (!CheatOptions.InfinitePropellant)
+                                    tank.amount = 0d;
                             }
                             else
                             {
-                                tank.amount -= lossAmount;
+                                if (!CheatOptions.InfinitePropellant)
+                                    tank.amount -= lossAmount;
 
                                 // See if there is boiloff byproduct and see if any other parts want to accept it.
                                 if (tank.boiloffProductResource != null)
