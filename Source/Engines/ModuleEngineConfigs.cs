@@ -1229,7 +1229,7 @@ namespace RealFuels
 
         private void OnPartActionGuiDismiss(Part p)
         {
-            if (p == part)
+            if (p == part || p.isSymmetryCounterPart(part))
                 showRFGUI = false;
         }
 
@@ -1243,84 +1243,80 @@ namespace RealFuels
 
         private static Vector3 mousePos = Vector3.zero;
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
-        public static string myToolTip = string.Empty;
+        private string myToolTip = string.Empty;
         private int counterTT;
         private bool styleSetup = false;
+        private bool editorLocked = false;
+        
         public void OnGUI()
         {
+            if (!compatible || !isMaster || !HighLogic.LoadedSceneIsEditor || EditorLogic.fetch == null)
+                return;
+
+            bool inPartsEditor = EditorLogic.fetch.editorScreen == EditorScreen.Parts;
+            if (!(showRFGUI && inPartsEditor) && !(EditorLogic.fetch.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part)))
+            {
+                editorUnlock();
+                return;
+            }
+            
+            if (inPartsEditor)
+            {
+                List<Part> symmetryParts = part.symmetryCounterparts;
+                for(int i = 0; i < symmetryParts.Count; i++)
+                {
+                    if (symmetryParts[i].persistentId < part.persistentId)
+                        return;
+                }
+            }
+
             if (!styleSetup)
             {
                 styleSetup = true;
                 Styles.InitStyles ();
             }
 
-            if (!compatible)
-                return;
-
-            Rect tooltipRect;
-            bool cursorInGUI = false; // nicked the locking code from Ferram
+            if (guiWindowRect.width == 0)
+            {
+                int posAdd = inPartsEditor ? 256 : 0;
+                int posMult = (offsetGUIPos == -1) ? (part.Modules.Contains("ModuleFuelTanks") ? 1 : 0) : offsetGUIPos;
+                guiWindowRect = new Rect(posAdd + 430 * posMult, 365, 430, (Screen.height - 365));
+            }
+            
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
-            EditorLogic editor = EditorLogic.fetch;
-            if (!HighLogic.LoadedSceneIsEditor || !editor || !isMaster)
-            {
-                return;
-            }
-
-            int posMult = 0;
-            if (offsetGUIPos != -1)
-                posMult = offsetGUIPos;
-            if (editor.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part))
-            {
-                if (offsetGUIPos == -1 && part.Modules.Contains("ModuleFuelTanks"))
-                    posMult = 1;
-                if (guiWindowRect.width == 0)
-                    guiWindowRect = new Rect(430 * posMult, 365, 430, (Screen.height - 365));
-
-                tooltipRect = new Rect(guiWindowRect.xMin + 440, mousePos.y - 5, 300, 200);
-
-                cursorInGUI = guiWindowRect.Contains(mousePos);
-                if (cursorInGUI)
-                {
-                    editor.Lock(false, false, false, "RFGUILock");
-                    if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
-                        KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
-                }
-                else
-                {
-                    editor.Unlock("RFGUILock");
-                }
-            }
-            else if (showRFGUI && editor.editorScreen == EditorScreen.Parts)
-            {
-                if (guiWindowRect.width == 0)
-                    guiWindowRect = new Rect(256 + 430 * posMult, 365, 430, (Screen.height - 365));
-
-                tooltipRect = new Rect(guiWindowRect.xMin - (230 - 8), mousePos.y - 5, 220, 200);
-
-                cursorInGUI = guiWindowRect.Contains(mousePos);
-                if (cursorInGUI)
-                {
-                    editor.Lock(false, false, false, "RFGUILock");
-                    if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
-                        KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
-                }
-                else
-                {
-                    editor.Unlock("RFGUILock");
-                }
-            }
+            if (guiWindowRect.Contains(mousePos))
+                editorLock();
             else
-            {
-                showRFGUI = false;
-                editor.Unlock("RFGUILock");
-                return;
-            }
+                editorUnlock();
+
             myToolTip = myToolTip.Trim ();
             if (!String.IsNullOrEmpty(myToolTip))
-                GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
+            {
+                int offset = inPartsEditor ? -222 : 440;
+                int width = inPartsEditor ? 220 : 300;
+                GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, width, 200), myToolTip, Styles.styleEditorTooltip);
+            }
 
-            guiWindowRect = GUILayout.Window(part.name.GetHashCode() + 1, guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
+            guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
+        }
+
+        private void editorLock() {
+            if (!editorLocked)
+            {
+                EditorLogic.fetch.Lock(false, false, false, "RFGUILock");
+                editorLocked = true;
+                if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
+                    KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
+            }
+        }
+
+        private void editorUnlock() {
+            if (editorLocked)
+            {
+                EditorLogic.fetch.Unlock("RFGUILock");
+                editorLocked = false;
+            }
         }
 
         /*private int oldTechLevel = -1;
