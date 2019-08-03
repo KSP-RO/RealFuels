@@ -677,15 +677,20 @@ namespace RealFuels
                 }
                 if (type.Equals("ModuleRCS") || type.Equals("ModuleRCSFX"))
                 {
-                    ModuleRCS rcs = (ModuleRCS)pModule;
-                    if (rcs != null)
+                    // Changed this to find ALL RCS modules on the part to address SSTU case where MUS with only aft RCS is not handled.
+                    List<ModuleRCS> RCSModules = part.Modules.OfType<ModuleRCS>().ToList();
+                    
+                    if (RCSModules.Count > 0)
                     {
                         DoConfig(config);
-                        if (config.HasNode("PROPELLANT"))
+                        for (int i = 0; i < RCSModules.Count; i++)
                         {
-                            rcs.propellants.Clear();
+                            if (config.HasNode("PROPELLANT"))
+                            {
+                                RCSModules[i].propellants.Clear();
+                            }
+                            RCSModules[i].Load(config);
                         }
-                        pModule.Load(config);
                     }
                 }
                 else
@@ -1390,6 +1395,7 @@ namespace RealFuels
                             {
                                 SetConfiguration(nName, true);
                                 UpdateSymmetryCounterparts();
+                                MarkWindowDirty();
                             }
                         }
                         else
@@ -1405,6 +1411,7 @@ namespace RealFuels
                                     {
                                         SetConfiguration(nName, true);
                                         UpdateSymmetryCounterparts();
+                                        MarkWindowDirty();
                                     }
                                 }
                             }
@@ -1416,6 +1423,7 @@ namespace RealFuels
                                 {
                                     SetConfiguration(nName, true);
                                     UpdateSymmetryCounterparts();
+                                    MarkWindowDirty();
                                 }
                             }
                         }
@@ -1448,6 +1456,7 @@ namespace RealFuels
                     techLevel--;
                     SetConfiguration();
                     UpdateSymmetryCounterparts();
+                    MarkWindowDirty();
                 }
                 GUILayout.Label(techLevel.ToString());
                 string plusStr = "X";
@@ -1499,6 +1508,7 @@ namespace RealFuels
                         techLevel++;
                         SetConfiguration();
                         UpdateSymmetryCounterparts();
+                        MarkWindowDirty();
                     }
                 }
                 GUILayout.EndHorizontal();
@@ -1670,6 +1680,71 @@ namespace RealFuels
                 }
             }
             return null;
+        }
+
+        protected static List<PartModule> GetSpecifiedModules(Part p, string eID, int mIdx, string eType, bool weakType)
+        {
+            int mCount = p.Modules.Count;
+            int tmpIdx = 0;
+            List<PartModule> pMs = new List<PartModule>();
+
+            for (int m = 0; m < mCount; ++m)
+            {
+                PartModule pM = p.Modules[m];
+                bool test = false;
+                if (weakType)
+                {
+                    if (eType.Contains("ModuleEngines"))
+                        test = pM is ModuleEngines;
+                    else if (eType.Contains("ModuleRCS"))
+                        test = pM is ModuleRCS;
+                }
+                else
+                    test = pM.GetType().Name.Equals(eType);
+
+                if (test)
+                {
+                    if (mIdx >= 0)
+                    {
+                        if (tmpIdx == mIdx)
+                        {
+                            pMs.Add(pM);
+                        }
+                        tmpIdx++;
+                        continue; // skip the next test
+                    }
+                    else if (eID != string.Empty)
+                    {
+                        string testID = string.Empty;
+                        if (pM is ModuleEngines)
+                            testID = (pM as ModuleEngines).engineID;
+                        else if (pM is ModuleEngineConfigs)
+                            testID = (pM as ModuleEngineConfigs).engineID;
+
+                        if (testID.Equals(eID))
+                            pMs.Add(pM);
+                    }
+                    else
+                        pMs.Add(pM);
+                }
+            }
+            return pMs;
+        }
+
+        internal void MarkWindowDirty()
+        {
+            UIPartActionWindow action_window;
+            if (UIPartActionController.Instance == null)
+            {
+                // no controller means no window to mark dirty
+                return;
+            }
+            action_window = UIPartActionController.Instance.GetItem(part);
+            if (action_window == null)
+            {
+                return;
+            }
+            action_window.displayDirty = true;
         }
         #endregion
     }

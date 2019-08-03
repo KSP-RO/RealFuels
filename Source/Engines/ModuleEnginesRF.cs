@@ -399,6 +399,7 @@ namespace RealFuels
             }
 
             EngineIgnited = true;
+            base.Activate();
 
             if (allowShutdown)
                 Events["Shutdown"].active = true;
