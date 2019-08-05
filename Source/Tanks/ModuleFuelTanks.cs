@@ -1099,15 +1099,17 @@ namespace RealFuels.Tanks
 					};
 					Events.Add (button);
 				}
-				//MarkWindowDirty ();
+				MarkWindowDirty ();
 			}
 		}
 
 		public void ConfigureFor (Part engine)
 		{
-			foreach (PartModule engine_module in engine.Modules) {
+			foreach (PartModule engine_module in engine.Modules)
+            {
 				List<Propellant> propellants = GetEnginePropellants (engine_module);
-				if ((object)propellants != null) {
+				if ((object)propellants != null)
+                {
 					ConfigureFor (new FuelInfo (propellants, this, engine.partInfo.title));
 					break;
 				}
@@ -1120,10 +1122,13 @@ namespace RealFuels.Tanks
 				return;
 
 			double availableVolume = AvailableVolume;
-			foreach (Propellant tfuel in fi.propellants) {
-				if (PartResourceLibrary.Instance.GetDefinition (tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
+			foreach (Propellant tfuel in fi.propellants)
+            {
+				if (PartResourceLibrary.Instance.GetDefinition (tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
+                {
 					FuelTank tank;
-					if (tankList.TryGet (tfuel.name, out tank)) {
+					if (tankList.TryGet (tfuel.name, out tank))
+                    {
 						double amt = availableVolume * tfuel.ratio / fi.efficiency;
 						tank.maxAmount += amt;
 						tank.amount += amt;
