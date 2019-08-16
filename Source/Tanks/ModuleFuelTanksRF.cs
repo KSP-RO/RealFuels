@@ -78,6 +78,7 @@ namespace RealFuels.Tanks
             base.OnStart(state);
 
             GameEvents.onVesselWasModified.Add(OnVesselWasModified);
+            GameEvents.onEditorShipModified.Add(OnEditorShipModified);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
             if (HighLogic.LoadedSceneIsFlight)
             {
@@ -511,9 +512,13 @@ namespace RealFuels.Tanks
             {
                 if (!this.part.DragCubes.None)
                 {
+                    bool origProceduralValue = this.part.DragCubes.Procedural;
+                    this.part.DragCubes.Procedural = true;
+                    this.part.DragCubes.ForceUpdate(true, true, true);
                     this.part.DragCubes.SetDragWeights();
                     this.part.DragCubes.RequestOcclusionUpdate();
                     this.part.DragCubes.SetPartOcclusion();
+                    this.part.DragCubes.Procedural = origProceduralValue;
                 }
             }
 
@@ -533,6 +538,10 @@ namespace RealFuels.Tanks
             // then we're going to be defaulting to spherical calculation
             double tankMaxAmount;
             double tempTotal = 0;
+
+            if (RFSettings.Instance.debugBoilOff)
+                Debug.Log("[RealFuels.ModuleFuelTankRF] Initializing " + part.name + ".totalTankArea as " + totalTankArea.ToString());
+
             for (int i = tankList.Count - 1; i >= 0; --i)
             {
                 FuelTank tank = tankList[i];
@@ -552,7 +561,6 @@ namespace RealFuels.Tanks
                     {
                         Debug.Log("[RealFuels.ModuleFuelTankRF] " + tank.name + ".tankRatio = " + tank.tankRatio.ToString());
                         Debug.Log("[RealFuels.ModuleFuelTankRF] " + tank.name + ".maxAmount = " + tankMaxAmount.ToString());
-                        Debug.Log("[RealFuels.ModuleFuelTankRF] " + part.name + ".totalTankArea = " + totalTankArea.ToString());
                         Debug.Log("[RealFuels.ModuleFuelTankRF] Tank surface area = " + tank.totalArea.ToString());
                         DebugLog("tank Dewar status = " + tank.isDewar.ToString());
                     }
@@ -560,8 +568,14 @@ namespace RealFuels.Tanks
             }
             if (!(totalTankArea > 0) || tempTotal > totalTankArea)
                 totalTankArea = tempTotal;
+            if (RFSettings.Instance.debugBoilOff)
+            {
+                Debug.Log("[RealFuels.ModuleFuelTankRF] " + part.name + ".totalTankArea = " + totalTankArea.ToString());
+                Debug.Log("[RealFuels.ModuleFuelTankRF] " + part.name + ".GetModuleSize()" + part.GetModuleSize(Vector3.zero).ToString("F2"));
+            }
         }
 
+        // todo Evaluate if we really still need this. Not sure it's being fired in the editor at all anymore; even when mods known to fire this event are doing so.
         public void OnVesselWasModified(Vessel v)
         {
             Debug.Log("ModuleFuelTanksRF.OnVesselWasModified()");
@@ -569,10 +583,20 @@ namespace RealFuels.Tanks
                 CalculateTankArea();
         }
 
+        public void OnEditorShipModified(ShipConstruct ship)
+        {
+            Debug.Log("ModuleFuelTanksRF.OnEditorShipModified()");
+            CalculateTankArea();
+        }
+
         private void OnPartDestroyed(Part p)
         {
-            GameEvents.onVesselWasModified.Remove(OnVesselWasModified);
-            GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
+            if (p == this.part)
+            {
+                GameEvents.onVesselWasModified.Remove(OnVesselWasModified);
+                GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
+                GameEvents.onEditorShipModified.Remove(OnEditorShipModified);
+            }
         }
 
         private bool CalculateLowestTankTemperature()
