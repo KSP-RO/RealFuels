@@ -864,7 +864,14 @@ namespace RealFuels
             }
             else
             {
-                Debug.LogError("*RFMEC* ERROR could not find configuration of name " + configuration + " and could find no fallback config.\nFor part " + part.name + ", Current nodes:" + Utilities.PrintConfigs(configs));
+                Debug.LogWarning("*RFMEC* WARNING could not find configuration of name " + configuration + " for part " + part.name + ": Attempting to locate fallback configuration.");
+                if (configs.Count > 0)
+                {
+                    configuration = configs[0].GetValue("name");
+                    SetConfiguration();
+                }
+                else
+                    Debug.LogError("*RFMEC* ERROR unable to locate any fallbacks for configuration " + configuration + ",\n Current nodes:" + Utilities.PrintConfigs(configs));
             }
 
             StopFX();
