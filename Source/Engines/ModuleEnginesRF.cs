@@ -319,7 +319,6 @@ namespace RealFuels
             }
             needSetPropStatus = true;
             base.FixedUpdate();
-            this.propellantReqMet = (float)this.lastPropellantFraction * 100;
             if (needSetPropStatus && showPropStatus)
             {
                 if (pressureFed && !ullageSet.PressureOK())
