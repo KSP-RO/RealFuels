@@ -124,9 +124,9 @@ namespace RealFuels.Tanks
                 };
             }
 
-            Fields[nameof(debug0Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
-            Fields[nameof(debug1Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
-            Fields[nameof(debug2Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff;
+            Fields[nameof(debug0Display)].guiActive = this.supportsBoiloff && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW);
+            Fields[nameof(debug1Display)].guiActive = this.supportsBoiloff && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW);
+            Fields[nameof(debug2Display)].guiActive = this.supportsBoiloff && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW);
 
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
             //CalculateInsulation();
