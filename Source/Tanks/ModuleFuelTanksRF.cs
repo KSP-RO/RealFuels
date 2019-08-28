@@ -239,7 +239,7 @@ namespace RealFuels.Tanks
                     debug2Display = "";
                     debug0Display = "";
                     debug3Display = "";
-                    Fields[nameof(debug3Display)].guiActive = RFSettings.Instance.debugBoilOff && this.supportsBoiloff && TimeWarp.CurrentRate > PhysicsGlobals.ThermalMaxIntegrationWarp;
+                    Fields[nameof(debug3Display)].guiActive = (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW) && this.supportsBoiloff && TimeWarp.CurrentRate > PhysicsGlobals.ThermalMaxIntegrationWarp;
                 }
 
                 // MLI performance varies by temperature delta
@@ -289,7 +289,7 @@ namespace RealFuels.Tanks
                 double deltaTimeRecip = 1d / deltaTime;
                 //Debug.Log("internalFlux = " + part.thermalInternalFlux.ToString() + ", thermalInternalFluxPrevious =" + part.thermalInternalFluxPrevious.ToString() + ", analytic internal flux = " + previewInternalFluxAdjust.ToString());
 
-                if (RFSettings.Instance.debugBoilOff)
+                if (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW)
                 {
                     string MLIText = totalMLILayers > 0 ? GetMLITransferRate(part.skinTemperature, part.temperature).ToString("F4") : "No MLI";
                     debug0Display = part.temperature.ToString("F4") + "(" + MLIText + " * " + (part.radiativeArea * part.skinExposedAreaFrac).ToString("F2") + "m2)";

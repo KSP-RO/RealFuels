@@ -69,10 +69,10 @@ namespace RealFuels.Tanks
                 if (unmanagedResources.Count == 0)
                 {
                     unmanagedResources = ((ModuleFuelTanks)part.partInfo.partPrefab.Modules["ModuleFuelTanks"]).unmanagedResources;
-                    Debug.Log("[ModuleFuelTanks.OnStart()] unmanagedResources was initialized with count = " + unmanagedResources.Count.ToString());
+                    Debug.Log("[ModuleFuelTanks.OnAwake()] unmanagedResources was initialized with count = " + unmanagedResources.Count.ToString());
                 }
                 else
-                    Debug.Log("[ModuleFuelTanks.OnStart()] unmanagedResources already initialized with count = " + unmanagedResources.Count.ToString());
+                    Debug.Log("[ModuleFuelTanks.OnAwake()] unmanagedResources already initialized with count = " + unmanagedResources.Count.ToString());
             }
         }
 
@@ -195,7 +195,7 @@ namespace RealFuels.Tanks
 			}
 
             ConfigNode[] unmanagedResourceNodes = node.GetNodes("UNMANAGED_RESOURCE");
-            Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
+            //Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
             for (int i = unmanagedResourceNodes.Count() - 1; i >= 0; --i)
             {
                 string name = "";
@@ -223,6 +223,14 @@ namespace RealFuels.Tanks
                     {
                         unmanagedResources.Add(name, new UnmanagedResource(name, amount, maxAmount));
                         Debug.Log("[ModuleFuelTanks.OnLoad()] added new UnmanagedResource " + name + " with " + amount + "/" + maxAmount);
+                        if (!part.Resources.Contains(name))
+                        {
+                            ConfigNode resNode = new ConfigNode("RESOURCE");
+                            resNode.AddValue("name", name);
+                            resNode.AddValue("amount", amount);
+                            resNode.AddValue("maxAmount", maxAmount);
+                            part.AddResource(resNode);
+                        }
                     }
                     else
                         Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
@@ -234,6 +242,10 @@ namespace RealFuels.Tanks
                         unmanagedResources[name].amount += amount;
                         unmanagedResources[name].maxAmount += maxAmount;
                         Debug.Log("[ModuleFuelTanks.OnLoad()] modified UnmanagedResource: " + name + "; amount = " + amount + " / maxAmount = " + maxAmount);
+
+                        // this should be safe; if we're here then we previously would have added this resource if missing.
+                        part.Resources[name].amount = Math.Max(part.Resources[name].amount, unmanagedResources[name].amount);
+                        part.Resources[name].maxAmount = Math.Max(part.Resources[name].maxAmount, unmanagedResources[name].maxAmount);
                     }
                     else
                         Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
@@ -257,10 +269,19 @@ namespace RealFuels.Tanks
                 // Destroy any resources still hanging around from the LOADING phase
                 for (int i = part.Resources.Count - 1; i >= 0; --i) {
 					PartResource partResource = part.Resources[i];
-					if (!tankList.Contains (partResource.resourceName) || unmanagedResources.ContainsKey(partResource.resourceName))
-						continue;
-					part.Resources.Remove(partResource.info.id);
-					part.SimulationResources.Remove(partResource.info.id);
+                    if (!tankList.Contains(partResource.resourceName))
+                    {
+                        if (unmanagedResources.ContainsKey(partResource.resourceName))
+                        {
+                            part.Resources[partResource.resourceName].amount = unmanagedResources[partResource.resourceName].amount;
+                            part.Resources[partResource.resourceName].maxAmount = unmanagedResources[partResource.resourceName].maxAmount;
+                        }
+                        else
+                        {
+                            part.Resources.Remove(partResource.info.id);
+                            part.SimulationResources.Remove(partResource.info.id);
+                        }
+                    }
 				}
 				RaiseResourceListChanged ();
                 // Setup the mass

@@ -362,11 +362,6 @@ namespace RealFuels.Tanks
 			res._flowMode = PartResource.FlowMode.Both;
 			part.Resources.dict.Add (resDef.id, res);
 			//Debug.Log ($"[MFT] AddTank {res.resourceName} {res.amount} {res.maxAmount} {res.flowState} {res.isTweakable} {res.isVisible} {res.hideFlow} {res.flowMode}");
-
-            ConfigNode node = new ConfigNode ("RESOURCE");
-			node.AddValue ("name", name);
-			node.AddValue ("amount", value + unmanagedAmount);
-			node.AddValue ("maxAmount", value + unmanagedMaxAmount);
 #if DEBUG
 			MonoBehaviour.print (node.ToString ());
 #endif
