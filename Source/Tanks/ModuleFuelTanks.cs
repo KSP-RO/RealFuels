@@ -53,16 +53,11 @@ namespace RealFuels.Tanks
 		}
 
 		public override void OnAwake ()
-		{
-			enabled = false;
-            // Initialize utilization from the settings file
-            if (utilization == -1)
-                utilization = MFSSettings.partUtilizationDefault;
+        {
+            enabled = false;
 
-            UI_FloatRange f = (UI_FloatRange)(Fields["utilization"].uiControlEditor);
-            f.minValue = minUtilization;
-            f.maxValue = maxUtilization;
-            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
+            InitUtilization();
+
             unmanagedResources = new Dictionary<string, UnmanagedResource>();
             if (part.partInfo != null && part.partInfo.partPrefab != null)
             {
@@ -105,6 +100,18 @@ namespace RealFuels.Tanks
 						|| HighLogic.LoadedSceneIsFlight);
 			}
 		}
+
+        protected void InitUtilization()
+        {
+            // Initialize utilization from the settings file
+            if (utilization == -1)
+                utilization = MFSSettings.partUtilizationDefault;
+
+            UI_FloatRange f = (UI_FloatRange)(Fields["utilization"].uiControlEditor);
+            f.minValue = minUtilization;
+            f.maxValue = maxUtilization;
+            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
+        }
 
 		void RecordTankTypeResources (HashSet<string> resources, string type)
 		{
@@ -177,21 +184,8 @@ namespace RealFuels.Tanks
 				return;
 			}
 
-            UI_FloatRange f = (UI_FloatRange)(Fields["utilization"].uiControlEditor);
-            f.minValue = minUtilization;
-            f.maxValue = maxUtilization;
-            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
-
 			if (MFSSettings.tankDefinitions == null) {
 				MFSSettings.Initialize ();
-			}
-
-			// Load the volume. If totalVolume is specified, use that to calc the volume
-			// otherwise scale up the provided volume. No KSPField support for doubles
-			if (node.HasValue ("totalVolume") && double.TryParse (node.GetValue ("totalVolume"), out totalVolume)) {
-				ChangeTotalVolume (totalVolume);
-			} else if (node.HasValue ("volume") && double.TryParse (node.GetValue ("volume"), out volume)) {
-				totalVolume = volume * 100d / utilization;
 			}
 
             ConfigNode[] unmanagedResourceNodes = node.GetNodes("UNMANAGED_RESOURCE");
@@ -254,21 +248,31 @@ namespace RealFuels.Tanks
 
             if (isDatabaseLoad)
             {
+                InitUtilization();
+                InitVolume(node);
+
                 MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
 				ParseBaseMass(node);
 				ParseBaseCost(node);
                 ParseInsulationFactor(node);
                 typesAvailable = node.GetValues ("typeAvailable");
 				RecordManagedResources ();
-			} else if (isEditorOrFlight) {
-				// The amounts initialized flag is there so that the tank type loading doesn't
-				// try to set up any resources. They'll get loaded directly from the save.
-				UpdateTankType (false);
-				CleanResources ();
+			}
+            else if (isEditorOrFlight)
+            {
+                // The amounts initialized flag is there so that the tank type loading doesn't
+                // try to set up any resources. They'll get loaded directly from the save.
+                UpdateTankType(false);
+
+                InitUtilization();
+                InitVolume(node);
+
+                CleanResources();
 
                 // Destroy any resources still hanging around from the LOADING phase
-                for (int i = part.Resources.Count - 1; i >= 0; --i) {
-					PartResource partResource = part.Resources[i];
+                for (int i = part.Resources.Count - 1; i >= 0; --i)
+                {
+                    PartResource partResource = part.Resources[i];
                     if (!tankList.Contains(partResource.resourceName))
                     {
                         if (unmanagedResources.ContainsKey(partResource.resourceName))
@@ -282,16 +286,31 @@ namespace RealFuels.Tanks
                             part.SimulationResources.Remove(partResource.info.id);
                         }
                     }
-				}
-				RaiseResourceListChanged ();
+                }
+                RaiseResourceListChanged ();
+
                 // Setup the mass
                 massDirty = true;
                 CalculateMass();
-			}
+            }
             OnLoadRF(node);
 		}
 
-		public override string GetInfo ()
+        private void InitVolume(ConfigNode node)
+        {
+            // Load the volume. If totalVolume is specified, use that to calc the volume
+            // otherwise scale up the provided volume. No KSPField support for doubles
+            if (node.HasValue("totalVolume") && double.TryParse(node.GetValue("totalVolume"), out totalVolume))
+            {
+                ChangeTotalVolume(totalVolume);
+            }
+            else if (node.HasValue("volume") && double.TryParse(node.GetValue("volume"), out volume))
+            {
+                totalVolume = volume * 100d / utilization;
+            }
+        }
+
+        public override string GetInfo ()
 		{
 			if (!compatible) {
 				return "";
