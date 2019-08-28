@@ -161,7 +161,6 @@ namespace RealFuels.Tanks
                 }
             }
             RaiseResourceListChanged();
-
             // Setup the mass
             massDirty = true;
             CalculateMass();
@@ -198,88 +197,98 @@ namespace RealFuels.Tanks
 				MFSSettings.Initialize ();
 			}
 
-            ConfigNode[] unmanagedResourceNodes = node.GetNodes("UNMANAGED_RESOURCE");
-            //Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
-            for (int i = unmanagedResourceNodes.Count() - 1; i >= 0; --i)
+            // Make sure this isn't an upgrade node because if we got here during an upgrade application
+            // then RaiseResourceListChanged will throw an error when it hits SendEvent()
+            
+            if (node.name == "CURRENT_UPGRADE")
             {
-                string name = "";
-                double amount = 0;
-                double maxAmount = 0;
-                // we're going to be strict and demand all of these be present
-                if (!unmanagedResourceNodes[i].HasValue("name") || !unmanagedResourceNodes[i].HasValue("amount") || !unmanagedResourceNodes[i].HasValue("maxAmount"))
+                // If there's ever a need for special upgrade handling, put that code here.
+            }
+            else
+            {
+                ConfigNode[] unmanagedResourceNodes = node.GetNodes("UNMANAGED_RESOURCE");
+                //Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
+                for (int i = unmanagedResourceNodes.Count() - 1; i >= 0; --i)
                 {
-                    Debug.Log("[ModuleFuelTanks.OnLoad()] was missing either name, amount or maxAmount for UNMANAGED_RESOURCE: " + name);
-                    continue;
-                }
-                name = unmanagedResourceNodes[i].GetValue("name");
-                if (PartResourceLibrary.Instance.GetDefinition(name) == null)
-                {
-                    Debug.Log("[ModuleFuelTanks.OnLoad()] could not find resource by the name of " + name);
-                    continue;
-                }
-                double.TryParse(unmanagedResourceNodes[i].GetValue("amount"), out amount);
-                double.TryParse(unmanagedResourceNodes[i].GetValue("maxAmount"), out maxAmount);
-                amount = Math.Max(amount, 0d);
-                maxAmount = Math.Max(amount, maxAmount);
-                if (!unmanagedResources.ContainsKey(name))
-                {
-                    if (maxAmount > 0)
+                    string name = "";
+                    double amount = 0;
+                    double maxAmount = 0;
+                    // we're going to be strict and demand all of these be present
+                    if (!unmanagedResourceNodes[i].HasValue("name") || !unmanagedResourceNodes[i].HasValue("amount") || !unmanagedResourceNodes[i].HasValue("maxAmount"))
                     {
-                        unmanagedResources.Add(name, new UnmanagedResource(name, amount, maxAmount));
-                        Debug.Log("[ModuleFuelTanks.OnLoad()] added new UnmanagedResource " + name + " with " + amount + "/" + maxAmount);
-                        if (!part.Resources.Contains(name))
+                        Debug.Log("[ModuleFuelTanks.OnLoad()] was missing either name, amount or maxAmount for UNMANAGED_RESOURCE: " + name);
+                        continue;
+                    }
+                    name = unmanagedResourceNodes[i].GetValue("name");
+                    if (PartResourceLibrary.Instance.GetDefinition(name) == null)
+                    {
+                        Debug.Log("[ModuleFuelTanks.OnLoad()] could not find resource by the name of " + name);
+                        continue;
+                    }
+                    double.TryParse(unmanagedResourceNodes[i].GetValue("amount"), out amount);
+                    double.TryParse(unmanagedResourceNodes[i].GetValue("maxAmount"), out maxAmount);
+                    amount = Math.Max(amount, 0d);
+                    maxAmount = Math.Max(amount, maxAmount);
+                    if (!unmanagedResources.ContainsKey(name))
+                    {
+                        if (maxAmount > 0)
                         {
-                            ConfigNode resNode = new ConfigNode("RESOURCE");
-                            resNode.AddValue("name", name);
-                            resNode.AddValue("amount", amount);
-                            resNode.AddValue("maxAmount", maxAmount);
-                            part.AddResource(resNode);
+                            unmanagedResources.Add(name, new UnmanagedResource(name, amount, maxAmount));
+                            Debug.Log("[ModuleFuelTanks.OnLoad()] added new UnmanagedResource " + name + " with " + amount + "/" + maxAmount);
+                            if (!part.Resources.Contains(name))
+                            {
+                                ConfigNode resNode = new ConfigNode("RESOURCE");
+                                resNode.AddValue("name", name);
+                                resNode.AddValue("amount", amount);
+                                resNode.AddValue("maxAmount", maxAmount);
+                                part.AddResource(resNode);
+                            }
                         }
+                        else
+                            Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
                     }
                     else
-                        Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
-                }
-                else
-                {
-                    if (maxAmount > 0)
                     {
-                        unmanagedResources[name].amount += amount;
-                        unmanagedResources[name].maxAmount += maxAmount;
-                        Debug.Log("[ModuleFuelTanks.OnLoad()] modified UnmanagedResource: " + name + "; amount = " + amount + " / maxAmount = " + maxAmount);
+                        if (maxAmount > 0)
+                        {
+                            unmanagedResources[name].amount += amount;
+                            unmanagedResources[name].maxAmount += maxAmount;
+                            Debug.Log("[ModuleFuelTanks.OnLoad()] modified UnmanagedResource: " + name + "; amount = " + amount + " / maxAmount = " + maxAmount);
 
-                        // this should be safe; if we're here then we previously would have added this resource if missing.
-                        part.Resources[name].amount = Math.Max(part.Resources[name].amount, unmanagedResources[name].amount);
-                        part.Resources[name].maxAmount = Math.Max(part.Resources[name].maxAmount, unmanagedResources[name].maxAmount);
+                            // this should be safe; if we're here then we previously would have added this resource if missing.
+                            part.Resources[name].amount = Math.Max(part.Resources[name].amount, unmanagedResources[name].amount);
+                            part.Resources[name].maxAmount = Math.Max(part.Resources[name].maxAmount, unmanagedResources[name].maxAmount);
+                        }
+                        else
+                            Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
                     }
-                    else
-                        Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
                 }
+
+                if (isDatabaseLoad)
+                {
+                    InitUtilization();
+                    InitVolume(node);
+
+                    MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
+                    ParseBaseMass(node);
+                    ParseBaseCost(node);
+                    ParseInsulationFactor(node);
+                    typesAvailable = node.GetValues("typeAvailable");
+                    RecordManagedResources();
+                }
+                else if (isEditorOrFlight)
+                {
+                    // The amounts initialized flag is there so that the tank type loading doesn't
+                    // try to set up any resources. They'll get loaded directly from the save.
+                    UpdateTankType(false);
+
+                    InitUtilization();
+                    InitVolume(node);
+
+                    CleanResources();
+                }
+                OnLoadRF(node);
             }
-
-            if (isDatabaseLoad)
-            {
-                InitUtilization();
-                InitVolume(node);
-
-                MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
-				ParseBaseMass(node);
-				ParseBaseCost(node);
-                ParseInsulationFactor(node);
-                typesAvailable = node.GetValues ("typeAvailable");
-				RecordManagedResources ();
-			}
-            else if (isEditorOrFlight)
-            {
-                // The amounts initialized flag is there so that the tank type loading doesn't
-                // try to set up any resources. They'll get loaded directly from the save.
-                UpdateTankType(false);
-
-                InitUtilization();
-                InitVolume(node);
-
-                CleanResources();
-            }
-            OnLoadRF(node);
 		}
 
         private void InitVolume(ConfigNode node)
