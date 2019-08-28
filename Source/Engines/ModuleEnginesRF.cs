@@ -302,6 +302,7 @@ namespace RealFuels
         }
         bool needSetPropStatus = true;
         Color ullageColor = XKCDColors.White;
+
         public override void FixedUpdate()
         {
             if (HighLogic.LoadedSceneIsEditor)

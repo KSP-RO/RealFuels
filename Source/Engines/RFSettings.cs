@@ -37,6 +37,7 @@ namespace RealFuels
         public bool ferociousBoilOff = false;
         public bool globalConductionCompensation = false;
         public bool debugBoilOff = false;
+        public bool debugBoilOffPAW = false;
         public double QvCoefficient = 0.0028466; // convective coefficient for Real Fuels MLI calculations
         public double analyticInsulationMultiplier = 1;
 
@@ -149,6 +150,7 @@ namespace RealFuels
             node.TryGetValue("ferociousBoilOff", ref ferociousBoilOff);
             node.TryGetValue("globalConductionCompensation", ref globalConductionCompensation);
             node.TryGetValue("debugBoilOff", ref debugBoilOff);
+            node.TryGetValue("debugBoilOffPAW", ref debugBoilOffPAW);
             node.TryGetValue("QvCoefficient", ref QvCoefficient);
             node.TryGetValue("analyticInsulationMultiplier", ref analyticInsulationMultiplier);
 
