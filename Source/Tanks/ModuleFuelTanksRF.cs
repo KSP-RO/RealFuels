@@ -13,6 +13,7 @@ namespace RealFuels.Tanks
         private double analyticInternalTemp;
         private double previewInternalFluxAdjust;
         private bool supportsBoiloff = false;
+        private bool isProcedural = false;
         public bool SupportsBoiloff => supportsBoiloff;
         public double sunAndBodyFlux = 0;
 
@@ -76,6 +77,11 @@ namespace RealFuels.Tanks
         partial void OnStartRF(StartState state)
         {
             base.OnStart(state);
+
+            this.isProcedural = (this.part.Modules.Contains("SSTUModularPart")
+                || this.part.Modules.Contains("ProceduralPart")
+                || this.part.Modules.Contains("WingProcedural")
+                || this.part.Modules.Contains("ModuleROTank"));
 
             GameEvents.onVesselWasModified.Add(OnVesselWasModified);
             GameEvents.onEditorShipModified.Add(OnEditorShipModified);
@@ -549,9 +555,7 @@ namespace RealFuels.Tanks
                 {
                     bool origProceduralValue = this.part.DragCubes.Procedural;
 
-                    bool procedural = (this.part.Modules.Contains("SSTUModularPart") || this.part.Modules.Contains("ProceduralPart") || this.part.Modules.Contains("WingProcedural"));
-
-                    if (procedural)
+                    if (this.isProcedural)
                         this.part.DragCubes.Procedural = true;
 
                     this.part.DragCubes.ForceUpdate(true, true, true);

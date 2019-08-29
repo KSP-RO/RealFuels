@@ -36,7 +36,7 @@
   <ItemGroup>
     <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>I:\Games\KSP_win_1.6.1\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>I:\Games\KSP_win_1.7.3\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="SolverEngines">
       <Private>False</Private>
@@ -46,11 +46,11 @@
     </Reference>
     <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>I:\Games\KSP_win_1.6.1\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>I:\Games\KSP_win_1.7.3\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>I:\Games\KSP_win_1.6.1\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>I:\Games\KSP_win_1.7.3\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
