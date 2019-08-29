@@ -200,7 +200,7 @@ namespace RealFuels.Tanks
             // Make sure this isn't an upgrade node because if we got here during an upgrade application
             // then RaiseResourceListChanged will throw an error when it hits SendEvent()
             
-            if (node.name == "CURRENT_UPGRADE")
+            if (node.name == "CURRENTUPGRADE")
             {
                 // If there's ever a need for special upgrade handling, put that code here.
             }
