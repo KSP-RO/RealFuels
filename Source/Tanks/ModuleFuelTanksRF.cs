@@ -548,7 +548,12 @@ namespace RealFuels.Tanks
                 if (!this.part.DragCubes.None)
                 {
                     bool origProceduralValue = this.part.DragCubes.Procedural;
-                    this.part.DragCubes.Procedural = true;
+
+                    bool procedural = (this.part.Modules.Contains("SSTUModularPart") || this.part.Modules.Contains("ProceduralPart") || this.part.Modules.Contains("WingProcedural"));
+
+                    if (procedural)
+                        this.part.DragCubes.Procedural = true;
+
                     this.part.DragCubes.ForceUpdate(true, true, true);
                     this.part.DragCubes.SetDragWeights();
                     this.part.DragCubes.RequestOcclusionUpdate();
@@ -620,7 +625,7 @@ namespace RealFuels.Tanks
 
         public void OnEditorShipModified(ShipConstruct ship)
         {
-            Debug.Log("ModuleFuelTanksRF.OnEditorShipModified()");
+            //Debug.Log("ModuleFuelTanksRF.OnEditorShipModified()");
             CalculateTankArea();
         }
 

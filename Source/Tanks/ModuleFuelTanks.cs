@@ -64,10 +64,8 @@ namespace RealFuels.Tanks
                 if (unmanagedResources.Count == 0)
                 {
                     unmanagedResources = ((ModuleFuelTanks)part.partInfo.partPrefab.Modules["ModuleFuelTanks"]).unmanagedResources;
-                    Debug.Log("[ModuleFuelTanks.OnAwake()] unmanagedResources was initialized with count = " + unmanagedResources.Count.ToString());
+                    //Debug.Log("[ModuleFuelTanks.OnAwake()] unmanagedResources was initialized with count = " + unmanagedResources.Count.ToString());
                 }
-                else
-                    Debug.Log("[ModuleFuelTanks.OnAwake()] unmanagedResources already initialized with count = " + unmanagedResources.Count.ToString());
             }
         }
 
@@ -253,7 +251,7 @@ namespace RealFuels.Tanks
                         {
                             unmanagedResources[name].amount += amount;
                             unmanagedResources[name].maxAmount += maxAmount;
-                            Debug.Log("[ModuleFuelTanks.OnLoad()] modified UnmanagedResource: " + name + "; amount = " + amount + " / maxAmount = " + maxAmount);
+                            //Debug.Log("[ModuleFuelTanks.OnLoad()] modified UnmanagedResource: " + name + "; amount = " + amount + " / maxAmount = " + maxAmount);
 
                             // this should be safe; if we're here then we previously would have added this resource if missing.
                             part.Resources[name].amount = Math.Max(part.Resources[name].amount, unmanagedResources[name].amount);
