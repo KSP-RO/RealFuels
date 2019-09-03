@@ -381,20 +381,6 @@ namespace RealFuels.Tanks
                     RaiseResourceListChanged(sym);
                 }
             }
-            if (part.name == "proceduralAvionics" || part.partName == "proceduralAvionics")
-            {
-                Debug.Log("proceduralAvionics AddTank(): ");
-                Debug.Log("call stack: + " + Environment.StackTrace);
-                return;
-                try
-                {
-                    throw new Exception("StackTrace");
-                }
-                catch (Exception e)
-                {
-                    Debug.LogException(e, (UnityEngine.Object)(object)this);
-                }
-            }
 		}
 
 		public double maxAmount {
