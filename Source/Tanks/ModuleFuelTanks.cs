@@ -176,15 +176,16 @@ namespace RealFuels.Tanks
 			}
 		}
 
-		public override void OnLoad (ConfigNode node)
-		{
-			if (!compatible) {
-				return;
-			}
+        public override void OnLoad(ConfigNode node)
+        {
+            if (!compatible)
+            {
+                return;
+            }
 
             // Make sure this isn't an upgrade node because if we got here during an upgrade application
             // then RaiseResourceListChanged will throw an error when it hits SendEvent()
-            
+
             if (node.name == "CURRENTUPGRADE")
             {
                 // If there's ever a need for special upgrade handling, put that code here.
@@ -257,54 +258,55 @@ namespace RealFuels.Tanks
                     }
                 }
 
-            if (isDatabaseLoad)
-            {
-                InitUtilization();
-                InitVolume(node);
-
-                MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
-				ParseBaseMass(node);
-				ParseBaseCost(node);
-                ParseInsulationFactor(node);
-                typesAvailable = node.GetValues ("typeAvailable");
-				RecordManagedResources ();
-			}
-            else if (isEditorOrFlight)
-            {
-                // The amounts initialized flag is there so that the tank type loading doesn't
-                // try to set up any resources. They'll get loaded directly from the save.
-                UpdateTankType(false);
-
-                InitUtilization();
-                InitVolume(node);
-
-                CleanResources();
-
-                // Destroy any resources still hanging around from the LOADING phase
-                for (int i = part.Resources.Count - 1; i >= 0; --i)
+                if (isDatabaseLoad)
                 {
-                    PartResource partResource = part.Resources[i];
-                    if (!tankList.Contains(partResource.resourceName))
+                    InitUtilization();
+                    InitVolume(node);
+
+                    MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
+                    ParseBaseMass(node);
+                    ParseBaseCost(node);
+                    ParseInsulationFactor(node);
+                    typesAvailable = node.GetValues("typeAvailable");
+                    RecordManagedResources();
+                }
+                else if (isEditorOrFlight)
+                {
+                    // The amounts initialized flag is there so that the tank type loading doesn't
+                    // try to set up any resources. They'll get loaded directly from the save.
+                    UpdateTankType(false);
+
+                    InitUtilization();
+                    InitVolume(node);
+
+                    CleanResources();
+
+                    // Destroy any resources still hanging around from the LOADING phase
+                    for (int i = part.Resources.Count - 1; i >= 0; --i)
                     {
-                        if (unmanagedResources.ContainsKey(partResource.resourceName))
+                        PartResource partResource = part.Resources[i];
+                        if (!tankList.Contains(partResource.resourceName))
                         {
-                            part.Resources[partResource.resourceName].amount = unmanagedResources[partResource.resourceName].amount;
-                            part.Resources[partResource.resourceName].maxAmount = unmanagedResources[partResource.resourceName].maxAmount;
-                        }
-                        else
-                        {
-                            part.Resources.Remove(partResource.info.id);
-                            part.SimulationResources.Remove(partResource.info.id);
+                            if (unmanagedResources.ContainsKey(partResource.resourceName))
+                            {
+                                part.Resources[partResource.resourceName].amount = unmanagedResources[partResource.resourceName].amount;
+                                part.Resources[partResource.resourceName].maxAmount = unmanagedResources[partResource.resourceName].maxAmount;
+                            }
+                            else
+                            {
+                                part.Resources.Remove(partResource.info.id);
+                                part.SimulationResources.Remove(partResource.info.id);
+                            }
                         }
                     }
-                }
-                RaiseResourceListChanged ();
+                    RaiseResourceListChanged();
 
-                // Setup the mass
-                massDirty = true;
-                CalculateMass();
+                    // Setup the mass
+                    massDirty = true;
+                    CalculateMass();
+                }
             }
-		}
+        }
 
         private void InitVolume(ConfigNode node)
         {

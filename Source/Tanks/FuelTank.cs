@@ -362,9 +362,6 @@ namespace RealFuels.Tanks
 			res._flowMode = PartResource.FlowMode.Both;
 			part.Resources.dict.Add (resDef.id, res);
 			//Debug.Log ($"[MFT] AddTank {res.resourceName} {res.amount} {res.maxAmount} {res.flowState} {res.isTweakable} {res.isVisible} {res.hideFlow} {res.flowMode}");
-#if DEBUG
-			MonoBehaviour.print (node.ToString ());
-#endif
 
 			module.RaiseResourceListChanged ();
 
@@ -382,6 +379,20 @@ namespace RealFuels.Tanks
                 {
                     sym.Resources.dict.Add(resDef.id, new PartResource(res));
                     RaiseResourceListChanged(sym);
+                }
+            }
+            if (part.name == "proceduralAvionics" || part.partName == "proceduralAvionics")
+            {
+                Debug.Log("proceduralAvionics AddTank(): ");
+                Debug.Log("call stack: + " + Environment.StackTrace);
+                return;
+                try
+                {
+                    throw new Exception("StackTrace");
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e, (UnityEngine.Object)(object)this);
                 }
             }
 		}
