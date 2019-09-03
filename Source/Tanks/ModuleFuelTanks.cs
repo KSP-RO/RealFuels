@@ -140,29 +140,20 @@ namespace RealFuels.Tanks
 
 		void CleanResources ()
 		{
-            // Destroy any resources still hanging around from the LOADING phase
-            for (int i = part.Resources.Count - 1; i >= 0; --i)
-            {
-                PartResource partResource = part.Resources[i];
-                if (!tankList.Contains(partResource.resourceName))
-                {
-                    if (unmanagedResources.ContainsKey(partResource.resourceName))
-                    {
-                        part.Resources[partResource.resourceName].amount = unmanagedResources[partResource.resourceName].amount;
-                        part.Resources[partResource.resourceName].maxAmount = unmanagedResources[partResource.resourceName].maxAmount;
-                    }
-                    else
-                    {
-                        part.Resources.Remove(partResource.info.id);
-                        part.SimulationResources.Remove(partResource.info.id);
-                    }
-                }
-            }
-            RaiseResourceListChanged();
-            // Setup the mass
-            massDirty = true;
-            CalculateMass();
-        }
+			// Destroy any resources still hanging around from the LOADING phase
+			for (int i = part.Resources.Count - 1; i >= 0; --i) {
+				PartResource partResource = part.Resources[i];
+				// Do not remove any resources not managed by MFT
+				if (!tankList.Contains (partResource.resourceName))
+					continue;
+				part.Resources.Remove(partResource.info.id);
+				part.SimulationResources.Remove(partResource.info.id);
+			}
+			RaiseResourceListChanged ();
+			// Setup the mass
+			massDirty = true;
+			CalculateMass();
+		}
 
 		public override void OnCopy (PartModule fromModule)
 		{
@@ -266,23 +257,52 @@ namespace RealFuels.Tanks
                     }
                 }
 
-                if (isDatabaseLoad)
+            if (isDatabaseLoad)
+            {
+                InitUtilization();
+                InitVolume(node);
+
+                MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
+				ParseBaseMass(node);
+				ParseBaseCost(node);
+                ParseInsulationFactor(node);
+                typesAvailable = node.GetValues ("typeAvailable");
+				RecordManagedResources ();
+			}
+            else if (isEditorOrFlight)
+            {
+                // The amounts initialized flag is there so that the tank type loading doesn't
+                // try to set up any resources. They'll get loaded directly from the save.
+                UpdateTankType(false);
+
+                InitUtilization();
+                InitVolume(node);
+
+                CleanResources();
+
+                // Destroy any resources still hanging around from the LOADING phase
+                for (int i = part.Resources.Count - 1; i >= 0; --i)
                 {
-                    MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
-                    ParseBaseMass(node);
-                    ParseBaseCost(node);
-                    ParseInsulationFactor(node);
-                    typesAvailable = node.GetValues("typeAvailable");
-                    RecordManagedResources();
+                    PartResource partResource = part.Resources[i];
+                    if (!tankList.Contains(partResource.resourceName))
+                    {
+                        if (unmanagedResources.ContainsKey(partResource.resourceName))
+                        {
+                            part.Resources[partResource.resourceName].amount = unmanagedResources[partResource.resourceName].amount;
+                            part.Resources[partResource.resourceName].maxAmount = unmanagedResources[partResource.resourceName].maxAmount;
+                        }
+                        else
+                        {
+                            part.Resources.Remove(partResource.info.id);
+                            part.SimulationResources.Remove(partResource.info.id);
+                        }
+                    }
                 }
-                else if (isEditorOrFlight)
-                {
-                    // The amounts initialized flag is there so that the tank type loading doesn't
-                    // try to set up any resources. They'll get loaded directly from the save.
-                    UpdateTankType(false);
-                    CleanResources();
-                }
-                OnLoadRF(node);
+                RaiseResourceListChanged ();
+
+                // Setup the mass
+                massDirty = true;
+                CalculateMass();
             }
 		}
 
