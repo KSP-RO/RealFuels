@@ -191,10 +191,6 @@ namespace RealFuels.Tanks
 				return;
 			}
 
-			if (MFSSettings.tankDefinitions == null) {
-				MFSSettings.Initialize ();
-			}
-
             // Make sure this isn't an upgrade node because if we got here during an upgrade application
             // then RaiseResourceListChanged will throw an error when it hits SendEvent()
             
@@ -204,6 +200,14 @@ namespace RealFuels.Tanks
             }
             else
             {
+
+                InitUtilization();
+                if (MFSSettings.tankDefinitions == null)
+                {
+                    MFSSettings.Initialize();
+                }
+                InitVolume(node);
+
                 ConfigNode[] unmanagedResourceNodes = node.GetNodes("UNMANAGED_RESOURCE");
                 //Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
                 for (int i = unmanagedResourceNodes.Count() - 1; i >= 0; --i)
@@ -264,9 +268,6 @@ namespace RealFuels.Tanks
 
                 if (isDatabaseLoad)
                 {
-                    InitUtilization();
-                    InitVolume(node);
-
                     MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
                     ParseBaseMass(node);
                     ParseBaseCost(node);
@@ -279,10 +280,6 @@ namespace RealFuels.Tanks
                     // The amounts initialized flag is there so that the tank type loading doesn't
                     // try to set up any resources. They'll get loaded directly from the save.
                     UpdateTankType(false);
-
-                    InitUtilization();
-                    InitVolume(node);
-
                     CleanResources();
                 }
                 OnLoadRF(node);
