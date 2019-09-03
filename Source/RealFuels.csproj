@@ -40,6 +40,7 @@
     </Reference>
     <Reference Include="SolverEngines">
       <Private>False</Private>
+      <HintPath>..\..\SolverEngines\SolverEngines\obj\Release\SolverEngines.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <Private>False</Private>

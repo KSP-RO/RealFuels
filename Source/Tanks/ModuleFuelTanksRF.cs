@@ -13,9 +13,9 @@ namespace RealFuels.Tanks
         private double analyticInternalTemp;
         private double previewInternalFluxAdjust;
         private bool supportsBoiloff = false;
-        private bool isProcedural = false;
         public bool SupportsBoiloff => supportsBoiloff;
         public double sunAndBodyFlux = 0;
+        private double oldTotalVolume;
 
         public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
 
@@ -78,11 +78,6 @@ namespace RealFuels.Tanks
         {
             base.OnStart(state);
 
-            this.isProcedural = (this.part.Modules.Contains("SSTUModularPart")
-                || this.part.Modules.Contains("ProceduralPart")
-                || this.part.Modules.Contains("WingProcedural")
-                || this.part.Modules.Contains("ModuleROTank"));
-
             GameEvents.onVesselWasModified.Add(OnVesselWasModified);
             GameEvents.onEditorShipModified.Add(OnEditorShipModified);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
@@ -136,6 +131,14 @@ namespace RealFuels.Tanks
 
             //numberOfAddedMLILayers = Mathf.Round(numberOfAddedMLILayers);
             //CalculateInsulation();
+        }
+
+        private bool IsProcedural()
+        {
+            return this.part.Modules.Contains("SSTUModularPart")
+                || this.part.Modules.Contains("ProceduralPart")
+                || this.part.Modules.Contains("WingProcedural")
+                || this.part.Modules.Contains("ModuleROTank");
         }
 
         // TODO: Placeholder for moving RF specific nodes out of ModuleFuelTanks.OnLoad()
@@ -239,7 +242,7 @@ namespace RealFuels.Tanks
             //print ("[Real Fuels]" + Time.time.ToString ());
             if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready)
             {
-                if (RFSettings.Instance.debugBoilOff)
+                if (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW)
                 {
                     debug1Display = "";
                     debug2Display = "";
@@ -340,7 +343,7 @@ namespace RealFuels.Tanks
 
                         deltaTemp = hotTemp - tank.temperature;
 
-                        if (RFSettings.Instance.debugBoilOff)
+                        if (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW)
                         {
                             if (debug2Display != "")
                                 debug2Display += " / ";
@@ -374,7 +377,7 @@ namespace RealFuels.Tanks
                             else
                                 DebugLog("Q = NaN! W - T - F!!!");
 
-                            if (RFSettings.Instance.debugBoilOff)
+                            if (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW)
                             {
                                 // Only do debugging displays if debugging enabled in RFSettings
 
@@ -551,18 +554,20 @@ namespace RealFuels.Tanks
 
             if (HighLogic.LoadedSceneIsEditor)
             {
-                if (!this.part.DragCubes.None)
+                if (!this.part.DragCubes.None && this.oldTotalVolume != this.totalVolume)
                 {
-                    bool origProceduralValue = this.part.DragCubes.Procedural;
 
-                    if (this.isProcedural)
+                    if (this.IsProcedural())
+                    {
+                        bool origProceduralValue = this.part.DragCubes.Procedural;
                         this.part.DragCubes.Procedural = true;
-
-                    this.part.DragCubes.ForceUpdate(true, true, true);
-                    this.part.DragCubes.SetDragWeights();
-                    this.part.DragCubes.RequestOcclusionUpdate();
-                    this.part.DragCubes.SetPartOcclusion();
-                    this.part.DragCubes.Procedural = origProceduralValue;
+                        this.part.DragCubes.ForceUpdate(true, true, true);
+                        this.part.DragCubes.SetDragWeights();
+                        this.part.DragCubes.RequestOcclusionUpdate();
+                        this.part.DragCubes.SetPartOcclusion();
+                        this.part.DragCubes.Procedural = origProceduralValue;
+                        this.oldTotalVolume = this.totalVolume;
+                    }
                 }
             }
 
