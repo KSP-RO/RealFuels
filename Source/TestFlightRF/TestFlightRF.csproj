@@ -41,10 +41,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\RealFuels\Plugins\Assembly-CSharp.dll</HintPath>
+      <HintPath>I:\Games\KSP_win_1.6.1\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\RealFuels\Plugins\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>I:\Games\KSP_win_1.6.1\KSP_x64_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <Private>False</Private>
@@ -60,10 +60,10 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\RealFuels\Plugins\UnityEngine.dll</HintPath>
+      <HintPath>I:\Games\KSP_win_1.6.1\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.UI">
-      <HintPath>..\..\RealFuels\Plugins\UnityEngine.UI.dll</HintPath>
+      <HintPath>I:\Games\KSP_win_1.6.1\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>

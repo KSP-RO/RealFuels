@@ -175,15 +175,21 @@ namespace RealFuels.Tanks
 					return;
 				}
 
-				amountExpression = null;
-				partResource.amount = value;
+                double unmanagedAmount = 0;
+                module.unmanagedResources.TryGetValue(resource.resourceName, out ModuleFuelTanks.UnmanagedResource unmanagedResource);
+                if (unmanagedResource != null)
+                    unmanagedAmount = unmanagedResource.amount;
+
+                amountExpression = null;
+
+				partResource.amount = value + unmanagedAmount;
 				if (HighLogic.LoadedSceneIsEditor) {
-					module.RaiseResourceInitialChanged (partResource, amount);
+					module.RaiseResourceInitialChanged (partResource, amount + unmanagedAmount);
 					if (propagate) {
 						foreach (Part sym in part.symmetryCounterparts) {
 							PartResource symResc = sym.Resources[name];
-							symResc.amount = value;
-							RaiseResourceInitialChanged (sym, symResc, amount);
+							symResc.amount = value + unmanagedAmount;
+							RaiseResourceInitialChanged (sym, symResc, amount + unmanagedAmount);
 						}
 					}
 				}
@@ -286,7 +292,7 @@ namespace RealFuels.Tanks
             if (value > partResource.maxAmount)
             {
 				// If expanding, modify it to be less than overfull
-				double maxQty = (module.AvailableVolume * utilization) + partResource.maxAmount;
+				double maxQty = (module.AvailableVolume * utilization) + partResource.maxAmount - unmanagedMaxAmount;
 				if (maxQty < value)
                 {
 					value = maxQty;
@@ -349,8 +355,12 @@ namespace RealFuels.Tanks
                 unmanagedMaxAmount = unmanagedResource.maxAmount;
             }
 
+
+
 			var resDef = PartResourceLibrary.Instance.GetDefinition (name);
-			var res = new PartResource (part);
+            var res = part.Resources[name];
+            if (res == null)
+                res = new PartResource (part);
 			res.resourceName = name;
 			res.SetInfo (resDef);
 			res.amount = value + unmanagedAmount;

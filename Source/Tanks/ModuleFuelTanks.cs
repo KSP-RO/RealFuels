@@ -279,18 +279,10 @@ namespace RealFuels.Tanks
                     for (int i = part.Resources.Count - 1; i >= 0; --i)
                     {
                         PartResource partResource = part.Resources[i];
-                        if (!tankList.Contains(partResource.resourceName))
+                        if (!tankList.Contains(partResource.resourceName) && !unmanagedResources.ContainsKey(partResource.resourceName))
                         {
-                            if (unmanagedResources.ContainsKey(partResource.resourceName))
-                            {
-                                part.Resources[partResource.resourceName].amount = unmanagedResources[partResource.resourceName].amount;
-                                part.Resources[partResource.resourceName].maxAmount = unmanagedResources[partResource.resourceName].maxAmount;
-                            }
-                            else
-                            {
-                                part.Resources.Remove(partResource.info.id);
-                                part.SimulationResources.Remove(partResource.info.id);
-                            }
+                            part.Resources.Remove(partResource.info.id);
+                            part.SimulationResources.Remove(partResource.info.id);
                         }
                     }
                     RaiseResourceListChanged();
