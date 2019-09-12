@@ -135,10 +135,18 @@ namespace RealFuels.Tanks
 
         private bool IsProcedural()
         {
-            return this.part.Modules.Contains("SSTUModularPart")
-                || this.part.Modules.Contains("ProceduralPart")
-                || this.part.Modules.Contains("WingProcedural")
-                || this.part.Modules.Contains("ModuleROTank");
+            try
+            {
+                return this.part.Modules.Contains("SSTUModularPart")
+                    || this.part.Modules.Contains("ProceduralPart")
+                    || this.part.Modules.Contains("WingProcedural")
+                    || this.part.Modules.Contains("ModuleROTank");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[RealFuels.IsProcedural() exception]: \n" + e.Message);
+                return false;
+            }
         }
 
         // TODO: Placeholder for moving RF specific nodes out of ModuleFuelTanks.OnLoad()
@@ -451,6 +459,7 @@ namespace RealFuels.Tanks
                                 DebugLog("massLost = " + massLost.ToString());
                                 DebugLog("tank.vsp = " + tank.vsp.ToString());
                             }
+                            part.partInfo.partPrefab.AddModule("", )
                         }
                     }
                     else if (tank.loss_rate > 0 && tank.amount > 0)
@@ -559,6 +568,7 @@ namespace RealFuels.Tanks
 
                     if (this.IsProcedural())
                     {
+                        this.name.GetHashCode();
                         bool origProceduralValue = this.part.DragCubes.Procedural;
                         this.part.DragCubes.Procedural = true;
                         this.part.DragCubes.ForceUpdate(true, true, true);
