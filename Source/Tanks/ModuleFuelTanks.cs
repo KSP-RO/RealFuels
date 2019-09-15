@@ -192,13 +192,10 @@ namespace RealFuels.Tanks
             }
             else
             {
-
-                InitUtilization();
                 if (MFSSettings.tankDefinitions == null)
                 {
                     MFSSettings.Initialize();
                 }
-                InitVolume(node);
 
                 ConfigNode[] unmanagedResourceNodes = node.GetNodes("UNMANAGED_RESOURCE");
                 //Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
@@ -260,6 +257,9 @@ namespace RealFuels.Tanks
 
                 if (isDatabaseLoad)
                 {
+                    InitUtilization();
+                    InitVolume(node);
+
                     MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
                     ParseBaseMass(node);
                     ParseBaseCost(node);
@@ -272,6 +272,9 @@ namespace RealFuels.Tanks
                     // The amounts initialized flag is there so that the tank type loading doesn't
                     // try to set up any resources. They'll get loaded directly from the save.
                     UpdateTankType(false);
+
+                    InitUtilization();
+                    InitVolume(node);
 
                     CleanResources();
 
