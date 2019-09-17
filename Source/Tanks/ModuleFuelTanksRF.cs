@@ -135,10 +135,18 @@ namespace RealFuels.Tanks
 
         private bool IsProcedural()
         {
-            return this.part.Modules.Contains("SSTUModularPart")
-                || this.part.Modules.Contains("ProceduralPart")
-                || this.part.Modules.Contains("WingProcedural")
-                || this.part.Modules.Contains("ModuleROTank");
+            try
+            {
+                return this.part.Modules.Contains("SSTUModularPart")
+                    || this.part.Modules.Contains("ProceduralPart")
+                    || this.part.Modules.Contains("WingProcedural")
+                    || this.part.Modules.Contains("ModuleROTank");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[RealFuels.IsProcedural() exception]: \n" + e.Message);
+                return false;
+            }
         }
 
         // TODO: Placeholder for moving RF specific nodes out of ModuleFuelTanks.OnLoad()
