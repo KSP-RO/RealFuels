@@ -185,10 +185,20 @@ namespace RealFuels.Tanks
 
             // Make sure this isn't an upgrade node because if we got here during an upgrade application
             // then RaiseResourceListChanged will throw an error when it hits SendEvent()
-
             if (node.name == "CURRENTUPGRADE")
             {
                 // If there's ever a need for special upgrade handling, put that code here.
+
+                // Special handling for adding tank types via upgrade system
+                string[] typeAvailableUpgrades = node.GetValues("typeAvailable");
+                if (typeAvailableUpgrades.Count() > 0)
+                {
+                    for (int i = 0; i < typeAvailableUpgrades.Count(); i++)
+                        typesAvailable.AddUnique(typeAvailableUpgrades[i]);
+                    if (typesAvailable.Count() > 0 && !typesAvailable.Contains(type))
+                        typesAvailable.Add(type);
+                    InitializeTankType();
+                }
             }
             else
             {
@@ -264,7 +274,9 @@ namespace RealFuels.Tanks
                     ParseBaseMass(node);
                     ParseBaseCost(node);
                     ParseInsulationFactor(node);
-                    typesAvailable = node.GetValues("typeAvailable");
+                    typesAvailable.AddRange(node.GetValues("typeAvailable"));
+                    if (typesAvailable.Count() > 0 && !typesAvailable.Contains(type))
+                        typesAvailable.Add(type);
                     RecordManagedResources();
                 }
                 else if (isEditorOrFlight)
@@ -294,6 +306,7 @@ namespace RealFuels.Tanks
                     massDirty = true;
                     CalculateMass();
                 }
+                OnLoadRF(node);
             }
         }
 
@@ -335,7 +348,7 @@ namespace RealFuels.Tanks
 			return String.Format ("Max Volume: {0}, {1}{2}",
 							KSPUtil.PrintSI (volume, MFSSettings.unitLabel),
 							type,
-							(typesAvailable != null && typesAvailable.Length > 1) ? "*" : "");
+							(typesAvailable != null && typesAvailable.Count() > 1) ? "*" : "");
 		}
 
 		public Callback<Rect> GetDrawModulePanelCallback ()
@@ -520,7 +533,7 @@ namespace RealFuels.Tanks
 		public string type = "Default";
 		private string oldType;
 
-		public string[] typesAvailable;
+		public List<string> typesAvailable = new List<string>(); 
 
 		// for EngineIgnitor integration: store a public list of the fuel tanks, and
 		[NonSerialized]
@@ -528,7 +541,8 @@ namespace RealFuels.Tanks
 
 		private void InitializeTankType ()
 		{
-			if (typesAvailable == null || typesAvailable.Length <= 1) {
+            Fields["type"].guiActiveEditor = true;
+            if (typesAvailable == null || typesAvailable.Count() <= 1) {
 				Fields["type"].guiActiveEditor = false;
 			} else {
                 List<string> typesTech = new List<string>();
@@ -555,7 +569,6 @@ namespace RealFuels.Tanks
                 else
                     Fields["type"].guiActiveEditor = false;
 			}
-
 			UpdateTankType ();
 		}
 
@@ -585,7 +598,7 @@ namespace RealFuels.Tanks
                 // else find one that does work
                 if (typesAvailable != null)
                 {
-                    for (int i = 0; i < typesAvailable.Length; i++)
+                    for (int i = 0; i < typesAvailable.Count(); i++)
                     {
                         string tn = typesAvailable[i];
                         TankDefinition newDef = MFSSettings.tankDefinitions.Contains(tn) ? MFSSettings.tankDefinitions[tn] : null;
