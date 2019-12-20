@@ -424,6 +424,7 @@ namespace RealFuels.Tanks
 			GameEvents.onPartRemove.Remove (onPartRemove);
 			GameEvents.onEditorShipModified.Remove (onEditorShipModified);
 			GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
+            TankWindow.HideGUI();
 			TankWindow.OnActionGroupEditorOpened.Remove (OnActionGroupEditorOpened);
 			TankWindow.OnActionGroupEditorClosed.Remove (OnActionGroupEditorClosed);
 		}
