@@ -56,11 +56,11 @@ info:
 bin/modularFuelTanks.dll: ${MFT_FILES}
 	@mkdir -p bin
 	${GMCS} /highentropyva- /noconfig /nostdlib+ /t:library \
-		/r:/usr/lib/mono/2.0-api/mscorlib.dll \
-		/r:/usr/lib/mono/2.0-api/System.Core.dll \
+		/r:/usr/lib/mono/4.5-api/mscorlib.dll \
+		/r:/usr/lib/mono/4.5-api/System.Core.dll \
 		/lib:${MANAGED} \
 		/r:Assembly-CSharp.dll,Assembly-CSharp-firstpass.dll \
-		/r:UnityEngine.dll,UnityEngine.UI.dll \
+		/r:UnityEngine.dll,UnityEngine.UI.dll,UnityEngine.CoreModule.dll,UnityEngine.IMGUIModule.dll,UnityEngine.TextRenderingModule.dll,UnityEngine.InputLegacyModule.dll \
 		/out:$@ $^
 
 bin/TweakScale_ModularFuelTanks.dll: ${MFT_TS_FILES} bin/modularFuelTanks.dll
