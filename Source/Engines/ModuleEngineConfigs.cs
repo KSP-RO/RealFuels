@@ -113,7 +113,7 @@ namespace RealFuels
 
         public string configDescription = string.Empty;
 
-        public ConfigNode techNodes = new ConfigNode();
+        public ConfigNode techNodes;
 
         [KSPField]
         public bool isMaster = true; //is this Module the "master" module on the part? (if false, don't do GUI)
@@ -225,6 +225,7 @@ namespace RealFuels
         #region PartModule Overrides
         public override void OnAwake ()
         {
+            techNodes = new ConfigNode();
             if (HighLogic.LoadedSceneIsEditor)
             {
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
