@@ -76,8 +76,6 @@ namespace RealFuels.Tanks
 
         partial void OnStartRF(StartState state)
         {
-            base.OnStart(state);
-
             GameEvents.onVesselWasModified.Add(OnVesselWasModified);
             GameEvents.onEditorShipModified.Add(OnEditorShipModified);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
@@ -117,7 +115,11 @@ namespace RealFuels.Tanks
 
             if (state == StartState.Editor)
             {
-                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                if (maxMLILayers > 0)
+                    ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                else
+                    Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = false;
+
                 Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
                 {
                     massDirty = true;
@@ -502,8 +504,17 @@ namespace RealFuels.Tanks
 
             if (HighLogic.LoadedSceneIsEditor)
             {
-                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
-                _numberOfAddedMLILayers = Math.Min(_numberOfAddedMLILayers, maxMLILayers);
+                if (maxMLILayers > 0)
+                {
+                    Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = true;
+                    ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                    _numberOfAddedMLILayers = Math.Min(_numberOfAddedMLILayers, maxMLILayers);
+                }
+                else
+                {
+                    Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = false;
+                    _numberOfAddedMLILayers = 0;
+                }
             }
 
             if (def.minUtilization > 0f)
