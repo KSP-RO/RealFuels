@@ -420,7 +420,7 @@ namespace RealFuels
                 info += "    " + config.GetValue("tfRatedBurnTime") + "\n";
             if (config.HasValue(thrustRating))
             {
-                info += "    " + (scale * ThrustTL(config.GetValue(thrustRating), config)).ToString("0.###") + " kN";
+                info += "    " + Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config));
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
                     info += ", min " + (float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)) * 100f).ToString("N0") + "%";
@@ -680,7 +680,7 @@ namespace RealFuels
                 {
                     // Changed this to find ALL RCS modules on the part to address SSTU case where MUS with only aft RCS is not handled.
                     List<ModuleRCS> RCSModules = part.Modules.OfType<ModuleRCS>().ToList();
-                    
+
                     if (RCSModules.Count > 0)
                     {
                         DoConfig(config);
@@ -1034,7 +1034,7 @@ namespace RealFuels
             // heat update
             if(configHeat >= 0f)
                 cfg.SetValue("heatProduction", configHeat.ToString("0"), true);
-            
+
             // mass change
             if (origMass > 0)
             {
@@ -1260,7 +1260,7 @@ namespace RealFuels
         private int counterTT;
         private bool styleSetup = false;
         private bool editorLocked = false;
-        
+
         public void OnGUI()
         {
             if (!compatible || !isMaster || !HighLogic.LoadedSceneIsEditor || EditorLogic.fetch == null)
@@ -1272,7 +1272,7 @@ namespace RealFuels
                 editorUnlock();
                 return;
             }
-            
+
             if (inPartsEditor)
             {
                 List<Part> symmetryParts = part.symmetryCounterparts;
@@ -1295,7 +1295,7 @@ namespace RealFuels
                 int posMult = (offsetGUIPos == -1) ? (part.Modules.Contains("ModuleFuelTanks") ? 1 : 0) : offsetGUIPos;
                 guiWindowRect = new Rect(posAdd + 430 * posMult, 365, 430, (Screen.height - 365));
             }
-            
+
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
             if (guiWindowRect.Contains(mousePos))

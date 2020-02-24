@@ -72,7 +72,7 @@ namespace RealFuels
                 printStr += PrintNode(node, "");
             return printStr;
         }
-        
+
         public static string GetPartName(Part part)
         {
             if (part.partInfo != null)
@@ -109,6 +109,26 @@ namespace RealFuels
                 unit = "J";
             }
             return KSPUtil.PrintSI(flux * 1e3, unit, 4);
+        }
+
+        public static string FormatThrust(double thrust)
+        {
+            if (thrust < 1e-6)
+            {
+                return $"{thrust * 1e9:0.#} μN";
+            }
+            if (thrust < 1e-3)
+            {
+                return $"{thrust * 1e6:0.#} mN";
+            }
+            else if (thrust < 1.0)
+            {
+                return $"{thrust * 1e3:0.#} N";
+            }
+            else
+            {
+                return $"{thrust:0.#} kN";
+            }
         }
 
         #region Finding resources
