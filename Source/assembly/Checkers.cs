@@ -65,7 +65,7 @@ namespace RealFuels
             // can expect a future update to be available.
             //
 			if (Versioning.version_major != 1
-				|| Versioning.version_minor != 9) {
+				|| Versioning.version_minor != 8) {
 				return false;
 			}
 
