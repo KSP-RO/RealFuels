@@ -35,7 +35,7 @@ namespace RealFuels
         [KSPField]
         public float throttleClamp = 0.005f;
 
-        
+
 
         #region Thrust Curve
         //[KSPField]
@@ -106,7 +106,7 @@ namespace RealFuels
                 atmCurve = null;
             if(!useVelCurve)
                 velCurve = null;
-            
+
             // FIXME quick temp hax
             if (useAtmCurve)
             {
@@ -145,9 +145,9 @@ namespace RealFuels
                 flowMultCapSharpness,
                 thrustVariation,
                 (float)part.name.GetHashCode());
-            
+
             rfSolver.SetScale(scale);
-            
+
             engineSolver = rfSolver;
         }
         public override void OnAwake()
@@ -297,7 +297,7 @@ namespace RealFuels
         public override void OnStart(PartModule.StartState state)
         {
             base.OnStart(state);
-            
+
             Fields["thrustCurveDisplay"].guiActive = useThrustCurve && state != StartState.Editor;
         }
         bool needSetPropStatus = true;
@@ -385,7 +385,7 @@ namespace RealFuels
 
             actualThrottle = (int)(currentThrottle * 100f);
         }
-        
+
         // from SolverEngines but we don't play FX here.
         public override void Activate()
         {
@@ -542,20 +542,20 @@ namespace RealFuels
             {
                 if (throttleLocked || minThrottle == 1f)
                 {
-                    output += String.Format("<b> Static Thrust: </b>{0} kN (TWR {1}), {2}\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"), (throttleLocked ? "throttle locked" : "unthrottleable"));
+                    output += String.Format("<b> Static Thrust: </b>{0} (TWR {1}), {2}\n", Utilities.FormatThrust(thrustASL), (thrustASL / weight).ToString("0.0##"), (throttleLocked ? "throttle locked" : "unthrottleable"));
                 }
                 else
                 {
                     output += String.Format("{0}% min throttle\n", (minThrottle * 100f).ToString("N0"));
-                    output += String.Format("<b>Max. Static Thrust: </b>{0} kN (TWR {1})\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"));
-                    output += String.Format("<b>Min. Static Thrust: </b>{0} kN (TWR {1})\n", (thrustASL * minThrottle).ToString("0.0##"), (thrustASL * minThrottle / weight).ToString("0.0##"));
+                    output += String.Format("<b>Max. Static Thrust: </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustASL), (thrustASL / weight).ToString("0.0##"));
+                    output += String.Format("<b>Min. Static Thrust: </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustASL * minThrottle), (thrustASL * minThrottle / weight).ToString("0.0##"));
                 }
 
                 if (useVelCurve) // if thrust changes with mach
                 {
                     float vMin, vMax, tMin, tMax;
                     velCurve.FindMinMaxValue(out vMin, out vMax, out tMin, out tMax); // get the max mult, and thus report maximum thrust possible.
-                    output += String.Format("<b>Max. Thrust: </b>{0} kN at Mach {1} (TWR {2})\n", (thrustASL * vMax).ToString("0.0##"), tMax.ToString("0.#"), (thrustASL * vMax / weight).ToString("0.0##"));
+                    output += String.Format("<b>Max. Thrust: </b>{0} at Mach {1} (TWR {2})\n", Utilities.FormatThrust(thrustASL * vMax), tMax.ToString("0.#"), (thrustASL * vMax / weight).ToString("0.0##"));
                 }
             }
             else
@@ -571,12 +571,12 @@ namespace RealFuels
                     var suffix = throttleLocked ? "throttle locked" : "unthrottleable";
                     if (thrustASL != thrustVac)
                     {
-                        output += String.Format("<b>Thrust (Vac): </b>{0} kN (TWR {1}), {2}\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"), suffix);
-                        output += String.Format("<b>Thrust (ASL): </b>{0} kN (TWR {1}), {2}\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"), suffix);
+                        output += String.Format("<b>Thrust (Vac): </b>{0} (TWR {1}), {2}\n", Utilities.FormatThrust(thrustVac), (thrustVac / weight).ToString("0.0##"), suffix);
+                        output += String.Format("<b>Thrust (ASL): </b>{0} (TWR {1}), {2}\n", Utilities.FormatThrust(thrustASL), (thrustASL / weight).ToString("0.0##"), suffix);
                     }
                     else
                     {
-                        output += String.Format("<b>Thrust: </b>{0} kN (TWR {1}), {2}\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"), suffix);
+                        output += String.Format("<b>Thrust: </b>{0} (TWR {1}), {2}\n", Utilities.FormatThrust(thrustVac), (thrustVac / weight).ToString("0.0##"), suffix);
                     }
                 }
                 else
@@ -584,15 +584,15 @@ namespace RealFuels
                     output += String.Format("{0}% min throttle\n", (minThrottle * 100f).ToString("N0"));
                     if (thrustASL != thrustVac)
                     {
-                        output += String.Format("<b>Max. Thrust (Vac): </b>{0} kN (TWR {1})\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"));
-                        output += String.Format("<b>Max. Thrust (ASL): </b>{0} kN (TWR {1})\n", (thrustASL).ToString("0.0##"), (thrustASL / weight).ToString("0.0##"));
-                        output += String.Format("<b>Min. Thrust (Vac): </b>{0} kN (TWR {1})\n", (thrustVac * minThrottle).ToString("0.0##"), (thrustVac * minThrottle / weight).ToString("0.0##"));
-                        output += String.Format("<b>Min. Thrust (ASL): </b>{0} kN (TWR {1})\n", (thrustASL * minThrottle).ToString("0.0##"), (thrustASL * minThrottle / weight).ToString("0.0##"));
+                        output += String.Format("<b>Max. Thrust (Vac): </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustVac), (thrustVac / weight).ToString("0.0##"));
+                        output += String.Format("<b>Max. Thrust (ASL): </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustASL), (thrustASL / weight).ToString("0.0##"));
+                        output += String.Format("<b>Min. Thrust (Vac): </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustVac * minThrottle), (thrustVac * minThrottle / weight).ToString("0.0##"));
+                        output += String.Format("<b>Min. Thrust (ASL): </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustASL * minThrottle), (thrustASL * minThrottle / weight).ToString("0.0##"));
                     }
                     else
                     {
-                        output += String.Format("<b>Max. Thrust: </b>{0} kN (TWR {1})\n", (thrustVac).ToString("0.0##"), (thrustVac / weight).ToString("0.0##"));
-                        output += String.Format("<b>Min. Thrust: </b>{0} kN (TWR {1})\n", (thrustVac * minThrottle).ToString("0.0##"), (thrustVac * minThrottle / weight).ToString("0.0##"));
+                        output += String.Format("<b>Max. Thrust: </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustVac), (thrustVac / weight).ToString("0.0##"));
+                        output += String.Format("<b>Min. Thrust: </b>{0} (TWR {1})\n", Utilities.FormatThrust(thrustVac * minThrottle), (thrustVac * minThrottle / weight).ToString("0.0##"));
                     }
                 }
             }
