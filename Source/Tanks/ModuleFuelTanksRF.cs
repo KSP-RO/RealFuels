@@ -41,16 +41,16 @@ namespace RealFuels.Tanks
         [KSPField(guiActiveEditor = true, guiName = "Highly Pressurized?")]
         public bool highlyPressurized = false;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Wall Temp.", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Wall Temp.", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug0Display;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug1Display;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug2Display;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Analytic Cooling", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Analytic Cooling", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug3Display;
 
         [KSPField(isPersistant = true)]
