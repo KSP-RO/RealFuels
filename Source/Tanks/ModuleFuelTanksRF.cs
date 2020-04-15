@@ -41,16 +41,16 @@ namespace RealFuels.Tanks
         [KSPField(guiActiveEditor = true, guiName = "Highly Pressurized?")]
         public bool highlyPressurized = false;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Wall Temp.", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Wall Temp.", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug0Display;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Heat Penetration", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug1Display;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Boil-off Loss", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug2Display;
 
-        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Analytic Cooling", guiUnits = "")]
+        [KSPField(isPersistant = false, guiActive = false, guiActiveEditor = false, guiName = "Analytic Cooling", guiUnits = "", groupDisplayName = "RF Boiloff", groupName = "RFBoiloffDebug", groupStartCollapsed = true)]
         public string debug3Display;
 
         [KSPField(isPersistant = true)]
@@ -76,8 +76,6 @@ namespace RealFuels.Tanks
 
         partial void OnStartRF(StartState state)
         {
-            base.OnStart(state);
-
             GameEvents.onVesselWasModified.Add(OnVesselWasModified);
             GameEvents.onEditorShipModified.Add(OnEditorShipModified);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
@@ -117,7 +115,11 @@ namespace RealFuels.Tanks
 
             if (state == StartState.Editor)
             {
-                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                if (maxMLILayers > 0)
+                    ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                else
+                    Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = false;
+
                 Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
                 {
                     massDirty = true;
@@ -502,8 +504,17 @@ namespace RealFuels.Tanks
 
             if (HighLogic.LoadedSceneIsEditor)
             {
-                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
-                _numberOfAddedMLILayers = Math.Min(_numberOfAddedMLILayers, maxMLILayers);
+                if (maxMLILayers > 0)
+                {
+                    Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = true;
+                    ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                    _numberOfAddedMLILayers = Math.Min(_numberOfAddedMLILayers, maxMLILayers);
+                }
+                else
+                {
+                    Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = false;
+                    _numberOfAddedMLILayers = 0;
+                }
             }
 
             if (def.minUtilization > 0f)

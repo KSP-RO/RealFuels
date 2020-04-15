@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -7,7 +7,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>RealFuels</RootNamespace>
     <AssemblyName>RealFuels</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <ReleaseVersion>10.8.0</ReleaseVersion>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj</BaseIntermediateOutputPath>
@@ -22,6 +22,7 @@
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
     <DebugSymbols>true</DebugSymbols>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>full</DebugType>
@@ -32,10 +33,10 @@
     <WarningLevel>4</WarningLevel>
     <ConsolePause>False</ConsolePause>
     <DebugSymbols>true</DebugSymbols>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="SolverEngines">
       <Private>False</Private>
@@ -45,32 +46,30 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+      
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+      
     </Reference>
     <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.UI.dll</HintPath>
+      
     </Reference>
     <Reference Include="UnityEngine.UIElementsModule">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.UIElementsModule.dll</HintPath>
+      
     </Reference>
     <Reference Include="UnityEngine.UIModule">
-      <HintPath>F:\Games\KSP_win_1.8.0\KSP_x64_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+      
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
