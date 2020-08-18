@@ -436,7 +436,7 @@ namespace RealFuels.Tanks
 			}
 
 			node.AddValue ("volume", volume.ToString ("G17")); // no KSPField support for doubles
-			tankList.Save (node);
+			tankList.Save (node, false);
 		}
 
 		const int wait_frames = 2;
