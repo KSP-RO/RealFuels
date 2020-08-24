@@ -45,13 +45,15 @@ namespace RealFuels.Tanks
 
 		public static void HideGUI ()
 		{
-			if (instance != null) {
+			if (instance != null)
+			{
 				instance.tank_module = null;
 				instance.UpdateGUIState ();
 			}
             EditorLogic editor = EditorLogic.fetch;
             if(editor != null)
                 editor.Unlock("MFTGUILock");
+			Debug.Log(StackTraceUtility.ExtractStackTrace());
 		}
 
 		public static void ShowGUI (ModuleFuelTanks tank_module)
@@ -104,19 +106,29 @@ namespace RealFuels.Tanks
 				yield return null;
 			}
             EditorLogic editor = EditorLogic.fetch;
-			while (EditorLogic.fetch != null) {
-				if (editor.editorScreen == EditorScreen.Actions) {
-					if (!ActionGroupMode) {
+			while (EditorLogic.fetch != null)
+			{
+				if (editor.editorScreen == EditorScreen.Actions)
+				{
+					if (!ActionGroupMode)
+					{
+						Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (!AGM)");
 						HideGUI ();
 						OnActionGroupEditorOpened.Fire ();
 					}
 					var age = EditorActionGroups.Instance;
-					if (tank_module && !age.GetSelectedParts ().Contains (tank_module.part)) {
+					if (tank_module && !age.GetSelectedParts ().Contains (tank_module.part))
+					{
+						Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (selected part does not contain this module)");
 						HideGUI ();
 					}
 					ActionGroupMode = true;
-				} else {
-					if (ActionGroupMode) {
+				}
+				else
+				{
+					if (ActionGroupMode)
+					{
+						Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (editorScreen == Actions && AGM)");
 						HideGUI ();
 						OnActionGroupEditorClosed.Fire ();
 					}

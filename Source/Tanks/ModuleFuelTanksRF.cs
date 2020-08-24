@@ -562,6 +562,15 @@ namespace RealFuels.Tanks
                 int.TryParse(node.GetValue("numberOfMLILayers"), out numberOfMLILayers);
         }
 
+        private void UpdateDragCubes()
+        {
+            DragCube dragCube = DragCubeSystem.Instance.RenderProceduralDragCube(base.part);
+            part.DragCubes.ClearCubes();
+            part.DragCubes.Cubes.Add(dragCube);
+            part.DragCubes.ResetCubeWeights();
+            part.DragCubes.ForceUpdate(true, true, false);
+        }
+
         public void CalculateTankArea()
         {
             // TODO: Codify a more accurate tank area calculator.
@@ -578,6 +587,9 @@ namespace RealFuels.Tanks
 
                     if (this.IsProcedural())
                     {
+                        UpdateDragCubes();
+                        this.oldTotalVolume = this.totalVolume;
+                        /*
                         bool origProceduralValue = this.part.DragCubes.Procedural;
                         this.part.DragCubes.Procedural = true;
                         this.part.DragCubes.ForceUpdate(true, true, true);
@@ -586,6 +598,7 @@ namespace RealFuels.Tanks
                         this.part.DragCubes.SetPartOcclusion();
                         this.part.DragCubes.Procedural = origProceduralValue;
                         this.oldTotalVolume = this.totalVolume;
+                        */
                     }
                 }
             }
