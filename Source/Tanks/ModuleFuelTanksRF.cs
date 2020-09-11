@@ -424,7 +424,7 @@ namespace RealFuels.Tanks
                                     if (Utilities.KerbalismFound)
                                     {
                                         string rName = tank.boiloffProductResource.name;
-                                        // re-add resource so that kerbalism can consume it
+                                        // remove resource so that kerbalism can re-add it
                                         part.RequestResource(tank.boiloffProductResource.id, -retainedAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
                                         retainedAmount /= deltaTime;
                                         boiloffProducts[rName] = boiloffProducts.TryGetValue(rName, out double v) ? v + retainedAmount : retainedAmount;
