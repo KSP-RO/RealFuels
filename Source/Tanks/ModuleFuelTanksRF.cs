@@ -418,14 +418,12 @@ namespace RealFuels.Tanks
                                 if (tank.boiloffProductResource != null)
                                 {
                                     double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
-                                    double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
+                                    double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW, Utilities.KerbalismFound);
                                     massLost -= retainedAmount * tank.boiloffProductResource.density;
 
                                     if (Utilities.KerbalismFound)
                                     {
                                         string rName = tank.boiloffProductResource.name;
-                                        // remove resource so that kerbalism can re-add it
-                                        part.RequestResource(tank.boiloffProductResource.id, -retainedAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
                                         retainedAmount /= deltaTime;
                                         boiloffProducts[rName] = boiloffProducts.TryGetValue(rName, out double v) ? v + retainedAmount : retainedAmount;
                                     }
