@@ -16,6 +16,7 @@ namespace RealFuels.Tanks
         public bool SupportsBoiloff => supportsBoiloff;
         public double sunAndBodyFlux = 0;
         private double oldTotalVolume;
+        private Dictionary<string, double> boiloffProducts = new Dictionary<string, double>();
 
         public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
 
@@ -277,7 +278,7 @@ namespace RealFuels.Tanks
 
             if (!analyticalMode)
                 yield return new WaitForFixedUpdate();
-            
+
             boiloffMass = 0d;
 
             previewInternalFluxAdjust = 0;
@@ -417,15 +418,22 @@ namespace RealFuels.Tanks
                                 if (tank.boiloffProductResource != null)
                                 {
                                     double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
-                                    double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW);
+                                    double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW, Utilities.KerbalismFound);
                                     massLost -= retainedAmount * tank.boiloffProductResource.density;
+
+                                    if (Utilities.KerbalismFound)
+                                    {
+                                        string rName = tank.boiloffProductResource.name;
+                                        retainedAmount /= deltaTime;
+                                        boiloffProducts[rName] = boiloffProducts.TryGetValue(rName, out double v) ? v + retainedAmount : retainedAmount;
+                                    }
                                 }
 
                                 boiloffMass += massLost;
 
                             }
                             // subtract heat from boiloff
-                            // subtracting heat in analytic mode is tricky: Analytic flux handling is 'cheaty' and tricky to predict. 
+                            // subtracting heat in analytic mode is tricky: Analytic flux handling is 'cheaty' and tricky to predict.
                             // scratch sheet: example
                             // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels Analytic Temp = 256.679360297684, Analytic Internal = 256.679360297684, Analytic Skin = 256.679360297684
                             // [RealFuels.ModuleFuelTankRF] proceduralTankRealFuels deltaTime = 17306955.5092776, heat lost = 6638604.21227684, thermalMassReciprocal = 0.00444787360733243
@@ -705,7 +713,7 @@ namespace RealFuels.Tanks
             if(this.supportsBoiloff)
                 print(part.name + " Analytic Temp = " + analyticTemp.ToString() + ", Analytic Internal = " + predictedInternalTemp.ToString() + ", Analytic Skin = " + predictedSkinTemp.ToString());
 #endif
-            
+
             analyticSkinTemp = predictedSkinTemp;
             analyticInternalTemp = predictedInternalTemp;
 
@@ -786,11 +794,11 @@ namespace RealFuels.Tanks
 
         /// <summary>
         /// Transfer rate through multilayer insulation in watts/m2 via radiation, conduction and convection (conduction through gas in the layers).
-        /// Default hot and cold values of 300 / 70. Can be called in real time substituting skin temp and internal temp for hot and cold. 
+        /// Default hot and cold values of 300 / 70. Can be called in real time substituting skin temp and internal temp for hot and cold.
         /// </summary>
         private double GetMLITransferRate(double outerTemperature = 300, double innerTemperature = 70)
-        {            
-            // 
+        {
+            //
             double QrCoefficient = 0.0000000004944; // typical MLI radiation flux coefficient
             double QcCoefficient = 0.0000000895; // typical MLI conductive flux coefficient. Possible tech upgrade target based on spacing mechanism between layers?
             //double QvCoefficient = 3.65; // 14.600; // 14600; // not even sure how this is right: convective contribution will be MURDEROUS.
@@ -814,6 +822,28 @@ namespace RealFuels.Tanks
             return PhysicsGlobals.StefanBoltzmanConstant * emissivity * area * (Math.Pow(hot,4) - Math.Pow(cold,4));
         }
 
+        #endregion
+
+        #region Kerbalism
+        /// <summary>
+        /// Called by Kerbalism every frame. Uses their resource system when Kerbalism is installed.
+        /// </summary>
+        public virtual string ResourceUpdate(Dictionary<string, double> availableResources, List<KeyValuePair<string, double>> resourceChangeRequest)
+        {
+            //resourceChangeRequest.Clear();
+
+            foreach (var resourceRequest in boiloffProducts)
+            {
+                var definition = PartResourceLibrary.Instance.GetDefinition(resourceRequest.Key);
+                if (definition is null)
+                    continue;
+
+                resourceChangeRequest.Add(new KeyValuePair<string, double>(resourceRequest.Key, -resourceRequest.Value));
+            }
+            boiloffProducts.Clear();
+
+            return "boiloff product";
+        }
         #endregion
     }
 }
