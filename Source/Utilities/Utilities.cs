@@ -161,6 +161,28 @@ namespace RealFuels
             }
         }
 
+        public static void updateAttachNode(AttachNode attachNode, Vector3 position)
+        {
+            Part attachedPart = attachNode.attachedPart;
+
+            if (attachedPart != null)
+            {
+                if (attachedPart != EditorLogic.RootPart)
+                {
+                    Vector3 offset = attachNode.owner.transform.TransformPoint(position) - attachNode.owner.transform.TransformPoint(attachNode.originalPosition);
+                    attachNode.attachedPart.transform.Translate(offset, Space.World);
+                }
+                else
+                {
+                    Vector3 offset = attachNode.owner.transform.TransformPoint(attachNode.originalPosition) - attachNode.owner.transform.TransformPoint(position);
+                    attachNode.owner.transform.Translate(offset, Space.World);
+                }
+            }
+
+            attachNode.position = position;
+            attachNode.originalPosition = position;
+        }
+
         #region Finding resources
         public static List<PartResource> FindResources(Part part, Propellant p)
         {

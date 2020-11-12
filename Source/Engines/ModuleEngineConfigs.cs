@@ -157,6 +157,10 @@ namespace RealFuels
         [KSPField]
         public bool useConfigAsTitle = false;
 
+        public string[] activeTransforms;
+        public List<string> transformNames = new List<string>();
+
+        public List<Vector3> origAttachNodes = new List<Vector3>(); // KSP doesn't seem preserve .originalPosition when .position changes
 
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
@@ -293,6 +297,7 @@ namespace RealFuels
                     ConfigNode newNode = new ConfigNode("CONFIG");
                     subNode.CopyTo(newNode);
                     configs.Add(newNode);
+                    GetAllTransforms(newNode);
                 }
             }
 
@@ -302,6 +307,9 @@ namespace RealFuels
             foreach (ConfigNode n in tLs)
                 techNodes.AddNode(n);
 
+            foreach (AttachNode attachNode in part.attachNodes)
+                origAttachNodes.Add(attachNode.position);
+                
             ConfigSaveLoad();
 
             SetConfiguration();
@@ -1075,6 +1083,57 @@ namespace RealFuels
                 else
                     cfg.AddValue("cost", cost.ToString("N3"));
             }
+            
+            if (cfg.HasNode("MESH"))
+            {
+                ConfigNode meshNode = cfg.GetNode("MESH");
+                activeTransforms = meshNode.GetValues("transform");
+
+                foreach(string str in activeTransforms)
+                    part.FindModelTransform(str).gameObject.SetActive(true);
+
+                foreach (string str in transformNames)
+                    if (!activeTransforms.Contains(str))
+                        part.FindModelTransform(str).gameObject.SetActive(false);
+
+                if (meshNode.HasNode("NODE"))
+                {       
+                    Dictionary<string, string> nodeNames = new Dictionary<string, string>();
+                    foreach (ConfigNode configNode in meshNode.GetNodes("NODE"))
+                        nodeNames.Add(configNode.GetValue("node"), configNode.GetValue("position"));
+
+                    for (int i = 0; i < part.attachNodes.Count; i++)
+                    {
+                        AttachNode attachNode = part.attachNodes[i];
+                        Vector3 origPos = origAttachNodes[i];
+
+                        if (nodeNames.ContainsKey(attachNode.id))
+                        {
+                            nodeNames.TryGetValue(attachNode.id, out string position);
+                            string[] nodePostionArray = position.Split(',');
+                            Vector3 nodePosition = new Vector3(Convert.ToSingle(nodePostionArray[0]),
+                                                               Convert.ToSingle(nodePostionArray[1]),
+                                                               Convert.ToSingle(nodePostionArray[2]));
+
+                            Utilities.updateAttachNode(attachNode, nodePosition);
+                        }
+                        else
+                        {
+                            Utilities.updateAttachNode(attachNode, origPos);
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < part.attachNodes.Count; i++)
+                    {
+                        AttachNode attachNode = part.attachNodes[i];
+                        Vector3 origPos = origAttachNodes[i];
+
+                        Utilities.updateAttachNode(attachNode, origPos);
+                    }
+                }
+            }     
         }
 
         /*[PartMessageEvent]
@@ -1753,6 +1812,19 @@ namespace RealFuels
                 return;
             }
             action_window.displayDirty = true;
+        }
+
+        private void GetAllTransforms(ConfigNode cfg)
+        {
+            if (cfg.HasNode("MESH"))
+            {
+                ConfigNode node = cfg.GetNode("MESH");
+                string[] transformNames = node.GetValues("transform");
+                foreach (string str in transformNames)
+                {
+                    this.transformNames.Add(str);
+                }
+            }
         }
         #endregion
     }
