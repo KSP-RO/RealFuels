@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -8,7 +8,7 @@
     <RootNamespace>TestFlightRF</RootNamespace>
     <AssemblyName>TestFlightRF</AssemblyName>
     <ReleaseVersion>0.4.0</ReleaseVersion>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -25,6 +25,7 @@
         <Command type="AfterBuild" command="cp ${TargetFile} ${TargetDir}/../../../GameData/TestFlight/Plugins" />
       </CustomCommands>
     </CustomCommands>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>full</DebugType>
@@ -39,6 +40,7 @@
         <Command type="AfterBuild" command="cp -r /Users/john/Developer/KSP/1.0/TestFlightDEV/Dev/_DEV/GitHub/TestFlight/GameData /Users/john/Developer/KSP/1.0/TestFlightDEV/Dev/" />
       </CustomCommands>
     </CustomCommands>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
