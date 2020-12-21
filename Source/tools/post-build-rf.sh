@@ -1,3 +1,5 @@
+#!/bin/sh
+
 if [ -z "${TARGET_PATH}" ] ; then
   echo 'Expected $TARGET_PATH to be defined but it is not' >&2
   exit 1
