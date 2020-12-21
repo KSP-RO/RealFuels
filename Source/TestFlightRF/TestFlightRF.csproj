@@ -84,7 +84,6 @@
   </PropertyGroup>
   <Import Project="custom.targets" />
   <PropertyGroup>
-    <PostBuildEvent>del "System.Core.dll"
-C:\utils\pdb2mdb\pdb2mdb.exe TestFlightRF.dll</PostBuildEvent>
+    <PostBuildEvent>sh -c "TARGET_PATH='$(TargetPath)' TARGET_DIR='$(TargetDir)' '$(ProjectDir)/../tools/post-build-rf.sh'"</PostBuildEvent>
   </PropertyGroup>
 </Project>
