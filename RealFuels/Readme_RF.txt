@@ -49,6 +49,28 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+
+v12.8.5
+* Add PAW grouping for RF debugging. (all four boiloff debug fields will be in a group labeled RF Boiloff
+
+v12.8.4.1
+* Recompile for KSP 1.8
+* Fixed cases where MonoBehaviour derived classes were being called before Awake()
+* Close tank window when tank part is deleted. (Fixes nullref issues when part is deleted with tank window open)
+* Boil-off PAW information visible by default (controlled by config file)
+* Exception handling added for procedural part checks.
+* PARTUPGRADE handling. (both to handle the upgrade and prevent unnecessary and game breaking calls to OnLoad)
+
+v12.8.3.1
+* Compile for KSP 1.7.3
+
+v12.8.3
+* Fixed checkers reporting incorrect versioning
+
+v12.8.2
+* Resolves utilization issue introduced by recent update.
+* Last ditch attempt to patch SSTU parts in conflict with Real Fuels. (tells SSTUModularParts to defer to RF on mass/cost issues and defers to SSTUModularRCS on mass issues)
+
 v12.8.1
 * Address VAB lag by limiting procedural part rerendering to when actual volume changes occur.
 * Further refinement for procedural tank handling.
