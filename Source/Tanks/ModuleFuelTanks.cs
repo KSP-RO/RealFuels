@@ -38,6 +38,9 @@ namespace RealFuels.Tanks
 
         public bool fueledByLaunchClamp = false;
 
+		private const string guiGroupName = "RealFuels";
+		private const string guiGroupDisplayName = "Real Fuels";
+
         private static double MassMult
 		{
 			get {
@@ -361,18 +364,6 @@ namespace RealFuels.Tanks
 			return "Modular Fuel Tank";
 		}
 
-		void OnActionGroupEditorOpened ()
-		{
-			Events["HideUI"].active = false;
-			Events["ShowUI"].active = false;
-		}
-
-		void OnActionGroupEditorClosed ()
-		{
-			Events["HideUI"].active = false;
-			Events["ShowUI"].active = true;
-		}
-
         public void Start() // not just when activated
         {
             if (!compatible) {
@@ -388,18 +379,12 @@ namespace RealFuels.Tanks
             }
             enabled = true; // just in case...
 
-            Events["HideUI"].active = false;
-            Events["ShowUI"].active = true;
-
-
             if (isEditor)
             {
                 GameEvents.onPartAttach.Add(onPartAttach);
                 GameEvents.onPartRemove.Add(onPartRemove);
                 GameEvents.onEditorShipModified.Add(onEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
-                TankWindow.OnActionGroupEditorOpened.Add(OnActionGroupEditorOpened);
-                TankWindow.OnActionGroupEditorClosed.Add(OnActionGroupEditorClosed);
 
                 if (part.symmetryCounterparts.Count > 0) {
                     UpdateTankType(false);
@@ -425,8 +410,6 @@ namespace RealFuels.Tanks
 			GameEvents.onEditorShipModified.Remove (onEditorShipModified);
 			GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
             TankWindow.HideGUI();
-			TankWindow.OnActionGroupEditorOpened.Remove (OnActionGroupEditorOpened);
-			TankWindow.OnActionGroupEditorClosed.Remove (OnActionGroupEditorClosed);
 		}
 
 		public override void OnSave (ConfigNode node)
@@ -436,7 +419,7 @@ namespace RealFuels.Tanks
 			}
 
 			node.AddValue ("volume", volume.ToString ("G17")); // no KSPField support for doubles
-			tankList.Save (node);
+			tankList.Save (node, false);
 		}
 
 		const int wait_frames = 2;
@@ -448,6 +431,8 @@ namespace RealFuels.Tanks
 				yield return null;
 			}
 
+			// This might be overkill
+			UpdateUsedBy ();
 			PartResourcesChanged ();
 		}
 
@@ -505,7 +490,7 @@ namespace RealFuels.Tanks
 		private void OnPartActionGuiDismiss(Part p)
 		{
 			if (p == part) {
-				HideUI ();
+				showUI = false;
 			}
 		}
 
@@ -522,15 +507,18 @@ namespace RealFuels.Tanks
             bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
             bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
 
-            if (partIsSelectedInActionsScreen) {
+            if (partIsSelectedInActionsScreen || showUI) {
 				TankWindow.ShowGUI (this);
 			}
-		}
+			else {
+                TankWindow.HideGUIForModule (this);
+            }
+        }
 
 		// The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
 		internal FuelTankList tankList = new FuelTankList ();
 
-		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type"), UI_ChooseOption (scene = UI_Scene.Editor)]
+		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption (scene = UI_Scene.Editor)]
 		public string type = "Default";
 		private string oldType;
 
@@ -668,7 +656,7 @@ namespace RealFuels.Tanks
 		// The total tank volume. This is prior to utilization
 		public double totalVolume;
 
-		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0"),
+		[KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName),
 		 UI_FloatRange (minValue = 1, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
 		public float utilization = -1;
 		private float oldUtilization = -1;
@@ -685,7 +673,7 @@ namespace RealFuels.Tanks
 		// no double support for KSPFields - [KSPField (isPersistant = true)]
 		public double volume;
 
-		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume")]
+		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Volume", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
 		public string volumeDisplay;
 
 		public double UsedVolume
@@ -797,7 +785,7 @@ namespace RealFuels.Tanks
 		public float mass;
 		internal bool massDirty = true;
 
-		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Mass")]
+		[KSPField (isPersistant = false, guiActive = false, guiActiveEditor = true, guiName = "Mass", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
 		public string massDisplay;
 
 		// public so they copy
@@ -1028,27 +1016,12 @@ namespace RealFuels.Tanks
 			massDirty = true;
 		}
 
-		[KSPEvent (guiActiveEditor = true, guiName = "Hide Tank UI", active = false)]
-		public void HideUI ()
-		{
-			TankWindow.HideGUI ();
-			UpdateMenus (false);
-		}
+        [KSPField(guiActiveEditor = true, guiName = "Tank UI", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        [UI_Toggle(enabledText = "Hide", disabledText = "Show")]
+        [NonSerialized]
+        public bool showUI;
 
-		[KSPEvent (guiActiveEditor = true, guiName = "Show Tank UI", active = false)]
-		public void ShowUI ()
-		{
-			TankWindow.ShowGUI (this);
-			UpdateMenus (true);
-		}
-
-		void UpdateMenus (bool visible)
-		{
-			Events["HideUI"].active = visible;
-			Events["ShowUI"].active = !visible;
-		}
-
-		[KSPEvent (guiName = "Remove All Tanks", guiActive = false, guiActiveEditor = true, name = "Empty")]
+		[KSPEvent (guiName = "Remove All Tanks", guiActive = false, guiActiveEditor = true, name = "Empty", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
 		public void Empty ()
 		{
 			for (int i = 0; i < tankList.Count; i++) {
@@ -1146,7 +1119,9 @@ namespace RealFuels.Tanks
 						name = "MFT" + idx++,
 						guiActive = false,
 						guiActiveEditor = activeEditor,
-						guiName = info.Label
+						guiName = info.Label,
+						groupName = guiGroupName,
+						groupDisplayName = guiGroupDisplayName
 					};
 					FuelInfo info1 = info;
 					BaseEvent button = new BaseEvent (Events, kspEvent.name, () => ConfigureFor (info1), kspEvent) {

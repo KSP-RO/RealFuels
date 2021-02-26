@@ -56,10 +56,19 @@ namespace RealFuels.Tanks
 
 		public void Save (ConfigNode node)
 		{
+			Save(node, true);
+		}
+
+		public void Save (ConfigNode node, bool includeEmpty)
+		{
 			foreach (FuelTank tank in this) {
-				ConfigNode tankNode = new ConfigNode ("TANK");
-				tank.Save (tankNode);
-				node.AddNode (tankNode);
+				// Don't spam save files with empty tank nodes, only save the relevant stuff
+				if (includeEmpty || tank.amount > 0 || tank.maxAmount > 0)
+				{
+					ConfigNode tankNode = new ConfigNode ("TANK");
+					tank.Save (tankNode);
+					node.AddNode (tankNode);
+				}
 			}
 		}
 

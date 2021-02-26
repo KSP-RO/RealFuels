@@ -70,7 +70,7 @@ namespace RealFuels.Tanks
 		public void Save (ConfigNode node)
 		{
 			ConfigNode.CreateConfigFromObject (this, node);
-			tankList.Save (node);
+			tankList.Save (node, true);
 		}
 
         public bool canHave
