@@ -507,14 +507,11 @@ namespace RealFuels.Tanks
             bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
             bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
 
-            if (partIsSelectedInActionsScreen) {
-				TankWindow.ShowGUI (this);
-			}
-			else if (showUI) { 
+            if (partIsSelectedInActionsScreen || showUI) {
 				TankWindow.ShowGUI (this);
 			}
 			else {
-                TankWindow.HideGUI ();
+                TankWindow.HideGUIForModule (this);
             }
         }
 

@@ -53,10 +53,18 @@ namespace RealFuels.Tanks
             EditorLogic editor = EditorLogic.fetch;
             if(editor != null)
                 editor.Unlock("MFTGUILock");
-			Debug.Log(StackTraceUtility.ExtractStackTrace());
+			//Debug.Log(StackTraceUtility.ExtractStackTrace());
 		}
 
-		public static void ShowGUI (ModuleFuelTanks tank_module)
+        public static void HideGUIForModule(ModuleFuelTanks tank_module)
+        {
+            if (instance != null && instance.tank_module == tank_module)
+            {
+				HideGUI();
+            }
+        }
+
+        public static void ShowGUI (ModuleFuelTanks tank_module)
 		{
 			if (instance != null) {
 				instance.tank_module = tank_module;
