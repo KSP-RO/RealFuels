@@ -16,40 +16,25 @@ namespace RealFuels
     {
         ModuleEngines ActiveEngine = null;
 
-        public override void OnStart (StartState state)
-        {
-            base.OnStart(state);
-        }
-
-        public override void OnInitialize()
-        {
-            if (!compatible)
-                return;
-
-            SetConfiguration();
-        }
         public override void OnLoad(ConfigNode node)
         {
             base.OnLoad(node);
             if (!isMaster)
             {
-                Actions["SwitchAction"].active = false;
-                Events["SwitchEngine"].guiActive = false;
-                Events["SwitchEngine"].guiActiveEditor = false;
-                Events["SwitchEngine"].guiActiveUnfocused = false;
+                Actions[nameof(SwitchAction)].active = false;
+                Events[nameof(SwitchEngine)].guiActive = false;
+                Events[nameof(SwitchEngine)].guiActiveEditor = false;
+                Events[nameof(SwitchEngine)].guiActiveUnfocused = false;
             }
         }
 
         [KSPAction("Switch Engine Mode")]
-        public void SwitchAction (KSPActionParam param)
-        {
-            SwitchEngine ();
-        }
+        public void SwitchAction(KSPActionParam _) => SwitchEngine();
 
         [KSPEvent(guiActive=true, guiName="Switch Engine Mode")]
-        public void SwitchEngine ()
+        public void SwitchEngine()
         {
-            ConfigNode currentConfig = configs.Find (c => c.GetValue ("name").Equals (configuration));
+            ConfigNode currentConfig = configs.Find(c => c.GetValue("name").Equals(configuration));
             string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
             SetConfiguration(nextConfiguration);
             // TODO: Does Engine Ignitor get switched here?
