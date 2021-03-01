@@ -169,17 +169,11 @@ namespace RealFuels
         #endregion
 
         #region Callbacks
-        public float GetModuleCost(float stdCost, ModifierStagingSituation sit)
-        {
-            return configCost;
-        }
-        public ModifierChangeWhen GetModuleCostChangeWhen() { return ModifierChangeWhen.FIXED; }
+        public float GetModuleCost(float stdCost, ModifierStagingSituation sit) => configCost;
+        public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
 
-        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit)
-        {
-            return massDelta;
-        }
-        public ModifierChangeWhen GetModuleMassChangeWhen() { return ModifierChangeWhen.FIXED; }
+        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit) => massDelta;
+        public ModifierChangeWhen GetModuleMassChangeWhen() => ModifierChangeWhen.FIXED;
 
         [KSPEvent(guiActive = false, active = true)]
         void OnPartScaleChanged(BaseEventDetails data)
@@ -188,39 +182,37 @@ namespace RealFuels
             float factorRelative = data.Get<float>("factorRelative");
             scale = factorAbsolute * factorAbsolute; // quadratic
             SetConfiguration();
-            /*Debug.Log("PartMessage: OnPartScaleChanged:"
-                + "\npart=" + part.name
-                + "\nfactorRelative=" + factorRelative.ToString()
-                + "\nfactorAbsolute=" + factorAbsolute.ToString());*/
+            //Debug.Log($"[RFMEC] OnPartScaleChanged for {part}: factorRelative={factorRelative} | factorAbsolute={factorAbsolute}");
         }
         #endregion
 
-        #region PartModule Overrides
-        public override void OnAwake ()
+        public static void BuildTechNodeMap()
         {
-            techNodes = new ConfigNode();
-            if (HighLogic.LoadedSceneIsEditor)
+            if (techNameToTitle?.Count == 0)
             {
-                GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
                 string fullPath = KSPUtil.ApplicationRootPath + HighLogic.CurrentGame.Parameters.Career.TechTreeUrl;
-
-                ConfigNode fileNode = ConfigNode.Load(fullPath);
-                if (fileNode.HasNode("TechTree"))
+                ConfigNode treeNode = new ConfigNode();
+                if (ConfigNode.Load(fullPath) is ConfigNode fileNode && fileNode.TryGetNode("TechTree", ref treeNode))
                 {
-                    techNameToTitle.Clear();
-
-                    ConfigNode treeNode = fileNode.GetNode("TechTree");
-                    ConfigNode[] ns = treeNode.GetNodes("RDNode");
-                    foreach (ConfigNode n in ns)
+                    foreach (ConfigNode n in treeNode.GetNodes("RDNode"))
                     {
                         if (n.HasValue("id") && n.HasValue("title"))
                             techNameToTitle[n.GetValue("id")] = n.GetValue("title");
                     }
                 }
             }
+        }
 
-            if(configs == null)
-                configs = new List<ConfigNode>();
+        #region PartModule Overrides
+        public override void OnAwake ()
+        {
+            techNodes = new ConfigNode();
+            configs = new List<ConfigNode>();
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                BuildTechNodeMap();
+                GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
+            }
         }
 
         public override void OnLoad(ConfigNode node)
