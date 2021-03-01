@@ -208,11 +208,6 @@ namespace RealFuels
         {
             techNodes = new ConfigNode();
             configs = new List<ConfigNode>();
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                BuildTechNodeMap();
-                GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
-            }
         }
 
         public override void OnLoad(ConfigNode node)
@@ -220,40 +215,26 @@ namespace RealFuels
             if (!compatible)
                 return;
             base.OnLoad (node);
-            if (!isMaster)
-            {
-                Fields["showRFGUI"].guiActiveEditor = false;
-                //Events["NextEngine"].guiActiveEditor = false;
-                //Events["NextTech"].guiActiveEditor = false;
-            }
-
 
             if (techLevel != -1)
             {
                 if (maxTechLevel < 0)
                     maxTechLevel = TechLevel.MaxTL(node, engineType);
                 if (minTechLevel < 0)
-                    minTechLevel = (origTechLevel < techLevel ? origTechLevel : techLevel);
+                    minTechLevel = Math.Min(origTechLevel, techLevel);
             }
 
-            if(origMass > 0)
+            if (origMass > 0)
             {
-                massDelta = 0;
                 part.mass = origMass * RFSettings.Instance.EngineMassMultiplier;
-                if ((object)(part.partInfo) != null)
-                    if ((object)(part.partInfo.partPrefab) != null)
-                        massDelta = part.mass - part.partInfo.partPrefab.mass;
+                massDelta = (part?.partInfo?.partPrefab is Part p) ? part.mass - p.mass : 0;
             }
 
-            if (configs == null)
-                configs = new List<ConfigNode>();
-
-            ConfigNode[] cNodes = node.GetNodes("CONFIG");
-            if (cNodes != null && cNodes.Length > 0)
+            if (node.GetNodes("CONFIG") is ConfigNode[] cNodes && cNodes.Length > 0)
             {
                 configs.Clear();
-
-                foreach (ConfigNode subNode in cNodes) {
+                foreach (ConfigNode subNode in cNodes)
+                {
                     //Debug.Log("*RFMEC* Load Engine Configs. Part " + part.name + " has config " + subNode.GetValue("name"));
                     ConfigNode newNode = new ConfigNode("CONFIG");
                     subNode.CopyTo(newNode);
@@ -261,10 +242,7 @@ namespace RealFuels
                 }
             }
 
-
-            techNodes = new ConfigNode();
-            ConfigNode[] tLs = node.GetNodes("TECHLEVEL");
-            foreach (ConfigNode n in tLs)
+            foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
                 techNodes.AddNode(n);
 
             ConfigSaveLoad();
@@ -272,34 +250,26 @@ namespace RealFuels
             SetConfiguration();
         }
 
-        public override void OnSave (ConfigNode node)
-        {
-            if (!compatible)
-                return;
-            /*if (configs == null)
-                configs = new List<ConfigNode> ();
-            foreach (ConfigNode c in configs)
-            {
-                ConfigNode subNode = new ConfigNode("CONFIG");
-                c.CopyTo(subNode);
-                node.AddNode(subNode);
-            }*/
-        }
-
         public override void OnStart(StartState state)
         {
             if (!compatible)
                 return;
-            this.enabled = true;
+            enabled = true;
+            BuildTechNodeMap();
+
+            Fields[nameof(showRFGUI)].guiActiveEditor = isMaster;
+            if (HighLogic.LoadedSceneIsEditor)
+                GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
             ConfigSaveLoad();
 
             SetConfiguration();
 
-            if (part.Modules.Contains("ModuleEngineIgnitor"))
-                part.Modules["ModuleEngineIgnitor"].OnStart(state);
+            // Why is this here, if KSP will call this normally?
+            part.Modules["ModuleEngineIgnitor"]?.OnStart(state);
         }
 
+        // Consider removing this method: SetConfiguration calls at Load or Start seems more than sufficient
         public override void OnInitialize()
         {
             if (!compatible)
