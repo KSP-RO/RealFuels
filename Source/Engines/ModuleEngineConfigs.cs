@@ -102,11 +102,8 @@ namespace RealFuels
 
         [KSPField]
         public bool isMaster = true; //is this Module the "master" module on the part? (if false, don't do GUI)
-        // For TestFlight integration, only ONE ModuleEngineConfigs (or child class) can be
-        // the master module on a part.
+        // For TestFlight integration, only ONE ModuleEngineConfigs (or child class) can be master module on a part.
 
-
-        // - dunno why ialdabaoth had this persistent. [KSPField(isPersistant = true)]
         [KSPField]
         public string type = "ModuleEnginesRF";
         [KSPField]
@@ -153,30 +150,21 @@ namespace RealFuels
 
         #region TestFlight
         protected static bool tfChecked = false;
-        protected static bool tfFound = false;
         protected static Type tfInterface = null;
-        protected static BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
+        protected const BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
 
         public void UpdateTFInterops()
         {
-            // Grab a pointer to the TestFlight interface if its installed
             if (!tfChecked)
             {
                 tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
-                if (tfInterface != null)
-                    tfFound = true;
+                tfChecked = true;
             }
-            // update TestFlight if its installed
-            if (tfFound)
+            try
             {
-                try
-                {
-                    tfInterface.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new System.Object[] { this.part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels" });
-                }
-                catch
-                {
-                }
+                tfInterface?.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new object[] { part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels" });
             }
+            catch {}
         }
         #endregion
 
