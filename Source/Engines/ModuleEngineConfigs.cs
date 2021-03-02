@@ -893,7 +893,7 @@ namespace RealFuels
         /// <returns></returns>
         public static bool UnlockedConfig(ConfigNode config, Part p)
         {
-            if ((object)config == null)
+            if (config == null)
                 return false;
             if (!config.HasValue("name"))
                 return false;
@@ -903,9 +903,9 @@ namespace RealFuels
         }
         public static bool CanConfig(ConfigNode config)
         {
-            if ((object)config == null)
+            if (config == null)
                 return false;
-            if (!config.HasValue("techRequired") || (object)HighLogic.CurrentGame == null)
+            if (!config.HasValue("techRequired") || HighLogic.CurrentGame == null)
                 return true;
             if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
                 return true;
@@ -923,25 +923,21 @@ namespace RealFuels
             if (techLevel != -1 && !engineType.Contains("S"))
             {
                 TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
-                if (!oldTL.Load(cfg == null ? config : cfg, techNodes, engineType, origTechLevel))
-                    return 1.0;
-                if (!newTL.Load(cfg == null ? config : cfg, techNodes, engineType, techLevel))
-                    return 1.0;
-
-                return newTL.Thrust(oldTL);
+                if (oldTL.Load(cfg ?? config, techNodes, engineType, origTechLevel) &&
+                    newTL.Load(cfg ?? config, techNodes, engineType, techLevel))
+                    return newTL.Thrust(oldTL);
             }
-            return 1.0;
+            return 1;
         }
 
         private float ThrustTL(float thrust, ConfigNode cfg = null)
         {
-            return (float)Math.Round((double)thrust * ThrustTL(cfg), 6);
+            return (float)Math.Round(thrust * ThrustTL(cfg), 6);
         }
 
         private float ThrustTL(string thrust, ConfigNode cfg = null)
         {
-            float tmp = 1.0f;
-            float.TryParse(thrust, out tmp);
+            float.TryParse(thrust, out float tmp);
             return ThrustTL(tmp, cfg);
         }
 
@@ -950,19 +946,16 @@ namespace RealFuels
             if (techLevel != -1)
             {
                 TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
-                if (!oldTL.Load(cfg == null ? config : cfg, techNodes, engineType, origTechLevel))
-                    return 1.0;
-                if (!newTL.Load(cfg == null ? config : cfg, techNodes, engineType, techLevel))
-                    return 1.0;
-
-                return newTL.Mass(oldTL, engineType.Contains("S"));
+                if (oldTL.Load(cfg ?? config, techNodes, engineType, origTechLevel) &&
+                    newTL.Load(cfg ?? config, techNodes, engineType, techLevel))
+                    return newTL.Mass(oldTL, engineType.Contains("S"));
             }
-            return 1.0;
+            return 1;
         }
 
         private float MassTL(float mass)
         {
-            return (float)Math.Round((double)mass * MassTL(), 6);
+            return (float)Math.Round(mass * MassTL(), 6);
         }
         private float CostTL(float cost, ConfigNode cfg = null)
         {
