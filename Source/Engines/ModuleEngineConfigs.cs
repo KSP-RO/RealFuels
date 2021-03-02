@@ -266,7 +266,7 @@ namespace RealFuels
             SetConfiguration();
 
             // Why is this here, if KSP will call this normally?
-            part.Modules["ModuleEngineIgnitor"]?.OnStart(state);
+            part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
         }
 
         // Consider removing this method: SetConfiguration calls at Load or Start seems more than sufficient
@@ -464,292 +464,119 @@ namespace RealFuels
 
         virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
-
             if (newConfiguration == null)
                 newConfiguration = configuration;
 
             ConfigSaveLoad();
 
-            ConfigNode newConfig = configs.Find (c => c.GetValue ("name").Equals (newConfiguration));
-            if (newConfig != null)
+            if (configs.Count == 0)
             {
-                if (configuration != newConfiguration)
-                {
-                    if(resetTechLevels)
-                        techLevel = origTechLevel;
+                Debug.LogError($"*RFMEC* configuration set was empty for {part}!");
+                StopFX();
+                return;
+            }
 
-                    while (techLevel > 0)
-                    {
-                        if (TechLevel.CanTL(newConfig, techNodes, engineType, techLevel))
-                            break;
-                        else
-                            --techLevel;
-                    }
-                }
+            ConfigNode newConfig = configs.Find(c => c.GetValue("name").Equals(newConfiguration));
+            if (!(newConfig is ConfigNode))
+            {
+                newConfig = configs.First();
+                string s = newConfig.GetValue("name");
+                Debug.LogWarning($"*RFMEC* WARNING could not find configuration \"{newConfiguration}\" for part {part.name}: Fallback to \"{s}\".");
+                newConfiguration = s;
+            }
+            if (configuration != newConfiguration)
+            {
+                if(resetTechLevels)
+                    techLevel = origTechLevel;
 
-                // for asmi
-                if (useConfigAsTitle)
-                    part.partInfo.title = configuration;
+                while (techLevel > 0 && !TechLevel.CanTL(newConfig, techNodes, engineType, techLevel))
+                    --techLevel;
+            }
 
-                configuration = newConfiguration;
-                config = new ConfigNode("MODULE");
-                newConfig.CopyTo(config);
-                config.name = "MODULE";
+            // for asmi
+            if (useConfigAsTitle)
+                part.partInfo.title = configuration;
+
+            configuration = newConfiguration;
+            config = new ConfigNode("MODULE");
+            newConfig.CopyTo(config);
+            config.name = "MODULE";
 
 #if DEBUG
-                print ("replacing " + type + " with:");
-                print (newConfig.ToString ());
+            Debug.Log($"replacing {type} with:\n{newConfig}");
 #endif
 
-                pModule = null;
-                // get correct module
-                pModule = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType);
-
-                if ((object)pModule == null)
-                {
-                    Debug.LogError("*RFMEC* Could not find appropriate module of type " + type + ", with ID=" + engineID + " and index " + moduleIndex);
-                    return;
-                }
-
-                Type mType = pModule.GetType();
-                config.SetValue("name", mType.Name);
-
-                // clear all FloatCurves we need to clear (i.e. if our config has one, or techlevels are enabled)
-                bool delAtmo = config.HasNode("atmosphereCurve") || techLevel >= 0;
-                bool delDens = config.HasNode("atmCurve") || techLevel >= 0;
-                bool delVel = config.HasNode("velCurve") || techLevel >= 0;
-                foreach (FieldInfo field in mType.GetFields())
-                {
-                    if (field.FieldType == typeof(FloatCurve) &&
-                        ((field.Name.Equals("atmosphereCurve") && delAtmo)
-                        || (field.Name.Equals("atmCurve") && delDens)
-                        || (field.Name.Equals("velCurve") && delVel)))
-                    {
-                        field.SetValue(pModule, new FloatCurve());
-                    }
-                }
-                // clear propellant gauges
-                foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
-                {
-                    if (field.FieldType == typeof(Dictionary<Propellant, ProtoStageIconInfo>))
-                    {
-                        Dictionary<Propellant, ProtoStageIconInfo> boxes = (Dictionary<Propellant, ProtoStageIconInfo>)(field.GetValue(pModule));
-                        if (boxes == null)
-                            continue;
-                        foreach (ProtoStageIconInfo v in boxes.Values)
-                        {
-                            if (v == null) //just in case...
-                                continue;
-                            try
-                            {
-                                part.stackIcon.RemoveInfo(v);
-                            }
-                            catch (Exception e)
-                            {
-                                Debug.LogError("*RFMEC* Trying to remove info box: " + e.Message);
-                            }
-                        }
-                        boxes.Clear();
-                    }
-                }
-                if (type.Equals("ModuleRCS") || type.Equals("ModuleRCSFX"))
-                {
-                    // Changed this to find ALL RCS modules on the part to address SSTU case where MUS with only aft RCS is not handled.
-                    List<ModuleRCS> RCSModules = part.Modules.OfType<ModuleRCS>().ToList();
-
-                    if (RCSModules.Count > 0)
-                    {
-                        DoConfig(config);
-                        for (int i = 0; i < RCSModules.Count; i++)
-                        {
-                            if (config.HasNode("PROPELLANT"))
-                            {
-                                RCSModules[i].propellants.Clear();
-                            }
-                            RCSModules[i].Load(config);
-                        }
-                    }
-                }
-                else
-                { // is an ENGINE
-                    ModuleEngines mE = (ModuleEngines)pModule;
-                    if (mE != null)
-                    {
-                        if (config.HasNode("PROPELLANT"))
-                        {
-                            mE.propellants.Clear();
-                        }
-                    }
-
-                    DoConfig(config);
-
-                    // Handle Engine Ignitor
-                    if (config.HasNode("ModuleEngineIgnitor"))
-                    {
-                        if (part.Modules.Contains("ModuleEngineIgnitor"))
-                        {
-                            ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
-                            if (eiNode.HasValue("ignitionsAvailable"))
-                            {
-                                int ignitions;
-                                if (int.TryParse(eiNode.GetValue("ignitionsAvailable"), out ignitions))
-                                {
-                                    ignitions = ConfigIgnitions(ignitions);
-
-                                    eiNode.SetValue("ignitionsAvailable", ignitions.ToString());
-                                    if (eiNode.HasValue("ignitionsRemained"))
-                                        eiNode.SetValue("ignitionsRemained", ignitions.ToString());
-                                    else
-                                        eiNode.AddValue("ignitionsRemained", ignitions.ToString());
-                                }
-                            }
-                            if (!HighLogic.LoadedSceneIsEditor && !(HighLogic.LoadedSceneIsFlight && vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
-                            {
-                                int remaining = (int)(part.Modules["ModuleEngineIgnitor"].GetType().GetField("ignitionsRemained").GetValue(part.Modules["ModuleEngineIgnitor"]));
-                                if (eiNode.HasValue("ignitionsRemained"))
-                                    eiNode.SetValue("ignitionsRemained", remaining.ToString());
-                                else
-                                    eiNode.AddValue("ignitionsRemained", remaining.ToString());
-                            }
-                            ConfigNode tNode = new ConfigNode("MODULE");
-                            eiNode.CopyTo(tNode);
-                            tNode.SetValue("name", "ModuleEngineIgnitor", true);
-                            part.Modules["ModuleEngineIgnitor"].Load(tNode);
-                        }
-                        else // backwards compatible with EI nodes when using RF ullage etc.
-                        {
-                            ConfigNode eiNode = config.GetNode("ModuleEngineIgnitor");
-                            if (eiNode.HasValue("ignitionsAvailable") && !config.HasValue("ignitions"))
-                            {
-                                config.AddValue("ignitions", eiNode.GetValue("ignitionsAvailable"));
-                            }
-                            if (eiNode.HasValue("useUllageSimulation") && !config.HasValue("ullage"))
-                                config.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
-                            if (eiNode.HasValue("isPressureFed") && !config.HasValue("pressureFed"))
-                                config.AddValue("pressureFed", eiNode.GetValue("isPressureFed"));
-                            if (!config.HasNode("IGNITOR_RESOURCE"))
-                                foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
-                                    config.AddNode(resNode);
-                        }
-                    }
-                    if (config.HasValue("ignitions"))
-                    {
-                        int ignitions;
-                        if ((!HighLogic.LoadedSceneIsFlight || (vessel != null && vessel.situation == Vessel.Situations.PRELAUNCH)))
-                        {
-                            if (int.TryParse(config.GetValue("ignitions"), out ignitions))
-                            {
-                                ignitions = ConfigIgnitions(ignitions);
-                                config.SetValue("ignitions", ignitions.ToString());
-                            }
-                        }
-                        else
-                            config.RemoveValue("ignitions");
-                    }
-
-                    if (pModule is ModuleEnginesRF)
-                        (pModule as ModuleEnginesRF).SetScale(1d);
-                    pModule.Load(config);
-                }
-                // fix for editor NaN
-                if (part.Resources.Contains("ElectricCharge") && part.Resources["ElectricCharge"].maxAmount < 0.1)
-                { // hacking around a KSP bug here
-                    part.Resources["ElectricCharge"].amount = 0;
-                    part.Resources["ElectricCharge"].maxAmount = 0.1;
-                }
-
-                // set gimbal
-                if (config.HasValue("gimbalRange"))
-                {
-
-                    float newGimbal = float.Parse(config.GetValue("gimbalRange"));
-
-                    float newGimbalXP = -1;
-                    float newGimbalXN = -1;
-                    float newGimbalYP = -1;
-                    float newGimbalYN = -1;
-
-                    if (config.HasValue("gimbalRangeXP"))
-                        newGimbalXP = float.Parse(config.GetValue("gimbalRangeXP"));
-                    if (config.HasValue("gimbalRangeXN"))
-                        newGimbalXN = float.Parse(config.GetValue("gimbalRangeXN"));
-                    if (config.HasValue("gimbalRangeYP"))
-                        newGimbalYP = float.Parse(config.GetValue("gimbalRangeYP"));
-                    if (config.HasValue("gimbalRangeYN"))
-                        newGimbalYN = float.Parse(config.GetValue("gimbalRangeYN"));
-
-                    if (newGimbalXP < 0)
-                        newGimbalXP = newGimbal;
-                    if (newGimbalXN < 0)
-                        newGimbalXN = newGimbal;
-                    if (newGimbalYP < 0)
-                        newGimbalYP = newGimbal;
-                    if (newGimbalYN < 0)
-                        newGimbalYN = newGimbal;
-
-                    for (int m = 0; m < part.Modules.Count; ++m)
-                    {
-                        if (part.Modules[m] is ModuleGimbal)
-                        {
-                            ModuleGimbal g = part.Modules[m] as ModuleGimbal;
-                            if (gimbalTransform.Equals(string.Empty) || g.gimbalTransformName.Equals(gimbalTransform))
-                            {
-                                g.gimbalRange = newGimbal;
-                                g.gimbalRangeXN = newGimbalXN;
-                                g.gimbalRangeXP = newGimbalXP;
-                                g.gimbalRangeYN = newGimbalYN;
-                                g.gimbalRangeYP = newGimbalYP;
-                            }
-                        }
-                    }
-                }
-                if (config.HasValue("cost"))
-                    configCost = float.Parse(config.GetValue("cost"));
-                else
-                    configCost = 0f;
-
-                UpdateOtherModules(config);
-
-                // GUI disabled for now - UpdateTweakableMenu();
-
-                // Finally, fire the modified event
-                // more trouble than it is worth...
-                /*if((object)(EditorLogic.fetch) != null && (object)(EditorLogic.fetch.ship) != null && HighLogic.LoadedSceneIsEditor)
-                    GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);*/
-
-                // fire config modified event
-                /*if(HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
-                    EngineConfigChanged();*/
-                // do it manually
-                List<Part> parts;
-                if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
-                    parts = EditorLogic.fetch.ship.parts;
-                else if (HighLogic.LoadedSceneIsFlight && vessel != null)
-                    parts = vessel.parts;
-                else parts = new List<Part>();
-                for (int i = parts.Count - 1; i >= 0; --i)
-                    parts[i].SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
-
-                SetupFX();
-
-                UpdateTFInterops(); // update TestFlight if it's installed
-
-                if (config.HasValue("description"))
-                    configDescription = config.GetValue("description");
-                else
-                    configDescription = string.Empty;
-            }
-            else
+            if ((pModule = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType)) is null)
             {
-                Debug.LogWarning("*RFMEC* WARNING could not find configuration of name " + configuration + " for part " + part.name + ": Attempting to locate fallback configuration.");
-                if (configs.Count > 0)
-                {
-                    configuration = configs[0].GetValue("name");
-                    SetConfiguration();
-                }
-                else
-                    Debug.LogError("*RFMEC* ERROR unable to locate any fallbacks for configuration " + configuration + ",\n Current nodes:" + Utilities.PrintConfigs(configs));
+                Debug.LogError($"*RFMEC* Could not find appropriate module of type {type}, with ID={engineID} and index {moduleIndex}");
+                return;
             }
+
+            Type mType = pModule.GetType();
+            config.SetValue("name", mType.Name);
+
+            ClearFloatCurves(mType, pModule, config, techLevel);
+            ClearPropellantGauges(mType, pModule);
+
+            if (type.Equals("ModuleRCS") || type.Equals("ModuleRCSFX"))
+                ClearRCSPropellants(config);
+            else
+            { // is an ENGINE
+                if (pModule is ModuleEngines mE && config.HasNode("PROPELLANT"))
+                    mE.propellants.Clear();
+
+                DoConfig(config);
+
+                HandleEngineIgnitor(config);
+                if (config.HasValue("ignitions"))
+                {
+                    if (HighLogic.LoadedSceneIsEditor || (HighLogic.LoadedSceneIsFlight && vessel?.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
+                    {
+                        if (int.TryParse(config.GetValue("ignitions"), out int ignitions))
+                        {
+                            ignitions = ConfigIgnitions(ignitions);
+                            config.SetValue("ignitions", ignitions);
+                        }
+                    }
+                    else
+                        config.RemoveValue("ignitions");
+                }
+
+                if (pModule is ModuleEnginesRF)
+                    (pModule as ModuleEnginesRF).SetScale(1d);
+                pModule.Load(config);
+            }
+            // fix for editor NaN
+            if (part.Resources.Contains("ElectricCharge") && part.Resources["ElectricCharge"].maxAmount < 0.1)
+            { // hacking around a KSP bug here
+                part.Resources["ElectricCharge"].amount = 0;
+                part.Resources["ElectricCharge"].maxAmount = 0.1;
+            }
+
+            SetGimbalRange(config);
+
+            if (!config.TryGetValue("cost", ref configCost))
+                configCost = 0;
+            if (!config.TryGetValue("description", ref configDescription))
+                configDescription = string.Empty;
+
+            UpdateOtherModules(config);
+
+            // GUI disabled for now - UpdateTweakableMenu();
+
+            // Prior comments suggest firing GameEvents.onEditorShipModified causes problems?
+            List<Part> parts;
+            if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
+                parts = EditorLogic.fetch.ship.parts;
+            else if (HighLogic.LoadedSceneIsFlight && vessel != null)
+                parts = vessel.parts;
+            else parts = new List<Part>();
+            foreach (Part p in parts)
+                p.SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
+
+            SetupFX();
+
+            UpdateTFInterops(); // update TestFlight if it's installed
 
             StopFX();
         }
@@ -767,38 +594,152 @@ namespace RealFuels
             return ignitions;
         }
 
+        #region SetConfiguration Tools
+        private void ClearFloatCurves(Type mType, PartModule pm, ConfigNode cfg, int techLevel)
+        {
+            // clear all FloatCurves we need to clear (i.e. if our config has one, or techlevels are enabled)
+            bool delAtmo = cfg.HasNode("atmosphereCurve") || techLevel >= 0;
+            bool delDens = cfg.HasNode("atmCurve") || techLevel >= 0;
+            bool delVel = cfg.HasNode("velCurve") || techLevel >= 0;
+            foreach (FieldInfo field in mType.GetFields())
+            {
+                if (field.FieldType == typeof(FloatCurve) &&
+                    ((field.Name.Equals("atmosphereCurve") && delAtmo)
+                    || (field.Name.Equals("atmCurve") && delDens)
+                    || (field.Name.Equals("velCurve") && delVel)))
+                {
+                    field.SetValue(pm, new FloatCurve());
+                }
+            }
+        }
+
+        private void ClearPropellantGauges(Type mType, PartModule pm)
+        {
+            foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (field.FieldType == typeof(Dictionary<Propellant, ProtoStageIconInfo>) &&
+                    field.GetValue(pm) is Dictionary<Propellant, ProtoStageIconInfo> boxes)
+                {
+                    foreach (ProtoStageIconInfo v in boxes.Values)
+                    {
+                        try
+                        {
+                            if (v is ProtoStageIconInfo)
+                                pm.part.stackIcon.RemoveInfo(v);
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError("*RFMEC* Trying to remove info box: " + e.Message);
+                        }
+                    }
+                    boxes.Clear();
+                }
+            }
+        }
+
+        private void ClearRCSPropellants(ConfigNode cfg)
+        {
+            List<ModuleRCS> RCSModules = part.Modules.OfType<ModuleRCS>().ToList();
+            if (RCSModules.Count > 0)
+            {
+                DoConfig(cfg);
+                foreach (var rcsModule in RCSModules)
+                {
+                    if (cfg.HasNode("PROPELLANT"))
+                        rcsModule.propellants.Clear();
+                    rcsModule.Load(cfg);
+                }
+            }
+        }
+
+        private void SetGimbalRange(ConfigNode cfg)
+        {
+            if (cfg.HasValue("gimbalRange"))
+            {
+                float.TryParse(cfg.GetValue("gimbalRange"), out float newGimbal);
+                float newGimbalXP = 0, newGimbalXN = 0, newGimbalYP = 0, newGimbalYN = 0;
+
+                if (!cfg.TryGetValue("gimbalRangeXP", ref newGimbalXP))
+                    newGimbalXP = newGimbal;
+                if (!cfg.TryGetValue("gimbalRangeXN", ref newGimbalXN))
+                    newGimbalXN = newGimbal;
+                if (!cfg.TryGetValue("gimbalRangeYP", ref newGimbalYP))
+                    newGimbalYP = newGimbal;
+                if (!cfg.TryGetValue("gimbalRangeYN", ref newGimbalYN))
+                    newGimbalYN = newGimbal;
+
+                foreach (var m in part.Modules)
+                {
+                    if (m is ModuleGimbal g &&
+                        (gimbalTransform.Equals(string.Empty) || g.gimbalTransformName.Equals(gimbalTransform)))
+                    {
+                        g.gimbalRange = newGimbal;
+                        g.gimbalRangeXN = newGimbalXN;
+                        g.gimbalRangeXP = newGimbalXP;
+                        g.gimbalRangeYN = newGimbalYN;
+                        g.gimbalRangeYP = newGimbalYP;
+                    }
+                }
+            }
+        }
+
+        private void HandleEngineIgnitor(ConfigNode cfg)
+        {
+            // Handle Engine Ignitor
+            if (cfg.HasNode("ModuleEngineIgnitor"))
+            {
+                ConfigNode eiNode = cfg.GetNode("ModuleEngineIgnitor");
+                if (part.Modules["ModuleEngineIgnitor"] is PartModule eiPM)
+                {
+                    if (eiNode.HasValue("ignitionsAvailable") &&
+                        int.TryParse(eiNode.GetValue("ignitionsAvailable"), out int ignitions))
+                    {
+                        ignitions = ConfigIgnitions(ignitions);
+                        eiNode.SetValue("ignitionsAvailable", ignitions);
+                        eiNode.SetValue("ignitionsRemained", ignitions, true);
+                    }
+                    if (HighLogic.LoadedSceneIsEditor || (HighLogic.LoadedSceneIsFlight && vessel?.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
+                    {
+                        int remaining = (int)eiPM.GetType().GetField("ignitionsRemained").GetValue(eiPM);
+                        eiNode.SetValue("ignitionsRemained", remaining, true);
+                    }
+                    ConfigNode tNode = new ConfigNode("MODULE");
+                    eiNode.CopyTo(tNode);
+                    tNode.SetValue("name", "ModuleEngineIgnitor", true);
+                    eiPM.Load(tNode);
+                }
+                else // backwards compatible with EI nodes when using RF ullage etc.
+                {
+                    if (eiNode.HasValue("ignitionsAvailable") && !cfg.HasValue("ignitions"))
+                        cfg.AddValue("ignitions", eiNode.GetValue("ignitionsAvailable"));
+                    if (eiNode.HasValue("useUllageSimulation") && !cfg.HasValue("ullage"))
+                        cfg.AddValue("ullage", eiNode.GetValue("useUllageSimulation"));
+                    if (eiNode.HasValue("isPressureFed") && !cfg.HasValue("pressureFed"))
+                        cfg.AddValue("pressureFed", eiNode.GetValue("isPressureFed"));
+                    if (!cfg.HasNode("IGNITOR_RESOURCE"))
+                        foreach (ConfigNode resNode in eiNode.GetNodes("IGNITOR_RESOURCE"))
+                            cfg.AddNode(resNode);
+                }
+            }
+        }
+
+        #endregion
         virtual public void DoConfig(ConfigNode cfg)
         {
             configMaxThrust = configMinThrust = configHeat = -1f;
-            // Get thrusts
-            if (config.HasValue(thrustRating))
-            {
-                float thr;
-                if (float.TryParse(config.GetValue(thrustRating), out thr))
-                    configMaxThrust = scale * thr;
-            }
-            if (config.HasValue("minThrust"))
-            {
-                float thr;
-                if (float.TryParse(config.GetValue("minThrust"), out thr))
-                    configMinThrust = scale * thr;
-            }
+            float x = 1;
+            if (cfg.TryGetValue(thrustRating, ref x))
+                configMaxThrust = scale * x;
+            if (cfg.TryGetValue("minThrust", ref x))
+                configMinThrust = scale * x;
+            if (cfg.TryGetValue("heatProduction", ref x))
+                configHeat = (float) Math.Round(x * RFSettings.Instance.heatMultiplier, 0);
 
-            // Get, multiply heat
-            if (cfg.HasValue("heatProduction"))
-            {
-                float heat;
-                if(float.TryParse(cfg.GetValue("heatProduction"), out heat))
-                    configHeat = (float)Math.Round(heat * RFSettings.Instance.heatMultiplier, 0);
-            }
-
-            // load throttle (for later)
             configThrottle = throttle;
             if (cfg.HasValue("throttle"))
                 float.TryParse(cfg.GetValue("throttle"), out configThrottle);
             else if (configMinThrust >= 0f && configMaxThrust >= 0f)
                 configThrottle = configMinThrust / configMaxThrust;
-
 
             float TLMassMult = 1.0f;
 
@@ -818,7 +759,6 @@ namespace RealFuels
                 TechLevel oTL = new TechLevel();
                 oTL.Load(cfg, techNodes, engineType, origTechLevel);
 
-
                 // set atmosphereCurve
                 if (cfg.HasValue("IspSL") && cfg.HasValue("IspV"))
                 {
@@ -827,13 +767,11 @@ namespace RealFuels
                     ConfigNode curve = new ConfigNode("atmosphereCurve");
 
                     // get the multipliers
-                    float ispSL = 1f, ispV = 1f;
-                    float.TryParse(cfg.GetValue("IspSL"), out ispSL);
-                    float.TryParse(cfg.GetValue("IspV"), out ispV);
+                    float.TryParse(cfg.GetValue("IspSL"), out float ispSL);
+                    float.TryParse(cfg.GetValue("IspV"), out float ispV);
 
                     // Mod the curve by the multipliers
-                    FloatCurve newAtmoCurve = new FloatCurve();
-                    newAtmoCurve = Utilities.Mod(cTL.AtmosphereCurve, ispSL, ispV);
+                    FloatCurve newAtmoCurve = Utilities.Mod(cTL.AtmosphereCurve, ispSL, ispV);
                     newAtmoCurve.Save(curve);
 
                     cfg.AddNode(curve);
@@ -841,35 +779,24 @@ namespace RealFuels
 
                 // set heatProduction
                 if (configHeat > 0)
-                {
                     configHeat = MassTL(configHeat);
-                }
 
                 // set thrust and throttle
                 if (configMaxThrust >= 0)
                 {
                     configMaxThrust = ThrustTL(configMaxThrust);
                     if (configMinThrust >= 0)
-                    {
                         configMinThrust = ThrustTL(configMinThrust);
-                    }
                     else if (thrustRating.Equals("thrusterPower"))
-                    {
                         configMinThrust = configMaxThrust * 0.5f;
-                    }
                     else
                     {
                         configMinThrust = configMaxThrust;
                         if (configThrottle > 1.0f)
-                        {
-                            if (techLevel >= configThrottle)
-                                configThrottle = 1.0f;
-                            else
-                                configThrottle = -1.0f;
-                        }
+                            configThrottle = techLevel >= configThrottle ? 1 : -1;
                         if (configThrottle >= 0.0f)
                         {
-                            configThrottle = (float)((double)configThrottle * cTL.Throttle());
+                            configThrottle = (float)(configThrottle * cTL.Throttle());
                             configMinThrust *= configThrottle;
                         }
                     }
@@ -914,17 +841,13 @@ namespace RealFuels
             // mass change
             if (origMass > 0)
             {
-                float ftmp;
                 configMassMult = scale;
                 if (cfg.HasValue("massMult"))
-                    if (float.TryParse(cfg.GetValue("massMult"), out ftmp))
+                    if (float.TryParse(cfg.GetValue("massMult"), out float ftmp))
                         configMassMult *= ftmp;
 
                 part.mass = origMass * configMassMult * RFSettings.Instance.EngineMassMultiplier * TLMassMult;
-                massDelta = 0;
-                if ((object)(part.partInfo) != null)
-                    if ((object)(part.partInfo.partPrefab) != null)
-                        massDelta = part.mass - part.partInfo.partPrefab.mass;
+                massDelta = (part.partInfo?.partPrefab is Part p) ? part.mass - p.mass : 0;
             }
 
             // KIDS integration
@@ -940,29 +863,17 @@ namespace RealFuels
             }
             // gimbal change
             if (gimbal >= 0 && !cfg.HasValue("gimbalRange")) // if TL set a gimbal
-            {
-                // apply module-wide gimbal mult on top of any local ones
-                cfg.AddValue("gimbalRange", (gimbal * gimbalMult).ToString("N4"));
-            }
+                cfg.AddValue("gimbalRange", $"{gimbal * gimbalMult:N4}");
             if (cost != 0f)
-            {
-                if (cfg.HasValue("cost"))
-                    cfg.SetValue("cost", cost.ToString("N3"));
-                else
-                    cfg.AddValue("cost", cost.ToString("N3"));
-            }
+                cfg.SetValue("cost", $"{cost:N3}", true);
         }
-
-        /*[PartMessageEvent]
-        public event PartEngineConfigChanged EngineConfigChanged;*/
-
 
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
             foreach(ConfigNode c in configs)
             {
-                c.SetValue("maxThrust", newThrust.ToString());
+                c.SetValue("maxThrust", newThrust);
             }
             SetConfiguration(configuration);
         }
