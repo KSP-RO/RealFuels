@@ -284,10 +284,10 @@ namespace RealFuels
         {
             string retStr = string.Empty;
             if (engineID != string.Empty)
-                retStr += "(Bound to " + engineID + ")\n";
+                retStr += $"(Bound to {engineID})\n";
             if(moduleIndex >= 0)
-                retStr += "(Bound to engine " + moduleIndex + " in part)\n";
-            if(techLevel != -1)
+                retStr += $"(Bound to engine {moduleIndex} in part)\n";
+            if (techLevel != -1)
             {
                 TechLevel cTL = new TechLevel();
                 if (!cTL.Load(config, techNodes, engineType, techLevel))
@@ -296,11 +296,11 @@ namespace RealFuels
                 if (!string.IsNullOrEmpty(configDescription))
                     retStr += configDescription + "\n";
 
-                retStr +=  "Type: " + engineType + ". Tech Level: " + techLevel + " (" + origTechLevel + "-" + maxTechLevel + ")";
+                retStr += $"Type: {engineType}. Tech Level: {techLevel} ({origTechLevel}-{maxTechLevel})";
                 if (origMass > 0)
-                    retStr += ", Mass: " + part.mass.ToString("N3") + " (was " + (origMass * RFSettings.Instance.EngineMassMultiplier).ToString("N3") + ")";
+                    retStr += $", Mass: {part.mass:N3} (was {origMass * RFSettings.Instance.EngineMassMultiplier:N3})";
                 if (configThrottle >= 0)
-                    retStr += ", MinThr " + (100f * configThrottle).ToString("N0") + "%";
+                    retStr += $", MinThr {configThrottle:P0}";
 
                 float gimbalR = -1f;
                 if (config.HasValue("gimbalRange"))
@@ -311,15 +311,12 @@ namespace RealFuels
                         gimbalR = cTL.GimbalRange;
                 }
                 if (gimbalR != -1f)
-                    retStr += ", Gimbal " + gimbalR.ToString("N1");
-
-                return retStr;
+                    retStr += $", Gimbal {gimbalR:N1}";
             }
-            else
-                return string.Empty;
+            return retStr;
         }
 
-        public override string GetInfo ()
+        public override string GetInfo()
         {
             if (!compatible)
                 return string.Empty;
@@ -328,15 +325,8 @@ namespace RealFuels
 
             string info = TLTInfo() + "\nAlternate configurations:\n";
 
-            //Unused as yet
-            /*TechLevel moduleTLInfo = new TechLevel();
-            if (techNodes != null)
-                moduleTLInfo.Load(techNodes, techLevel);
-            else
-                moduleTLInfo = null;*/
-
             foreach (ConfigNode config in configs)
-                if(!config.GetValue ("name").Equals (configuration))
+                if(!config.GetValue("name").Equals(configuration))
                     info += GetConfigInfo(config);
 
             return info;
@@ -348,68 +338,52 @@ namespace RealFuels
             if (!cTL.Load(config, techNodes, engineType, techLevel))
                 cTL = null;
 
-            string info = "   " + config.GetValue("name") + "\n";
+            string info = $"   {config.GetValue("name")}\n";
             if (config.HasValue("description"))
-                info += "    " + config.GetValue("description") + "\n";
+                info += $"    {config.GetValue("description")}\n";
             if (config.HasValue("tfRatedBurnTime"))
-                info += "    " + config.GetValue("tfRatedBurnTime") + "\n";
+                info += $"    {config.GetValue("tfRatedBurnTime")}\n";
             if (config.HasValue(thrustRating))
             {
-                info += "    " + Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config));
+                info += $"    {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}";
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
-                    info += ", min " + (float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)) * 100f).ToString("N0") + "%";
+                    info += $", min {float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)):P0}";
                 else if (config.HasValue("throttle"))
-                    info += ", min " + (float.Parse(config.GetValue("throttle")) * 100f).ToString("N0") + "%";
+                    info += $", min {float.Parse(config.GetValue("throttle")):P0}";
             }
             else
                 info += "    Unknown Thrust";
 
             if (origMass > 0f)
             {
-                float cMass = scale;
-                float ftmp;
-                if (config.HasValue("massMult"))
-                    if (float.TryParse(config.GetValue("massMult"), out ftmp))
-                        cMass *= ftmp;
+                float cMass = scale * origMass * RFSettings.Instance.EngineMassMultiplier;
+                if (config.HasValue("massMult") && float.TryParse(config.GetValue("massMult"), out float ftmp))
+                    cMass *= ftmp;
 
-                cMass = origMass * cMass * RFSettings.Instance.EngineMassMultiplier;
-
-                info += ", " + cMass.ToString("N3") + "t";
+                info += $", {cMass:N3}t";
             }
             info += "\n";
 
-            FloatCurve isp = new FloatCurve();
             if (config.HasNode("atmosphereCurve"))
             {
+                FloatCurve isp = new FloatCurve();
                 isp.Load(config.GetNode("atmosphereCurve"));
-                info += "    Isp: "
-                    + isp.Evaluate(isp.maxTime).ToString() + " - "
-                      + isp.Evaluate(isp.minTime).ToString() + "s\n";
+                info += $"    Isp: {isp.Evaluate(isp.maxTime)} - {isp.Evaluate(isp.minTime)}s\n";
             }
-            else if (config.HasValue("IspSL") && config.HasValue("IspV"))
+            else if (config.HasValue("IspSL") && config.HasValue("IspV") && cTL != null)
             {
-                float ispSL = 1.0f, ispV = 1.0f;
-                float.TryParse(config.GetValue("IspSL"), out ispSL);
-                float.TryParse(config.GetValue("IspV"), out ispV);
-                if (cTL != null)
-                {
-                    ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
-                    ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                    info += "    Isp: " + ispSL.ToString("0") + " - " + ispV.ToString("0") + "s\n";
-                }
+                float.TryParse(config.GetValue("IspSL"), out float ispSL);
+                float.TryParse(config.GetValue("IspV"), out float ispV);
+                ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
+                ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
+                info += $"    Isp: {ispSL:N0} - {ispV:N0}s\n";
             }
-            float gimbalR = -1f;
             if (config.HasValue("gimbalRange"))
-                gimbalR = float.Parse(config.GetValue("gimbalRange"));
-            // Don't do per-TL checks here, they're misleading.
-            /*else if (!gimbalTransform.Equals(string.Empty) || useGimbalAnyway)
             {
-                if (cTL != null)
-                    gimbalR = cTL.GimbalRange;
-            }*/
-            if (gimbalR != -1f)
-                info += "    Gimbal " + gimbalR.ToString("N1") + "d\n";
+                float gimbalR = float.Parse(config.GetValue("gimbalRange"));
+                info += $"    Gimbal {gimbalR:N1}d\n";
+            }
 
             if (config.HasValue("ullage") || config.HasValue("ignitions") || config.HasValue("pressureFed"))
             {
@@ -417,7 +391,7 @@ namespace RealFuels
                 bool comma = false;
                 if (config.HasValue("ullage"))
                 {
-                    info += (config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
+                    info += config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage";
                     comma = true;
                 }
                 if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
@@ -430,13 +404,12 @@ namespace RealFuels
 
                 if (config.HasValue("ignitions"))
                 {
-                    int ignitions;
-                    if (int.TryParse(config.GetValue("ignitions"), out ignitions))
+                    if (int.TryParse(config.GetValue("ignitions"), out int ignitions))
                     {
                         if (comma)
                             info += ", ";
                         if (ignitions > 0)
-                            info += ignitions + " ignition" + (ignitions > 1 ? "s" : string.Empty);
+                            info += $"{ignitions} ignition{(ignitions > 1 ? "s" : string.Empty)}";
                         else if (literalZeroIgnitions && ignitions == 0)
                             info += "ground ignition only";
                         else
@@ -445,77 +418,45 @@ namespace RealFuels
                 }
                 info += "\n";
             }
-            float cst;
-            if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out cst))
-                info += "    (" + (scale * cst).ToString("N0") + " extra cost)\n"; // FIXME should get cost from TL, but this should be safe
+            if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out float cst))
+                info += $"    ({scale * cst:N0} extra cost)\n"; // FIXME should get cost from TL, but this should be safe
 
             return info;
         }
         #endregion
 
         #region FX handling
-        string[] effectsToStop;
+        // Stop all effects registered with any config, but not with the current config
+        private readonly HashSet<string> effectsToStop = new HashSet<string>();
         public void SetupFX()
         {
-            List<string> ourFX = new List<string>();
-
-            // grab all effects
-            List<string> effectsNames = new List<string>();
-            effectsNames.Add("runningEffectName");
-            effectsNames.Add("powerEffectName");
-            effectsNames.Add("directThrottleEffectName");
-            effectsNames.Add("disengageEffectName");
-            effectsNames.Add("engageEffectName");
-            effectsNames.Add("flameoutEffectName");
-
-            // will be pushed to effectsToStop when done
-            Dictionary<string, bool> otherCfgsFX = new Dictionary<string, bool>();
-
-            // for each config and effect name, apply to dict if not us, else add to list of ours.
-            foreach (ConfigNode cfg in configs)
+            List<string> effectsNames = new List<string>
             {
-                bool ourConfig = cfg.GetValue("name").Equals(configuration);
-                foreach (string fxName in effectsNames)
-                {
-                    if (cfg.HasValue(fxName))
-                    {
-                        string val = cfg.GetValue(fxName);
-                        if (ourConfig)
-                            ourFX.Add(val);
-                        else
-                            otherCfgsFX[val] = true;
+                "runningEffectName",
+                "powerEffectName",
+                "directThrottleEffectName",
+                "disengageEffectName",
+                "engageEffectName",
+                "flameoutEffectName"
+            };
 
-                    }
-                }
-            }
-            foreach (string s in ourFX)
+            string val = string.Empty;
+            IEnumerable<ConfigNode> others = configs.Where(x => !x.GetValue("name").Equals(configuration));
+            ConfigNode ours = configs.FirstOrDefault(x => x.GetValue("name").Equals(configuration));
+            foreach (string fxName in effectsNames)
             {
-                otherCfgsFX.Remove(s);
+                foreach (ConfigNode cfg in others)
+                    if (cfg.TryGetValue(fxName, ref val))
+                        effectsToStop.Add(val);
+                if (ours is ConfigNode && ours.TryGetValue(fxName, ref val))
+                    effectsToStop.Remove(val);
             }
-            effectsToStop = new string[otherCfgsFX.Keys.Count];
-            otherCfgsFX.Keys.CopyTo(effectsToStop, 0);
         }
         public void StopFX()
         {
-            //if(HighLogic.LoadedSceneIsFlight)
-            if (part != null && effectsToStop != null)
-            {
-                for (int i = effectsToStop.Length - 1; i >= 0; --i)
-                    part.Effect(effectsToStop[i], 0f);
-            }
+            foreach (var x in effectsToStop)
+                part?.Effect(x, 0f);
         }
-        #endregion
-
-        #region MonoBehaviour Methods
-        /*virtual public void FixedUpdate()
-        {
-            if (!compatible)
-                return;
-            if (vessel == null)
-                return;
-
-            StopFX();
-        }*/
         #endregion
 
         #region Configuration
