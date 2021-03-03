@@ -565,6 +565,8 @@ namespace RealFuels
             // GUI disabled for now - UpdateTweakableMenu();
 
             // Prior comments suggest firing GameEvents.onEditorShipModified causes problems?
+            part.SendMessage("OnEngineConfigurationChanged", SendMessageOptions.DontRequireReceiver);
+
             List<Part> parts;
             if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
                 parts = EditorLogic.fetch.ship.parts;

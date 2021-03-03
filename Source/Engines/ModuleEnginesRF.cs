@@ -193,7 +193,8 @@ namespace RealFuels
         }
 
         // Event fired by MEC after changing a part.
-        public virtual void UpdateUsedBy()
+        public virtual void UpdateUsedBy() { }
+        public virtual void OnEngineConfigurationChanged()
         {
             if (started) Start();       // Wait until we've started once to allow this path to restart
         }
