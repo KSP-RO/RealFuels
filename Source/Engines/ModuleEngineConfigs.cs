@@ -979,43 +979,7 @@ namespace RealFuels
         #endregion
 
         #region GUI
-        /*[KSPEvent(guiActive = false, guiActiveEditor = true, name = "NextEngine", guiName = "Current Configuration")]
-        public void NextEngine()
-        {
-            bool nextEngine = false;
-            foreach (ConfigNode node in configs)
-            {
-                if (node.GetValue("name").Equals(configuration))
-                    nextEngine = true; // flag to use the next config
-                else if (nextEngine == true) // flag set
-                {
-                    SetConfiguration(configuration = node.GetValue("name"));
-                    UpdateSymmetryCounterparts();
-                    return;
-                }
-            }
-            SetConfiguration(configs[0].GetValue("name"));
-            UpdateSymmetryCounterparts();
-        }
-
-        [KSPEvent(guiActive = false, guiActiveEditor = true, name = "NextTech", guiName = "Tech Level")]
-        public void NextTech()
-        {
-            if (techLevel == -1)
-                return;
-            else if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
-            {
-                techLevel++;
-            }
-            else while (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel)
-                {
-                    techLevel--;
-                }
-            SetConfiguration(configuration);
-            UpdateSymmetryCounterparts();
-        }*/
-
-        [KSPField(isPersistant = false, guiActiveEditor = true, guiActive = false, guiName = "Engine"),
+        [KSPField(guiActiveEditor = true, guiName = "Engine"),
          UI_Toggle(enabledText = "Hide GUI", disabledText = "Show GUI")]
         [NonSerialized]
         public bool showRFGUI;
@@ -1049,24 +1013,17 @@ namespace RealFuels
             bool inPartsEditor = EditorLogic.fetch.editorScreen == EditorScreen.Parts;
             if (!(showRFGUI && inPartsEditor) && !(EditorLogic.fetch.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part)))
             {
-                editorUnlock();
+                EditorUnlock();
                 return;
             }
 
-            if (inPartsEditor)
-            {
-                List<Part> symmetryParts = part.symmetryCounterparts;
-                for(int i = 0; i < symmetryParts.Count; i++)
-                {
-                    if (symmetryParts[i].persistentId < part.persistentId)
-                        return;
-                }
-            }
+            if (inPartsEditor && part.symmetryCounterparts.FirstOrDefault(p => p.persistentId < part.persistentId) is Part)
+                return;
 
             if (!styleSetup)
             {
                 styleSetup = true;
-                Styles.InitStyles ();
+                Styles.InitStyles();
             }
 
             if (guiWindowRect.width == 0)
@@ -1079,32 +1036,31 @@ namespace RealFuels
             mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
             mousePos.y = Screen.height - mousePos.y;
             if (guiWindowRect.Contains(mousePos))
-                editorLock();
+                EditorLock();
             else
-                editorUnlock();
+                EditorUnlock();
 
-            myToolTip = myToolTip.Trim ();
-            if (!String.IsNullOrEmpty(myToolTip))
+            myToolTip = myToolTip.Trim();
+            if (!string.IsNullOrEmpty(myToolTip))
             {
                 int offset = inPartsEditor ? -222 : 440;
                 int width = inPartsEditor ? 220 : 300;
                 GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, width, 200), myToolTip, Styles.styleEditorTooltip);
             }
 
-            guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, engineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
+            guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, EngineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
         }
 
-        private void editorLock() {
+        private void EditorLock() {
             if (!editorLocked)
             {
                 EditorLogic.fetch.Lock(false, false, false, "RFGUILock");
                 editorLocked = true;
-                if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
-                    KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip();
+                KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance?.HideTooltip();
             }
         }
 
-        private void editorUnlock() {
+        private void EditorUnlock() {
             if (editorLocked)
             {
                 EditorLogic.fetch.Unlock("RFGUILock");
@@ -1112,45 +1068,9 @@ namespace RealFuels
             }
         }
 
-        /*private int oldTechLevel = -1;
-        private string oldConfiguration;
-        public void UpdateTweakableMenu()
+        private void EngineManagerGUI(int WindowID)
         {
-            if (!compatible)
-                return;
-            if (!HighLogic.LoadedSceneIsEditor)
-                return;
-
-            if (configs.Count < 2)
-                Events["NextEngine"].guiActiveEditor = false;
-            else
-                Events["NextEngine"].guiName = configuration;
-
-            if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
-                Events["NextTech"].guiName = "Tech Level: " + techLevel.ToString() + "            +";
-            else if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel)
-                Events["NextTech"].guiName = "Tech Level: " + techLevel.ToString() + "            -";
-            else
-                Events["NextTech"].guiActiveEditor = false;
-
-            // Sorry about this dirty hack. Otherwise we end up with loops. Will try to get something tidier
-            // some time in the future.
-            if (oldConfiguration != null && (techLevel != oldTechLevel || oldConfiguration != configuration))
-            {
-                oldConfiguration = configuration;
-                oldTechLevel = techLevel;
-                EngineConfigChanged();
-            }
-            else
-            {
-                oldConfiguration = configuration;
-                oldTechLevel = techLevel;
-            }
-        }*/
-
-        private void engineManagerGUI(int WindowID)
-        {
-            GUILayout.Space (20);
+            GUILayout.Space(20);
             foreach (ConfigNode node in configs)
             {
                 string nName = node.GetValue("name");
@@ -1166,12 +1086,12 @@ namespace RealFuels
                     {
                         curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
                     }
-                    costString = " (" + ((curCost < 0) ? string.Empty : "+") + curCost.ToString("N0") + "f)";
+                    costString = $" ({((curCost < 0) ? string.Empty : "+")}{curCost:N0}f)";
                 }
 
                 if (nName.Equals(configuration))
                 {
-                    GUILayout.Label(new GUIContent("Current config: " + nName + costString, GetConfigInfo(node)));
+                    GUILayout.Label(new GUIContent($"Current config: {nName}{costString}", GetConfigInfo(node)));
                 }
                 else
                 {
@@ -1179,7 +1099,7 @@ namespace RealFuels
                     {
                         if (UnlockedConfig(node, part))
                         {
-                            if (GUILayout.Button(new GUIContent("Switch to " + nName + costString, GetConfigInfo(node))))
+                            if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
                             {
                                 SetConfiguration(nName, true);
                                 UpdateSymmetryCounterparts();
@@ -1192,8 +1112,8 @@ namespace RealFuels
                             costString = string.Empty;
                             if (upgradeCost > 0d)
                             {
-                                costString = "(" + upgradeCost.ToString("N0") + "f)";
-                                if (GUILayout.Button(new GUIContent("Purchase " + nName + costString, GetConfigInfo(node))))
+                                costString = $"({upgradeCost:N0}f)";
+                                if (GUILayout.Button(new GUIContent($"Purchase {nName}{costString}", GetConfigInfo(node))))
                                 {
                                     if (EntryCostManager.Instance.PurchaseConfig(nName))
                                     {
@@ -1207,7 +1127,7 @@ namespace RealFuels
                             {
                                 // autobuy
                                 EntryCostManager.Instance.PurchaseConfig(nName);
-                                if (GUILayout.Button(new GUIContent("Switch to " + nName + costString, GetConfigInfo(node))))
+                                if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
                                 {
                                     SetConfiguration(nName, true);
                                     UpdateSymmetryCounterparts();
@@ -1218,8 +1138,7 @@ namespace RealFuels
                     }
                     else
                     {
-                        string techStr = string.Empty;
-                        if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out techStr))
+                        if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
                             techStr = "\nRequires: " + techStr;
                         GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node) + techStr));
                     }
@@ -1311,11 +1230,11 @@ namespace RealFuels
                 {
                     ratedBurnTime += config.GetValue("tfRatedBurnTime") + "\n";
                 }
-                GUILayout.Label(ratedBurnTime + "<b>Engine mass:</b> " + part.mass.ToString("N3") + "t\n" + pModule.GetInfo() + "\n" + TLTInfo() + "\n" + "Total cost: " + (part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost)).ToString("0"));
+                GUILayout.Label($"{ratedBurnTime}<b>Engine mass:</b> {part.mass:N3}t\n{pModule.GetInfo()}\n{TLTInfo()}\nTotal cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}");
                 GUILayout.EndHorizontal();
             }
 
-            if (!(myToolTip.Equals(string.Empty)) && GUI.tooltip.Equals(string.Empty))
+            if (!myToolTip.Equals(string.Empty) && GUI.tooltip.Equals(string.Empty))
             {
                 if (counterTT > 4)
                 {
@@ -1342,22 +1261,18 @@ namespace RealFuels
         virtual public int UpdateSymmetryCounterparts()
         {
             int i = 0;
-            if (part.symmetryCounterparts == null)
-                return i;
-
             int mIdx = moduleIndex;
             if (engineID == string.Empty && mIdx < 0)
                 mIdx = 0;
 
-            int pCount = part.symmetryCounterparts.Count;
-            for (int j = 0; j < pCount; ++j)
+            foreach (Part p in part.symmetryCounterparts)
             {
-                if (part.symmetryCounterparts[j] == part)
-                    continue;
-                ModuleEngineConfigs engine = GetSpecifiedModule(part.symmetryCounterparts[j], engineID, mIdx, this.GetType().Name, false) as ModuleEngineConfigs;
-                engine.techLevel = techLevel;
-                engine.SetConfiguration(configuration);
-                ++i;
+                if (GetSpecifiedModule(p, engineID, mIdx, GetType().Name, false) is ModuleEngineConfigs engine)
+                {
+                    engine.techLevel = techLevel;
+                    engine.SetConfiguration(configuration);
+                    ++i;
+                }
             }
             return i;
         }
@@ -1367,11 +1282,9 @@ namespace RealFuels
             if (node.HasNode("OtherModules"))
             {
                 node = node.GetNode("OtherModules");
-                int nCount = node.values.Count;
-                for (int i = 0; i < nCount; ++i)
+                for (int i = 0; i < node.values.Count; ++i)
                 {
-                    ModuleEngineConfigs otherM = GetSpecifiedModule(part, node.values[i].name, -1, this.GetType().Name, false) as ModuleEngineConfigs;
-                    if (otherM != null)
+                    if (GetSpecifiedModule(part, node.values[i].name, -1, GetType().Name, false) is ModuleEngineConfigs otherM)
                     {
                         otherM.techLevel = techLevel;
                         otherM.SetConfiguration(node.values[i].value);
@@ -1387,94 +1300,26 @@ namespace RealFuels
         // run this to save/load non-serialized data
         protected void ConfigSaveLoad()
         {
-            string partName = Utilities.GetPartName(part);
-            partName += moduleIndex + engineID;
-            //Debug.Log("*RFMEC* Saveload " + partName);
-            if (configs == null)
-                configs = new List<ConfigNode>();
+            string partName = Utilities.GetPartName(part) + moduleIndex + engineID;
             if (configs.Count > 0)
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
-                {
                     RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
-                    /*Debug.Log("*RFMEC* Saved " + configs.Count + " configs");
-                    Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
-                }
-                else
-                {
-                    /*Debug.Log("*RFMEC* ERROR: part " + partName + " already in database! Current count = " + configs.Count + ", db count = " + RFSettings.Instance.engineConfigs[partName].Count);
-                    Debug.Log("DB nodes:" + Utilities.PrintConfigs(RFSettings.Instance.engineConfigs[partName]));
-                    Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
-                    //configs = RFSettings.Instance.engineConfigs[partName]; // just in case.
-                }
-
             }
+            else if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
+                configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
             else
-            {
-                if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
-                {
-                    configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
-                    /*Debug.Log("Found " + configs.Count + " configs!");
-                    Debug.Log("Current nodes:" + Utilities.PrintConfigs(configs));*/
-                }
-                else
-                    Debug.Log("*RFMEC* ERROR: could not find configs definition for " + partName);
-            }
+                Debug.LogError($"*RFMEC* ERROR: could not find configs definition for {partName}");
         }
 
-        protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType)
-        {
-            int mCount = p.Modules.Count;
-            int tmpIdx = 0;
+        protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType) => GetSpecifiedModules(p, eID, mIdx, eType, weakType).FirstOrDefault();
 
-            for(int m = 0; m < mCount; ++m)
-            {
-                PartModule pM = p.Modules[m];
-                bool test = false;
-                if (weakType)
-                {
-                    if (eType.Contains("ModuleEngines"))
-                        test = pM is ModuleEngines;
-                    else if (eType.Contains("ModuleRCS"))
-                        test = pM is ModuleRCS;
-                }
-                else
-                    test = pM.GetType().Name.Equals(eType);
-
-                if (test)
-                {
-                    if (mIdx >= 0)
-                    {
-                        if (tmpIdx == mIdx)
-                        {
-                            return pM;
-                        }
-                        tmpIdx++;
-                        continue; // skip the next test
-                    }
-                    else if (eID != string.Empty)
-                    {
-                        string testID = string.Empty;
-                        if (pM is ModuleEngines)
-                            testID = (pM as ModuleEngines).engineID;
-                        else if (pM is ModuleEngineConfigs)
-                            testID = (pM as ModuleEngineConfigs).engineID;
-
-                        if (testID.Equals(eID))
-                            return pM;
-                    }
-                    else
-                        return pM;
-                }
-            }
-            return null;
-        }
-
+        private static readonly List<PartModule> _searchList = new List<PartModule>();
         protected static List<PartModule> GetSpecifiedModules(Part p, string eID, int mIdx, string eType, bool weakType)
         {
             int mCount = p.Modules.Count;
             int tmpIdx = 0;
-            List<PartModule> pMs = new List<PartModule>();
+            _searchList.Clear();
 
             for (int m = 0; m < mCount; ++m)
             {
@@ -1496,7 +1341,7 @@ namespace RealFuels
                     {
                         if (tmpIdx == mIdx)
                         {
-                            pMs.Add(pM);
+                            _searchList.Add(pM);
                         }
                         tmpIdx++;
                         continue; // skip the next test
@@ -1510,29 +1355,19 @@ namespace RealFuels
                             testID = (pM as ModuleEngineConfigs).engineID;
 
                         if (testID.Equals(eID))
-                            pMs.Add(pM);
+                            _searchList.Add(pM);
                     }
                     else
-                        pMs.Add(pM);
+                        _searchList.Add(pM);
                 }
             }
-            return pMs;
+            return _searchList;
         }
 
         internal void MarkWindowDirty()
         {
-            UIPartActionWindow action_window;
-            if (UIPartActionController.Instance == null)
-            {
-                // no controller means no window to mark dirty
-                return;
-            }
-            action_window = UIPartActionController.Instance.GetItem(part);
-            if (action_window == null)
-            {
-                return;
-            }
-            action_window.displayDirty = true;
+            if (UIPartActionController.Instance?.GetItem(part) is UIPartActionWindow action_window)
+                action_window.displayDirty = true;
         }
         #endregion
     }
