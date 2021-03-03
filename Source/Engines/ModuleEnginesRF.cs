@@ -293,19 +293,14 @@ namespace RealFuels
                     float deltaT = TimeWarp.fixedDeltaTime;
 
                     float delta = requiredThrottle - currentThrottle;
-                    if (delta != 0f)
+                    int sign = Math.Sign(delta);
+                    if (sign != 0)
                     {
                         float thisTick = throttleResponseRate * deltaT;
-                        float sign = 1f;
-                        if (delta < 0)
-                        {
-                            sign = -1f;
-                            delta = -delta;
-
-                            // FIXME this doesn't actually matter much because we force-set to 0 if not ignited...
-                            if (currentThrottle <= IGNITELEVEL)
-                                thisTick *= throttleDownMult;
-                        }
+                        delta = Math.Abs(delta);
+                        // FIXME this doesn't actually matter much because we force-set to 0 if not ignited...
+                        if (sign < 0 && currentThrottle <= IGNITELEVEL)
+                            thisTick *= throttleDownMult;
 
                         if (currentThrottle > IGNITELEVEL)
                         {
@@ -313,7 +308,7 @@ namespace RealFuels
                             thisTick *= (1f - invDelta * invDelta) * 5f * throttleStartedMult;
                         }
                         else
-                            thisTick *= 0.0005f + 4.05f * currentThrottle * throttleStartupMult * (pressureFed ? throttlePressureFedStartupMult : 1f);
+                            thisTick *= 0.0005f + 4.05f * currentThrottle * throttleStartupMult * (pressureFed ? throttlePressureFedStartupMult : 1);
 
                         if (delta > thisTick && delta > throttleClamp)
                             currentThrottle += thisTick * sign;
