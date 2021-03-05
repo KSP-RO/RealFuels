@@ -272,16 +272,6 @@ namespace RealFuels
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
         }
 
-        // Consider removing this method: SetConfiguration calls at Load or Start seems more than sufficient
-        public override void OnInitialize()
-        {
-            if (!compatible)
-                return;
-
-            SetConfiguration();
-        }
-        #endregion
-
         #region Info Methods
         private string TLTInfo()
         {
