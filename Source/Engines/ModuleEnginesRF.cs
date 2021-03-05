@@ -8,6 +8,8 @@ namespace RealFuels
 {
     public class ModuleEnginesRF : ModuleEnginesSolver
     {
+        public const string groupName = "ModuleEnginesRF";
+        public const string groupDisplayName = "Engine";
         #region Fields
         [KSPField]
         public double chamberNominalTemp = 0d;
@@ -40,13 +42,13 @@ namespace RealFuels
 
         protected Propellant curveProp;
 
-        [KSPField(guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3")]
+        [KSPField(guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3", groupName = groupName)]
         public float curveTime = 0f;
         #endregion
 
         #region TweakScale
         protected double scale = 1d;
-        protected double scaleRecip = 1d;
+        protected double ScaleRecip => 1d / scale;
         #endregion
 
         protected bool instantThrottle = false;
@@ -57,20 +59,35 @@ namespace RealFuels
         [KSPField]
         public Vector3 thrustAxis = Vector3.zero;
 
-        [KSPField]
-        public bool pressureFed = false;
-
-        [KSPField]
-        public bool ullage = false;
-
-        [KSPField(guiName = "Ignitions Remaining", isPersistant = true)]
-        public int ignitions = -1;
-
         [KSPField(isPersistant = true)]
         protected bool ignited = false;
 
-        [KSPField(guiName = "Propellant")]
+        [KSPField(guiName = "Propellant", groupName = groupName, groupDisplayName = groupDisplayName)]
         public string propellantStatus = "Stable";
+
+        [KSPField(guiActiveEditor = true, guiName = "Pressure-Fed", groupName = groupName)]
+        public bool pressureFed = false;
+
+        [KSPField(guiActiveEditor = true, guiName = "Ullage", groupName = groupName)]
+        public bool ullage = false;
+
+        [KSPField(guiName = "Mass", guiActiveEditor = true, guiFormat = "F3", guiUnits = "t", groupName = groupName)]
+        public float dispMass = 0;
+
+        [KSPField(guiName = "Max Thrust", guiActiveEditor = true, groupName = groupName)]
+        public string sThrust;
+
+        [KSPField(guiName = "ISP", guiActiveEditor = true, groupName = groupName)]
+        public string sISP;
+
+        [KSPField(guiName = "Ignitions Remaining", isPersistant = true, groupName = groupName, groupDisplayName = groupDisplayName)]
+        public int ignitions = -1;
+
+        [KSPField(guiName = "Ignitions Remaining", groupName = groupName)]
+        public string sIgnitions = string.Empty;
+
+        [KSPField(guiName = "Min Throttle", guiActiveEditor = true, groupName = groupName, guiFormat = "P0")]
+        protected float _minThrottle;
 
         public Ullage.UllageSet ullageSet;
         protected ConfigNode ullageNode;
@@ -217,47 +234,71 @@ namespace RealFuels
 
             showPropStatus = pressureFed || (ullage && RFSettings.Instance.simulateUllage);
 
-            Fields[nameof(ignitions)].guiActive = Fields[nameof(ignitions)].guiActiveEditor = ignitions >= 0 && RFSettings.Instance.limitedIgnitions;
+            Fields[nameof(ignitions)].guiActive = ignitions >= 0 && RFSettings.Instance.limitedIgnitions;
             Fields[nameof(propellantStatus)].guiActive = Fields[nameof(propellantStatus)].guiActiveEditor = showPropStatus;
-            Fields[nameof(pressureFed)].guiActive = true;
+            Fields[nameof(sIgnitions)].guiActiveEditor = RFSettings.Instance.limitedIgnitions;
 
             igniteFailIgnitions = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
             igniteFailResources = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: insufficient resources to ignite!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
             ullageFail = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: vapor in feedlines, shut down!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
 
             Fields[nameof(thrustPercentage)].guiActive = Fields[nameof(thrustPercentage)].guiActiveEditor = minFuelFlow != maxFuelFlow;
-            Fields[nameof(thrustCurveDisplay)].guiActive = useThrustCurve && HighLogic.LoadedSceneIsFlight;
+            Fields[nameof(thrustCurveDisplay)].guiActive = useThrustCurve;
+
+            var group = Fields[nameof(propellantStatus)].group;
+            Fields[nameof(engineTempString)].group = group;
+            Fields[nameof(actualThrottle)].group = group;
+            Fields[nameof(realIsp)].group = group;
+            Fields[nameof(finalThrust)].group = group;
+            Fields[nameof(propellantReqMet)].group = group;
+            Fields[nameof(fuelFlowGui)].group = group;
+
+            SetFields();
             started = true;
         }
 
-        Color ullageColor = XKCDColors.White;
+        private void OnToggleDisplayMode(BaseField f, object obj) => SetFields();
+
+        private void SetFields()
+        {
+            Fields[nameof(ullage)].guiActiveEditor = ullage;
+            Fields[nameof(pressureFed)].guiActiveEditor = pressureFed;
+            _minThrottle = MinThrottle;
+            sISP = $"{atmosphereCurve.Evaluate(0):N0} (Vac) - {atmosphereCurve.Evaluate(1):N0} (ASL)";
+            GetThrustData(out double thrustVac, out double thrustASL);
+            sThrust = $"{Utilities.FormatThrust(thrustVac)} (Vac) - {Utilities.FormatThrust(thrustASL)} (ASL)";
+            if (ignitions > 0)
+                sIgnitions = $"{ignitions:N0}";
+            else if (ignitions == -1)
+                sIgnitions = "Unlimited";
+            else
+                sIgnitions = "<color=red>Ground-lit only</color>";
+
+            dispMass = part.mass;
+        }
 
         public virtual void Update()
         {
             if (!(ullageSet is Ullage.UllageSet && showPropStatus)) return;
 
-            UnityEngine.Profiling.Profiler.BeginSample("ModuleEnginesRF.Update.EditorPressurized");
             if (HighLogic.LoadedSceneIsEditor && pressureFed)
                 ullageSet.EditorPressurized();
-            UnityEngine.Profiling.Profiler.EndSample();
-            UnityEngine.Profiling.Profiler.BeginSample("ModuleEnginesRF.Update.PropellantStatus");
 
             propellantStatus = "Nominal";
             if (HighLogic.LoadedSceneIsEditor && !pressureFed)
                 propellantStatus = "OK";
             else if (pressureFed && !ullageSet.PressureOK())
-                propellantStatus = "Feed pressure too low";
+                propellantStatus = "<color=red>Needs high pressure tanks</color>";
             else if (pressureFed && ullageSet.PressureOK())
             {
                 if (HighLogic.LoadedSceneIsEditor)
                     propellantStatus = "Feed pressure OK";
-                else if (ullage && RFSettings.Instance.simulateUllage)
-                {
-                    propellantStatus = ullageSet.GetUllageState(out ullageColor);
-                    part.stackIcon.SetIconColor(ullageColor);
-                }
             }
-            UnityEngine.Profiling.Profiler.EndSample();
+            else if (ullage && RFSettings.Instance.simulateUllage)
+            {
+                propellantStatus = ullageSet.GetUllageState(out Color ullageColor);
+                part.stackIcon.SetIconColor(ullageColor);
+            }
         }
 
         public virtual void CalcThrottleResponseRate(ref float responseRate, ref bool instant)
@@ -419,9 +460,7 @@ namespace RealFuels
         public void SetScale(double newScale)
         {
             scale = newScale;
-            scaleRecip = 1d / scale;
-            if(rfSolver != null)
-                rfSolver.SetScale(scale);
+            rfSolver?.SetScale(scale);
         }
         #endregion
 
@@ -433,28 +472,47 @@ namespace RealFuels
             if (MinThrottle < 0f || MinThrottle > 1f) { return string.Empty; }
             return $", {MinThrottle:P0} min throttle";
         }
+
+        protected void GetThrustData(out double thrustVac, out double thrustASL)
+        {
+            rfSolver.SetPropellantStatus(true, true);
+
+            bool oldE = EngineIgnited;
+            bool oldIg = ignited;
+            float oldThrottle = currentThrottle;
+            double oldLastPropellantFraction = lastPropellantFraction;
+
+            currentThrottle = 1f;
+            lastPropellantFraction = 1d;
+            EngineIgnited = true;
+            ignited = true;
+
+            ambientTherm = EngineThermodynamics.StandardConditions(true);
+            inletTherm = ambientTherm;
+
+            rfSolver.UpdateThrustRatio(1d);
+            rfSolver.SetPropellantStatus(true, true);
+
+            UpdateSolver(EngineThermodynamics.StandardConditions(true), 0d, Vector3d.zero, 0d, true, true, false);
+            thrustASL = engineSolver.GetThrust() * 0.001d;
+            double spaceHeight = Planetarium.fetch?.Home?.atmosphereDepth + 1000d ?? 141000d;
+            UpdateSolver(EngineThermodynamics.VacuumConditions(true), spaceHeight, Vector3d.zero, 0d, true, true, false);
+            thrustVac = engineSolver.GetThrust() * 0.001d;
+
+            EngineIgnited = oldE;
+            ignited = oldIg;
+            currentThrottle = oldThrottle;
+            lastPropellantFraction = oldLastPropellantFraction;
+        }
+
         protected string GetThrustInfo()
         {
             string output = string.Empty;
             if (!(engineSolver is SolverRF))
                 CreateEngine();
+
+            GetThrustData(out double thrustVac, out double thrustASL);
             rfSolver.SetPropellantStatus(true, true);
-
-            ambientTherm = EngineThermodynamics.StandardConditions(true);
-            inletTherm = ambientTherm;
-
-            currentThrottle = 1f;
-            lastPropellantFraction = 1d;
-            bool oldE = EngineIgnited;
-            EngineIgnited = true;
-            bool oldIg = ignited;
-            ignited = true;
-
-            rfSolver.UpdateThrustRatio(1d);
-            rfSolver.SetPropellantStatus(true, true);
-
-            UpdateSolver(ambientTherm, 0d, Vector3d.zero, 0d, true, true, false);
-            double thrustASL = engineSolver.GetThrust() * 0.001d;
 
             var weight = part.mass * (Planetarium.fetch?.Home?.GeeASL * 9.80665 ?? 9.80665);
 
@@ -479,12 +537,6 @@ namespace RealFuels
             }
             else
             {
-                // get stats again
-                ambientTherm = EngineThermodynamics.VacuumConditions(true);
-                double spaceHeight = Planetarium.fetch?.Home?.atmosphereDepth + 1000d ?? 141000d;
-                UpdateSolver(ambientTherm, spaceHeight, Vector3d.zero, 0d, true, true, false);
-                double thrustVac = (engineSolver.GetThrust() * 0.001d);
-
                 if (throttleLocked || MinThrottle == 1f)
                 {
                     var suffix = throttleLocked ? "throttle locked" : "unthrottleable";
@@ -515,8 +567,6 @@ namespace RealFuels
                     }
                 }
             }
-            EngineIgnited = oldE;
-            ignited = oldIg;
             return output;
         }
 
