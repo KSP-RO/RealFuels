@@ -57,10 +57,13 @@ namespace RealFuels
 
     public class ModuleEngineConfigs : PartModule, IPartCostModifier, IPartMassModifier
     {
+        //protected const string groupName = "ModuleEngineConfigs";
+        public const string groupName = ModuleEnginesRF.groupName;
+        public const string groupDisplayName = "Engine Configs";
         #region Fields
         protected bool compatible = true;
 
-        [KSPField(isPersistant = true)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
         public string configuration = string.Empty;
 
         // Tech Level stuff
@@ -981,7 +984,7 @@ namespace RealFuels
         #endregion
 
         #region GUI
-        [KSPField(guiActiveEditor = true, guiName = "Engine"),
+        [KSPField(guiActiveEditor = true, guiName = "Engine", groupName = groupName),
          UI_Toggle(enabledText = "Hide GUI", disabledText = "Show GUI")]
         [NonSerialized]
         public bool showRFGUI;
