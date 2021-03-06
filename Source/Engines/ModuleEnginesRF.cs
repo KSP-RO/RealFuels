@@ -62,16 +62,13 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         protected bool ignited = false;
 
+        [KSPField(guiName = "Tags", guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
+        public string tags;
+
         [KSPField(guiName = "Propellant", groupName = groupName, groupDisplayName = groupDisplayName)]
         public string propellantStatus = "Stable";
 
-        [KSPField(guiActiveEditor = true, guiName = "Pressure-Fed", groupName = groupName)]
-        public bool pressureFed = false;
-
-        [KSPField(guiActiveEditor = true, guiName = "Ullage", groupName = groupName)]
-        public bool ullage = false;
-
-        [KSPField(guiName = "Mass", guiActiveEditor = true, guiFormat = "F3", guiUnits = "t", groupName = groupName)]
+        [KSPField(guiName = "Mass", guiActiveEditor = true, guiFormat = "F3", guiUnits = "t", groupName = groupName, groupDisplayName = groupDisplayName)]
         public float dispMass = 0;
 
         [KSPField(guiName = "Max Thrust", guiActiveEditor = true, groupName = groupName)]
@@ -89,13 +86,20 @@ namespace RealFuels
         [KSPField(guiName = "Min Throttle", guiActiveEditor = true, groupName = groupName, guiFormat = "P0")]
         protected float _minThrottle;
 
+        [KSPField]
+        public bool pressureFed = false;
+
+        [KSPField]
+        public bool ullage = false;
+
         public Ullage.UllageSet ullageSet;
         protected ConfigNode ullageNode;
 
         protected bool reignitable = true;
         protected bool ullageOK = true;
         protected bool throttledUp = false;
-        protected bool showPropStatus = false;
+        protected bool ShowPropStatus => pressureFed || (ullage && RFSettings.Instance.simulateUllage);
+
         [SerializeField]
         public List<ModuleResource> ignitionResources;
         ScreenMessage igniteFailIgnitions;
@@ -232,10 +236,9 @@ namespace RealFuels
             ullageSet = new Ullage.UllageSet(this);
             ullageSet.Load(ullageNode);
 
-            showPropStatus = pressureFed || (ullage && RFSettings.Instance.simulateUllage);
-
             Fields[nameof(ignitions)].guiActive = ignitions >= 0 && RFSettings.Instance.limitedIgnitions;
-            Fields[nameof(propellantStatus)].guiActive = Fields[nameof(propellantStatus)].guiActiveEditor = showPropStatus;
+            Fields[nameof(tags)].guiActiveEditor = ShowPropStatus;
+            Fields[nameof(propellantStatus)].guiActive = Fields[nameof(propellantStatus)].guiActiveEditor = ShowPropStatus;
             Fields[nameof(sIgnitions)].guiActiveEditor = RFSettings.Instance.limitedIgnitions;
 
             igniteFailIgnitions = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
@@ -261,9 +264,10 @@ namespace RealFuels
 
         private void SetFields()
         {
-            Fields[nameof(ullage)].guiActiveEditor = ullage;
-            Fields[nameof(pressureFed)].guiActiveEditor = pressureFed;
             _minThrottle = MinThrottle;
+            tags = pressureFed ? "<color=orange>Pressure-Fed</color>" : string.Empty;
+            if (ullage)
+                tags += " <color=yellow>Ullage</color>";
             sISP = $"{atmosphereCurve.Evaluate(0):N0} (Vac) - {atmosphereCurve.Evaluate(1):N0} (ASL)";
             GetThrustData(out double thrustVac, out double thrustASL);
             sThrust = $"{Utilities.FormatThrust(thrustVac)} (Vac) - {Utilities.FormatThrust(thrustASL)} (ASL)";
@@ -272,33 +276,27 @@ namespace RealFuels
             else if (ignitions == -1)
                 sIgnitions = "Unlimited";
             else
-                sIgnitions = "<color=red>Ground-lit only</color>";
+                sIgnitions = "<color=yellow>Ground-lit only</color>";
 
             dispMass = part.mass;
         }
 
         public virtual void Update()
         {
-            if (!(ullageSet is Ullage.UllageSet && showPropStatus)) return;
+            if (!(ullageSet is Ullage.UllageSet && ShowPropStatus)) return;
+            if (HighLogic.LoadedSceneIsEditor && !(part.PartActionWindow is UIPartActionWindow)) return;
 
             if (HighLogic.LoadedSceneIsEditor && pressureFed)
                 ullageSet.EditorPressurized();
 
-            propellantStatus = "Nominal";
-            if (HighLogic.LoadedSceneIsEditor && !pressureFed)
-                propellantStatus = "OK";
-            else if (pressureFed && !ullageSet.PressureOK())
-                propellantStatus = "<color=red>Needs high pressure tanks</color>";
-            else if (pressureFed && ullageSet.PressureOK())
-            {
-                if (HighLogic.LoadedSceneIsEditor)
-                    propellantStatus = "Feed pressure OK";
-            }
-            else if (ullage && RFSettings.Instance.simulateUllage)
+            if (pressureFed)
+                propellantStatus = ullageSet.PressureOK() ? "Feed pressure OK" : "<color=red>Needs high pressure tanks</color>";
+            else if (HighLogic.LoadedSceneIsFlight && ullage && RFSettings.Instance.simulateUllage)
             {
                 propellantStatus = ullageSet.GetUllageState(out Color ullageColor);
                 part.stackIcon.SetIconColor(ullageColor);
-            }
+            } else
+                propellantStatus = "Nominal";
         }
 
         public virtual void CalcThrottleResponseRate(ref float responseRate, ref bool instant)
@@ -603,7 +601,8 @@ namespace RealFuels
                 string sUse = $"{unitsSec:G4}{units}{rate}";
                 if (PartResourceLibrary.Instance?.GetDefinition(p.name) is PartResourceDefinition def && def.density > 0)
                     sUse += $" ({unitsSec * def.density * 1000f:G4} kg{rate})";
-                output += $"- <b>{KSPUtil.PrintModuleName(p.name)}</b>: {sUse} maximum.\n{p.GetFlowModeDescription()}";
+                output += $"- <b>{KSPUtil.PrintModuleName(p.name)}</b>: {sUse} maximum.\n";
+                output += $"{p.GetFlowModeDescription()}";
             }
             output += $"<b>Flameout under: </b>{ignitionThreshold:P1} of requirement remaining.\n";
 
