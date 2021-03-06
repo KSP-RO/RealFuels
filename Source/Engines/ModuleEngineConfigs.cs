@@ -1,13 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
-using KSP;
 using Debug = UnityEngine.Debug;
 using RealFuels.TechLevels;
-using SolverEngines;
 using KSP.UI.Screens;
 
 namespace RealFuels
@@ -271,6 +268,7 @@ namespace RealFuels
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
         }
+        #endregion
 
         #region Info Methods
         private string TLTInfo()
@@ -331,14 +329,14 @@ namespace RealFuels
             if (!cTL.Load(config, techNodes, engineType, techLevel))
                 cTL = null;
 
-            string info = $"   {config.GetValue("name")}\n";
-            if (config.HasValue("description"))
-                info += $"    {config.GetValue("description")}\n";
+            string info = $"<color=green>{config.GetValue("name")}</color>\n";
+//            if (config.HasValue("description"))
+//                info += $"    {config.GetValue("description")}\n";
             if (config.HasValue("tfRatedBurnTime"))
-                info += $"    {config.GetValue("tfRatedBurnTime")}\n";
+                info += $"  {config.GetValue("tfRatedBurnTime")}\n";
             if (config.HasValue(thrustRating))
             {
-                info += $"    {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}";
+                info += $"  {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}";
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
                     info += $", min {float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)):P0}";
@@ -346,7 +344,7 @@ namespace RealFuels
                     info += $", min {float.Parse(config.GetValue("throttle")):P0}";
             }
             else
-                info += "    Unknown Thrust";
+                info += "  Unknown Thrust";
 
             if (origMass > 0f)
             {
@@ -362,7 +360,7 @@ namespace RealFuels
             {
                 FloatCurve isp = new FloatCurve();
                 isp.Load(config.GetNode("atmosphereCurve"));
-                info += $"    Isp: {isp.Evaluate(isp.maxTime)} - {isp.Evaluate(isp.minTime)}s\n";
+                info += $"  Isp: {isp.Evaluate(isp.maxTime)} - {isp.Evaluate(isp.minTime)}s\n";
             }
             else if (config.HasValue("IspSL") && config.HasValue("IspV") && cTL != null)
             {
@@ -370,17 +368,17 @@ namespace RealFuels
                 float.TryParse(config.GetValue("IspV"), out float ispV);
                 ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
                 ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                info += $"    Isp: {ispSL:N0} - {ispV:N0}s\n";
+                info += $"  Isp: {ispSL:N0} - {ispV:N0}s\n";
             }
             if (config.HasValue("gimbalRange"))
             {
                 float gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                info += $"    Gimbal {gimbalR:N1}d\n";
+                info += $"  Gimbal {gimbalR:N1}d\n";
             }
 
             if (config.HasValue("ullage") || config.HasValue("ignitions") || config.HasValue("pressureFed"))
             {
-                info += "    ";
+                info += "  ";
                 bool comma = false;
                 if (config.HasValue("ullage"))
                 {
@@ -412,7 +410,7 @@ namespace RealFuels
                 info += "\n";
             }
             if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out float cst))
-                info += $"    ({scale * cst:N0} extra cost)\n"; // FIXME should get cost from TL, but this should be safe
+                info += $"  ({scale * cst:N0} extra cost)\n"; // FIXME should get cost from TL, but this should be safe
 
             return info;
         }
