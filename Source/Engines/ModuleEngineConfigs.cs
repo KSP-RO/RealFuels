@@ -318,33 +318,38 @@ namespace RealFuels
 
             foreach (ConfigNode config in configs)
                 if(!config.GetValue("name").Equals(configuration))
-                    info += GetConfigInfo(config);
+                    info += GetConfigInfo(config, addDescription: false, colorName: true);
 
             return info;
         }
 
-        public string GetConfigInfo(ConfigNode config)
+        public string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
         {
             TechLevel cTL = new TechLevel();
             if (!cTL.Load(config, techNodes, engineType, techLevel))
                 cTL = null;
+            var info = StringBuilderCache.Acquire();
 
-            string info = $"<color=green>{config.GetValue("name")}</color>\n";
-//            if (config.HasValue("description"))
-//                info += $"    {config.GetValue("description")}\n";
-            if (config.HasValue("tfRatedBurnTime"))
-                info += $"  {config.GetValue("tfRatedBurnTime")}\n";
+            if (colorName)
+                info.Append("<color=green>");
+            info.Append(config.GetValue("name"));
+            if (colorName)
+                info.Append("</color>");
+            info.Append("\n");
+
+            if (config.HasValue("ratedBurnTime"))
+                info.Append($"  {config.GetValue("ratedBurnTime")}\n");
             if (config.HasValue(thrustRating))
             {
-                info += $"  {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}";
+                info.Append($"  {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}");
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
-                    info += $", min {float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)):P0}";
+                    info.Append($", min {float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)):P0}");
                 else if (config.HasValue("throttle"))
-                    info += $", min {float.Parse(config.GetValue("throttle")):P0}";
+                    info.Append($", min {float.Parse(config.GetValue("throttle")):P0}");
             }
             else
-                info += "  Unknown Thrust";
+                info.Append("  Unknown Thrust");
 
             if (origMass > 0f)
             {
@@ -352,15 +357,15 @@ namespace RealFuels
                 if (config.HasValue("massMult") && float.TryParse(config.GetValue("massMult"), out float ftmp))
                     cMass *= ftmp;
 
-                info += $", {cMass:N3}t";
+                info.Append($", {cMass:N3}t");
             }
-            info += "\n";
+            info.Append("\n");
 
             if (config.HasNode("atmosphereCurve"))
             {
                 FloatCurve isp = new FloatCurve();
                 isp.Load(config.GetNode("atmosphereCurve"));
-                info += $"  Isp: {isp.Evaluate(isp.maxTime)} - {isp.Evaluate(isp.minTime)}s\n";
+                info.Append($"  Isp: {isp.Evaluate(isp.maxTime)} - {isp.Evaluate(isp.minTime)}s\n");
             }
             else if (config.HasValue("IspSL") && config.HasValue("IspV") && cTL != null)
             {
@@ -368,28 +373,28 @@ namespace RealFuels
                 float.TryParse(config.GetValue("IspV"), out float ispV);
                 ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
                 ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                info += $"  Isp: {ispSL:N0} - {ispV:N0}s\n";
+                info.Append($"  Isp: {ispSL:N0} - {ispV:N0}s\n");
             }
             if (config.HasValue("gimbalRange"))
             {
                 float gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                info += $"  Gimbal {gimbalR:N1}d\n";
+                info.Append($"  Gimbal {gimbalR:N1}d\n");
             }
 
             if (config.HasValue("ullage") || config.HasValue("ignitions") || config.HasValue("pressureFed"))
             {
-                info += "  ";
+                info.Append("  ");
                 bool comma = false;
                 if (config.HasValue("ullage"))
                 {
-                    info += config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage";
+                    info.Append(config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
                     comma = true;
                 }
                 if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
                 {
                     if (comma)
-                        info += ", ";
-                    info += "pfed";
+                        info.Append(", ");
+                    info.Append("pfed");
                     comma = true;
                 }
 
@@ -398,21 +403,24 @@ namespace RealFuels
                     if (int.TryParse(config.GetValue("ignitions"), out int ignitions))
                     {
                         if (comma)
-                            info += ", ";
+                            info.Append(", ");
                         if (ignitions > 0)
-                            info += $"{ignitions} ignition{(ignitions > 1 ? "s" : string.Empty)}";
+                            info.Append($"{ignitions} ignition{(ignitions > 1 ? "s" : string.Empty)}");
                         else if (literalZeroIgnitions && ignitions == 0)
-                            info += "ground ignition only";
+                            info.Append("ground ignition only");
                         else
-                            info += "unl. ignitions";
+                            info.Append("unl. ignitions");
                     }
                 }
-                info += "\n";
+                info.Append("\n");
             }
             if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out float cst))
-                info += $"  ({scale * cst:N0} extra cost)\n"; // FIXME should get cost from TL, but this should be safe
+                info.Append($"  ({scale * cst:N0} extra cost)\n"); // FIXME should get cost from TL, but this should be safe
 
-            return info;
+            if (addDescription && config.HasValue("description"))
+                info.Append($"\n  {config.GetValue("description")}\n");
+
+            return info.ToStringAndRelease();
         }
         #endregion
 
@@ -521,16 +529,13 @@ namespace RealFuels
                 HandleEngineIgnitor(config);
                 if (config.HasValue("ignitions"))
                 {
-                    if (HighLogic.LoadedSceneIsEditor || (HighLogic.LoadedSceneIsFlight && vessel?.situation == Vessel.Situations.PRELAUNCH)) // fix for prelaunch
-                    {
-                        if (int.TryParse(config.GetValue("ignitions"), out int ignitions))
-                        {
-                            ignitions = ConfigIgnitions(ignitions);
-                            config.SetValue("ignitions", ignitions);
-                        }
-                    }
-                    else
+                    if (HighLogic.LoadedSceneIsFlight && vessel?.situation != Vessel.Situations.PRELAUNCH)
                         config.RemoveValue("ignitions");
+                    else if (int.TryParse(config.GetValue("ignitions"), out int ignitions))
+                    {
+                        ignitions = ConfigIgnitions(ignitions);
+                        config.SetValue("ignitions", ignitions);
+                    }
                 }
 
                 if (pModule is ModuleEnginesRF)
@@ -1219,11 +1224,14 @@ namespace RealFuels
             {
                 GUILayout.BeginHorizontal();
                 var ratedBurnTime = string.Empty;
-                if (config.HasValue("tfRatedBurnTime"))
-                {
-                    ratedBurnTime += config.GetValue("tfRatedBurnTime") + "\n";
-                }
-                GUILayout.Label($"{ratedBurnTime}<b>Engine mass:</b> {part.mass:N3}t\n{pModule.GetInfo()}\n{TLTInfo()}\nTotal cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}");
+                if (config.HasValue("ratedBurnTime"))
+                    ratedBurnTime += config.GetValue("ratedBurnTime") + "\n";
+                string label = $"{ratedBurnTime}" +
+                               $"<b>Engine mass:</b> {part.mass:N3}t\n" +
+                               $"{pModule.GetInfo()}\n" +
+                               $"{TLTInfo()}\n" +
+                               $"Total cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}";
+                GUILayout.Label(label);
                 GUILayout.EndHorizontal();
             }
 
