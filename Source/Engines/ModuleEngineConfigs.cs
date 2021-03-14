@@ -337,8 +337,6 @@ namespace RealFuels
                 info.Append("</color>");
             info.Append("\n");
 
-            if (config.HasValue("ratedBurnTime"))
-                info.Append($"  {config.GetValue("ratedBurnTime")}\n");
             if (config.HasValue(thrustRating))
             {
                 info.Append($"  {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}");
@@ -360,6 +358,9 @@ namespace RealFuels
                 info.Append($", {cMass:N3}t");
             }
             info.Append("\n");
+
+            if (config.HasValue("ratedBurnTime"))
+                info.Append($"  Rated time: {config.GetValue("ratedBurnTime")}s\n");
 
             if (config.HasNode("atmosphereCurve"))
             {
