@@ -359,9 +359,6 @@ namespace RealFuels
             }
             info.Append("\n");
 
-            if (config.HasValue("ratedBurnTime"))
-                info.Append($"  Rated time: {config.GetValue("ratedBurnTime")}s\n");
-
             if (config.HasNode("atmosphereCurve"))
             {
                 FloatCurve isp = new FloatCurve();
@@ -376,6 +373,10 @@ namespace RealFuels
                 ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
                 info.Append($"  Isp: {ispSL:N0} - {ispV:N0}s\n");
             }
+
+            if (config.HasValue("ratedBurnTime"))
+                info.Append($"  Rated burn time: {config.GetValue("ratedBurnTime")}s\n");
+
             if (config.HasValue("gimbalRange"))
             {
                 float gimbalR = float.Parse(config.GetValue("gimbalRange"));
@@ -1226,9 +1227,9 @@ namespace RealFuels
                 GUILayout.BeginHorizontal();
                 var ratedBurnTime = string.Empty;
                 if (config.HasValue("ratedBurnTime"))
-                    ratedBurnTime += config.GetValue("ratedBurnTime") + "\n";
-                string label = $"{ratedBurnTime}" +
-                               $"<b>Engine mass:</b> {part.mass:N3}t\n" +
+                    ratedBurnTime += $"Rated burn time: {config.GetValue("ratedBurnTime")}\n";
+                string label = $"<b>Engine mass:</b> {part.mass:N3}t\n" +
+                               $"{ratedBurnTime}" +
                                $"{pModule.GetInfo()}\n" +
                                $"{TLTInfo()}\n" +
                                $"Total cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}";

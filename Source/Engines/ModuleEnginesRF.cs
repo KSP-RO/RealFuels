@@ -74,7 +74,7 @@ namespace RealFuels
         [KSPField(guiName = "Max Thrust", guiActiveEditor = true, groupName = groupName)]
         public string sThrust;
 
-        [KSPField(guiName = "ISP", guiActiveEditor = true, groupName = groupName)]
+        [KSPField(guiName = "Isp", guiActiveEditor = true, groupName = groupName)]
         public string sISP;
 
         [KSPField(guiName = "Ignitions Remaining", isPersistant = true, groupName = groupName, groupDisplayName = groupDisplayName)]
@@ -267,10 +267,13 @@ namespace RealFuels
             _minThrottle = MinThrottle;
             tags = pressureFed ? "<color=orange>Pressure-Fed</color>" : string.Empty;
             if (ullage)
-                tags += " <color=yellow>Ullage</color>";
-            sISP = $"{atmosphereCurve.Evaluate(0):N0} (Vac) - {atmosphereCurve.Evaluate(1):N0} (ASL)";
+            {
+                tags += pressureFed ? ", " : string.Empty;
+                tags += "<color=yellow>Ullage</color>";
+            }
+            sISP = $"{atmosphereCurve.Evaluate(1):N0} (ASL) - {atmosphereCurve.Evaluate(0):N0} (Vac)";
             GetThrustData(out double thrustVac, out double thrustASL);
-            sThrust = $"{Utilities.FormatThrust(thrustVac)} (Vac) - {Utilities.FormatThrust(thrustASL)} (ASL)";
+            sThrust = $"{Utilities.FormatThrust(thrustASL)} (ASL) - {Utilities.FormatThrust(thrustVac)} (Vac)";
             if (ignitions > 0)
                 sIgnitions = $"{ignitions:N0}";
             else if (ignitions == -1)
