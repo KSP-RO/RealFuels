@@ -12,11 +12,11 @@ using KSP.UI.Screens;
 
 namespace RealFuels.Tanks
 {
-	[KSPAddon (KSPAddon.Startup.EditorAny, false)]
+    [KSPAddon (KSPAddon.Startup.EditorAny, false)]
     public class TankWindow : MonoBehaviour
     {
-		internal static EventVoid OnActionGroupEditorOpened = new EventVoid ("OnActionGroupEditorOpened");
-		internal static EventVoid OnActionGroupEditorClosed = new EventVoid ("OnActionGroupEditorClosed");
+        internal static EventVoid OnActionGroupEditorOpened = new EventVoid ("OnActionGroupEditorOpened");
+        internal static EventVoid OnActionGroupEditorClosed = new EventVoid ("OnActionGroupEditorClosed");
         [KSPField]
         public int offsetGUIPos = -1;
 
@@ -31,134 +31,134 @@ namespace RealFuels.Tanks
         private static GUIStyle overfull;
         public static string myToolTip = "";
 
-		static TankWindow instance;
+        static TankWindow instance;
 
         private int counterTT;
         private Vector2 scrollPos;
 
-		bool ActionGroupMode;
-		ModuleFuelTanks tank_module;
+        bool ActionGroupMode;
+        ModuleFuelTanks tank_module;
 
-		Dictionary<string, string> addLabelCache = new Dictionary<string, string>();
-		double oldAvailableVolume = 0;
-		string oldTankType = "newnewnew"; //force refresh on first call to EnsureFreshAddLabelCache()
+        Dictionary<string, string> addLabelCache = new Dictionary<string, string>();
+        double oldAvailableVolume = 0;
+        string oldTankType = "newnewnew"; //force refresh on first call to EnsureFreshAddLabelCache()
 
-		public static void HideGUI ()
-		{
-			if (instance != null)
-			{
-				instance.tank_module = null;
-				instance.UpdateGUIState ();
-			}
+        public static void HideGUI ()
+        {
+            if (instance != null)
+            {
+                instance.tank_module = null;
+                instance.UpdateGUIState ();
+            }
             EditorLogic editor = EditorLogic.fetch;
             if(editor != null)
                 editor.Unlock("MFTGUILock");
-			//Debug.Log(StackTraceUtility.ExtractStackTrace());
-		}
+            //Debug.Log(StackTraceUtility.ExtractStackTrace());
+        }
 
         public static void HideGUIForModule(ModuleFuelTanks tank_module)
         {
             if (instance != null && instance.tank_module == tank_module)
             {
-				HideGUI();
+                HideGUI();
             }
         }
 
         public static void ShowGUI (ModuleFuelTanks tank_module)
-		{
-			if (instance != null) {
-				instance.tank_module = tank_module;
-				instance.UpdateGUIState ();
-			}
-		}
+        {
+            if (instance != null) {
+                instance.tank_module = tank_module;
+                instance.UpdateGUIState ();
+            }
+        }
 
-		void UpdateGUIState ()
-		{
-			enabled = tank_module != null;
+        void UpdateGUIState ()
+        {
+            enabled = tank_module != null;
             EditorLogic editor = EditorLogic.fetch;
             if(!enabled &&  editor != null)
                 editor.Unlock("MFTGUILock");
-		}
+        }
 
-		void EnsureFreshAddLabelCache()
-		{
-			if (tank_module.AvailableVolume != oldAvailableVolume || tank_module.type != oldTankType){
-				foreach (FuelTank tank in tank_module.tankList) {
-					double maxVol = tank_module.AvailableVolume * tank.utilization;
-					string maxVolStr = KSPUtil.PrintSI(maxVol, "L");
-					string label = "Max: " + maxVolStr + " (+" + ModuleFuelTanks.FormatMass((float)(tank_module.AvailableVolume * tank.mass)) + " )";
-					addLabelCache[tank.name] = label;
-				}
-				oldAvailableVolume = tank_module.AvailableVolume;
-				oldTankType = tank_module.type;
-			}
-		}
+        void EnsureFreshAddLabelCache()
+        {
+            if (tank_module.AvailableVolume != oldAvailableVolume || tank_module.type != oldTankType){
+                foreach (FuelTank tank in tank_module.tankList) {
+                    double maxVol = tank_module.AvailableVolume * tank.utilization;
+                    string maxVolStr = KSPUtil.PrintSI(maxVol, "L");
+                    string label = "Max: " + maxVolStr + " (+" + ModuleFuelTanks.FormatMass((float)(tank_module.AvailableVolume * tank.mass)) + " )";
+                    addLabelCache[tank.name] = label;
+                }
+                oldAvailableVolume = tank_module.AvailableVolume;
+                oldTankType = tank_module.type;
+            }
+        }
 
-		private void onEditorLoad (ShipConstruct ship, CraftBrowserDialog.LoadType loadType)
-		{
-			Debug.LogFormat ("[TankWindow] onEditorLoad: {0}", loadType);
-			for (int i = 0, c = ship.parts.Count; i < c; ++i) {
-				Part part = ship.parts[i];
-				for (int j = 0, d = part.Modules.Count; j < d; ++j) {
-					PartModule module = part.Modules[j];
-					if (module is ModuleFuelTanks) {
-						(module as ModuleFuelTanks).UpdateUsedBy ();
-					}
-				}
-			}
-		}
+        private void onEditorLoad (ShipConstruct ship, CraftBrowserDialog.LoadType loadType)
+        {
+            Debug.LogFormat ("[TankWindow] onEditorLoad: {0}", loadType);
+            for (int i = 0, c = ship.parts.Count; i < c; ++i) {
+                Part part = ship.parts[i];
+                for (int j = 0, d = part.Modules.Count; j < d; ++j) {
+                    PartModule module = part.Modules[j];
+                    if (module is ModuleFuelTanks) {
+                        (module as ModuleFuelTanks).UpdateUsedBy ();
+                    }
+                }
+            }
+        }
 
-		private IEnumerator CheckActionGroupEditor ()
-		{
-			while (EditorLogic.fetch == null) {
-				yield return null;
-			}
+        private IEnumerator CheckActionGroupEditor ()
+        {
+            while (EditorLogic.fetch == null) {
+                yield return null;
+            }
             EditorLogic editor = EditorLogic.fetch;
-			while (EditorLogic.fetch != null)
-			{
-				if (editor.editorScreen == EditorScreen.Actions)
-				{
-					if (!ActionGroupMode)
-					{
-						Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (!AGM)");
-						HideGUI ();
-						OnActionGroupEditorOpened.Fire ();
-					}
-					var age = EditorActionGroups.Instance;
-					if (tank_module && !age.GetSelectedParts ().Contains (tank_module.part))
-					{
-						Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (selected part does not contain this module)");
-						HideGUI ();
-					}
-					ActionGroupMode = true;
-				}
-				else
-				{
-					if (ActionGroupMode)
-					{
-						Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (editorScreen == Actions && AGM)");
-						HideGUI ();
-						OnActionGroupEditorClosed.Fire ();
-					}
-					ActionGroupMode = false;
-				}
-				yield return null;
-			}
-		}
+            while (EditorLogic.fetch != null)
+            {
+                if (editor.editorScreen == EditorScreen.Actions)
+                {
+                    if (!ActionGroupMode)
+                    {
+                        Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (!AGM)");
+                        HideGUI ();
+                        OnActionGroupEditorOpened.Fire ();
+                    }
+                    var age = EditorActionGroups.Instance;
+                    if (tank_module && !age.GetSelectedParts ().Contains (tank_module.part))
+                    {
+                        Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (selected part does not contain this module)");
+                        HideGUI ();
+                    }
+                    ActionGroupMode = true;
+                }
+                else
+                {
+                    if (ActionGroupMode)
+                    {
+                        Debug.Log("TankWindow.CheckActionGroupEditor() hiding tank window (editorScreen == Actions && AGM)");
+                        HideGUI ();
+                        OnActionGroupEditorClosed.Fire ();
+                    }
+                    ActionGroupMode = false;
+                }
+                yield return null;
+            }
+        }
 
-		void Awake ()
-		{
-			enabled = false;
-			instance = this;
-			StartCoroutine (CheckActionGroupEditor ());
-			GameEvents.onEditorLoad.Add (onEditorLoad);
-		}
+        void Awake ()
+        {
+            enabled = false;
+            instance = this;
+            StartCoroutine (CheckActionGroupEditor ());
+            GameEvents.onEditorLoad.Add (onEditorLoad);
+        }
 
-		void OnDestroy ()
-		{
-			instance = null;
-			GameEvents.onEditorLoad.Remove (onEditorLoad);
-		}
+        void OnDestroy ()
+        {
+            instance = null;
+            GameEvents.onEditorLoad.Remove (onEditorLoad);
+        }
 
         private Rect guiWindowRect = new Rect (0, 0, 0, 0);
         private static Vector3 mousePos = Vector3.zero;
@@ -185,7 +185,7 @@ namespace RealFuels.Tanks
             int posMult = 0;
             if (offsetGUIPos != -1) {
                 posMult = offsetGUIPos;
-			}
+            }
             if (ActionGroupMode) {
                 if (guiWindowRect.width == 0) {
                     guiWindowRect = new Rect (430 * posMult, 365, 438, (Screen.height - 365));
@@ -194,83 +194,83 @@ namespace RealFuels.Tanks
             } else {
                 if (guiWindowRect.width == 0) {
                     guiWindowRect = new Rect (Screen.width - 8 - 430 * (posMult+1), 365, 438, (Screen.height - 365));
-				}
+                }
                 tooltipRect = new Rect (guiWindowRect.xMin - (230-8), mousePos.y - 5, 220, 20);
             }
-			cursorInGUI = guiWindowRect.Contains (mousePos);
-			if (cursorInGUI) {
-				editor.Lock (false, false, false, "MFTGUILock");
+            cursorInGUI = guiWindowRect.Contains (mousePos);
+            if (cursorInGUI) {
+                editor.Lock (false, false, false, "MFTGUILock");
                 if (KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance != null)
-				    KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip ();
-			} else {
-				editor.Unlock ("MFTGUILock");
-			}
+                    KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance.HideTooltip ();
+            } else {
+                editor.Unlock ("MFTGUILock");
+            }
             myToolTip = myToolTip.Trim ();
             if (!String.IsNullOrEmpty(myToolTip))
                 GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
             guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Fuel Tanks for " + tank_module.part.partInfo.title, Styles.styleEditorPanel);
         }
 
-		void DisplayMass ()
-		{
-			GUILayout.BeginHorizontal ();
-			GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cost " + tank_module.GetModuleCost (0, ModifierStagingSituation.CURRENT).ToString ("N1"));
-			GUILayout.EndHorizontal ();
-		}
+        void DisplayMass ()
+        {
+            GUILayout.BeginHorizontal ();
+            GUILayout.Label ("Mass: " + tank_module.massDisplay + ", Cost " + tank_module.GetModuleCost (0, ModifierStagingSituation.CURRENT).ToString ("N1"));
+            GUILayout.EndHorizontal ();
+        }
 
-		bool CheckTankList ()
-		{
-			if (tank_module.tankList.Count == 0) {
-				GUILayout.BeginHorizontal ();
-				GUILayout.Label ("This fuel tank cannot hold resources.");
-				GUILayout.EndHorizontal ();
-				return false;
-			}
-			return true;
-		}
+        bool CheckTankList ()
+        {
+            if (tank_module.tankList.Count == 0) {
+                GUILayout.BeginHorizontal ();
+                GUILayout.Label ("This fuel tank cannot hold resources.");
+                GUILayout.EndHorizontal ();
+                return false;
+            }
+            return true;
+        }
 
         public void GUIWindow (int windowID)
         {
-			InitializeStyles ();
+            InitializeStyles ();
 
-			GUILayout.BeginVertical ();
+            GUILayout.BeginVertical ();
             GUILayout.Space (20);
 
-			if (CheckTankList ()) {
-				GUILayout.BeginHorizontal ();
-				if (Math.Round (tank_module.AvailableVolume, 4) < 0) {
-					GUILayout.Label ("Volume: " + tank_module.volumeDisplay, overfull);
-				} else {
-					GUILayout.Label ("Volume: " + tank_module.volumeDisplay);
-				}
-				GUILayout.EndHorizontal ();
+            if (CheckTankList ()) {
+                GUILayout.BeginHorizontal ();
+                if (Math.Round (tank_module.AvailableVolume, 4) < 0) {
+                    GUILayout.Label ("Volume: " + tank_module.volumeDisplay, overfull);
+                } else {
+                    GUILayout.Label ("Volume: " + tank_module.volumeDisplay);
+                }
+                GUILayout.EndHorizontal ();
 
                 DisplayMass();
 
-				scrollPos = GUILayout.BeginScrollView (scrollPos);
+                scrollPos = GUILayout.BeginScrollView (scrollPos);
 
-				GUIEngines ();
+                GUIEngines ();
 
-				GUITanks ();
+                GUITanks ();
 
-				GUILayout.EndScrollView ();
-				GUILayout.Label (MFSSettings.GetVersion ());
-			}
-			GUILayout.EndVertical ();
+                GUILayout.EndScrollView ();
+                GUILayout.Label (MFSSettings.GetVersion ());
+            }
+            GUILayout.EndVertical ();
 
-			if (!(myToolTip.Equals ("")) && GUI.tooltip.Equals ("")) {
-				if (counterTT > 4) {
-					myToolTip = GUI.tooltip;
-					counterTT = 0;
-				} else {
-					counterTT++;
-				}
-			} else {
-				myToolTip = GUI.tooltip;
-				counterTT = 0;
-			}
-			//print ("GT: " + GUI.tooltip);
-			GUI.DragWindow ();
+            if (!(myToolTip.Equals ("")) && GUI.tooltip.Equals ("")) {
+                if (counterTT > 4) {
+                    myToolTip = GUI.tooltip;
+                    counterTT = 0;
+                } else {
+                    counterTT++;
+                }
+            } else {
+                myToolTip = GUI.tooltip;
+                counterTT = 0;
+            }
+            //print ("GT: " + GUI.tooltip);
+            GUI.DragWindow ();
         }
 
         private static void InitializeStyles ()
@@ -304,115 +304,115 @@ namespace RealFuels.Tanks
             }
         }
 
-		void UpdateTank (FuelTank tank)
-		{
-			if (GUILayout.Button ("Update", GUILayout.Width (53))) {
-				string trimmed = tank.maxAmountExpression.Trim ();
+        void UpdateTank (FuelTank tank)
+        {
+            if (GUILayout.Button ("Update", GUILayout.Width (53))) {
+                string trimmed = tank.maxAmountExpression.Trim ();
 
-				if (trimmed == "") {
-					tank.maxAmount = 0;
-					//Debug.LogWarning ("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
-				} else {
-					double tmp;
-					if (double.TryParse (trimmed, out tmp)) {
-						tank.maxAmount = tmp;
+                if (trimmed == "") {
+                    tank.maxAmount = 0;
+                    //Debug.LogWarning ("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                } else {
+                    double tmp;
+                    if (double.TryParse (trimmed, out tmp)) {
+                        tank.maxAmount = tmp;
 
-						if (tmp != 0) {
-							tank.amount = tank.fillable ? tank.maxAmount : 0;
+                        if (tmp != 0) {
+                            tank.amount = tank.fillable ? tank.maxAmount : 0;
 
-							// Need to round-trip the value
-							tank.maxAmountExpression = tank.maxAmount.ToString ();
-							//Debug.LogWarning ("[MFT] Updating maxAmount " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
-						}
-					}
-				}
-				GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
+                            // Need to round-trip the value
+                            tank.maxAmountExpression = tank.maxAmount.ToString ();
+                            //Debug.LogWarning ("[MFT] Updating maxAmount " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+                        }
+                    }
+                }
+                GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
                 tank_module.MarkWindowDirty();
-			}
-		}
-
-		void RemoveTank (FuelTank tank)
-		{
-			if (GUILayout.Button ("Remove", GUILayout.Width (58))) {
-				tank.maxAmount = 0;
-				GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
-				//Debug.LogWarning ("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
-			}
-		}
-
-		void EditTank (FuelTank tank)
-		{
-			GUILayout.Label (" ", GUILayout.Width (5));
-
-			GUIStyle style = unchanged;
-			if (tank.maxAmountExpression == null) {
-				tank.maxAmountExpression = tank.maxAmount.ToString ();
-				//Debug.LogWarning ("[MFT] Adding tank from API " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
-			} else if (tank.maxAmountExpression.Length > 0 && tank.maxAmountExpression != tank.maxAmount.ToString ()) {
-				style = changed;
-			}
-
-			tank.maxAmountExpression = GUILayout.TextField (tank.maxAmountExpression, style, GUILayout.Width (127));
-
-			UpdateTank (tank);
-			RemoveTank (tank);
+            }
         }
 
-		void AddTank (FuelTank tank)
-		{
-			GUILayout.Label (addLabelCache[tank.name], GUILayout.Width (150));
+        void RemoveTank (FuelTank tank)
+        {
+            if (GUILayout.Button ("Remove", GUILayout.Width (58))) {
+                tank.maxAmount = 0;
+                GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
+                //Debug.LogWarning ("[MFT] Removing tank from button " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+            }
+        }
 
-			if (GUILayout.Button ("Add", GUILayout.Width (120))) {
-				tank.maxAmount = tank_module.AvailableVolume * tank.utilization;
-				tank.amount = tank.fillable ? tank.maxAmount : 0;
+        void EditTank (FuelTank tank)
+        {
+            GUILayout.Label (" ", GUILayout.Width (5));
 
-				tank.maxAmountExpression = tank.maxAmount.ToString ();
-				GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
+            GUIStyle style = unchanged;
+            if (tank.maxAmountExpression == null) {
+                tank.maxAmountExpression = tank.maxAmount.ToString ();
+                //Debug.LogWarning ("[MFT] Adding tank from API " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
+            } else if (tank.maxAmountExpression.Length > 0 && tank.maxAmountExpression != tank.maxAmount.ToString ()) {
+                style = changed;
+            }
+
+            tank.maxAmountExpression = GUILayout.TextField (tank.maxAmountExpression, style, GUILayout.Width (127));
+
+            UpdateTank (tank);
+            RemoveTank (tank);
+        }
+
+        void AddTank (FuelTank tank)
+        {
+            GUILayout.Label (addLabelCache[tank.name], GUILayout.Width (150));
+
+            if (GUILayout.Button ("Add", GUILayout.Width (120))) {
+                tank.maxAmount = tank_module.AvailableVolume * tank.utilization;
+                tank.amount = tank.fillable ? tank.maxAmount : 0;
+
+                tank.maxAmountExpression = tank.maxAmount.ToString ();
+                GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
                 tank_module.MarkWindowDirty();
-				//Debug.LogWarning ("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
-			}
-		}
+                //Debug.LogWarning ("[MFT] Adding tank " + tank.name + " maxAmount: " + tank.maxAmountExpression ?? "null");
+            }
+        }
 
-		void NoRoom ()
-		{
-			GUILayout.Label ("  No room for tank.", GUILayout.Width (150));
-		}
+        void NoRoom ()
+        {
+            GUILayout.Label ("  No room for tank.", GUILayout.Width (150));
+        }
 
-		void TankLine (FuelTank tank)
-		{
-			GUILayout.BeginHorizontal ();
-			GUILayout.Label (" " + tank, GUILayout.Width (115));
+        void TankLine (FuelTank tank)
+        {
+            GUILayout.BeginHorizontal ();
+            GUILayout.Label (" " + tank, GUILayout.Width (115));
 
-			// So our states here are:
-			//   Not being edited currently (empty):   maxAmountExpression = null, maxAmount = 0
-			//   Have updated the field, no user edit: maxAmountExpression == maxAmount.ToStringExt
-			//   Other non UI updated maxAmount:       maxAmountExpression = null (set), maxAmount = non-zero
-			//   User has updated the field:           maxAmountExpression != null, maxAmountExpression != maxAmount.ToStringExt
+            // So our states here are:
+            //   Not being edited currently (empty):   maxAmountExpression = null, maxAmount = 0
+            //   Have updated the field, no user edit: maxAmountExpression == maxAmount.ToStringExt
+            //   Other non UI updated maxAmount:       maxAmountExpression = null (set), maxAmount = non-zero
+            //   User has updated the field:           maxAmountExpression != null, maxAmountExpression != maxAmount.ToStringExt
 
             // the unmanaged resource changes make this additional check for tank.maxAmount necessary but it may be that it should replace the other PartResource check outright - needs some thought
-			if (tank_module.part.Resources.Contains (tank.name) && tank_module.part.Resources[tank.name].maxAmount > 0 && tank.maxAmount > 0) {
-				EditTank (tank);
-			} else if (tank_module.AvailableVolume >= 0.001) {
-				AddTank (tank);
-			} else {
-				NoRoom ();
-			}
-			GUILayout.EndHorizontal ();
-		}
+            if (tank_module.part.Resources.Contains (tank.name) && tank_module.part.Resources[tank.name].maxAmount > 0 && tank.maxAmount > 0) {
+                EditTank (tank);
+            } else if (tank_module.AvailableVolume >= 0.001) {
+                AddTank (tank);
+            } else {
+                NoRoom ();
+            }
+            GUILayout.EndHorizontal ();
+        }
 
-		void RemoveAllTanks ()
-		{
-			GUILayout.BeginHorizontal ();
-			if (GUILayout.Button ("Remove All Tanks")) {
-				tank_module.Empty ();
-			}
-			GUILayout.EndHorizontal ();
-		}
+        void RemoveAllTanks ()
+        {
+            GUILayout.BeginHorizontal ();
+            if (GUILayout.Button ("Remove All Tanks")) {
+                tank_module.Empty ();
+            }
+            GUILayout.EndHorizontal ();
+        }
 
         private void GUITanks ()
         {
-			EnsureFreshAddLabelCache();
-			foreach (FuelTank tank in tank_module.tankList) {
+            EnsureFreshAddLabelCache();
+            foreach (FuelTank tank in tank_module.tankList) {
                 if (tank.canHave)
                     TankLine(tank);
                 else
@@ -422,27 +422,27 @@ namespace RealFuels.Tanks
                     GUILayout.EndHorizontal();
                     tank.maxAmount = 0;
                 }
-			}
+            }
 
-			RemoveAllTanks ();
+            RemoveAllTanks ();
         }
 
         private void GUIEngines ()
         {
-			if (tank_module.usedBy.Count > 0 && tank_module.AvailableVolume >= 0.001) {
-				GUILayout.BeginHorizontal ();
-				GUILayout.Label ("Configure remaining volume for detected engines:");
-				GUILayout.EndHorizontal ();
+            if (tank_module.usedBy.Count > 0 && tank_module.AvailableVolume >= 0.001) {
+                GUILayout.BeginHorizontal ();
+                GUILayout.Label ("Configure remaining volume for detected engines:");
+                GUILayout.EndHorizontal ();
 
-				foreach (FuelInfo info in tank_module.usedBy.Values)
-				{
-					GUILayout.BeginHorizontal ();
-					if (GUILayout.Button (new GUIContent (info.Label, info.names))) {
-						tank_module.ConfigureFor (info);
-					}
-					GUILayout.EndHorizontal ();
-				}
-			}
+                foreach (FuelInfo info in tank_module.usedBy.Values)
+                {
+                    GUILayout.BeginHorizontal ();
+                    if (GUILayout.Button (new GUIContent (info.Label, info.names))) {
+                        tank_module.ConfigureFor (info);
+                    }
+                    GUILayout.EndHorizontal ();
+                }
+            }
         }
     }
 }
