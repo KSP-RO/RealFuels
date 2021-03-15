@@ -42,19 +42,10 @@ namespace RealFuels
                 Debug.LogError("*RP-0 EC: ERROR: Partloader instance null or list null!");
                 return;
             }
-            for (int a = PartLoader.LoadedPartsList.Count; a-- > 0;)
+            foreach (AvailablePart ap in PartLoader.LoadedPartsList)
             {
-                AvailablePart ap = PartLoader.LoadedPartsList[a];
-                if (ap == null)
-                {
-                    continue;
-                }
-                Part part = ap.partPrefab;
-                if (part != null)
-                {
-                    string name = GetPartName(ap);
-                    nameToPart[name] = ap;
-                }
+                if (ap?.partPrefab is Part)
+                    nameToPart[GetPartName(ap)] = ap;
             }
         }
 
@@ -77,9 +68,7 @@ namespace RealFuels
         // from RF
         protected static string GetPartName(Part part)
         {
-            if (part.partInfo != null)
-                return GetPartName(part.partInfo);
-            return GetPartName(part.name);
+            return part.partInfo != null ? GetPartName(part.partInfo) : GetPartName(part.name);
         }
 
         protected static string GetPartName(AvailablePart ap)
@@ -109,12 +98,9 @@ namespace RealFuels
         {
             unlocks.Add(name);
 
-            PartEntryCostHolder h;
-            if (holders.TryGetValue(name, out h))
-            {
+            if (holders.TryGetValue(name, out PartEntryCostHolder h))
                 foreach (string s in h.children)
                     SetUnlocked(s);
-            }
         }
 
         public static int GetCost(string name)
@@ -131,8 +117,7 @@ namespace RealFuels
 
             unlockPathTracker.Add(name);
 
-            PartEntryCostHolder h;
-            if (holders.TryGetValue(name, out h))
+            if (holders.TryGetValue(name, out PartEntryCostHolder h))
                 return h.GetCost();
 
             return 0;
@@ -140,12 +125,8 @@ namespace RealFuels
 
         public static void UpdateEntryCost(AvailablePart ap)
         {
-            string name = GetPartName(ap);
-
-            EntryCostDatabase.ClearTracker();
-
-            PartEntryCostHolder h;
-            if (holders.TryGetValue(name, out h))
+            ClearTracker();
+            if (holders.TryGetValue(GetPartName(ap), out PartEntryCostHolder h))
                 ap.SetEntryCost(h.GetCost());
         }
 
@@ -177,14 +158,10 @@ namespace RealFuels
 
         public static void UpdatePartEntryCosts()
         {
-            for (int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
+            foreach (var ap in PartLoader.LoadedPartsList)
             {
-                AvailablePart ap = PartLoader.LoadedPartsList[a];
-
-                if (ap == null || ap.partPrefab == null)
-                    continue;
-
-                UpdateEntryCost(ap);
+                if (ap?.partPrefab is Part)
+                    UpdateEntryCost(ap);
             }
         }
         #endregion

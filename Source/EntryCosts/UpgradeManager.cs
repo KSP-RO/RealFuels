@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Collections;
-using System.Collections.ObjectModel;
-using System.Reflection;
 using System.Linq;
 using UnityEngine;
 
@@ -15,18 +13,8 @@ namespace RealFuels
         protected static Dictionary<string, EngineConfigUpgrade> configUpgrades;
         protected static Dictionary<string, TLUpgrade> techLevelUpgrades;
 
-        #region Instance
-
         private static EntryCostManager _instance = null;
-        public static EntryCostManager Instance
-        {
-            get
-            {
-                return _instance;
-            }
-        }
-
-        #endregion
+        public static EntryCostManager Instance { get => _instance; }
 
         #endregion
 
@@ -34,8 +22,6 @@ namespace RealFuels
 
         public override void OnAwake()
         {
-            base.OnAwake();
-
             if (_instance != null)
             {
                 Object.Destroy(this);
@@ -43,44 +29,38 @@ namespace RealFuels
             }
             _instance = this;
 
-            if (configUpgrades == null) // just in case
+            if (configUpgrades == null)
                 FillUpgrades();
 
             EntryCostDatabase.Initialize(); // should not be needed though.
 
-            GameEvents.OnPartPurchased.Add(new EventData<AvailablePart>.OnEvent(onPartPurchased));
+            GameEvents.OnPartPurchased.Add(onPartPurchased);
         }
 
         public override void OnLoad(ConfigNode node)
         {
-            base.OnLoad(node);
 
             EntryCostDatabase.Load(node.GetNode("Unlocks"));
 
             EntryCostDatabase.UpdatePartEntryCosts();
 
+            string tlName = string.Empty;
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
             {
                 foreach (ConfigNode n in node.GetNodes("TLUpgrade"))
                 {
-                    TLUpgrade tU = null;
-                    if (n.HasValue("name"))
+                    if (n.TryGetValue("name", ref tlName))
                     {
-                        string tlName = n.GetValue("name");
-                        if (techLevelUpgrades.TryGetValue(tlName, out tU))
+                        if (techLevelUpgrades.TryGetValue(tlName, out TLUpgrade tU))
                             tU.Load(n);
                         else
-                        {
-                            tU = new TLUpgrade(n);
-                            techLevelUpgrades[tlName] = tU;
-                        }
+                            techLevelUpgrades[tlName] = new TLUpgrade(n);
                     }
                 }
             }
         }
         public override void OnSave(ConfigNode node)
         {
-            base.OnSave(node);
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
             {
                 foreach (TLUpgrade tU in techLevelUpgrades.Values)
@@ -93,7 +73,7 @@ namespace RealFuels
         }
         public void OnDestroy()
         {
-            GameEvents.OnPartPurchased.Remove(new EventData<AvailablePart>.OnEvent(onPartPurchased));
+            GameEvents.OnPartPurchased.Remove(onPartPurchased);
         }
         #endregion
 
@@ -110,27 +90,15 @@ namespace RealFuels
             configUpgrades = new Dictionary<string, EngineConfigUpgrade>();
             techLevelUpgrades = new Dictionary<string, TLUpgrade>();
 
-            for (int a = PartLoader.LoadedPartsList.Count; a-- > 0;)
+            foreach (AvailablePart ap in PartLoader.LoadedPartsList.Where(x => x.partPrefab is Part p && p.Modules != null))
             {
-                AvailablePart ap = PartLoader.LoadedPartsList[a];
-
-                if (ap == null || ap.partPrefab == null)
-                    continue;
-
-                Part part = ap.partPrefab;
-                if (part.Modules == null)
-                    continue;
-
-                for (int i = part.Modules.Count; i-- > 0;)
+                for (int i = ap.partPrefab.Modules.Count; i-- > 0;)
                 {
-                    PartModule m = part.Modules[i];
-                    if (m is ModuleEngineConfigs)
+                    if (ap.partPrefab.Modules[i] is ModuleEngineConfigs mec)
                     {
-                        ModuleEngineConfigs mec = m as ModuleEngineConfigs;
                         mec.CheckConfigs();
-                        for (int j = mec.configs.Count; j-- > 0;)
+                        foreach (var cfg in mec.configs)
                         {
-                            ConfigNode cfg = mec.configs[j];
                             string cfgName = cfg.GetValue("name");
                             if (!string.IsNullOrEmpty(cfgName))
                             {
@@ -139,10 +107,7 @@ namespace RealFuels
 
                                 // config upgrades
                                 if (!configUpgrades.ContainsKey(cfgName))
-                                {
-                                    EngineConfigUpgrade eConfig = new EngineConfigUpgrade(cfg, cfgName);
-                                    configUpgrades[cfgName] = eConfig;
-                                }
+                                    configUpgrades[cfgName] = new EngineConfigUpgrade(cfg, cfgName);
 
                                 // TL upgrades
                                 if (mec.techLevel >= 0)
@@ -170,23 +135,19 @@ namespace RealFuels
 
             StartCoroutine(updatePartEntryCosts());
 
-            Part part = ap.partPrefab;
-            if(part != null)
+            if(ap.partPrefab is Part part)
             {
                 for(int i = part.Modules.Count - 1; i >= 0; --i)
                 {
-                    PartModule m = part.Modules[i];
-                    if(m is ModuleEngineConfigs)
+                    if(part.Modules[i] is ModuleEngineConfigs mec)
                     {
-                        ModuleEngineConfigs mec = m as ModuleEngineConfigs;
                         mec.CheckConfigs();
-                        for(int j = mec.configs.Count - 1; j >= 0; --j)
+                        foreach (var cfg in mec.configs)
                         {
-                            ConfigNode cfg = mec.configs[j];
                             if(cfg.HasValue("name"))
                             {
                                 string cfgName = cfg.GetValue("name");
-                                
+
                                 // TL upgrades
                                 if (mec.techLevel >= 0)
                                 {
@@ -246,8 +207,7 @@ namespace RealFuels
 
         public int TLUnlocked(string tUName)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
                 return tU.currentTL;
             Debug.LogError("*RFUM: ERROR: TL " + tUName + " does not exist!");
             return -1;
@@ -255,8 +215,7 @@ namespace RealFuels
 
         public void SetTLUnlocked(string tUName, int newVal)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
             {
                 if (newVal > tU.currentTL)
                     tU.currentTL = newVal;
@@ -266,8 +225,7 @@ namespace RealFuels
         }
         public double TLEntryCost(string tUName)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
                 return tU.techLevelEntryCost;
 
             Debug.LogError("*RFUM: ERROR: TL " + tUName + " does not exist!");
@@ -275,8 +233,7 @@ namespace RealFuels
         }
         public double TLSciEntryCost(string tUName)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
                 return tU.techLevelSciEntryCost;
             Debug.LogError("*RFUM: ERROR: TL " + tUName + " does not exist!");
             return 0d;

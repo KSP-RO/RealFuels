@@ -431,8 +431,6 @@ namespace RealFuels.Tanks
                 yield return null;
             }
 
-            // This might be overkill
-            UpdateUsedBy ();
             PartResourcesChanged ();
         }
 
@@ -489,30 +487,27 @@ namespace RealFuels.Tanks
 
         private void OnPartActionGuiDismiss(Part p)
         {
-            if (p == part) {
+            if (p == part)
                 showUI = false;
-            }
         }
 
         public void Update ()
         {
-            if (!compatible || !HighLogic.LoadedSceneIsEditor)
+            if (compatible && HighLogic.LoadedSceneIsEditor)
             {
-                return;
-            }
-            UpdateTankType ();
-            UpdateUtilization ();
-            CalculateMass ();
+                UpdateTankType();
+                UpdateUtilization();
+                CalculateMass();
 
-            bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
-            bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
+                bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
+                bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
 
-            if (partIsSelectedInActionsScreen || showUI) {
-                TankWindow.ShowGUI (this);
+                if (partIsSelectedInActionsScreen || showUI)
+                    TankWindow.ShowGUI(this);
+                else
+                    TankWindow.HideGUIForModule(this);
             }
-            else {
-                TankWindow.HideGUIForModule (this);
-            }
+            UpdateRF();
         }
 
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
@@ -1017,7 +1012,7 @@ namespace RealFuels.Tanks
         }
 
         [KSPField(guiActiveEditor = true, guiName = "Tank UI", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
-        [UI_Toggle(enabledText = "Hide", disabledText = "Show")]
+        [UI_Toggle(enabledText = "Hide", disabledText = "Show", suppressEditorShipModified = true)]
         [NonSerialized]
         public bool showUI;
 
@@ -1186,6 +1181,7 @@ namespace RealFuels.Tanks
         partial void GetModuleCostRF(ref double cost);
         partial void CalculateMassRF(ref double mass);
         partial void OnLoadRF(ConfigNode node);
+        partial void UpdateRF();
 
         #endregion
     }
