@@ -9,37 +9,37 @@ using System.Collections.ObjectModel;
 
 namespace RealFuels.Tanks
 {
-	public class FuelTankList : KeyedCollection<string, FuelTank>, IConfigNode
-	{
-		public FuelTankList ()
-		{
-		}
+    public class FuelTankList : KeyedCollection<string, FuelTank>, IConfigNode
+    {
+        public FuelTankList ()
+        {
+        }
 
-		public FuelTankList (ConfigNode node)
-		{
-			Load (node);
-		}
+        public FuelTankList (ConfigNode node)
+        {
+            Load (node);
+        }
 
-		public bool TryGet(string resource, out FuelTank tank)
-		{
-			if (Contains(resource)) {
-				tank = this[resource];
-				return true;
-			}
-			tank = null;
-			return false;
-		}
+        public bool TryGet(string resource, out FuelTank tank)
+        {
+            if (Contains(resource)) {
+                tank = this[resource];
+                return true;
+            }
+            tank = null;
+            return false;
+        }
 
-		protected override string GetKeyForItem (FuelTank item)
-		{
-			return item.name;
-		}
+        protected override string GetKeyForItem (FuelTank item)
+        {
+            return item.name;
+        }
 
-		public void Load (ConfigNode node)
-		{
-			if (node == null)
-				return;
-			foreach (ConfigNode tankNode in node.GetNodes ("TANK")) {
+        public void Load (ConfigNode node)
+        {
+            if (node == null)
+                return;
+            foreach (ConfigNode tankNode in node.GetNodes ("TANK")) {
                 if (tankNode.HasValue("name"))
                 {
                     if (!Contains(tankNode.GetValue("name")))
@@ -51,26 +51,26 @@ namespace RealFuels.Tanks
                 }
                 else
                     Debug.LogWarning("[MFS] TANK node invalid, lacks name");
-			}
-		}
+            }
+        }
 
-		public void Save (ConfigNode node)
-		{
-			Save(node, true);
-		}
+        public void Save (ConfigNode node)
+        {
+            Save(node, true);
+        }
 
-		public void Save (ConfigNode node, bool includeEmpty)
-		{
-			foreach (FuelTank tank in this) {
-				// Don't spam save files with empty tank nodes, only save the relevant stuff
-				if (includeEmpty || tank.amount > 0 || tank.maxAmount > 0)
-				{
-					ConfigNode tankNode = new ConfigNode ("TANK");
-					tank.Save (tankNode);
-					node.AddNode (tankNode);
-				}
-			}
-		}
+        public void Save (ConfigNode node, bool includeEmpty)
+        {
+            foreach (FuelTank tank in this) {
+                // Don't spam save files with empty tank nodes, only save the relevant stuff
+                if (includeEmpty || tank.amount > 0 || tank.maxAmount > 0)
+                {
+                    ConfigNode tankNode = new ConfigNode ("TANK");
+                    tank.Save (tankNode);
+                    node.AddNode (tankNode);
+                }
+            }
+        }
 
         public void TechAmounts()
         {
@@ -80,5 +80,5 @@ namespace RealFuels.Tanks
                     this[i].maxAmount = 0;
             }
         }
-	}
+    }
 }

@@ -172,6 +172,18 @@ namespace RealFuels
             return EntryCostDatabase.GetCost(cfgName);
         }
 
+        public double ConfigEntryCost(IEnumerable<string> cfgNames)
+        {
+            EntryCostDatabase.ClearTracker();
+            double sum = 0;
+            foreach (string cfgName in cfgNames)
+            {
+                sum += EntryCostDatabase.GetCost(cfgName);
+            }
+
+            return sum;
+        }
+
         public bool PurchaseConfig(string cfgName)
         {
             if (ConfigUnlocked(cfgName))
