@@ -292,14 +292,14 @@ namespace RealFuels
             if (HighLogic.LoadedSceneIsEditor && pressureFed)
                 ullageSet.EditorPressurized();
 
-            if (pressureFed)
-                propellantStatus = ullageSet.PressureOK() ? "Feed pressure OK" : "<color=red>Needs high pressure tanks</color>";
+            if (pressureFed && !ullageSet.PressureOK())
+                propellantStatus = "<color=red>Needs high pressure tanks</color>";
             else if (HighLogic.LoadedSceneIsFlight && ullage && RFSettings.Instance.simulateUllage)
             {
                 propellantStatus = ullageSet.GetUllageState(out Color ullageColor);
                 part.stackIcon.SetIconColor(ullageColor);
             } else
-                propellantStatus = "Nominal";
+                propellantStatus = pressureFed ? "Feed pressure OK" : "Nominal";
         }
 
         public virtual void CalcThrottleResponseRate(ref float responseRate, ref bool instant)
