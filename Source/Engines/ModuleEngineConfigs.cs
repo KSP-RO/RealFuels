@@ -139,6 +139,8 @@ namespace RealFuels
         [KSPField]
         public bool useConfigAsTitle = false;
 
+        [KSPField]
+        public string b9psModuleID = string.Empty;
 
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
@@ -165,6 +167,42 @@ namespace RealFuels
                 tfInterface?.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new object[] { part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels" });
             }
             catch {}
+        }
+        #endregion
+
+        #region B9PartSwitch
+        private static bool _b9psReflectionInitialized = false;
+        private static FieldInfo B9PSModuleID;
+        private static MethodInfo B9PSSwitchSubtype;
+
+        public void UpdateB9PSVariant()
+        {
+            if (Utilities.B9PSFound)
+            {
+                if (!_b9psReflectionInitialized)
+                {
+                    B9PSSwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
+                    B9PSModuleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
+                    _b9psReflectionInitialized = true;
+                }
+
+                if (b9psModuleID != string.Empty)
+                {
+                    string subtypeName = string.Empty;
+                    var enabledConfig = configs.FirstOrDefault(c => c.GetValue("name").Equals(configuration));
+
+                    if (enabledConfig != null && enabledConfig.TryGetValue("b9psSubtypeName", ref subtypeName))
+                    {
+                        var b9psModule = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
+                            .Find(m => ((string)B9PSModuleID.GetValue(m)).Equals(b9psModuleID));
+
+                        if (b9psModule != null)
+                            B9PSSwitchSubtype.Invoke(b9psModule, new object[] { subtypeName });
+                        else
+                            Debug.LogError($"*RFMEC* B9PartSwitch module with ID {b9psModuleID} was not found for {part}!");
+                    }
+                }
+            }
         }
         #endregion
 
@@ -458,46 +496,6 @@ namespace RealFuels
             foreach (var x in effectsToStop)
                 part?.Effect(x, 0f);
         }
-
-        private bool b9InstallStatusChecked = false;
-        private bool b9Installed = false;
-        private MethodInfo B9PSSwitchSubtype;
-        private FieldInfo B9PSModuleID;
-
-        private bool IsB9PSInstalled()
-        {
-            if (!b9InstallStatusChecked)
-            {
-                var assembly = AssemblyLoader.loadedAssemblies.FirstOrDefault(a => a.assembly.GetName().Name == "B9PartSwitch")?.assembly;
-                b9InstallStatusChecked = true;
-                if (assembly is Assembly)
-                {
-                    B9PSSwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
-                    B9PSModuleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
-                    b9Installed = true;
-                }
-            }
-            return b9Installed;
-        }
-
-        public void SetupWaterfallFX()
-        {
-            if (IsB9PSInstalled())
-            {
-                string waterfallSubtype = string.Empty;
-                ConfigNode current = configs.FirstOrDefault(x => x.GetValue("name").Equals(configuration));
-                if (current is ConfigNode && current.TryGetValue("waterfallSubtypeName", ref waterfallSubtype))
-                {
-                    var plumeSwitcher = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false).Find(module =>
-                        ((string)B9PSModuleID.GetValue(module)).Equals("rfWaterfallPlumeSwitch")
-                    );
-                    if (plumeSwitcher != null)
-                    {
-                        B9PSSwitchSubtype.Invoke(plumeSwitcher, new object[] { waterfallSubtype });
-                    }
-                }
-            }
-        }
         #endregion
 
         #region Configuration
@@ -615,7 +613,8 @@ namespace RealFuels
                 p.SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
 
             SetupFX();
-            SetupWaterfallFX();
+
+            UpdateB9PSVariant();
 
             UpdateTFInterops(); // update TestFlight if it's installed
 

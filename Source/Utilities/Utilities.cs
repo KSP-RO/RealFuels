@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,6 +38,21 @@ namespace RealFuels
                 return _kerbalismFound.Value;
             }
         }
+
+        private static bool? _b9psFound = null;
+        public static bool B9PSFound
+        {
+            get
+            {
+                if (!_b9psFound.HasValue)
+                {
+                    var assembly = AssemblyLoader.loadedAssemblies.FirstOrDefault(a => a.assembly.GetName().Name == "B9PartSwitch")?.assembly;
+                    _b9psFound = (assembly is Assembly);
+                }
+                return _b9psFound.Value;
+            }
+        }
+
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
             FloatCurve newCurve = new FloatCurve();
