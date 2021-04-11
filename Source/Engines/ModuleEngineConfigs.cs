@@ -195,6 +195,21 @@ namespace RealFuels
             }
         }
 
+        private void HideB9PSVariantSelector()
+        {
+            // Hide the GUI for the `ModuleB9PartSwitch` managed by RF.
+            // This is somewhat of a hack-ish solution...
+            if (B9PSModule is PartModule module)
+            {
+                var b9psSubtypeTitle = module.Fields["currentSubtypeTitle"];
+                b9psSubtypeTitle.guiActive = false;
+                b9psSubtypeTitle.guiActiveEditor = false;
+                var b9psSubtypeSelector = module.Fields["currentSubtypeIndex"];
+                b9psSubtypeSelector.guiActive = false;
+                b9psSubtypeSelector.guiActiveEditor = false;
+            }
+        }
+
         public void UpdateB9PSVariant()
         {
             if (B9PSModule is PartModule module)
@@ -315,17 +330,7 @@ namespace RealFuels
         {
             base.OnStartFinished(state);
 
-            // Hide the GUI for the `ModuleB9PartSwitch` managed by RF.
-            // This is somewhat of a hack-ish solution...
-            if (B9PSModule is PartModule module)
-            {
-                var b9psSubtypeTitle = module.Fields["currentSubtypeTitle"];
-                var b9psSubtypeSelector = module.Fields["currentSubtypeIndex"];
-                b9psSubtypeTitle.guiActive = false;
-                b9psSubtypeTitle.guiActiveEditor = false;
-                b9psSubtypeSelector.guiActive = false;
-                b9psSubtypeSelector.guiActiveEditor = false;
-            }
+            HideB9PSVariantSelector();  // Just the one managed by RF, if there is one.
         }
         #endregion
 
