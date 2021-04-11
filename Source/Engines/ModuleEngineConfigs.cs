@@ -174,34 +174,44 @@ namespace RealFuels
         private static bool _b9psReflectionInitialized = false;
         private static FieldInfo B9PS_moduleID;
         private static MethodInfo B9PS_SwitchSubtype;
+        public void InitializeB9PSReflection()
+        {
+            B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
+            B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
+            _b9psReflectionInitialized = true;
+        }
+
+        public bool B9PSIntegrationEnabled => b9psModuleID != string.Empty && Utilities.B9PSFound;
+
+        public PartModule GetB9PSModule()
+        {
+            if (!B9PSIntegrationEnabled)
+                return null;
+
+            if (!_b9psReflectionInitialized)
+                InitializeB9PSReflection();
+
+            var module = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
+                .FirstOrDefault(m => ((string)B9PS_moduleID?.GetValue(m)).Equals(b9psModuleID));
+
+            if (module == null)
+                Debug.LogError($"*RFMEC* B9PartSwitch module with ID {b9psModuleID} was not found for {part}!");
+
+            return module;
+        }
 
         public void UpdateB9PSVariant()
         {
-            if (Utilities.B9PSFound)
+            if (B9PSIntegrationEnabled)
             {
-                if (!_b9psReflectionInitialized)
+                string subtypeName = string.Empty;
+                if (config.TryGetValue("b9psSubtypeName", ref subtypeName))
                 {
-                    B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
-                    B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
-                    _b9psReflectionInitialized = true;
+                    if (GetB9PSModule() is PartModule module)
+                        B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
                 }
-
-                if (b9psModuleID != string.Empty)
-                {
-                    string subtypeName = string.Empty;
-                    if (config.TryGetValue("b9psSubtypeName", ref subtypeName))
-                    {
-                        var b9psModule = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
-                            .FirstOrDefault(m => ((string)B9PS_moduleID.GetValue(m)).Equals(b9psModuleID));
-
-                        if (b9psModule != null)
-                            B9PS_SwitchSubtype.Invoke(b9psModule, new object[] { subtypeName });
-                        else
-                            Debug.LogError($"*RFMEC* B9PartSwitch module with ID {b9psModuleID} was not found for {part}!");
-                    }
-                    else
-                        Debug.LogError($"*RFMEC* {part} has B9PS integration enabled, but the ({configuration}) configuration does not specify a `b9psSubtypeName`!");
-                }
+                else
+                    Debug.LogError($"*RFMEC* {part} has B9PS integration enabled, but the ({configuration}) configuration does not specify a `b9psSubtypeName`!");
             }
         }
         #endregion
@@ -305,6 +315,23 @@ namespace RealFuels
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
+        }
+
+        public override void OnStartFinished(StartState state)
+        {
+            base.OnStartFinished(state);
+
+            // Hide the GUI for the `ModuleB9PartSwitch` managed by RF.
+            // This is somewhat of a hack-ish solution...
+            if (B9PSIntegrationEnabled && GetB9PSModule() is PartModule module)
+            {
+                var b9psSubtypeTitle = module.Fields["currentSubtypeTitle"];
+                var b9psSubtypeSelector = module.Fields["currentSubtypeIndex"];
+                b9psSubtypeTitle.guiActive = false;
+                b9psSubtypeTitle.guiActiveEditor = false;
+                b9psSubtypeSelector.guiActive = false;
+                b9psSubtypeSelector.guiActiveEditor = false;
+            }
         }
         #endregion
 
