@@ -176,8 +176,8 @@ namespace RealFuels
         private static MethodInfo B9PS_SwitchSubtype;
         private void InitializeB9PSReflection()
         {
-            B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
             B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
+            B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
             _b9psReflectionInitialized = true;
         }
 
@@ -211,7 +211,7 @@ namespace RealFuels
                         B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
                 }
                 else
-                    Debug.LogError($"*RFMEC* {part} has B9PS integration enabled, but the ({configuration}) configuration does not specify a `b9psSubtypeName`!");
+                    Debug.LogError($"*RFMEC* {part} has B9PS integration enabled, but the {configuration} configuration does not specify a `b9psSubtypeName`!");
             }
         }
         #endregion
