@@ -174,42 +174,34 @@ namespace RealFuels
         private static bool _b9psReflectionInitialized = false;
         private static FieldInfo B9PS_moduleID;
         private static MethodInfo B9PS_SwitchSubtype;
-        private void InitializeB9PSReflection()
+        public PartModule B9PSModule;
+
+        private void InitializeB9PSIntegrationIfEnabled()
         {
-            B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
-            B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
-            _b9psReflectionInitialized = true;
-        }
+            if (b9psModuleID != string.Empty && Utilities.B9PSFound)
+            {
+                if (!_b9psReflectionInitialized)
+                {
+                    B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
+                    B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
+                    _b9psReflectionInitialized = true;
+                }
 
-        public bool B9PSIntegrationEnabled => b9psModuleID != string.Empty && Utilities.B9PSFound;
+                B9PSModule = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
+                    .FirstOrDefault(m => ((string)B9PS_moduleID?.GetValue(m)).Equals(b9psModuleID));
 
-        public PartModule GetB9PSModule()
-        {
-            if (!B9PSIntegrationEnabled)
-                return null;
-
-            if (!_b9psReflectionInitialized)
-                InitializeB9PSReflection();
-
-            var module = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
-                .FirstOrDefault(m => ((string)B9PS_moduleID?.GetValue(m)).Equals(b9psModuleID));
-
-            if (module == null)
-                Debug.LogError($"*RFMEC* B9PartSwitch module with ID {b9psModuleID} was not found for {part}!");
-
-            return module;
+                if (B9PSModule == null)
+                    Debug.LogError($"*RFMEC* B9PartSwitch module with ID {b9psModuleID} was not found for {part}!");
+            }
         }
 
         public void UpdateB9PSVariant()
         {
-            if (B9PSIntegrationEnabled)
+            if (B9PSModule is PartModule module)
             {
                 string subtypeName = string.Empty;
                 if (config.TryGetValue("b9psSubtypeName", ref subtypeName))
-                {
-                    if (GetB9PSModule() is PartModule module)
-                        B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
-                }
+                    B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
                 else
                     Debug.LogError($"*RFMEC* {part} has B9PS integration enabled, but the {configuration} configuration does not specify a `b9psSubtypeName`!");
             }
@@ -313,6 +305,8 @@ namespace RealFuels
 
             SetConfiguration();
 
+            InitializeB9PSIntegrationIfEnabled();
+
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
         }
@@ -323,7 +317,7 @@ namespace RealFuels
 
             // Hide the GUI for the `ModuleB9PartSwitch` managed by RF.
             // This is somewhat of a hack-ish solution...
-            if (B9PSIntegrationEnabled && GetB9PSModule() is PartModule module)
+            if (B9PSModule is PartModule module)
             {
                 var b9psSubtypeTitle = module.Fields["currentSubtypeTitle"];
                 var b9psSubtypeSelector = module.Fields["currentSubtypeIndex"];
