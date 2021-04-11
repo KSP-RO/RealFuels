@@ -174,7 +174,7 @@ namespace RealFuels
         private static bool _b9psReflectionInitialized = false;
         private static FieldInfo B9PS_moduleID;
         private static MethodInfo B9PS_SwitchSubtype;
-        public void InitializeB9PSReflection()
+        private void InitializeB9PSReflection()
         {
             B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
             B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
