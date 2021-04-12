@@ -199,29 +199,28 @@ namespace RealFuels
         {
             // Hide the GUI for the `ModuleB9PartSwitch` managed by RF.
             // This is somewhat of a hack-ish solution...
-            if (B9PSModule is PartModule module)
+            if (B9PSModule is PartModule)
             {
-                var b9psSubtypeTitle = module.Fields["currentSubtypeTitle"];
-                b9psSubtypeTitle.guiActive = false;
-                b9psSubtypeTitle.guiActiveEditor = false;
-                var b9psSubtypeSelector = module.Fields["currentSubtypeIndex"];
-                b9psSubtypeSelector.guiActive = false;
-                b9psSubtypeSelector.guiActiveEditor = false;
-                var b9psShowSelectorWindow = module.Events["ShowSubtypesWindow"];
-                b9psShowSelectorWindow.guiActive = false;
-                b9psShowSelectorWindow.guiActiveEditor = false;
+                B9PSModule.Fields["currentSubtypeTitle"].guiActive = false;
+                B9PSModule.Fields["currentSubtypeTitle"].guiActiveEditor = false;
+                B9PSModule.Fields["currentSubtypeIndex"].guiActive = false;
+                B9PSModule.Fields["currentSubtypeIndex"].guiActiveEditor = false;
+                B9PSModule.Events["ShowSubtypesWindow"].guiActive = false;
+                B9PSModule.Events["ShowSubtypesWindow"].guiActiveEditor = false;
             }
         }
 
         public void UpdateB9PSVariant()
         {
-            if (B9PSModule is PartModule module)
+            if (B9PSModule is PartModule)
             {
                 string subtypeName = string.Empty;
-                if (config.TryGetValue("b9psSubtypeName", ref subtypeName))
-                    B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
-                else
-                    Debug.LogError($"*RFMEC* {part} has B9PS integration enabled, but the {configuration} configuration does not specify a `b9psSubtypeName`!");
+                if (!config.TryGetValue("b9psSubtypeName", ref subtypeName))
+                {
+                    subtypeName = configuration;
+                    Debug.LogWarning($"*RFMEC* {part} does not specify b9psSubtypeName in current config {configuration}; defaulting to \"{subtypeName}\" for B9PS switching.");
+                }
+                B9PS_SwitchSubtype?.Invoke(B9PSModule, new object[] { subtypeName });
             }
         }
         #endregion
@@ -331,8 +330,6 @@ namespace RealFuels
 
         public override void OnStartFinished(StartState state)
         {
-            base.OnStartFinished(state);
-
             HideB9PSVariantSelector();  // Just the one managed by RF, if there is one.
         }
         #endregion
