@@ -207,6 +207,9 @@ namespace RealFuels
                 var b9psSubtypeSelector = module.Fields["currentSubtypeIndex"];
                 b9psSubtypeSelector.guiActive = false;
                 b9psSubtypeSelector.guiActiveEditor = false;
+                var b9psShowSelectorWindow = module.Events["ShowSubtypesWindow"];
+                b9psShowSelectorWindow.guiActive = false;
+                b9psShowSelectorWindow.guiActiveEditor = false;
             }
         }
 
