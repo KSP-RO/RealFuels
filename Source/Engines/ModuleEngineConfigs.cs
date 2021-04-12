@@ -319,11 +319,11 @@ namespace RealFuels
             if (HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
+            InitializeB9PSIntegrationIfEnabled();
+
             ConfigSaveLoad();
 
             SetConfiguration();
-
-            InitializeB9PSIntegrationIfEnabled();
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
