@@ -35,6 +35,7 @@ namespace RealFuels.Tanks
 
         bool compatible = true;
         bool started;
+        private bool windowDirty = false;
 
         public bool fueledByLaunchClamp = false;
 
@@ -385,6 +386,7 @@ namespace RealFuels.Tanks
                 GameEvents.onPartRemove.Add(onPartRemove);
                 GameEvents.onEditorShipModified.Add(onEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
+                GameEvents.onPartActionUIShown.Add(OnPartActionUIShown);
 
                 if (part.symmetryCounterparts.Count > 0) {
                     UpdateTankType(false);
@@ -409,6 +411,7 @@ namespace RealFuels.Tanks
             GameEvents.onPartRemove.Remove (onPartRemove);
             GameEvents.onEditorShipModified.Remove (onEditorShipModified);
             GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
+            GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
             TankWindow.HideGUI();
         }
 
@@ -482,6 +485,16 @@ namespace RealFuels.Tanks
                 StartCoroutine (WaitAndUpdateUsedBy ());
             } else {
                 updateusedby_wait_frames = wait_frames;
+            }
+        }
+
+        private void OnPartActionUIShown(UIPartActionWindow window, Part p)
+        {
+            if (p == part && windowDirty)
+            {
+                windowDirty = false;        // Un-flag state
+                window.displayDirty = true; // Signal refresh
+                //MonoUtilities.RefreshPartContextWindow(part);
             }
         }
 
@@ -1030,16 +1043,11 @@ namespace RealFuels.Tanks
             if (!started) {
                 return;
             }
-            UIPartActionWindow action_window;
-            if (UIPartActionController.Instance == null) {
-                // no controller means no window to mark dirty
-                return;
-            }
-            action_window = UIPartActionController.Instance.GetItem(part);
-            if (action_window == null) {
-                return;
-            }
-            action_window.displayDirty = true;
+            if (UIPartActionController.Instance?.GetItem(part) is UIPartActionWindow paw)
+                paw.displayDirty = true;
+            else
+                windowDirty = true; // The PAW isn't open, so request refresh later
+            //MonoUtilities.RefreshPartContextWindow(part);
         }
 
 
@@ -1078,27 +1086,19 @@ namespace RealFuels.Tanks
                 parts = vessel.parts;
             else parts = new List<Part>();
 
-            FuelInfo f;
-            string title;
-            PartModule m;
-            for(int i = 0; i < parts.Count; ++i)
+            foreach(Part p in parts)
             {
-                title = parts[i].partInfo.title;
-                for(int j = 0; j < parts[i].Modules.Count; ++j)
+                string title = p.partInfo.title;
+                for(int j = 0; j < p.Modules.Count; ++j)
                 {
-                    m = parts[i].Modules[j];
+                    FuelInfo f = null;
+                    PartModule m = p.Modules[j];
                     if (m is ModuleEngines)
-                    {
                         f = new FuelInfo((m as ModuleEngines).propellants, this, title);
-                        if(f.ratioFactor > 0d)
-                            UpdateFuelInfo(f, title);
-                    }
                     else if (m is ModuleRCS)
-                    {
                         f = new FuelInfo((m as ModuleRCS).propellants, this, title);
-                        if (f.ratioFactor > 0d)
-                            UpdateFuelInfo(f, title);
-                    }
+                    if (f?.ratioFactor > 0d)
+                        UpdateFuelInfo(f, title);
                 }
             }
 
