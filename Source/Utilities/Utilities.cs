@@ -17,6 +17,8 @@ namespace RealFuels
             {
                 if (!_kerbalismFound.HasValue)
                 {
+                    _kerbalismFound = false;
+                    
                     foreach (var a in AssemblyLoader.loadedAssemblies)
                     {
                         // Kerbalism comes with more than one assembly. There is Kerbalism for debug builds, KerbalismBootLoader,
@@ -27,7 +29,7 @@ namespace RealFuels
                         AssemblyName nameObject = new AssemblyName(a.assembly.FullName);
                         string realName = nameObject.Name; // Will always return "Kerbalism" as defined in the AssemblyName property of the csproj
 
-                        if (realName.Equals("Kerbalism"))
+                        if (string.Equals(realName, "Kerbalism", StringComparison.OrdinalIgnoreCase))
                         {
                             _kerbalismFound = true;
                             break;
@@ -38,6 +40,7 @@ namespace RealFuels
                 return _kerbalismFound.Value;
             }
         }
+
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
             FloatCurve newCurve = new FloatCurve();
