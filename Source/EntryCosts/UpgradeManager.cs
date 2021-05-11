@@ -33,8 +33,6 @@ namespace RealFuels
                 FillUpgrades();
 
             EntryCostDatabase.Initialize(); // should not be needed though.
-
-            GameEvents.OnPartPurchased.Add(onPartPurchased);
         }
 
         public override void OnLoad(ConfigNode node)
@@ -70,10 +68,6 @@ namespace RealFuels
 
                 EntryCostDatabase.Save(node.AddNode("Unlocks"));
             }
-        }
-        public void OnDestroy()
-        {
-            GameEvents.OnPartPurchased.Remove(onPartPurchased);
         }
         #endregion
 
@@ -122,29 +116,20 @@ namespace RealFuels
             }
         }
 
-        protected IEnumerator updatePartEntryCosts()
-        {
-            yield return new WaitForEndOfFrame();
-
-            EntryCostDatabase.UpdatePartEntryCosts();
-        }
-
-        public void onPartPurchased(AvailablePart ap)
+        public void OnPartPurchased(AvailablePart ap)
         {
             EntryCostDatabase.SetUnlocked(ap);
 
-            StartCoroutine(updatePartEntryCosts());
-
-            if(ap.partPrefab is Part part)
+            if (ap.partPrefab is Part part)
             {
                 for(int i = part.Modules.Count - 1; i >= 0; --i)
                 {
-                    if(part.Modules[i] is ModuleEngineConfigs mec)
+                    if (part.Modules[i] is ModuleEngineConfigs mec)
                     {
                         mec.CheckConfigs();
                         foreach (var cfg in mec.configs)
                         {
-                            if(cfg.HasValue("name"))
+                            if (cfg.HasValue("name"))
                             {
                                 string cfgName = cfg.GetValue("name");
 
@@ -159,8 +144,10 @@ namespace RealFuels
                     }
                 }
             }
+
+            EntryCostDatabase.UpdatePartEntryCosts();
         }
-        
+
         public bool ConfigUnlocked(string cfgName)
         {
             return EntryCostDatabase.IsUnlocked(cfgName);
