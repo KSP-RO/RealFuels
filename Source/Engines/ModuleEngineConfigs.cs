@@ -139,6 +139,8 @@ namespace RealFuels
         [KSPField]
         public bool useConfigAsTitle = false;
 
+        [KSPField]
+        public string b9psModuleID = string.Empty;
 
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
@@ -165,6 +167,61 @@ namespace RealFuels
                 tfInterface?.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new object[] { part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels" });
             }
             catch {}
+        }
+        #endregion
+
+        #region B9PartSwitch
+        private static bool _b9psReflectionInitialized = false;
+        private static FieldInfo B9PS_moduleID;
+        private static MethodInfo B9PS_SwitchSubtype;
+        public PartModule B9PSModule;
+
+        private void InitializeB9PSIntegrationIfEnabled()
+        {
+            if (b9psModuleID != string.Empty && Utilities.B9PSFound)
+            {
+                if (!_b9psReflectionInitialized)
+                {
+                    B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
+                    B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
+                    _b9psReflectionInitialized = true;
+                }
+
+                B9PSModule = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
+                    .FirstOrDefault(m => ((string)B9PS_moduleID?.GetValue(m)).Equals(b9psModuleID));
+
+                if (B9PSModule == null)
+                    Debug.LogError($"*RFMEC* B9PartSwitch module with ID {b9psModuleID} was not found for {part}!");
+            }
+        }
+
+        private void HideB9PSVariantSelector()
+        {
+            // Hide the GUI for the `ModuleB9PartSwitch` managed by RF.
+            // This is somewhat of a hack-ish solution...
+            if (B9PSModule is PartModule)
+            {
+                B9PSModule.Fields["currentSubtypeTitle"].guiActive = false;
+                B9PSModule.Fields["currentSubtypeTitle"].guiActiveEditor = false;
+                B9PSModule.Fields["currentSubtypeIndex"].guiActive = false;
+                B9PSModule.Fields["currentSubtypeIndex"].guiActiveEditor = false;
+                B9PSModule.Events["ShowSubtypesWindow"].guiActive = false;
+                B9PSModule.Events["ShowSubtypesWindow"].guiActiveEditor = false;
+            }
+        }
+
+        public void UpdateB9PSVariant()
+        {
+            if (B9PSModule is PartModule)
+            {
+                string subtypeName = string.Empty;
+                if (!config.TryGetValue("b9psSubtypeName", ref subtypeName))
+                {
+                    subtypeName = configuration;
+                    Debug.LogWarning($"*RFMEC* {part} does not specify b9psSubtypeName in current config {configuration}; defaulting to \"{subtypeName}\" for B9PS switching.");
+                }
+                B9PS_SwitchSubtype?.Invoke(B9PSModule, new object[] { subtypeName });
+            }
         }
         #endregion
 
@@ -261,12 +318,19 @@ namespace RealFuels
             if (HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
+            InitializeB9PSIntegrationIfEnabled();
+
             ConfigSaveLoad();
 
             SetConfiguration();
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
+        }
+
+        public override void OnStartFinished(StartState state)
+        {
+            HideB9PSVariantSelector();  // Just the one managed by RF, if there is one.
         }
         #endregion
 
@@ -575,6 +639,8 @@ namespace RealFuels
                 p.SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
 
             SetupFX();
+
+            UpdateB9PSVariant();
 
             UpdateTFInterops(); // update TestFlight if it's installed
 
