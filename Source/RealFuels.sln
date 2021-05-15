@@ -1,11 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31229.75
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RealFuels", "RealFuels.csproj", "{0041813D-DCD1-4AC7-8327-85765BF924A3}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestFlightRF", "TestFlightRF\TestFlightRF.csproj", "{ACF86439-AE81-4118-B703-2BBACC483B7E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,13 +15,12 @@ Global
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0041813D-DCD1-4AC7-8327-85765BF924A3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{ACF86439-AE81-4118-B703-2BBACC483B7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{ACF86439-AE81-4118-B703-2BBACC483B7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{ACF86439-AE81-4118-B703-2BBACC483B7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{ACF86439-AE81-4118-B703-2BBACC483B7E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7BA58AA1-413D-49E8-93C2-6A36D6602FBA}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		version = 10.8.0

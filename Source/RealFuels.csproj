@@ -106,6 +106,10 @@
     <Compile Include="Ullage\UllageModule.cs" />
     <Compile Include="Ullage\UllageSet.cs" />
     <Compile Include="Ullage\UllageSimulator.cs" />
+    <None Include="tools\git-version-gen" />
+    <None Include="tools\git-version-mft.sh" />
+    <None Include="tools\git-version-rf.sh" />
+    <None Include="tools\post-build-rf.sh" />
     <None Include="Utilities\PartExtensions.cs" />
     <Compile Include="Utilities\TestFlightWrapper.cs" />
     <Compile Include="Utilities\Utilities.cs" />
