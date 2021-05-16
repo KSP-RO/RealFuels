@@ -229,17 +229,18 @@ namespace RealFuels
             }
             else
             {
-                mixtureRatioVariance = runVaryMR;
+                if (HighLogic.LoadedSceneIsFlight)
+                    mixtureRatioVariance = runVaryMR;
 
                 // get current flow, and thus thrust.
                 fuelFlow = scale * flowMult * maxFlow * commandedThrottle * thrustRatio;
                 double perlin = 0d;
-                if (varyFlow > 0 || varyIsp > 0)
+                if (HighLogic.LoadedSceneIsFlight && (varyFlow > 0 || varyIsp > 0))
                 {
                     perlin = Mathf.PerlinNoise(Time.time, timeOffset) * 2d - 1d;
                 }
 
-                if (varyFlow > 0d && fuelFlow > 0d && HighLogic.LoadedSceneIsFlight)
+                if (HighLogic.LoadedSceneIsFlight && varyFlow > 0d && fuelFlow > 0d)
                 {
                     fuelFlow *= (1d + runVaryFlow) * (1d + perlin * varyFlow * VarianceDuring);
                 }
@@ -257,7 +258,7 @@ namespace RealFuels
                 if (velCurveIsp != null)
                     ispOtherMult *= velCurveIsp.Evaluate((float)mach);
 
-                if (varyIsp > 0d)
+                if (HighLogic.LoadedSceneIsFlight && varyIsp > 0d && fuelFlow > 0d)
                 {
                     ispOtherMult *= (1d + runVaryIsp) * (1d + perlin * varyIsp * VarianceDuring);
                 }
