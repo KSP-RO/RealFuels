@@ -333,13 +333,32 @@ namespace RealFuels
                 return UnityEngine.Random.Range(-1f, 1f);
         }
 
-        protected void GetVariances(bool seed, out double varianceFlow, out double varianceMR, out double varianceIsp)
+        protected void GetVariances(bool useSeed, out double varianceFlow, out double varianceMR, out double varianceIsp)
         {
-            varianceFlow = GetRandom(seed);
-            varianceMR = GetRandom(seed) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
+            varianceFlow = GetNormal(useSeed, 3d);
+            varianceMR = GetNormal(useSeed, 3d) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
             // MR probably has an effect on Isp but it's hard to say what. When running fuel-rich, increasing
             // oxidizer might raise Isp? And vice versa for ox-rich. So for now ignore MR.
-            varianceIsp = (varianceFlow * 0.8d + GetRandom(seed) * 0.2d);
+            varianceIsp = (varianceFlow * 0.8d + GetNormal(useSeed, 3d) * 0.2d);
+        }
+
+        protected double GetNormal(bool useSeed, double stdDevClamp)
+        {
+            double u, v, S;
+
+            do
+            {
+                u = GetRandom(useSeed);
+                v = GetRandom(useSeed);
+                S = u * u + v * v;
+            }
+            while (S >= 1d);
+
+            double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
+            double retVal = u * fac;
+            if (stdDevClamp > 0)
+                retVal = Math.Min(stdDevClamp, Math.Abs(retVal)) * Math.Sign(retVal);
+            return retVal;
         }
     }
 }
