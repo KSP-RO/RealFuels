@@ -28,6 +28,7 @@ namespace RealFuels
         private double runVaryFlow = 0d;
         private double runVaryIsp = 0d;
         private double runVaryMR = 0d;
+        private System.Random seededRandom;
         private bool pressure = true, ullage = true, disableUnderwater;
         private double scale = 1d; // scale for tweakscale
 
@@ -102,10 +103,13 @@ namespace RealFuels
                 VarianceDuring = 0.4d;
             }
 
-            System.Random baseRandom = new System.Random(nSeed);
-            baseVaryFlow = VarianceBase * varyFlow * (baseRandom.NextDouble() * 2d - 1d);
-            baseVaryIsp = VarianceBase * varyIsp * (baseRandom.NextDouble() * 2d - 1d);
-            baseVaryMR = VarianceBase * varyMR * (baseRandom.NextDouble() * 2d - 1d);
+            seededRandom = new System.Random(nSeed);
+            double vFlow, vIsp, vMR;
+            GetVariances(true, out vFlow, out vMR, out vIsp);
+            baseVaryFlow = VarianceBase * varyFlow * vFlow;
+            baseVaryIsp = VarianceBase * varyIsp * vIsp;
+            baseVaryMR = VarianceBase * varyMR * vMR;
+
 
             // falloff at > sea level pressure.
             if (atmosphereCurve.Curve.keys.Length == 2 && atmosphereCurve.Curve.keys[0].value != atmosphereCurve.Curve.keys[1].value)
@@ -170,7 +174,7 @@ namespace RealFuels
                 combusting = false;
                 statusString = "Vapor in feed line";
             }
-            
+
             // check fuel flow fraction
             if (ffFraction <= 0d)
             {
@@ -205,19 +209,11 @@ namespace RealFuels
             if (!wasCombusting && combusting)
             {
                 // Reset run-to-run variances
-                double curVariance = UnityEngine.Random.Range(-1f, 1f);
-                runVaryMR = baseVaryMR + varyMR * VarianceRun * curVariance;
-                if (varyMR != 0d)
-                {
-                    double absMRVariance = Math.Abs(curVariance);
-                    curVariance = UnityEngine.Random.Range(-0.5f, 0.5f) + 0.5d - absMRVariance;
-                }
-                runVaryIsp = baseVaryIsp + varyIsp * VarianceRun * curVariance;
-                if (varyIsp != 0d)
-                {
-                    curVariance = UnityEngine.Random.Range(-0.25f, 0.25f) + 0.75d * curVariance;
-                }
-                runVaryFlow = baseVaryFlow + varyFlow * VarianceRun * curVariance;
+                double vFlow, vIsp, vMR;
+                GetVariances(false, out vFlow, out vMR, out vIsp);
+                runVaryFlow = VarianceRun * varyFlow * vFlow;
+                runVaryIsp = VarianceRun * varyIsp * vIsp;
+                runVaryMR = VarianceRun * varyMR * vMR;
             }
 
             if (!combusting)
@@ -253,7 +249,7 @@ namespace RealFuels
                 fuelFlow = ffMult;
 
                 double ispOtherMult = 1d;
-                if(atmCurveIsp != null)
+                if (atmCurveIsp != null)
                     ispOtherMult *= atmCurveIsp.Evaluate((float)(rho * (1d / 1.225d)));
                 if (velCurveIsp != null)
                     ispOtherMult *= velCurveIsp.Evaluate((float)mach);
@@ -262,14 +258,14 @@ namespace RealFuels
                 {
                     ispOtherMult *= (1d + runVaryIsp) * (1d + perlin * varyIsp * VarianceDuring);
                 }
-                
+
                 Isp *= ispOtherMult;
-                
+
                 fxPower = (float)(fuelFlow * maxFlowRecip * ispMult * ispOtherMult); // FX is proportional to fuel flow and Isp mult.
 
                 double exhaustVelocity = Isp * 9.80665d;
                 SFC = 3600d / Isp;
-                
+
                 thrust = ffMult * exhaustVelocity; // either way, thrust is base * mult * EV
 
                 // Calculate chamber temperature as ratio
@@ -299,7 +295,7 @@ namespace RealFuels
         public override float GetFXThrottle() { return fxThrottle; }
         public override float GetFXSpool() { return (float)(UtilMath.Clamp01(chamberTemp * chamberNominalTemp_recip)); }
         public override bool GetRunning() { return combusting; }
-        
+
         // new methods
         public void UpdateThrustRatio(double r) { thrustRatio = r; }
 
@@ -327,6 +323,23 @@ namespace RealFuels
             if (mach < machLimit)
                 return 0d;
             return (mach - machLimit) * machMult;
+        }
+
+        protected double GetRandom(bool useSeed)
+        {
+            if (useSeed)
+                return seededRandom.NextDouble() * 2d - 1d;
+            else
+                return UnityEngine.Random.Range(-1f, 1f);
+        }
+
+        protected void GetVariances(bool seed, out double varianceFlow, out double varianceMR, out double varianceIsp)
+        {
+            varianceFlow = GetRandom(seed);
+            varianceMR = GetRandom(seed) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
+            // MR probably has an effect on Isp but it's hard to say what. When running fuel-rich, increasing
+            // oxidizer might raise Isp? And vice versa for ox-rich. So for now ignore MR.
+            varianceIsp = (varianceFlow * 0.8d + GetRandom(seed) * 0.2d);
         }
     }
 }
