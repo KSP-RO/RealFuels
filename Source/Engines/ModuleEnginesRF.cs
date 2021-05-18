@@ -56,6 +56,10 @@ namespace RealFuels
         protected SolverRF rfSolver = null;
 
         protected List<float> backupPropellantRatios = new List<float>();
+        protected Propellant oxidizerPropellant;
+        protected Propellant fuelPropellant;
+        protected double mixtureRatio = 1d;
+        protected int numRealPropellants = 0;
 
         #region Ullage/Ignition
         [KSPField]
@@ -101,6 +105,9 @@ namespace RealFuels
         public double varyFlow = -1d;
 
         [KSPField]
+        public double varyResiduals = -1d;
+
+        [KSPField]
         public double residualsThresholdBase = -1d;
 
         [KSPField]
@@ -108,6 +115,9 @@ namespace RealFuels
 
         [KSPField(isPersistant = true)]
         public int partSeed = -1;
+
+        [KSPField(isPersistant = true)]
+        public double calculatedResiduals = -1d;
 
         public Ullage.UllageSet ullageSet;
         protected ConfigNode ullageNode;
@@ -117,10 +127,11 @@ namespace RealFuels
         protected bool throttledUp = false;
         protected bool ShowPropStatus => pressureFed || (ullage && RFSettings.Instance.simulateUllage);
 
-        protected double localVaryFlow = 0;
-        protected double localVaryIsp = 0;
-        protected double localVaryMixture = 0;
-        protected double localResidualsThresholdBase = 0;
+        protected double localVaryFlow = 0d;
+        protected double localVaryIsp = 0d;
+        protected double localVaryMixture = 0d;
+        protected double localResidualsThresholdBase = 0d;
+        protected double localVaryResiduals = 0d;
         protected bool isSolid = false;
 
         [SerializeField]
@@ -194,15 +205,14 @@ namespace RealFuels
         public override void CalculateEngineParams()
         {
             double variance = rfSolver.MixtureRatioVariance();
-            bool vary = variance != 0d;
+            bool vary = variance != 0d && oxidizerPropellant != null && numRealPropellants == 2;
             if (vary)
             {
-                double sign = 1d;
-                for (int i = 0; i < propellants.Count; ++i)
-                {
-                    propellants[i].ratio = (float)(propellants[i].ratio * (1d + variance * sign));
-                    sign *= -1d;
-                }
+                double mixDensity = mixtureDensity;
+                double newFuelMult = mixDensity / (mixtureRatio * (1 + variance));
+                double newOxidizerMult = mixDensity - newFuelMult;
+                fuelPropellant.ratio = (float)(newFuelMult / fuelPropellant.resourceDef.density);
+                oxidizerPropellant.ratio = (float)(newOxidizerMult / fuelPropellant.resourceDef.density);
             }
             base.CalculateEngineParams();
             if (vary)
@@ -254,15 +264,19 @@ namespace RealFuels
             localVaryIsp = varyIsp;
             localVaryMixture = varyMixture;
             localResidualsThresholdBase = residualsThresholdBase;
+            localVaryResiduals = varyResiduals;
 
             // Use instant throttle response as proxy.
             isSolid = false;
+            numRealPropellants = 0;
             foreach (Propellant p in propellants)
             {
+                if (!p.ignoreForIsp && p.resourceDef.density != 0d )
+                    ++numRealPropellants;
+
                 if (RFSettings.Instance.instantThrottleProps.Contains(p.name))
                 {
                     isSolid = true;
-                    break;
                 }
             }
             // Create reasonable values for variation
@@ -271,14 +285,14 @@ namespace RealFuels
             {
                 double propMultiplier = 1d;
                 string propName = propellants.Count > 0 ? propellants[0].name : string.Empty;
-                Debug.Log("MERF: For part " + part.name + " is solid, found propellant " + propName);
+                //Debug.Log("MERF: For part " + part.name + " is solid, found propellant " + propName);
                 if (propName == "NGNC")
                 {
-                    propMultiplier = 3d;
+                    propMultiplier = 2d;
                 }
                 else if (propName == "PSPC")
                 {
-                    propMultiplier = 2d;
+                    propMultiplier = 1.5d;
                 }
                 else //if (propName == "HTPB" || propName == "PBAN")
                 {
@@ -286,13 +300,15 @@ namespace RealFuels
                 }
 
                 if (localVaryIsp < 0d)
-                    localVaryIsp = 0.02d * propMultiplier;
+                    localVaryIsp = 0.005d * propMultiplier;
                 if (localVaryFlow < 0d)
                     localVaryFlow = 0.06d * propMultiplier;
                 localVaryMixture = 0d;
 
                 if (localResidualsThresholdBase < 0d)
-                    localResidualsThresholdBase = 0.015 * propMultiplier;
+                    localResidualsThresholdBase = 0.01d * propMultiplier;
+                if (localVaryResiduals < 0d)
+                    localVaryResiduals = 0.003d * propMultiplier;
             }
             // Liquids
             else
@@ -309,6 +325,8 @@ namespace RealFuels
 
                     if (localResidualsThresholdBase < 0d)
                         localResidualsThresholdBase = 0.008d;
+                    if (localVaryResiduals < 0d)
+                        localVaryResiduals = 0d;
                 }
                 else
                 {
@@ -320,8 +338,11 @@ namespace RealFuels
                         localVaryMixture = 0.0011d;
 
                     if (residualsThresholdBase < 0d)
-                        localResidualsThresholdBase = 0.005d;
+                        localResidualsThresholdBase = 0.004d;
+                    if (localVaryResiduals < 0d)
+                        localVaryResiduals = 0d;
                 }
+
                 if (ignitions == -1 || ignitions > 4)
                     localResidualsThresholdBase *= 2d;
                 else if (ignitions == 0)
@@ -329,10 +350,15 @@ namespace RealFuels
                 else
                     localResidualsThresholdBase *= (1d + (ignitions - 1) * 0.25d);
             }
+            // Double-check mixture variance makes sense
+            if (numRealPropellants != 2)
+                localVaryMixture = 0d;
+
             localVaryFlow *= RFSettings.Instance.varianceAndResiduals;
             localVaryIsp *= RFSettings.Instance.varianceAndResiduals;
             localVaryMixture *= RFSettings.Instance.varianceAndResiduals;
             localResidualsThresholdBase *= RFSettings.Instance.varianceAndResiduals;
+            localVaryResiduals *= RFSettings.Instance.varianceAndResiduals;
         }
 
         public override void OnSave(ConfigNode node)
@@ -365,12 +391,14 @@ namespace RealFuels
             if (!HighLogic.LoadedSceneIsFlight)
             {
                 partSeed = -1;
+                calculatedResiduals = localResidualsThresholdBase;
                 ignited = false;
             }
             else
             {
                 if (partSeed == -1)
                 {
+                    calculatedResiduals = localResidualsThresholdBase + UnityEngine.Random.Range(0f, (float)localVaryResiduals);
                     partSeed = UnityEngine.Random.Range(0, int.MaxValue);
                 }
             }
@@ -378,11 +406,25 @@ namespace RealFuels
             base.Start();
             if (!(engineSolver is SolverRF)) CreateEngine();
 
-            // Copy propellant ratios
+            // Setup for mixture variation
             backupPropellantRatios.Clear();
+            oxidizerPropellant = fuelPropellant = null;
             for (int i = 0; i < propellants.Count(); ++i)
             {
-                backupPropellantRatios.Add(propellants[i].ratio);
+                Propellant p = propellants[i];
+                backupPropellantRatios.Add(p.ratio);
+
+                if (p.ignoreForIsp || p.resourceDef.density == 0d)
+                    continue;
+
+                if (fuelPropellant == null)
+                    fuelPropellant = p;
+                else if (oxidizerPropellant == null)
+                    oxidizerPropellant = p;
+            }
+            if (fuelPropellant != null && oxidizerPropellant != null)
+            {
+                mixtureRatio = (oxidizerPropellant.ratio * oxidizerPropellant.resourceDef.density) / (fuelPropellant.ratio * fuelPropellant.resourceDef.density);
             }
 
             ullageSet = new Ullage.UllageSet(this);
@@ -773,7 +815,7 @@ namespace RealFuels
                 output += $"- <b>{KSPUtil.PrintModuleName(p.name)}</b>: {sUse} maximum.\n";
                 output += $"{p.GetFlowModeDescription()}";
             }
-            output += $"<b>Variance: </b>{localVaryIsp:P2} Isp, {localVaryFlow:P1} flow, {localVaryMixture:P2} MR.\n";
+            output += $"<b>Variance: </b>{localVaryIsp:P2} Isp, {localVaryFlow:P1} flow, {localVaryMixture:P2} MR (stddev).\n";
             output += $"<b>Residuals: min </b>{localResidualsThresholdBase:P1} of propellant.\n";
 
             if (!allowShutdown) output += "\n<b><color=orange>Engine cannot be shut down!</color></b>";
@@ -859,7 +901,7 @@ namespace RealFuels
         {
             for (int i = 0; i < propellants.Count; i++)
             {
-                if (propellants[i].totalResourceAvailable / propellants[i].totalResourceCapacity < localResidualsThresholdBase )
+                if (propellants[i].totalResourceAvailable / propellants[i].totalResourceCapacity < calculatedResiduals )
                 {
                     return false;
                 }
