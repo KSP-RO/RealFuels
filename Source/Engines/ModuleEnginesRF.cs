@@ -208,11 +208,11 @@ namespace RealFuels
             bool vary = variance != 0d && oxidizerPropellant != null && numRealPropellants == 2;
             if (vary)
             {
-                double mixDensity = mixtureDensity;
-                double newFuelMult = mixDensity / (mixtureRatio * (1 + variance));
-                double newOxidizerMult = mixDensity - newFuelMult;
+                double newMR = mixtureRatio * (1d + variance);
+                double newOxidizerMult = (newMR * mixtureDensity) / (1 + newMR);
+                double newFuelMult = mixtureDensity - newOxidizerMult;
+                oxidizerPropellant.ratio = (float)(newOxidizerMult / oxidizerPropellant.resourceDef.density);
                 fuelPropellant.ratio = (float)(newFuelMult / fuelPropellant.resourceDef.density);
-                oxidizerPropellant.ratio = (float)(newOxidizerMult / fuelPropellant.resourceDef.density);
             }
             base.CalculateEngineParams();
             if (vary)
