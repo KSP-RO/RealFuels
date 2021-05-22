@@ -333,9 +333,9 @@ namespace RealFuels
                     if (localVaryIsp < 0d)
                         localVaryIsp = 0.003d;
                     if (localVaryFlow < 0d)
-                        localVaryFlow = 0.004d;
+                        localVaryFlow = 0.005d;
                     if (localVaryMixture < 0d)
-                        localVaryMixture = 0.0011d;
+                        localVaryMixture = 0.005d;
 
                     if (residualsThresholdBase < 0d)
                         localResidualsThresholdBase = 0.004d;
