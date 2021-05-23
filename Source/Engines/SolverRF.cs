@@ -211,9 +211,9 @@ namespace RealFuels
                 // Reset run-to-run variances
                 double vFlow, vIsp, vMR;
                 GetVariances(false, out vFlow, out vMR, out vIsp);
-                runVaryFlow = VarianceRun * varyFlow * vFlow;
-                runVaryIsp = VarianceRun * varyIsp * vIsp;
-                runVaryMR = VarianceRun * varyMR * vMR;
+                runVaryFlow = baseVaryFlow + VarianceRun * varyFlow * vFlow;
+                runVaryIsp = baseVaryIsp + VarianceRun * varyIsp * vIsp;
+                runVaryMR = baseVaryMR + VarianceRun * varyMR * vMR;
             }
 
             if (!combusting)
