@@ -300,7 +300,7 @@ namespace RealFuels
                 }
 
                 if (localVaryIsp < 0d)
-                    localVaryIsp = 0.005d * propMultiplier;
+                    localVaryIsp = 0.015d * propMultiplier;
                 if (localVaryFlow < 0d)
                     localVaryFlow = 0.06d * propMultiplier;
                 localVaryMixture = 0d;
