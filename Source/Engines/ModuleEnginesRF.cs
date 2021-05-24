@@ -449,6 +449,8 @@ namespace RealFuels
             Fields[nameof(finalThrust)].group = group;
             Fields[nameof(propellantReqMet)].group = group;
             Fields[nameof(fuelFlowGui)].group = group;
+            if (Fields[nameof(massFlowGui)] != null)
+                Fields[nameof(massFlowGui)].group = group;
 
             SetFields();
             started = true;
