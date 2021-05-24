@@ -83,6 +83,9 @@ namespace RealFuels
         [KSPField(guiName = "Isp", guiActiveEditor = true, groupName = groupName)]
         public string sISP;
 
+        [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Predicted Residuals", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)]
+        public double predictedMaximumResiduals = 0d;
+
         [KSPField(guiName = "Ignitions Remaining", isPersistant = true, groupName = groupName, groupDisplayName = groupDisplayName)]
         public int ignitions = -1;
 
@@ -427,6 +430,23 @@ namespace RealFuels
                 mixtureRatio = (oxidizerPropellant.ratio * oxidizerPropellant.resourceDef.density) / (fuelPropellant.ratio * fuelPropellant.resourceDef.density);
             }
 
+            predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
+            if (localVaryMixture > 0d)
+            {
+                // assume worst-case variation in mixture ratio
+                double mTotal = 1d + mixtureRatio;
+                double highMR = mixtureRatio * (1d + localVaryMixture);
+                double newMROx = (highMR * mTotal) / (1 + highMR);
+                double fuelRemaining = 1d - mixtureRatio / newMROx;
+                double massExtra = fuelRemaining / mTotal;
+                double lowMR = mixtureRatio * (1d - localVaryMixture);
+                newMROx = (lowMR * mTotal) / (1 + lowMR);
+                double newMRFuel = mTotal - newMROx;
+                double oxRemaining = 1d - 1d / newMRFuel;
+                massExtra = Math.Max(massExtra, oxRemaining * mixtureRatio / mTotal);
+                predictedMaximumResiduals += massExtra;
+            }
+
             ullageSet = new Ullage.UllageSet(this);
             ullageSet.Load(ullageNode);
 
@@ -496,20 +516,6 @@ namespace RealFuels
                 part.stackIcon.SetIconColor(ullageColor);
             } else
                 propellantStatus = pressureFed ? "Feed pressure OK" : "Nominal";
-
-            //if (HighLogic.LoadedSceneIsEditor)
-            //{
-            //    // set ignitionThreshold based on propellant set, for MJ
-            //    foreach (Propellant p in propellants)
-            //    {
-            //        p.totalResourceCapacity * 
-            //    }
-            //}
-            //else if (HighLogic.LoadedSceneIsFlight)
-            //{
-            //    // set ignitionThreshold based on propellant set, for MJ
-            //    ignitionThreshold
-            //}
         }
 
         public virtual void CalcThrottleResponseRate(ref float responseRate, ref bool instant)
