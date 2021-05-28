@@ -652,7 +652,7 @@ namespace RealFuels
                 // do thrust curve
                 if (ignited && useThrustCurve)
                 {
-                    thrustCurveRatio = (float)(curveProp.totalResourceAvailable / curveProp.totalResourceCapacity);
+                    thrustCurveRatio = (float)((curveProp.totalResourceAvailable - curveProp.totalResourceCapacity * calculatedResiduals) / (curveProp.totalResourceCapacity * (1d - calculatedResiduals)));
                     thrustCurveDisplay = thrustCurve.Evaluate(thrustCurveUseTime ? curveTime : thrustCurveRatio);
                     if (thrustCurveUseTime && EngineIgnited)
                         curveTime += TimeWarp.fixedDeltaTime;
