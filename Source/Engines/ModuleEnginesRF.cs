@@ -86,7 +86,7 @@ namespace RealFuels
         [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Predicted Residuals", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)]
         public double predictedMaximumResiduals = 0d;
 
-        [KSPField(guiActive = true, guiName = "Mixture Ratio", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(guiActive = true, guiName = "Mixture Ratio", guiFormat = "F3", groupName = groupName, groupDisplayName = groupDisplayName)]
         public double currentMixtureRatio = 0d;
 
         [KSPField(guiName = "Ignitions Remaining", isPersistant = true, groupName = groupName, groupDisplayName = groupDisplayName)]

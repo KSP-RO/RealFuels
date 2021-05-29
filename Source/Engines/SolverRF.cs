@@ -244,7 +244,7 @@ namespace RealFuels
                     }
                     if (varyMR > 0d)
                     {
-                        mixtureRatioVariance += (0.5d + Math.Abs(perlin) * 0.5d) * (Mathf.PerlinNoise(Time.time * 0.5f, -timeOffset) * 2d - 1d) * VarianceDuring;
+                        mixtureRatioVariance += (0.5d + Math.Abs(perlin) * 0.5d) * (Mathf.PerlinNoise(Time.time * 0.5f, -timeOffset) * 2d - 1d) * varyMR * VarianceDuring;
                     }
                     if (varyFlow > 0d)
                     {
