@@ -225,20 +225,31 @@ namespace RealFuels
             }
             else
             {
-                if (HighLogic.LoadedSceneIsFlight)
-                    mixtureRatioVariance = runVaryMR;
 
                 // get current flow, and thus thrust.
                 fuelFlow = scale * flowMult * maxFlow * commandedThrottle * thrustRatio;
                 double perlin = 0d;
                 if (HighLogic.LoadedSceneIsFlight && (varyFlow > 0 || varyIsp > 0))
                 {
-                    perlin = Mathf.PerlinNoise(Time.time, timeOffset) * 2d - 1d;
+                    
                 }
 
-                if (HighLogic.LoadedSceneIsFlight && varyFlow > 0d && fuelFlow > 0d)
+                if (HighLogic.LoadedSceneIsFlight && fuelFlow > 0d)
                 {
-                    fuelFlow *= (1d + runVaryFlow) * (1d + perlin * varyFlow * VarianceDuring);
+                    mixtureRatioVariance = runVaryMR;
+
+                    if (varyFlow > 0d || varyIsp > 0d || varyMR > 0d)
+                    {
+                        perlin = Mathf.PerlinNoise(Time.time * 0.5f, timeOffset) * 2d - 1d;
+                    }
+                    if (varyMR > 0d)
+                    {
+                        mixtureRatioVariance += (0.5d + Math.Abs(perlin) * 0.5d) * (Mathf.PerlinNoise(Time.time * 0.5f, -timeOffset) * 2d - 1d) * VarianceDuring;
+                    }
+                    if (varyFlow > 0d)
+                    {
+                        fuelFlow *= (1d + runVaryFlow) * (1d + perlin * varyFlow * VarianceDuring);
+                    }
                 }
 
                 // FIXME fuel flow is actually wrong, since mixture ratio varies now. Either need to fix MR for constant flow,
