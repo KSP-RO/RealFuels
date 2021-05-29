@@ -58,7 +58,7 @@ namespace RealFuels
         protected List<float> backupPropellantRatios = new List<float>();
         protected Propellant oxidizerPropellant;
         protected Propellant fuelPropellant;
-        protected double mixtureRatio = 1d;
+        protected double mixtureRatio = 0d;
         protected int numRealPropellants = 0;
 
         #region Ullage/Ignition
@@ -85,6 +85,9 @@ namespace RealFuels
 
         [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Predicted Residuals", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)]
         public double predictedMaximumResiduals = 0d;
+
+        [KSPField(guiActive = true, guiName = "Mixture Ratio", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)]
+        public double currentMixtureRatio = 0d;
 
         [KSPField(guiName = "Ignitions Remaining", isPersistant = true, groupName = groupName, groupDisplayName = groupDisplayName)]
         public int ignitions = -1;
@@ -216,6 +219,7 @@ namespace RealFuels
                 double newFuelMult = mixtureDensity - newOxidizerMult;
                 oxidizerPropellant.ratio = (float)(newOxidizerMult / oxidizerPropellant.resourceDef.density);
                 fuelPropellant.ratio = (float)(newFuelMult / fuelPropellant.resourceDef.density);
+                currentMixtureRatio = newMR;
             }
             base.CalculateEngineParams();
             if (vary)
@@ -427,7 +431,7 @@ namespace RealFuels
             }
             if (fuelPropellant != null && oxidizerPropellant != null)
             {
-                mixtureRatio = (oxidizerPropellant.ratio * oxidizerPropellant.resourceDef.density) / (fuelPropellant.ratio * fuelPropellant.resourceDef.density);
+                currentMixtureRatio = mixtureRatio = (oxidizerPropellant.ratio * oxidizerPropellant.resourceDef.density) / (fuelPropellant.ratio * fuelPropellant.resourceDef.density);
             }
 
             predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
@@ -471,6 +475,9 @@ namespace RealFuels
             Fields[nameof(fuelFlowGui)].group = group;
             if (Fields[nameof(massFlowGui)] != null)
                 Fields[nameof(massFlowGui)].group = group;
+            Fields[nameof(currentMixtureRatio)].group = group;
+
+            Fields[nameof(currentMixtureRatio)].guiActive = oxidizerPropellant != null && mixtureRatio > 0d;
 
             SetFields();
             started = true;
