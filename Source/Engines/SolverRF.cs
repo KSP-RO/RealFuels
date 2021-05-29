@@ -229,10 +229,6 @@ namespace RealFuels
                 // get current flow, and thus thrust.
                 fuelFlow = scale * flowMult * maxFlow * commandedThrottle * thrustRatio;
                 double perlin = 0d;
-                if (HighLogic.LoadedSceneIsFlight && (varyFlow > 0 || varyIsp > 0))
-                {
-                    
-                }
 
                 if (HighLogic.LoadedSceneIsFlight && fuelFlow > 0d)
                 {
