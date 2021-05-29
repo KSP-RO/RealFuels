@@ -179,7 +179,7 @@ namespace RealFuels
             if (ffFraction <= 0d)
             {
                 combusting = false;
-                statusString = "Flameout";
+                statusString = "No propellants";
             }
             // check pressure
             if (!pressure)
