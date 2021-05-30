@@ -252,12 +252,8 @@ namespace RealFuels
                 string moduleID = entry.Key;
                 PartModule module = entry.Value;
 
-                var subtypeName = subtypeSpecifications
-                    .Where(kv => kv.Key == moduleID)
-                    .Select(kv => kv.Value)
-                    .FirstOrDefault();
-
-                if (subtypeName == null)
+                string subtypeName;
+                if (!subtypeSpecifications.TryGetValue(moduleID, out subtypeName))
                 {
                     Debug.LogError($"*RFMEC* {part} does not specify b9psSubtype name in current config {configuration} for B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
                     subtypeName = configuration;
