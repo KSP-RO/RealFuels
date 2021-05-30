@@ -176,13 +176,19 @@ namespace RealFuels
 
         private void InitializeB9PSReflection()
         {
-            if (!Utilities.B9PSFound || _b9psReflectionInitialized) return;
+            if (_b9psReflectionInitialized || !Utilities.B9PSFound) return;
             B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
             B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
             _b9psReflectionInitialized = true;
         }
 
-        private void LoadB9PSModuleIDs(ConfigNode node) => B9PSModuleIDs = node.GetValuesList("b9psModuleID");
+        private void LoadB9PSModuleIDs(ConfigNode node)
+        {
+            // The list of b9ps modules is not persisted; get them from the prefab after initial loading.
+            B9PSModuleIDs = HighLogic.LoadedScene == GameScenes.LOADING
+                ? node.GetValuesList("b9psModuleID")
+                : part.partInfo.partPrefab.GetComponent<ModuleEngineConfigs>()?.B9PSModuleIDs;
+        }
 
         private void LoadB9PSModules()
         {
@@ -197,18 +203,17 @@ namespace RealFuels
                 if (module == null)
                     Debug.LogError($"*RFMEC* B9PartSwitch module with ID {moduleID} was not found for {part}!");
                 else
-                    B9PSModules.Add(moduleID, module);
+                    B9PSModules[moduleID] = module;
             }
         }
 
-        private void HideB9PSVariantSelector()
+        /// <summary>
+        /// Hide the GUI for all `ModuleB9PartSwitch`s managed by RF.
+        /// This is somewhat of a hack-ish approach...
+        /// </summary>
+        private void HideB9PSVariantSelectors()
         {
-            // Hide the GUI for all `ModuleB9PartSwitch`s managed by RF.
-            // This is somewhat of a hack-ish solution...
-
-            if (B9PSModules == null)
-                return;
-
+            if (B9PSModules == null) return;
             foreach (var module in B9PSModules.Values)
             {
                 module.Fields["currentSubtypeTitle"].guiActive = false;
@@ -222,8 +227,7 @@ namespace RealFuels
 
         public void UpdateB9PSVariants()
         {
-            if (B9PSModules == null || B9PSModules.Count == 0)
-                return;
+            if (B9PSModules == null || B9PSModules.Count == 0) return;
 
             var subtypeSpecifications = new Dictionary<string, string>(B9PSModules.Count);
             if (config.GetValues("b9psSubtypeName") is string[] subtypeKeys)
@@ -237,7 +241,7 @@ namespace RealFuels
                         subtypeSpecifications.Add(B9PSModules.Keys.First(), fragments[0].Trim());
                     }
                     else if (fragments.Length != 2)
-                        Debug.LogError($"*RFMEC* Config {configuration} of {part} specifies an invalid b9psSubtypeName: {value}!");
+                        Debug.LogError($"*RFMEC* Config {configuration} of {part} specifies an invalid b9psSubtypeName: `{value}`!");
                     else
                         subtypeSpecifications[fragments[0].Trim()] = fragments[1].Trim();
                 }
@@ -252,9 +256,10 @@ namespace RealFuels
                     .Where(kv => kv.Key == moduleID)
                     .Select(kv => kv.Value)
                     .FirstOrDefault();
+
                 if (subtypeName == null)
                 {
-                    Debug.LogError($"*RFMEC* {part} does not specify b9psSubtype name in current config {configuration} for B9PS module with ID {moduleID}; defaulting to \"{configuration}\".");
+                    Debug.LogError($"*RFMEC* {part} does not specify b9psSubtype name in current config {configuration} for B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
                     subtypeName = configuration;
                 }
 
@@ -369,10 +374,7 @@ namespace RealFuels
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
         }
 
-        public override void OnStartFinished(StartState state)
-        {
-            HideB9PSVariantSelector();  // Just the one managed by RF, if there is one.
-        }
+        public override void OnStartFinished(StartState state) => HideB9PSVariantSelectors();
         #endregion
 
         #region Info Methods
