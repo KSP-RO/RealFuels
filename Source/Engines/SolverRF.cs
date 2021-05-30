@@ -166,6 +166,7 @@ namespace RealFuels
 
             // if we're not combusting, don't combust and start cooling off
             combusting = running;
+            // MechJeb uses these strings, do not mess with them.
             statusString = "Nominal";
 
             // ullage check first, overwrite if bad pressure or no propellants
