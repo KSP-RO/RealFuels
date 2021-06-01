@@ -168,9 +168,9 @@ namespace RealFuels
         #endregion
 
         #region B9PartSwitch
-        private static bool _b9psReflectionInitialized = false;
-        private static FieldInfo B9PS_moduleID;
-        private static MethodInfo B9PS_SwitchSubtype;
+        protected static bool _b9psReflectionInitialized = false;
+        protected static FieldInfo B9PS_moduleID;
+        protected static MethodInfo B9PS_SwitchSubtype;
         public List<string> B9PSModuleIDs;
         public Dictionary<string, PartModule> B9PSModules;
 
@@ -252,8 +252,7 @@ namespace RealFuels
                 string moduleID = entry.Key;
                 PartModule module = entry.Value;
 
-                string subtypeName;
-                if (!subtypeSpecifications.TryGetValue(moduleID, out subtypeName))
+                if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
                 {
                     Debug.LogError($"*RFMEC* {part} does not specify b9psSubtype name in current config {configuration} for B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
                     subtypeName = configuration;
