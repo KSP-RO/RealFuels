@@ -171,7 +171,6 @@ namespace RealFuels
         protected static bool _b9psReflectionInitialized = false;
         protected static FieldInfo B9PS_moduleID;
         protected static MethodInfo B9PS_SwitchSubtype;
-        public List<string> B9PSModuleIDs;
         public Dictionary<string, PartModule> B9PSModules;
 
         private void InitializeB9PSReflection()
@@ -182,21 +181,18 @@ namespace RealFuels
             _b9psReflectionInitialized = true;
         }
 
-        private void LoadB9PSModuleIDs(ConfigNode node)
-        {
-            // The list of b9ps modules is not persisted; get them from the prefab after initial loading.
-            B9PSModuleIDs = HighLogic.LoadedScene == GameScenes.LOADING
-                ? node.GetValuesList("b9psModuleID")
-                : part.partInfo.partPrefab.GetComponent<ModuleEngineConfigs>()?.B9PSModuleIDs;
-        }
-
         private void LoadB9PSModules()
         {
-            if (B9PSModuleIDs == null) return;
+            IEnumerable<string> b9psModuleIDs = configs
+                .Where(cfg => cfg.HasNode("LinkB9PSModule"))
+                .SelectMany(cfg => cfg.GetNodes("LinkB9PSModule"))
+                .Select(link => link?.GetValue("name"))
+                .Where(moduleID => moduleID != null)
+                .Distinct();
 
-            B9PSModules = new Dictionary<string, PartModule>(B9PSModuleIDs.Count);
+            B9PSModules = new Dictionary<string, PartModule>(b9psModuleIDs.Count());
 
-            foreach (string moduleID in B9PSModuleIDs)
+            foreach (string moduleID in b9psModuleIDs)
             {
                 var module = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
                     .FirstOrDefault(m => (string)B9PS_moduleID?.GetValue(m) == moduleID);
@@ -230,20 +226,17 @@ namespace RealFuels
             if (B9PSModules == null || B9PSModules.Count == 0) return;
 
             var subtypeSpecifications = new Dictionary<string, string>(B9PSModules.Count);
-            if (config.GetValues("b9psSubtypeName") is string[] subtypeKeys)
+            if (config.GetNodes("LinkB9PSModule") is ConfigNode[] links)
             {
-                foreach (var value in subtypeKeys)
+                foreach (ConfigNode link in links)
                 {
-                    string[] fragments = value.Split(',');
-                    if (B9PSModules.Count == 1 && subtypeKeys.Length == 1 && fragments.Length == 1)
-                    {
-                        Debug.LogWarning($"*RFMEC* Config {configuration} of {part} uses single-module notation for b9psSubtypeName; this is deprecated!");
-                        subtypeSpecifications.Add(B9PSModules.Keys.First(), fragments[0].Trim());
-                    }
-                    else if (fragments.Length != 2)
-                        Debug.LogError($"*RFMEC* Config {configuration} of {part} specifies an invalid b9psSubtypeName: `{value}`!");
-                    else
-                        subtypeSpecifications[fragments[0].Trim()] = fragments[1].Trim();
+                    string moduleID = null, subtype = null;
+                    if (!link.TryGetValue("name", ref moduleID))
+                        Debug.LogError($"*RFMEC* Config `{configuration}` of {part} has a LinkB9PSModule specification without a name key!");
+                    if (!link.TryGetValue("subtype", ref subtype))
+                        Debug.LogError($"*RFMEC* Config `{configuration}` of {part} has a LinkB9PSModule specification without a subtype key!");
+                    if (moduleID != null && subtype != null)
+                        subtypeSpecifications[moduleID] = subtype;
                 }
             }
 
@@ -254,7 +247,7 @@ namespace RealFuels
 
                 if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
                 {
-                    Debug.LogError($"*RFMEC* {part} does not specify b9psSubtype name in current config {configuration} for B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
+                    Debug.LogError($"*RFMEC* Config {configuration} of {part} does not specify a subtype for linked B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
                     subtypeName = configuration;
                 }
 
@@ -344,8 +337,6 @@ namespace RealFuels
             ConfigSaveLoad();
 
             SetConfiguration();
-
-            LoadB9PSModuleIDs(node);
         }
 
         public override void OnStart(StartState state)
@@ -359,9 +350,9 @@ namespace RealFuels
             if (HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
-            LoadB9PSModules();
-
             ConfigSaveLoad();
+
+            LoadB9PSModules();
 
             SetConfiguration();
 
