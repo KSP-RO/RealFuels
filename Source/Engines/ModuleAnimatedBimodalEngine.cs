@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,60 +8,57 @@ namespace RealFuels
 {
     internal class BidirectionalDictionary<TForward, TReverse>
     {
-        private Dictionary<TForward, TReverse> _forward;
-        private Dictionary<TReverse, TForward> _reverse;
+        private Dictionary<TForward, TReverse> forward;
+        private Dictionary<TReverse, TForward> reverse;
 
-        public Indexer<TForward, TReverse> Fwd { get => new Indexer<TForward, TReverse>(ref _forward, ref _reverse); }
-        public Indexer<TReverse, TForward> Rev { get => new Indexer<TReverse, TForward>(ref _reverse, ref _forward); }
+        public Indexer<TForward, TReverse> Fwd { get => new Indexer<TForward, TReverse>(ref forward, ref reverse); }
+        public Indexer<TReverse, TForward> Rev { get => new Indexer<TReverse, TForward>(ref reverse, ref forward); }
 
-        internal class Indexer<TKey, TValue> : IEnumerable<KeyValuePair<TKey, TValue>>, IEnumerable
+        internal class Indexer<TKey, TValue>
         {
-            private Dictionary<TKey, TValue> _fwd;
-            private Dictionary<TValue, TKey> _rev;
+            private Dictionary<TKey, TValue> fwd;
+            private Dictionary<TValue, TKey> rev;
 
             public TValue this[TKey key]
             {
-                get => _fwd[key];
+                get => fwd[key];
                 set
                 {
-                    _fwd[key] = value;
-                    _rev[value] = key;
+                    fwd[key] = value;
+                    rev[value] = key;
                 }
             }
 
-            public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => _fwd.GetEnumerator();
-            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            public ICollection<TKey> Keys { get => fwd.Keys; }
 
-            public ICollection<TKey> Keys { get => _fwd.Keys; }
-
-            public bool ContainsKey(TKey key) => _fwd.ContainsKey(key);
+            public bool ContainsKey(TKey key) => fwd.ContainsKey(key);
 
             public Indexer(ref Dictionary<TKey, TValue> forward, ref Dictionary<TValue, TKey> reverse)
             {
-                _fwd = forward;
-                _rev = reverse;
+                fwd = forward;
+                rev = reverse;
             }
         }
 
-        public int Count { get => _forward.Count; }
+        public int Count { get => forward.Count; }
 
         public void Add(TForward x, TReverse y)
         {
-            _forward.Add(x, y);
-            _reverse.Add(y, x);
+            forward.Add(x, y);
+            reverse.Add(y, x);
         }
 
         public BidirectionalDictionary()
         {
-            _forward = new Dictionary<TForward, TReverse>();
-            _reverse = new Dictionary<TReverse, TForward>();
+            forward = new Dictionary<TForward, TReverse>();
+            reverse = new Dictionary<TReverse, TForward>();
         }
     }
 
     public class ModuleAnimatedBimodalEngine : ModuleEngineConfigs
     {
         private enum State { Primary, Secondary, Unpaired }
-        private enum AnimPosition { Begin, End, Forward, Reverse }
+        private enum AnimStatus { Begin, End, Forward, Reverse }
 
         [KSPField]
         public string animationName = String.Empty;
@@ -78,14 +74,14 @@ namespace RealFuels
         private ModuleEngines activeEngine;
 
         private List<AnimationState> animationStates;
-        private AnimPosition animTarget;
+        private AnimStatus animStatus;
 
         private void LoadConfigPairs()
         {
             configPairs = new BidirectionalDictionary<string, string>();
 
             // Consider all configs `secondaryConfig` declared to be "primary".
-            foreach (var primaryCfg in configs.Where(c => c.HasValue("secondaryConfig")))
+            foreach (ConfigNode primaryCfg in configs.Where(c => c.HasValue("secondaryConfig")))
             {
                 string primaryName = primaryCfg.GetValue("name");
                 string secondaryName = primaryCfg.GetValue("secondaryConfig");
@@ -127,9 +123,9 @@ namespace RealFuels
             if (string.IsNullOrEmpty(animationName)) return;
 
             animationStates = new List<AnimationState>();
-            foreach (var anim in part.FindModelAnimators(animationName))
+            foreach (Animation anim in part.FindModelAnimators(animationName))
             {
-                var animState = anim[animationName];
+                AnimationState animState = anim[animationName];
                 animState.speed = 0;
                 animState.enabled = true;
                 animState.wrapMode = WrapMode.ClampForever;
@@ -144,7 +140,7 @@ namespace RealFuels
             LoadConfigPairs();
             LoadAnimations();
             base.OnStart(state);
-            ForceAnimationTarget();
+            ForceAnimationState();
 
             activeEngine = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType) as ModuleEngines;
         }
@@ -155,17 +151,17 @@ namespace RealFuels
 
             if (state == State.Unpaired || animationStates == null) return;
 
-            foreach (var animState in animationStates)
+            foreach (AnimationState animState in animationStates)
             {
-                if (animState.normalizedTime >= 1f && animTarget == AnimPosition.Forward)
+                if (animState.normalizedTime >= 1f && animStatus == AnimStatus.Forward)
                 {
-                    animTarget = AnimPosition.End;
+                    animStatus = AnimStatus.End;
                     UpdateAnimationSpeed();
                     break;
                 }
-                if (animState.normalizedTime <= 0f && animTarget == AnimPosition.Reverse)
+                if (animState.normalizedTime <= 0f && animStatus == AnimStatus.Reverse)
                 {
-                    animTarget = AnimPosition.Begin;
+                    animStatus = AnimStatus.Begin;
                     UpdateAnimationSpeed();
                     break;
                 }
@@ -218,14 +214,14 @@ namespace RealFuels
                 activeEngine.Actions["ActivateAction"].Invoke(new KSPActionParam(KSPActionGroup.None, KSPActionType.Activate));
         }
 
-        private void ForceAnimationTarget()
+        private void ForceAnimationState()
         {
             if (state == State.Unpaired || animationStates == null) return;
-            foreach (var animState in animationStates)
+            foreach (AnimationState animState in animationStates)
             {
                 animState.normalizedTime = state == State.Primary ? 0f : 1f;
                 animState.speed = 0f;
-                animTarget = state == State.Primary ? AnimPosition.Begin : AnimPosition.End;
+                animStatus = state == State.Primary ? AnimStatus.Begin : AnimStatus.End;
             }
         }
 
@@ -235,15 +231,15 @@ namespace RealFuels
 
             if (HighLogic.LoadedSceneIsEditor)
             {
-                ForceAnimationTarget();
+                ForceAnimationState();
                 return;
             }
             if (oldState == State.Primary && state == State.Secondary)
-                animTarget = AnimPosition.Forward;
+                animStatus = AnimStatus.Forward;
             if (oldState == State.Secondary && state == State.Primary)
-                animTarget = AnimPosition.Reverse;
+                animStatus = AnimStatus.Reverse;
             if (oldState == State.Unpaired && state != State.Unpaired)
-                ForceAnimationTarget();
+                ForceAnimationState();
 
             UpdateAnimationSpeed();
         }
@@ -251,10 +247,10 @@ namespace RealFuels
         private void UpdateAnimationSpeed()
         {
             if (animationStates == null) return;
-            foreach (var animState in animationStates)
+            foreach (AnimationState animState in animationStates)
             {
-                if (animTarget == AnimPosition.Forward) animState.speed = 1f;
-                else if (animTarget == AnimPosition.Reverse) animState.speed = -1f;
+                if (animStatus == AnimStatus.Forward) animState.speed = 1f;
+                else if (animStatus == AnimStatus.Reverse) animState.speed = -1f;
                 else animState.speed = 0f;
             }
         }
