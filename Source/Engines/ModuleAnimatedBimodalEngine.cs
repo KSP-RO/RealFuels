@@ -113,7 +113,7 @@ namespace RealFuels
                     .Select(c => c.GetValue("name"))
                     .Where(c => !(configPairs.Fwd.ContainsKey(c) || configPairs.Rev.ContainsKey(c)))
                     .ToList()
-                    .ForEach(c => Debug.LogError($"*RFMEC* {part} has unpaired config `{c}`!"));
+                    .ForEach(c => Debug.LogWarning($"*RFMEC* {part} has unpaired config `{c}`!"));
             }
         }
 
