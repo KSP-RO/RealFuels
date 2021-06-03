@@ -1171,13 +1171,15 @@ namespace RealFuels
             }
         }
 
+        virtual protected IEnumerable<ConfigNode> GetGUIVisibleConfigs() => configs;
+
         private void EngineManagerGUI(int WindowID)
         {
             GUILayout.Space(20);
             GUILayout.BeginHorizontal();
             GUILayout.Label(EditorDescription);
             GUILayout.EndHorizontal();
-            foreach (ConfigNode node in configs)
+            foreach (ConfigNode node in GetGUIVisibleConfigs())
             {
                 string nName = node.GetValue("name");
                 GUILayout.BeginHorizontal();
