@@ -33,8 +33,8 @@ namespace RealFuels
         [KSPEvent(guiActive = true, guiName = "Switch Engine Mode")]
         public void SwitchEngine()
         {
-            ConfigNode currentConfig = configs.Find(c => c.GetValue("name").Equals(configuration));
-            string nextConfiguration = configs[(configs.IndexOf(currentConfig) + 1) % configs.Count].GetValue("name");
+            ConfigNode currentConfig = GetConfigByName(configuration);
+            string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
             SetConfiguration(nextConfiguration);
             // TODO: Does Engine Ignitor get switched here?
         }
@@ -542,7 +542,7 @@ namespace RealFuels
 
             string val = string.Empty;
             IEnumerable<ConfigNode> others = configs.Where(x => !x.GetValue("name").Equals(configuration));
-            ConfigNode ours = configs.FirstOrDefault(x => x.GetValue("name").Equals(configuration));
+            ConfigNode ours = GetConfigByName(configuration);
             foreach (string fxName in effectsNames)
             {
                 foreach (ConfigNode cfg in others)
@@ -561,6 +561,7 @@ namespace RealFuels
 
         #region Configuration
         public PartModule pModule = null;
+        protected ConfigNode GetConfigByName(string name) => configs.Find(c => c.GetValue("name") == name);
 
         virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
@@ -576,7 +577,7 @@ namespace RealFuels
                 return;
             }
 
-            ConfigNode newConfig = configs.Find(c => c.GetValue("name").Equals(newConfiguration));
+            ConfigNode newConfig = GetConfigByName(newConfiguration);
             if (!(newConfig is ConfigNode))
             {
                 newConfig = configs.First();
