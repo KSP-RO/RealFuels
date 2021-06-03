@@ -404,6 +404,8 @@ namespace RealFuels
             return retStr;
         }
 
+        virtual public string GetConfigDisplayName(ConfigNode node) => node.GetValue("name");
+
         public override string GetInfo()
         {
             if (!compatible)
@@ -429,7 +431,7 @@ namespace RealFuels
 
             if (colorName)
                 info.Append("<color=green>");
-            info.Append(config.GetValue("name"));
+            info.Append(GetConfigDisplayName(config));
             if (colorName)
                 info.Append("</color>");
             info.Append("\n");
@@ -1182,6 +1184,7 @@ namespace RealFuels
             foreach (ConfigNode node in GetGUIVisibleConfigs())
             {
                 string nName = node.GetValue("name");
+                string nNameDisp = GetConfigDisplayName(node);
                 GUILayout.BeginHorizontal();
 
                 // get cost
@@ -1199,7 +1202,7 @@ namespace RealFuels
 
                 if (nName.Equals(configuration))
                 {
-                    GUILayout.Label(new GUIContent($"Current config: {nName}{costString}", GetConfigInfo(node)));
+                    GUILayout.Label(new GUIContent($"Current config: {nNameDisp}{costString}", GetConfigInfo(node)));
                 }
                 else
                 {
@@ -1207,7 +1210,7 @@ namespace RealFuels
                     {
                         if (UnlockedConfig(node, part))
                         {
-                            if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
+                            if (GUILayout.Button(new GUIContent($"Switch to {nNameDisp}{costString}", GetConfigInfo(node))))
                             {
                                 SetConfiguration(nName, true);
                                 UpdateSymmetryCounterparts();
@@ -1221,7 +1224,7 @@ namespace RealFuels
                             if (upgradeCost > 0d)
                             {
                                 costString = $"({upgradeCost:N0}f)";
-                                if (GUILayout.Button(new GUIContent($"Purchase {nName}{costString}", GetConfigInfo(node))))
+                                if (GUILayout.Button(new GUIContent($"Purchase {nNameDisp}{costString}", GetConfigInfo(node))))
                                 {
                                     if (EntryCostManager.Instance.PurchaseConfig(nName))
                                     {
@@ -1235,7 +1238,7 @@ namespace RealFuels
                             {
                                 // autobuy
                                 EntryCostManager.Instance.PurchaseConfig(nName);
-                                if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
+                                if (GUILayout.Button(new GUIContent($"Switch to {nNameDisp}{costString}", GetConfigInfo(node))))
                                 {
                                     SetConfiguration(nName, true);
                                     UpdateSymmetryCounterparts();
@@ -1248,7 +1251,7 @@ namespace RealFuels
                     {
                         if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
                             techStr = "\nRequires: " + techStr;
-                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node) + techStr));
+                        GUILayout.Label(new GUIContent("Lack tech for " + nNameDisp, GetConfigInfo(node) + techStr));
                     }
                 }
                 GUILayout.EndHorizontal();
