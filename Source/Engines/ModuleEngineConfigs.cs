@@ -11,6 +11,8 @@ namespace RealFuels
 {
     public class ModuleHybridEngine : ModuleEngineConfigs
     {
+        public override string GUIButtonName => "Multi-Mode Engine";
+        public override string EditorDescription => "Select a default configuration. All configurations can be cycled through in-flight.";
         ModuleEngines ActiveEngine = null;
 
         public override void OnLoad(ConfigNode node)
@@ -355,6 +357,8 @@ namespace RealFuels
             LoadB9PSModules();
 
             SetConfiguration();
+
+            Fields[nameof(showRFGUI)].guiName = GUIButtonName;
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
@@ -1074,6 +1078,8 @@ namespace RealFuels
         #endregion
 
         #region GUI
+        public virtual string GUIButtonName => "Engine";
+        public virtual string EditorDescription => "Select a configuration for this engine.";
         [KSPField(guiActiveEditor = true, guiName = "Engine", groupName = groupName),
          UI_Toggle(enabledText = "Hide GUI", disabledText = "Show GUI")]
         [NonSerialized]
@@ -1168,6 +1174,9 @@ namespace RealFuels
         private void EngineManagerGUI(int WindowID)
         {
             GUILayout.Space(20);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(EditorDescription);
+            GUILayout.EndHorizontal();
             foreach (ConfigNode node in configs)
             {
                 string nName = node.GetValue("name");
