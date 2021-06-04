@@ -57,37 +57,45 @@ namespace RealFuels
 
     public class ModuleAnimatedBimodalEngine : ModuleEngineConfigs
     {
-        private enum State { Primary, Secondary, Unpaired }
-        private enum AnimStatus { Begin, End, Forward, Reverse }
-
+        #region fields
         [KSPField]
-        public string animationName = String.Empty;
+        public string animationName = string.Empty;
+        [KSPField]
+        public string primaryDescription = "retracted";
+        [KSPField]
+        public string secondaryDescription = "extended";
         [KSPField]
         public string toPrimaryText = "Retract Nozzle";
         [KSPField]
-        public string toSecondaryText = "Deploy Nozzle";
+        public string toSecondaryText = "Extend Nozzle";
         [KSPField]
         public bool shutdownWhileSwitching = false;
+        #endregion
 
+
+        #region bimodal state
+        private enum Mode { Primary, Secondary, Unpaired }
         private BidirectionalDictionary<string, string> configPairs;  // (primary, secondary)
-        private State state;
+        private Mode mode;
+        [KSPField(guiName = "Mode (toggleable)", isPersistant = true, guiActive = true,
+            groupName = groupName, groupDisplayName = groupDisplayName)]
+        public string stateDisplay;
         private ModuleEngines activeEngine;
-
-        private List<AnimationState> animationStates;
-        private AnimStatus animStatus;
 
         private void LoadConfigPairs()
         {
+            CheckConfigs(); // Ensure that `configs` have been deserialized already.
+
             configPairs = new BidirectionalDictionary<string, string>();
 
-            // Consider all configs `secondaryConfig` declared to be "primary".
+            // Consider all configs with `secondaryConfig` declared to be "primary".
             foreach (ConfigNode primaryCfg in configs.Where(c => c.HasValue("secondaryConfig")))
             {
                 string primaryName = primaryCfg.GetValue("name");
                 string secondaryName = primaryCfg.GetValue("secondaryConfig");
 
                 // Look for the secondary config it specifies.
-                if (!(configs.Find(c => c.GetValue("name") == secondaryName) is ConfigNode secondaryCfg))
+                if (!(GetConfigByName(secondaryName) is ConfigNode secondaryCfg))
                 {
                     Debug.LogError($"*RFMEC* Config `{primaryName}` of {part} specifies a nonexistent secondaryConfig `{secondaryName}`!");
                     continue;
@@ -106,16 +114,68 @@ namespace RealFuels
                     configPairs.Add(primaryName, secondaryName);
             }
 
-            // Dump all the unmatched configs to log.
+            // Delete all unmatched configs.
             if (configPairs.Count * 2 != configs.Count)
             {
-                configs
-                    .Select(c => c.GetValue("name"))
-                    .Where(c => !(configPairs.Fwd.ContainsKey(c) || configPairs.Rev.ContainsKey(c)))
-                    .ToList()
-                    .ForEach(c => Debug.LogWarning($"*RFMEC* {part} has unpaired config `{c}`!"));
+                List<ConfigNode> badConfigs = configs
+                    .Where(c => GetMode(c.GetValue("name")) == Mode.Unpaired)
+                    .ToList();
+                foreach (var badConfig in badConfigs)
+                {
+                    Debug.LogWarning($"*RFMEC* {part} has unpaired config `{badConfig.GetValue("name")}`; removing!");
+                    configs.Remove(badConfig);
+                }
+                SetConfiguration();
             }
         }
+
+        private Mode GetMode(string configName)
+        {
+            if (configPairs == null) return Mode.Unpaired;
+            if (configPairs.Fwd.ContainsKey(configName)) return Mode.Primary;
+            if (configPairs.Rev.ContainsKey(configName)) return Mode.Secondary;
+            return Mode.Unpaired;
+        }
+
+        private string GetPairedConfig(string configName)
+        {
+            var status = GetMode(configName);
+            if (status == Mode.Unpaired) return null;
+            return status == Mode.Primary ? configPairs.Fwd[configName] : configPairs.Rev[configName];
+        }
+
+        public string GetModeDescription(string configName)
+        {
+            switch (GetMode(configName))
+            {
+                case Mode.Primary: return primaryDescription;
+                case Mode.Secondary: return secondaryDescription;
+                case Mode.Unpaired:
+                default: return "UNPAIRED";
+            }
+        }
+
+        [KSPEvent(guiActive = true, guiActiveEditor = true)]
+        public void ToggleMode()
+        {
+            if (mode == Mode.Unpaired) return;
+
+            bool wasIgnited = activeEngine.getIgnitionState;
+            if (shutdownWhileSwitching) activeEngine.EngineIgnited = false;
+
+            SetConfiguration(GetPairedConfig(configuration));
+
+            if (wasIgnited && shutdownWhileSwitching)
+                activeEngine.Actions["ActivateAction"].Invoke(new KSPActionParam(KSPActionGroup.None, KSPActionType.Activate));
+        }
+
+        [KSPAction("Toggle Engine Mode")]
+        public void ToggleAction(KSPActionParam _) => ToggleMode();
+
+        #region animation handling
+        private enum AnimPosition { Begin, End, Forward, Reverse }
+        private List<AnimationState> animationStates;
+        private AnimPosition animPos;
 
         private void LoadAnimations()
         {
@@ -134,112 +194,32 @@ namespace RealFuels
             }
         }
 
-        public override void OnStart(StartState state)
+        private void ForceAnimationPosition()
         {
-            ConfigSaveLoad();
-            LoadConfigPairs();
-            LoadAnimations();
-            base.OnStart(state);
-            ForceAnimationState();
-
-            activeEngine = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType) as ModuleEngines;
-        }
-
-        public override void OnUpdate()
-        {
-            base.OnUpdate();
-
-            if (state == State.Unpaired || animationStates == null) return;
-
+            if (mode == Mode.Unpaired || animationStates == null) return;
             foreach (AnimationState animState in animationStates)
             {
-                if (animState.normalizedTime >= 1f && animStatus == AnimStatus.Forward)
-                {
-                    animStatus = AnimStatus.End;
-                    UpdateAnimationSpeed();
-                    break;
-                }
-                if (animState.normalizedTime <= 0f && animStatus == AnimStatus.Reverse)
-                {
-                    animStatus = AnimStatus.Begin;
-                    UpdateAnimationSpeed();
-                    break;
-                }
-            }
-        }
-
-        public override void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
-        {
-            var oldState = state;
-            base.SetConfiguration(newConfiguration, resetTechLevels);
-
-            if (configPairs == null) return;
-
-            if (configPairs.Fwd.ContainsKey(configuration))
-            {
-                state = State.Primary;
-                Events["ToggleMode"].guiActive = true;
-                Events["ToggleMode"].guiActiveEditor = true;
-                Events["ToggleMode"].guiName = toSecondaryText;
-            }
-            else if (configPairs.Rev.ContainsKey(configuration))
-            {
-                state = State.Secondary;
-                Events["ToggleMode"].guiActive = true;
-                Events["ToggleMode"].guiActiveEditor = true;
-                Events["ToggleMode"].guiName = toPrimaryText;
-            }
-            else
-            {
-                state = State.Unpaired;
-                Events["ToggleMode"].guiActive = false;
-                Events["ToggleMode"].guiActiveEditor = false;
-            }
-
-            UpdateAnimationTarget(oldState);
-        }
-
-        [KSPEvent(guiActive = true, guiActiveEditor = true)]
-        public void ToggleMode()
-        {
-            if (state == State.Unpaired) return;
-
-            bool wasIgnited = activeEngine.getIgnitionState;
-            if (shutdownWhileSwitching) activeEngine.EngineIgnited = false;
-
-            var targetConfig = state == State.Primary ? configPairs.Fwd[configuration] : configPairs.Rev[configuration];
-            SetConfiguration(targetConfig);
-
-            if (wasIgnited && shutdownWhileSwitching)
-                activeEngine.Actions["ActivateAction"].Invoke(new KSPActionParam(KSPActionGroup.None, KSPActionType.Activate));
-        }
-
-        private void ForceAnimationState()
-        {
-            if (state == State.Unpaired || animationStates == null) return;
-            foreach (AnimationState animState in animationStates)
-            {
-                animState.normalizedTime = state == State.Primary ? 0f : 1f;
+                animState.normalizedTime = mode == Mode.Primary ? 0f : 1f;
                 animState.speed = 0f;
-                animStatus = state == State.Primary ? AnimStatus.Begin : AnimStatus.End;
+                animPos = mode == Mode.Primary ? AnimPosition.Begin : AnimPosition.End;
             }
         }
 
-        private void UpdateAnimationTarget(State oldState)
+        private void UpdateAnimationTarget(Mode oldMode)
         {
-            if (state == State.Unpaired || animationStates == null) return;
+            if (mode == Mode.Unpaired || animationStates == null) return;
 
             if (HighLogic.LoadedSceneIsEditor)
             {
-                ForceAnimationState();
+                ForceAnimationPosition();
                 return;
             }
-            if (oldState == State.Primary && state == State.Secondary)
-                animStatus = AnimStatus.Forward;
-            if (oldState == State.Secondary && state == State.Primary)
-                animStatus = AnimStatus.Reverse;
-            if (oldState == State.Unpaired && state != State.Unpaired)
-                ForceAnimationState();
+            if (oldMode == Mode.Primary && mode == Mode.Secondary)
+                animPos = AnimPosition.Forward;
+            if (oldMode == Mode.Secondary && mode == Mode.Primary)
+                animPos = AnimPosition.Reverse;
+            if (oldMode == Mode.Unpaired && mode != Mode.Unpaired)
+                ForceAnimationPosition();
 
             UpdateAnimationSpeed();
         }
@@ -249,10 +229,118 @@ namespace RealFuels
             if (animationStates == null) return;
             foreach (AnimationState animState in animationStates)
             {
-                if (animStatus == AnimStatus.Forward) animState.speed = 1f;
-                else if (animStatus == AnimStatus.Reverse) animState.speed = -1f;
+                if (animPos == AnimPosition.Forward) animState.speed = 1f;
+                else if (animPos == AnimPosition.Reverse) animState.speed = -1f;
                 else animState.speed = 0f;
             }
         }
+
+        private void CheckAnimationPosition()
+        {
+            if (mode == Mode.Unpaired || animationStates == null) return;
+
+            foreach (AnimationState animState in animationStates)
+            {
+                if (animState.normalizedTime >= 1f && animPos == AnimPosition.Forward)
+                {
+                    animPos = AnimPosition.End;
+                    UpdateAnimationSpeed();
+                    break;
+                }
+                if (animState.normalizedTime <= 0f && animPos == AnimPosition.Reverse)
+                {
+                    animPos = AnimPosition.Begin;
+                    UpdateAnimationSpeed();
+                    break;
+                }
+            }
+        }
+        #endregion
+        #endregion
+
+
+        #region part module overrides
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+            LoadConfigPairs();
+        }
+
+        public override void OnStart(StartState state)
+        {
+            if (configPairs == null || configPairs.Count == 0) LoadConfigPairs();
+            LoadAnimations();
+            base.OnStart(state);
+            ForceAnimationPosition();
+
+            activeEngine = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType) as ModuleEngines;
+        }
+
+        public override void OnUpdate()
+        {
+            base.OnUpdate();
+            // CheckAnimationPosition();
+        }
+        #endregion
+
+
+        #region MEC overrides
+        public override void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
+        {
+            base.SetConfiguration(newConfiguration, resetTechLevels);
+
+            if (configPairs == null) return;
+
+            var oldMode = mode;
+            mode = GetMode(configuration);
+
+            if (mode != Mode.Unpaired && isMaster)
+            {
+                var toggleText = mode == Mode.Primary ? toSecondaryText : toPrimaryText;
+                Events[nameof(ToggleMode)].guiActive = true;
+                Events[nameof(ToggleMode)].guiActiveEditor = true;
+                Events[nameof(ToggleMode)].guiName = toggleText;
+                stateDisplay = GetModeDescription(configuration);
+            }
+            else
+            {
+                Events[nameof(ToggleMode)].guiActive = false;
+                Events[nameof(ToggleMode)].guiActiveEditor = false;
+                stateDisplay = configuration;
+            }
+
+            UpdateAnimationTarget(oldMode);
+        }
+
+        public override string GetConfigDisplayName(ConfigNode node)
+        {
+            string name = node.GetValue("name");
+            return $"{(GetMode(name) == Mode.Secondary ? configPairs.Rev[name] : name)} ({GetModeDescription(name)} mode)";
+        }
+
+        public override string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
+        {
+            string info = base.GetConfigInfo(config, addDescription, colorName);
+            string name = config.GetValue("name");
+
+            if (GetMode(name) != Mode.Unpaired)
+                return $"{info}\nCan be toggled in-flight:\n{base.GetConfigInfo(GetConfigByName(GetPairedConfig(name)), false, colorName)}";
+
+            return info;
+        }
+
+        public override string GUIButtonName => "Bimodal Engine";
+        public override string EditorDescription => "This engine can operate in two different modes. Select a configuration and an initial mode below; you will be able to switch to the other mode (of the same configuration) in-flight.";
+
+        protected override IEnumerable<ConfigNode> GetGUIVisibleConfigs()
+        {
+            // Ensure that configs are in the right order (secondary right after primary).
+            return configPairs
+                .Fwd
+                .Keys
+                .SelectMany(name => new string[] { name, configPairs.Fwd[name] })
+                .Select(GetConfigByName);
+        }
+        #endregion
     }
 }
