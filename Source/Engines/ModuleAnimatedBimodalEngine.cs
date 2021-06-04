@@ -1,4 +1,4 @@
-using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -68,8 +68,6 @@ namespace RealFuels
         public string toPrimaryText = "Retract Nozzle";
         [KSPField]
         public string toSecondaryText = "Extend Nozzle";
-        [KSPField]
-        public bool shutdownWhileSwitching = false;
         #endregion
 
 
@@ -159,13 +157,23 @@ namespace RealFuels
         {
             if (mode == Mode.Unpaired) return;
 
-            bool wasIgnited = activeEngine.getIgnitionState;
-            if (shutdownWhileSwitching) activeEngine.EngineIgnited = false;
-
             SetConfiguration(GetPairedConfig(configuration));
 
-            if (wasIgnited && shutdownWhileSwitching)
-                activeEngine.Actions["ActivateAction"].Invoke(new KSPActionParam(KSPActionGroup.None, KSPActionType.Activate));
+            if (HighLogic.LoadedSceneIsFlight && activeEngine.getIgnitionState)
+                StartCoroutine(TemporarilyRemoveSpoolUp());
+        }
+
+        private IEnumerator TemporarilyRemoveSpoolUp()
+        {
+            if (activeEngine is ModuleEnginesRF merf)
+            {
+                float originalResponseRate = merf.throttleResponseRate;
+                merf.throttleResponseRate = 1_000_000f;
+                // Wait a few frames.
+                yield return null;
+                yield return null;
+                merf.throttleResponseRate = originalResponseRate;
+            }
         }
 
         [KSPAction("Toggle Engine Mode")]
