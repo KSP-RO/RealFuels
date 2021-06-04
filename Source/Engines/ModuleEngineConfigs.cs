@@ -62,8 +62,13 @@ namespace RealFuels
         #region Fields
         protected bool compatible = true;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(isPersistant = true)]
         public string configuration = string.Empty;
+
+        // For display purposes only.
+        [KSPField(guiName = "Configuration", isPersistant = true, guiActiveEditor = true,
+            groupName = groupName, groupDisplayName = groupDisplayName)]
+        public string configurationDisplay = string.Empty;
 
         // Tech Level stuff
         [KSPField(isPersistant = true)]
@@ -681,6 +686,8 @@ namespace RealFuels
             UpdateTFInterops(); // update TestFlight if it's installed
 
             StopFX();
+
+            configurationDisplay = GetConfigDisplayName(GetConfigByName(configuration));
         }
 
         virtual protected int ConfigIgnitions(int ignitions)
