@@ -346,10 +346,11 @@ namespace RealFuels
             {
                 ConfigNode primaryCfg = GetConfigByName(primaryCfgName);
                 string secondaryCfgName = configPairs.Fwd[primaryCfgName];
+                ConfigNode secondaryCfg = GetConfigByName(secondaryCfgName);
 
                 string displayName = primaryCfgName;
 
-                ConfigNode targetCfg = mode == Mode.Primary ? primaryCfg : GetConfigByName(secondaryCfgName);
+                ConfigNode targetCfg = mode == Mode.Primary ? primaryCfg : secondaryCfg;
                 string targetCfgName = targetCfg.GetValue("name");
 
                 GUILayout.BeginHorizontal();
@@ -366,6 +367,11 @@ namespace RealFuels
                     {
                         if (UnlockedConfig(primaryCfg, part))
                         {
+                            if (!UnlockedConfig(secondaryCfg, part))
+                            {
+                                EntryCostDatabase.SetUnlocked(secondaryCfgName);
+                                EntryCostDatabase.UpdatePartEntryCosts();
+                            }
                             if (GUILayout.Button(new GUIContent($"Switch to {displayName}{costString}", GetConfigInfo(targetCfg))))
                             {
                                 SetConfiguration(displayName, true);
@@ -373,7 +379,6 @@ namespace RealFuels
                                 MarkWindowDirty();
                             }
                         }
-
                         else
                         {
                             double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(primaryCfgName);
