@@ -146,13 +146,12 @@ namespace RealFuels
 
         public string GetModeDescription(string configName)
         {
-            switch (GetMode(configName))
-            {
-                case Mode.Primary: return primaryDescription;
-                case Mode.Secondary: return secondaryDescription;
-                case Mode.Unpaired:
-                default: return "UNPAIRED";
-            }
+            return GetMode(configName) == Mode.Primary ? primaryDescription : secondaryDescription;
+        }
+
+        public string GetToggleText(string configName)
+        {
+            return GetMode(configName) == Mode.Primary ? toSecondaryText : toPrimaryText;
         }
 
         [KSPEvent(guiActive = true, guiActiveEditor = true)]
@@ -279,7 +278,7 @@ namespace RealFuels
         public override void OnUpdate()
         {
             base.OnUpdate();
-            // CheckAnimationPosition();
+            CheckAnimationPosition();
         }
         #endregion
 
@@ -296,10 +295,9 @@ namespace RealFuels
 
             if (mode != Mode.Unpaired && isMaster)
             {
-                var toggleText = mode == Mode.Primary ? toSecondaryText : toPrimaryText;
                 Events[nameof(ToggleMode)].guiActive = true;
                 Events[nameof(ToggleMode)].guiActiveEditor = true;
-                Events[nameof(ToggleMode)].guiName = toggleText;
+                Events[nameof(ToggleMode)].guiName = GetToggleText(configuration);
                 stateDisplay = GetModeDescription(configuration);
             }
             else
@@ -330,16 +328,103 @@ namespace RealFuels
         }
 
         public override string GUIButtonName => "Bimodal Engine";
-        public override string EditorDescription => "This engine can operate in two different modes. Select a configuration and an initial mode below; you will be able to switch to the other mode (of the same configuration) in-flight.";
+        public override string EditorDescription => "This engine can operate in two different modes. Select a configuration and an initial mode; you can change between modes (even in-flight) using the PAW or the button below.";
 
-        protected override IEnumerable<ConfigNode> GetGUIVisibleConfigs()
+        // TODO(al2me6): Try to find ways to alleviate code duplication in this function.
+        protected override void ConfigSelectionGUI()
         {
-            // Ensure that configs are in the right order (secondary right after primary).
-            return configPairs
-                .Fwd
-                .Keys
-                .SelectMany(name => new string[] { name, configPairs.Fwd[name] })
-                .Select(GetConfigByName);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(new GUIContent(GetToggleText(configuration))))
+            {
+                ToggleMode();
+                UpdateSymmetryCounterparts();
+                MarkWindowDirty();
+            }
+            GUILayout.EndHorizontal();
+
+            foreach (string primaryCfgName in configPairs.Fwd.Keys)
+            {
+                ConfigNode primaryCfg = GetConfigByName(primaryCfgName);
+                string secondaryCfgName = configPairs.Fwd[primaryCfgName];
+
+                string displayName = primaryCfgName;
+
+                ConfigNode targetCfg = mode == Mode.Primary ? primaryCfg : GetConfigByName(secondaryCfgName);
+                string targetCfgName = targetCfg.GetValue("name");
+
+                GUILayout.BeginHorizontal();
+
+                var costString = GetCostString(primaryCfg);
+
+                if (configuration == primaryCfgName || configuration == secondaryCfgName)
+                {
+                    GUILayout.Label(new GUIContent($"Current config: {displayName}{costString}", GetConfigInfo(targetCfg)));
+                }
+                else
+                {
+                    if (CanConfig(primaryCfg))
+                    {
+                        if (UnlockedConfig(primaryCfg, part))
+                        {
+                            if (GUILayout.Button(new GUIContent($"Switch to {displayName}{costString}", GetConfigInfo(targetCfg))))
+                            {
+                                SetConfiguration(displayName, true);
+                                UpdateSymmetryCounterparts();
+                                MarkWindowDirty();
+                            }
+                        }
+
+                        else
+                        {
+                            double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(primaryCfgName);
+                            costString = string.Empty;
+                            if (upgradeCost > 0d)
+                            {
+                                costString = $"({upgradeCost:N0}f)";
+                                if (GUILayout.Button(new GUIContent($"Purchase {displayName}{costString}", GetConfigInfo(targetCfg))))
+                                {
+                                    if (EntryCostManager.Instance.PurchaseConfig(primaryCfgName))
+                                    {
+                                        EntryCostDatabase.SetUnlocked(secondaryCfgName);
+                                        EntryCostDatabase.UpdatePartEntryCosts();
+                                        SetConfiguration(targetCfgName, true);
+                                        UpdateSymmetryCounterparts();
+                                        MarkWindowDirty();
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // autobuy
+                                EntryCostManager.Instance.PurchaseConfig(primaryCfgName);
+                                EntryCostDatabase.SetUnlocked(secondaryCfgName);
+                                EntryCostDatabase.UpdatePartEntryCosts();
+                                if (GUILayout.Button(new GUIContent($"Switch to {displayName}{costString}", GetConfigInfo(targetCfg))))
+                                {
+                                    SetConfiguration(targetCfgName, true);
+                                    UpdateSymmetryCounterparts();
+                                    MarkWindowDirty();
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (techNameToTitle.TryGetValue(primaryCfg.GetValue("techRequired"), out string techStr))
+                            techStr = "\nRequires: " + techStr;
+                        GUILayout.Label(new GUIContent("Lack tech for " + displayName, GetConfigInfo(targetCfg) + techStr));
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        protected override void PartInfoGUI()
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"<b>Current mode:</b> {GetModeDescription(configuration)}");
+            GUILayout.EndHorizontal();
+            base.PartInfoGUI();
         }
         #endregion
     }

@@ -1181,36 +1181,34 @@ namespace RealFuels
             }
         }
 
-        virtual protected IEnumerable<ConfigNode> GetGUIVisibleConfigs() => configs;
-
-        private void EngineManagerGUI(int WindowID)
+        protected string GetCostString(ConfigNode node)
         {
-            GUILayout.Space(20);
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(EditorDescription);
-            GUILayout.EndHorizontal();
-            foreach (ConfigNode node in GetGUIVisibleConfigs())
+            string costString = string.Empty;
+            if (node.HasValue("cost"))
+            {
+                float curCost = scale * float.Parse(node.GetValue("cost"));
+
+                if (techLevel != -1)
+                {
+                    curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
+                }
+                costString = $" ({((curCost < 0) ? string.Empty : "+")}{curCost:N0}f)";
+            }
+            return costString;
+        }
+
+        virtual protected void ConfigSelectionGUI()
+        {
+            foreach (ConfigNode node in configs)
             {
                 string nName = node.GetValue("name");
-                string nNameDisp = GetConfigDisplayName(node);
                 GUILayout.BeginHorizontal();
 
-                // get cost
-                string costString = string.Empty;
-                if (node.HasValue("cost"))
-                {
-                    float curCost = scale * float.Parse(node.GetValue("cost"));
-
-                    if (techLevel != -1)
-                    {
-                        curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
-                    }
-                    costString = $" ({((curCost < 0) ? string.Empty : "+")}{curCost:N0}f)";
-                }
+                var costString = GetCostString(node);
 
                 if (nName.Equals(configuration))
                 {
-                    GUILayout.Label(new GUIContent($"Current config: {nNameDisp}{costString}", GetConfigInfo(node)));
+                    GUILayout.Label(new GUIContent($"Current config: {nName}{costString}", GetConfigInfo(node)));
                 }
                 else
                 {
@@ -1218,7 +1216,7 @@ namespace RealFuels
                     {
                         if (UnlockedConfig(node, part))
                         {
-                            if (GUILayout.Button(new GUIContent($"Switch to {nNameDisp}{costString}", GetConfigInfo(node))))
+                            if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
                             {
                                 SetConfiguration(nName, true);
                                 UpdateSymmetryCounterparts();
@@ -1232,7 +1230,7 @@ namespace RealFuels
                             if (upgradeCost > 0d)
                             {
                                 costString = $"({upgradeCost:N0}f)";
-                                if (GUILayout.Button(new GUIContent($"Purchase {nNameDisp}{costString}", GetConfigInfo(node))))
+                                if (GUILayout.Button(new GUIContent($"Purchase {nName}{costString}", GetConfigInfo(node))))
                                 {
                                     if (EntryCostManager.Instance.PurchaseConfig(nName))
                                     {
@@ -1246,7 +1244,7 @@ namespace RealFuels
                             {
                                 // autobuy
                                 EntryCostManager.Instance.PurchaseConfig(nName);
-                                if (GUILayout.Button(new GUIContent($"Switch to {nNameDisp}{costString}", GetConfigInfo(node))))
+                                if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
                                 {
                                     SetConfiguration(nName, true);
                                     UpdateSymmetryCounterparts();
@@ -1259,11 +1257,42 @@ namespace RealFuels
                     {
                         if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
                             techStr = "\nRequires: " + techStr;
-                        GUILayout.Label(new GUIContent("Lack tech for " + nNameDisp, GetConfigInfo(node) + techStr));
+                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node) + techStr));
                     }
                 }
                 GUILayout.EndHorizontal();
             }
+        }
+
+        virtual protected void PartInfoGUI()
+        {
+            // show current info, cost
+            if (pModule != null && part.partInfo != null)
+            {
+                GUILayout.BeginHorizontal();
+                var ratedBurnTime = string.Empty;
+                if (config.HasValue("ratedBurnTime"))
+                    ratedBurnTime += $"Rated burn time: {config.GetValue("ratedBurnTime")}\n";
+                string label = $"<b>Engine mass:</b> {part.mass:N3}t\n" +
+                               $"{ratedBurnTime}" +
+                               $"{pModule.GetInfo()}\n" +
+                               $"{TLTInfo()}\n" +
+                               $"Total cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}";
+                GUILayout.Label(label);
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        private void EngineManagerGUI(int WindowID)
+        {
+            GUILayout.Space(20);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(EditorDescription);
+            GUILayout.EndHorizontal();
+
+            ConfigSelectionGUI();
+
             // NK Tech Level
             if (techLevel != -1)
             {
@@ -1340,21 +1369,7 @@ namespace RealFuels
                 GUILayout.EndHorizontal();
             }
 
-            // show current info, cost
-            if (pModule != null && part.partInfo != null)
-            {
-                GUILayout.BeginHorizontal();
-                var ratedBurnTime = string.Empty;
-                if (config.HasValue("ratedBurnTime"))
-                    ratedBurnTime += $"Rated burn time: {config.GetValue("ratedBurnTime")}\n";
-                string label = $"<b>Engine mass:</b> {part.mass:N3}t\n" +
-                               $"{ratedBurnTime}" +
-                               $"{pModule.GetInfo()}\n" +
-                               $"{TLTInfo()}\n" +
-                               $"Total cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}";
-                GUILayout.Label(label);
-                GUILayout.EndHorizontal();
-            }
+            PartInfoGUI();
 
             if (!myToolTip.Equals(string.Empty) && GUI.tooltip.Equals(string.Empty))
             {
