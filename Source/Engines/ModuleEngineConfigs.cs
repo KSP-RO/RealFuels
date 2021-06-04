@@ -12,7 +12,7 @@ namespace RealFuels
     public class ModuleHybridEngine : ModuleEngineConfigs
     {
         public override string GUIButtonName => "Multi-Mode Engine";
-        public override string EditorDescription => "Select a default configuration. All configurations can be cycled through in-flight.";
+        public override string EditorDescription => "Select a default configuration. You can cycle through all other configurations in flight.";
         ModuleEngines ActiveEngine = null;
 
         public override void OnLoad(ConfigNode node)
