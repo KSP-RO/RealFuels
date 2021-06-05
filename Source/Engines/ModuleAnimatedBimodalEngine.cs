@@ -61,13 +61,13 @@ namespace RealFuels
         [KSPField]
         public string animationName = string.Empty;
         [KSPField]
-        public string primaryDescription = "retracted";
+        public string primaryDescription = "primary";
         [KSPField]
-        public string secondaryDescription = "extended";
+        public string secondaryDescription = "secondary";
         [KSPField]
-        public string toPrimaryText = "Retract Nozzle";
+        public string toPrimaryText = string.Empty;
         [KSPField]
-        public string toSecondaryText = "Extend Nozzle";
+        public string toSecondaryText = string.Empty;
         #endregion
 
 
@@ -149,7 +149,10 @@ namespace RealFuels
 
         public string GetToggleText(string configName)
         {
-            return GetMode(configName) == Mode.Primary ? toSecondaryText : toPrimaryText;
+            var toTargetText = GetMode(configName) == Mode.Primary ? toSecondaryText : toPrimaryText;
+            return string.IsNullOrEmpty(toTargetText)
+                ? $"Switch to {GetModeDescription(GetPairedConfig(configName))} mode"
+                : toTargetText;
         }
 
         [KSPEvent(guiActive = true, guiActiveEditor = true)]
