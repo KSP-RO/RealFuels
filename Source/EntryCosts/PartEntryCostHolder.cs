@@ -26,7 +26,7 @@ namespace RealFuels
                 if (int.TryParse(s, out tmp))
                     cost += tmp;
                 else
-                    children.Add(s);
+                    children.Add(Utilities.GetPartName(s));
             }
         }
         #endregion
