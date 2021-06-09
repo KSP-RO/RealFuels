@@ -158,6 +158,9 @@ namespace RealFuels
                 : toTargetText;
         }
 
+        [KSPAction("Toggle Engine Mode")]
+        public void ToggleAction(KSPActionParam _) => ToggleMode();
+
         [KSPEvent(guiActive = true, guiActiveEditor = true)]
         public void ToggleMode()
         {
@@ -167,7 +170,16 @@ namespace RealFuels
             float oldFuelFlow = activeEngine.maxFuelFlow;
 
             SetConfiguration(GetPairedConfig(configuration));
+            UpdateSymmetryCounterparts();
 
+            StartToggleCoroutines(oldAtmCurve, oldFuelFlow);
+            DoForEachSymmetryCounterpart(
+                (eng) => (eng as ModuleAnimatedBimodalEngine).StartToggleCoroutines(oldAtmCurve, oldFuelFlow)
+            );
+        }
+
+        private void StartToggleCoroutines(FloatCurve oldAtmCurve, float oldFuelFlow)
+        {
             if (HighLogic.LoadedSceneIsFlight && activeEngine.getIgnitionState)
             {
                 StartCoroutine(TemporarilyRemoveSpoolUp());
@@ -177,9 +189,6 @@ namespace RealFuels
                 if (thrustLerpTime > 0f) StartCoroutine(LerpThrust(oldAtmCurve, oldFuelFlow));
             }
         }
-
-        [KSPAction("Toggle Engine Mode")]
-        public void ToggleAction(KSPActionParam _) => ToggleMode();
 
         private IEnumerator TemporarilyRemoveSpoolUp()
         {
@@ -404,7 +413,6 @@ namespace RealFuels
             if (GUILayout.Button(new GUIContent(GetToggleText(configuration))))
             {
                 ToggleMode();
-                UpdateSymmetryCounterparts();
                 MarkWindowDirty();
             }
             GUILayout.EndHorizontal();

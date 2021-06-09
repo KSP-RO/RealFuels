@@ -1395,7 +1395,7 @@ namespace RealFuels
         #endregion
 
         #region Helpers
-        virtual public int UpdateSymmetryCounterparts()
+        public int DoForEachSymmetryCounterpart(Action<ModuleEngineConfigs> action)
         {
             int i = 0;
             int mIdx = moduleIndex;
@@ -1406,12 +1406,20 @@ namespace RealFuels
             {
                 if (GetSpecifiedModule(p, engineID, mIdx, GetType().Name, false) is ModuleEngineConfigs engine)
                 {
-                    engine.techLevel = techLevel;
-                    engine.SetConfiguration(configuration);
+                    action(engine);
                     ++i;
                 }
             }
             return i;
+        }
+
+        virtual public int UpdateSymmetryCounterparts()
+        {
+            return DoForEachSymmetryCounterpart((engine) =>
+            {
+                engine.techLevel = techLevel;
+                engine.SetConfiguration(configuration);
+            });
         }
 
         virtual protected void UpdateOtherModules(ConfigNode node)
