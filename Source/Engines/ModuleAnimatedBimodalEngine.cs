@@ -68,6 +68,8 @@ namespace RealFuels
         public string toPrimaryText = string.Empty;
         [KSPField]
         public string toSecondaryText = string.Empty;
+        [KSPField]
+        public float thrustLerpTime = -1f;  // -1 is auto-compute from animation length.
         #endregion
 
 
@@ -160,11 +162,23 @@ namespace RealFuels
         {
             if (mode == Mode.Unpaired) return;
 
+            var oldAtmCurve = activeEngine.atmosphereCurve;
+            float oldFuelFlow = activeEngine.maxFuelFlow;
+
             SetConfiguration(GetPairedConfig(configuration));
 
             if (HighLogic.LoadedSceneIsFlight && activeEngine.getIgnitionState)
+            {
                 StartCoroutine(TemporarilyRemoveSpoolUp());
+
+                if (thrustLerpTime == -1 && animationStates != null)
+                    thrustLerpTime = animationStates.Select(a => a.clip.length).Average();
+                if (thrustLerpTime > 0f) StartCoroutine(LerpThrust(oldAtmCurve, oldFuelFlow));
+            }
         }
+
+        [KSPAction("Toggle Engine Mode")]
+        public void ToggleAction(KSPActionParam _) => ToggleMode();
 
         private IEnumerator TemporarilyRemoveSpoolUp()
         {
@@ -172,15 +186,56 @@ namespace RealFuels
             {
                 float originalResponseRate = merf.throttleResponseRate;
                 merf.throttleResponseRate = 1_000_000f;
-                // Wait a few frames.
-                yield return null;
-                yield return null;
+                yield return new WaitForFixedUpdate();
                 merf.throttleResponseRate = originalResponseRate;
             }
         }
 
-        [KSPAction("Toggle Engine Mode")]
-        public void ToggleAction(KSPActionParam _) => ToggleMode();
+        private IEnumerator LerpThrust(FloatCurve oldAtmCurve, float oldFuelFlow)
+        {
+            float time = 0f;
+            float? prevIspMult = null;
+            float? prevFlowMult = null;
+            bool bailed = false;
+
+            if (activeEngine is SolverEngines.ModuleEnginesSolver eng
+                // If something else has overridden these values, bail because that thing is
+                // probably more important.
+                && Mathf.Approximately((float)eng.ispMult, 1f)
+                && Mathf.Approximately((float)eng.flowMult, 1f))
+            {
+                while (time < thrustLerpTime)
+                {
+                    if (prevIspMult is float iMult && !Mathf.Approximately(iMult, (float)eng.ispMult)
+                        || prevFlowMult is float fMult && !Mathf.Approximately(fMult, (float)eng.flowMult))
+                    {
+                        bailed = true;
+                        break;
+                    }
+
+                    var atmPressure = (float)(part.atmDensity * 0.8163265147242933); // kg/m^3 to atm
+                    prevIspMult = Mathf.Lerp(
+                        oldAtmCurve.Evaluate(atmPressure) / eng.atmosphereCurve.Evaluate(atmPressure),
+                        1f,
+                        time / thrustLerpTime
+                    );
+                    eng.ispMult = prevIspMult.Value;
+
+                    prevFlowMult = Mathf.Lerp((float)(oldFuelFlow / eng.maxFuelFlow), 1f, time / thrustLerpTime);
+                    eng.flowMult = prevFlowMult.Value;
+
+                    time += TimeWarp.fixedDeltaTime;
+                    yield return new WaitForFixedUpdate();
+                }
+
+                // Set it back to exactly 1 once we're done.
+                if (!bailed)
+                {
+                    eng.ispMult = 1d;
+                    eng.flowMult = 1d;
+                }
+            }
+        }
 
         #region animation handling
         private enum AnimPosition { Begin, End, Forward, Reverse }
