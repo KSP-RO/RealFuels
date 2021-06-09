@@ -427,7 +427,7 @@ namespace RealFuels
             return info;
         }
 
-        public string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
+        virtual public string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
         {
             TechLevel cTL = new TechLevel();
             if (!cTL.Load(config, techNodes, engineType, techLevel))
