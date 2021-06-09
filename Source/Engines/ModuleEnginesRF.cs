@@ -612,7 +612,8 @@ namespace RealFuels
         public override void Shutdown()
         {
             base.Shutdown();
-            ignited = false; // FIXME handle engine spinning down, non-instant shutoff.
+            if(allowShutdown)
+                ignited = false; // FIXME handle engine spinning down, non-instant shutoff.
         }
 
         public override void UpdateSolver(EngineThermodynamics ambientTherm, double altitude, Vector3d vel, double mach, bool sIgnited, bool oxygen, bool underwater)
