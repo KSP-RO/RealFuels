@@ -125,6 +125,7 @@ namespace RealFuels
                     Debug.LogWarning($"*RFMEC* {part} has unpaired config `{badConfig.GetValue("name")}`; removing!");
                     configs.Remove(badConfig);
                 }
+                OverwriteSavedConfigs();
                 SetConfiguration();
             }
         }

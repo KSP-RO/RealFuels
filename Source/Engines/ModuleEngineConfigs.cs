@@ -1441,12 +1441,18 @@ namespace RealFuels
             if (configs.Count > 0)
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
-                    RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
+                    OverwriteSavedConfigs();
             }
             else if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
             else
                 Debug.LogError($"*RFMEC* ERROR: could not find configs definition for {partName}");
+        }
+        protected void OverwriteSavedConfigs()
+        {
+            string partName = Utilities.GetPartName(part) + moduleIndex + engineID;
+            if (configs.Count > 0)
+                RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
         }
 
         protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType) => GetSpecifiedModules(p, eID, mIdx, eType, weakType).FirstOrDefault();
