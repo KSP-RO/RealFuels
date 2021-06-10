@@ -166,7 +166,6 @@ namespace RealFuels
 
             // if we're not combusting, don't combust and start cooling off
             combusting = running;
-            // MechJeb uses these strings, do not mess with them.
             statusString = "Nominal";
 
             // ullage check first, overwrite if bad pressure or no propellants
@@ -180,6 +179,7 @@ namespace RealFuels
             if (ffFraction <= 0d)
             {
                 combusting = false;
+                // MechJeb's Delta-V analyzer parses this string as a public API to determine SRBs that have run out of fuel vs. flamed out jet-engines
                 statusString = "No propellants";
             }
             // check pressure
