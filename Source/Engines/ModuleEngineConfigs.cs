@@ -28,11 +28,11 @@ namespace RealFuels
         [KSPAction("Switch Engine Mode")]
         public void SwitchAction(KSPActionParam _) => SwitchEngine();
 
-        [KSPEvent(guiActive=true, guiName="Switch Engine Mode")]
+        [KSPEvent(guiActive = true, guiName = "Switch Engine Mode")]
         public void SwitchEngine()
         {
             ConfigNode currentConfig = configs.Find(c => c.GetValue("name").Equals(configuration));
-            string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
+            string nextConfiguration = configs[(configs.IndexOf(currentConfig) + 1) % configs.Count].GetValue("name");
             SetConfiguration(nextConfiguration);
             // TODO: Does Engine Ignitor get switched here?
         }
@@ -139,9 +139,6 @@ namespace RealFuels
         [KSPField]
         public bool useConfigAsTitle = false;
 
-        [KSPField]
-        public string b9psModuleID = string.Empty;
-
         public float configMaxThrust = 1.0f;
         public float configMinThrust = 0.0f;
         public float configMassMult = 1.0f;
@@ -166,61 +163,95 @@ namespace RealFuels
             {
                 tfInterface?.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new object[] { part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels" });
             }
-            catch {}
+            catch { }
         }
         #endregion
 
         #region B9PartSwitch
-        private static bool _b9psReflectionInitialized = false;
-        private static FieldInfo B9PS_moduleID;
-        private static MethodInfo B9PS_SwitchSubtype;
-        public PartModule B9PSModule;
+        protected static bool _b9psReflectionInitialized = false;
+        protected static FieldInfo B9PS_moduleID;
+        protected static MethodInfo B9PS_SwitchSubtype;
+        public Dictionary<string, PartModule> B9PSModules;
 
-        private void InitializeB9PSIntegrationIfEnabled()
+        private void InitializeB9PSReflection()
         {
-            if (b9psModuleID != string.Empty && Utilities.B9PSFound)
+            if (_b9psReflectionInitialized || !Utilities.B9PSFound) return;
+            B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
+            B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
+            _b9psReflectionInitialized = true;
+        }
+
+        private void LoadB9PSModules()
+        {
+            IEnumerable<string> b9psModuleIDs = configs
+                .Where(cfg => cfg.HasNode("LinkB9PSModule"))
+                .SelectMany(cfg => cfg.GetNodes("LinkB9PSModule"))
+                .Select(link => link?.GetValue("name"))
+                .Where(moduleID => moduleID != null)
+                .Distinct();
+
+            B9PSModules = new Dictionary<string, PartModule>(b9psModuleIDs.Count());
+
+            foreach (string moduleID in b9psModuleIDs)
             {
-                if (!_b9psReflectionInitialized)
+                var module = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
+                    .FirstOrDefault(m => (string)B9PS_moduleID?.GetValue(m) == moduleID);
+                if (module == null)
+                    Debug.LogError($"*RFMEC* B9PartSwitch module with ID {moduleID} was not found for {part}!");
+                else
+                    B9PSModules[moduleID] = module;
+            }
+        }
+
+        /// <summary>
+        /// Hide the GUI for all `ModuleB9PartSwitch`s managed by RF.
+        /// This is somewhat of a hack-ish approach...
+        /// </summary>
+        private void HideB9PSVariantSelectors()
+        {
+            if (B9PSModules == null) return;
+            foreach (var module in B9PSModules.Values)
+            {
+                module.Fields["currentSubtypeTitle"].guiActive = false;
+                module.Fields["currentSubtypeTitle"].guiActiveEditor = false;
+                module.Fields["currentSubtypeIndex"].guiActive = false;
+                module.Fields["currentSubtypeIndex"].guiActiveEditor = false;
+                module.Events["ShowSubtypesWindow"].guiActive = false;
+                module.Events["ShowSubtypesWindow"].guiActiveEditor = false;
+            }
+        }
+
+        public void UpdateB9PSVariants()
+        {
+            if (B9PSModules == null || B9PSModules.Count == 0) return;
+
+            var subtypeSpecifications = new Dictionary<string, string>(B9PSModules.Count);
+            if (config.GetNodes("LinkB9PSModule") is ConfigNode[] links)
+            {
+                foreach (ConfigNode link in links)
                 {
-                    B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
-                    B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
-                    _b9psReflectionInitialized = true;
+                    string moduleID = null, subtype = null;
+                    if (!link.TryGetValue("name", ref moduleID))
+                        Debug.LogError($"*RFMEC* Config `{configuration}` of {part} has a LinkB9PSModule specification without a name key!");
+                    if (!link.TryGetValue("subtype", ref subtype))
+                        Debug.LogError($"*RFMEC* Config `{configuration}` of {part} has a LinkB9PSModule specification without a subtype key!");
+                    if (moduleID != null && subtype != null)
+                        subtypeSpecifications[moduleID] = subtype;
                 }
-
-                B9PSModule = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
-                    .FirstOrDefault(m => ((string)B9PS_moduleID?.GetValue(m)).Equals(b9psModuleID));
-
-                if (B9PSModule == null)
-                    Debug.LogError($"*RFMEC* B9PartSwitch module with ID {b9psModuleID} was not found for {part}!");
             }
-        }
 
-        private void HideB9PSVariantSelector()
-        {
-            // Hide the GUI for the `ModuleB9PartSwitch` managed by RF.
-            // This is somewhat of a hack-ish solution...
-            if (B9PSModule is PartModule)
+            foreach (var entry in B9PSModules)
             {
-                B9PSModule.Fields["currentSubtypeTitle"].guiActive = false;
-                B9PSModule.Fields["currentSubtypeTitle"].guiActiveEditor = false;
-                B9PSModule.Fields["currentSubtypeIndex"].guiActive = false;
-                B9PSModule.Fields["currentSubtypeIndex"].guiActiveEditor = false;
-                B9PSModule.Events["ShowSubtypesWindow"].guiActive = false;
-                B9PSModule.Events["ShowSubtypesWindow"].guiActiveEditor = false;
-            }
-        }
+                string moduleID = entry.Key;
+                PartModule module = entry.Value;
 
-        public void UpdateB9PSVariant()
-        {
-            if (B9PSModule is PartModule)
-            {
-                string subtypeName = string.Empty;
-                if (!config.TryGetValue("b9psSubtypeName", ref subtypeName))
+                if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
                 {
+                    Debug.LogError($"*RFMEC* Config {configuration} of {part} does not specify a subtype for linked B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
                     subtypeName = configuration;
-                    Debug.LogWarning($"*RFMEC* {part} does not specify b9psSubtypeName in current config {configuration}; defaulting to \"{subtypeName}\" for B9PS switching.");
                 }
-                B9PS_SwitchSubtype?.Invoke(B9PSModule, new object[] { subtypeName });
+
+                B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
             }
         }
         #endregion
@@ -261,17 +292,18 @@ namespace RealFuels
         }
 
         #region PartModule Overrides
-        public override void OnAwake ()
+        public override void OnAwake()
         {
             techNodes = new ConfigNode();
             configs = new List<ConfigNode>();
+            InitializeB9PSReflection();
         }
 
         public override void OnLoad(ConfigNode node)
         {
             if (!compatible)
                 return;
-            base.OnLoad (node);
+            base.OnLoad(node);
 
             if (techLevel != -1)
             {
@@ -318,9 +350,9 @@ namespace RealFuels
             if (HighLogic.LoadedSceneIsEditor)
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
 
-            InitializeB9PSIntegrationIfEnabled();
-
             ConfigSaveLoad();
+
+            LoadB9PSModules();
 
             SetConfiguration();
 
@@ -328,10 +360,7 @@ namespace RealFuels
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
         }
 
-        public override void OnStartFinished(StartState state)
-        {
-            HideB9PSVariantSelector();  // Just the one managed by RF, if there is one.
-        }
+        public override void OnStartFinished(StartState state) => HideB9PSVariantSelectors();
         #endregion
 
         #region Info Methods
@@ -340,7 +369,7 @@ namespace RealFuels
             string retStr = string.Empty;
             if (engineID != string.Empty)
                 retStr += $"(Bound to {engineID})\n";
-            if(moduleIndex >= 0)
+            if (moduleIndex >= 0)
                 retStr += $"(Bound to engine {moduleIndex} in part)\n";
             if (techLevel != -1)
             {
@@ -381,7 +410,7 @@ namespace RealFuels
             string info = TLTInfo() + "\nAlternate configurations:\n";
 
             foreach (ConfigNode config in configs)
-                if(!config.GetValue("name").Equals(configuration))
+                if (!config.GetValue("name").Equals(configuration))
                     info += GetConfigInfo(config, addDescription: false, colorName: true);
 
             return info;
@@ -551,7 +580,7 @@ namespace RealFuels
             }
             if (configuration != newConfiguration)
             {
-                if(resetTechLevels)
+                if (resetTechLevels)
                     techLevel = origTechLevel;
 
                 while (techLevel > 0 && !TechLevel.CanTL(newConfig, techNodes, engineType, techLevel))
@@ -640,7 +669,7 @@ namespace RealFuels
 
             SetupFX();
 
-            UpdateB9PSVariant();
+            UpdateB9PSVariants();
 
             UpdateTFInterops(); // update TestFlight if it's installed
 
@@ -799,7 +828,7 @@ namespace RealFuels
             if (cfg.TryGetValue("minThrust", ref x))
                 configMinThrust = scale * x;
             if (cfg.TryGetValue("heatProduction", ref x))
-                configHeat = (float) Math.Round(x * RFSettings.Instance.heatMultiplier, 0);
+                configHeat = (float)Math.Round(x * RFSettings.Instance.heatMultiplier, 0);
 
             configThrottle = throttle;
             if (cfg.HasValue("throttle"))
@@ -895,13 +924,13 @@ namespace RealFuels
 
             // Now update the cfg from what we did.
             // thrust updates
-            if(configMaxThrust >= 0f)
+            if (configMaxThrust >= 0f)
                 cfg.SetValue(thrustRating, configMaxThrust.ToString("0.0000"), true);
-            if(configMinThrust >= 0f)
+            if (configMinThrust >= 0f)
                 cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"), true); // will be ignored by RCS, so what.
 
             // heat update
-            if(configHeat >= 0f)
+            if (configHeat >= 0f)
                 cfg.SetValue("heatProduction", configHeat.ToString("0"), true);
 
             // mass change
@@ -937,7 +966,7 @@ namespace RealFuels
         //called by StretchyTanks StretchySRB and ProcedrualParts
         virtual public void ChangeThrust(float newThrust)
         {
-            foreach(ConfigNode c in configs)
+            foreach (ConfigNode c in configs)
             {
                 c.SetValue("maxThrust", newThrust);
             }
@@ -1117,7 +1146,8 @@ namespace RealFuels
             guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, EngineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
         }
 
-        private void EditorLock() {
+        private void EditorLock()
+        {
             if (!editorLocked)
             {
                 EditorLogic.fetch.Lock(false, false, false, "RFGUILock");
@@ -1126,7 +1156,8 @@ namespace RealFuels
             }
         }
 
-        private void EditorUnlock() {
+        private void EditorUnlock()
+        {
             if (editorLocked)
             {
                 EditorLogic.fetch.Unlock("RFGUILock");
@@ -1363,7 +1394,7 @@ namespace RealFuels
         }
         virtual public void CheckConfigs()
         {
-            if(configs == null || configs.Count == 0)
+            if (configs == null || configs.Count == 0)
                 ConfigSaveLoad();
         }
         // run this to save/load non-serialized data
