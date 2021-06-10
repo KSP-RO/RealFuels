@@ -502,7 +502,7 @@ namespace RealFuels
             else if (ignitions == -1)
                 sIgnitions = "Unlimited";
             else
-                sIgnitions = "<color=yellow>Ground-lit only</color>";
+                sIgnitions = "<color=yellow>Ground Support Clamps</color>";
 
             dispMass = part.mass;
         }
@@ -806,7 +806,7 @@ namespace RealFuels
         public string GetUllageIgnition()
         {
             string output = pressureFed ? "Pressure-fed" : string.Empty;
-            output += (output != string.Empty ? ", " : string.Empty) + "Ignitions: " + ((!RFSettings.Instance.limitedIgnitions || ignitions < 0) ? "Unlimited" : (ignitions > 0 ? ignitions.ToString() : "Ground only"));
+            output += (output != string.Empty ? ", " : string.Empty) + "Ignitions: " + ((!RFSettings.Instance.limitedIgnitions || ignitions < 0) ? "Unlimited" : (ignitions > 0 ? ignitions.ToString() : "Ground Support Clamps"));
             output += (output != string.Empty ? ", " : string.Empty) + (ullage ? "Subject" : "Not subject") + " to ullage";
             output += "\n";
 
