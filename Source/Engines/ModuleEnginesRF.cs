@@ -682,13 +682,15 @@ namespace RealFuels
             // run base method code
             bool wasIgnited = ignited;
             base.UpdateSolver(ambientTherm, altitude, vel, mach, ignited, oxygen, CheckTransformsUnderwater());
+
+            // Post-update: shutdown symmetry counterparts if we exhausted our own propellants
             if (autoCutoff && allowShutdown && wasIgnited != rfSolver.GetRunning() && lastPropellantFraction <= 0d)
             {
+                int idx = part.Modules.IndexOf(this);
                 foreach (Part p in part.symmetryCounterparts)
                 {
                     if (p != part)
                     {
-                        int idx = part.Modules.IndexOf(this);
                         ModuleEnginesRF otherMERF = p.Modules[idx] as ModuleEnginesRF;
                         if (otherMERF != null && otherMERF.ignited)
                         {
