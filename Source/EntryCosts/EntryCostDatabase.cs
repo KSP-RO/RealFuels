@@ -11,6 +11,7 @@ namespace RealFuels
         #region Fields
         protected static Dictionary<string, PartEntryCostHolder> holders = null;
         protected static Dictionary<string, AvailablePart> nameToPart = null;
+        protected static Dictionary<string, PartUpgradeHandler.Upgrade> nameToUpgrade = null;
         protected static HashSet<string> unlocks = null;
 
         protected static HashSet<string> unlockPathTracker = new HashSet<string>();
@@ -25,6 +26,9 @@ namespace RealFuels
         {
             if (nameToPart == null)
                 FillPartList();
+
+            if (nameToUpgrade == null)
+                FillUpgradeList();
 
             if (holders == null)
                 FillHolders();
@@ -46,6 +50,16 @@ namespace RealFuels
             {
                 if (ap?.partPrefab is Part)
                     nameToPart[GetPartName(ap)] = ap;
+            }
+        }
+
+        protected static void FillUpgradeList()
+        {
+            nameToUpgrade = new Dictionary<string, PartUpgradeHandler.Upgrade>();
+
+            foreach (PartUpgradeHandler.Upgrade upgrade in PartUpgradeManager.Handler)
+            {
+                nameToUpgrade[GetPartName(upgrade.name)] = upgrade;
             }
         }
 
@@ -130,6 +144,13 @@ namespace RealFuels
                 ap.SetEntryCost(h.GetCost());
         }
 
+        public static void UpdateEntryCost(PartUpgradeHandler.Upgrade upgrade)
+        {
+            ClearTracker();
+            if (holders.TryGetValue(GetPartName(upgrade.name), out PartEntryCostHolder h))
+                upgrade.entryCost = h.GetCost();
+        }
+
         public static void Save(ConfigNode node)
         {
             foreach (string s in unlocks)
@@ -162,6 +183,14 @@ namespace RealFuels
             {
                 if (ap?.partPrefab is Part)
                     UpdateEntryCost(ap);
+            }
+        }
+
+        public static void UpdateUpgradeEntryCosts()
+        {
+            foreach (PartUpgradeHandler.Upgrade upgrade in PartUpgradeManager.Handler)
+            {
+                UpdateEntryCost(upgrade);
             }
         }
         #endregion

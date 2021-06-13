@@ -35,12 +35,19 @@ namespace RealFuels
             EntryCostDatabase.Initialize(); // should not be needed though.
         }
 
+        protected IEnumerator UpdateEntryCosts_Coroutine()
+        {
+            yield return null;
+            yield return null;
+
+            EntryCostDatabase.UpdatePartEntryCosts();
+            EntryCostDatabase.UpdateUpgradeEntryCosts();
+        }
+
         public override void OnLoad(ConfigNode node)
         {
 
             EntryCostDatabase.Load(node.GetNode("Unlocks"));
-
-            EntryCostDatabase.UpdatePartEntryCosts();
 
             string tlName = string.Empty;
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
@@ -56,6 +63,9 @@ namespace RealFuels
                     }
                 }
             }
+
+            // Do this in a coroutine so we run after the PartUpgradeManager loads.
+            StartCoroutine(UpdateEntryCosts_Coroutine());
         }
         public override void OnSave(ConfigNode node)
         {
