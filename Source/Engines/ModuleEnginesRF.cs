@@ -34,6 +34,10 @@ namespace RealFuels
         [KSPField]
         public double ratedBurnTime = -1d;
 
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Symmetric Auto-cutoff", groupName = groupName, groupDisplayName = groupDisplayName),
+            UI_Toggle(disabledText = "No", enabledText = "Yes", affectSymCounterparts = UI_Scene.Editor)]
+        public bool autoCutoff = true;
+
         #region Thrust Curve
         [KSPField]
         public bool thrustCurveUseTime = false;
@@ -676,7 +680,25 @@ namespace RealFuels
             heatProduction = 0;
 
             // run base method code
+            bool wasIgnited = ignited;
             base.UpdateSolver(ambientTherm, altitude, vel, mach, ignited, oxygen, CheckTransformsUnderwater());
+            if (autoCutoff && allowShutdown && wasIgnited != rfSolver.GetRunning() && lastPropellantFraction <= 0d)
+            {
+                foreach (Part p in part.symmetryCounterparts)
+                {
+                    if (p != part)
+                    {
+                        int idx = part.Modules.IndexOf(this);
+                        ModuleEnginesRF otherMERF = p.Modules[idx] as ModuleEnginesRF;
+                        if (otherMERF != null && otherMERF.ignited)
+                        {
+                            otherMERF.Flameout("No propellants", false, otherMERF.ignited);
+                            otherMERF.ignited = false;
+                            otherMERF.reignitable = false;
+                        }
+                    }
+                }
+            }
             UnityEngine.Profiling.Profiler.EndSample();
         }
         #endregion
