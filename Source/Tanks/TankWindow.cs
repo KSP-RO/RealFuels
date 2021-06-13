@@ -188,12 +188,12 @@ namespace RealFuels.Tanks
             }
             if (ActionGroupMode) {
                 if (guiWindowRect.width == 0) {
-                    guiWindowRect = new Rect (430 * posMult, 365, 438, (Screen.height - 365));
+                    guiWindowRect = new Rect (430 * posMult, 365, 460, (Screen.height - 365));
                 }
                 tooltipRect = new Rect (guiWindowRect.xMin + 440, mousePos.y-5, 300, 20);
             } else {
                 if (guiWindowRect.width == 0) {
-                    guiWindowRect = new Rect (Screen.width - 8 - 430 * (posMult+1), 365, 438, (Screen.height - 365));
+                    guiWindowRect = new Rect (Screen.width - 8 - 430 * (posMult+1), 365, 460, (Screen.height - 365));
                 }
                 tooltipRect = new Rect (guiWindowRect.xMin - (230-8), mousePos.y - 5, 220, 20);
             }
@@ -381,7 +381,7 @@ namespace RealFuels.Tanks
         void TankLine (FuelTank tank)
         {
             GUILayout.BeginHorizontal ();
-            GUILayout.Label (" " + tank, GUILayout.Width (115));
+            GUILayout.Label (" " + tank, GUILayout.Width (137));
 
             // So our states here are:
             //   Not being edited currently (empty):   maxAmountExpression = null, maxAmount = 0
