@@ -6,7 +6,7 @@ using Debug = UnityEngine.Debug;
 
 namespace RealFuels
 {
-    internal class BidirectionalDictionary<TForward, TReverse>
+    public class BidirectionalDictionary<TForward, TReverse>
     {
         private Dictionary<TForward, TReverse> forward;
         private Dictionary<TReverse, TForward> reverse;
@@ -14,7 +14,7 @@ namespace RealFuels
         public Indexer<TForward, TReverse> Fwd { get => new Indexer<TForward, TReverse>(ref forward, ref reverse); }
         public Indexer<TReverse, TForward> Rev { get => new Indexer<TReverse, TForward>(ref reverse, ref forward); }
 
-        internal class Indexer<TKey, TValue>
+        public class Indexer<TKey, TValue>
         {
             private Dictionary<TKey, TValue> fwd;
             private Dictionary<TValue, TKey> rev;
@@ -55,11 +55,9 @@ namespace RealFuels
         }
     }
 
-    public class ModuleAnimatedBimodalEngine : ModuleEngineConfigs
+    public class ModulePairedConfigsEngine : ModuleEngineConfigs
     {
         #region fields
-        [KSPField]
-        public string animationName = string.Empty;
         [KSPField]
         public string primaryDescription = "primary";
         [KSPField]
@@ -68,21 +66,16 @@ namespace RealFuels
         public string toPrimaryText = string.Empty;
         [KSPField]
         public string toSecondaryText = string.Empty;
-        [KSPField]
-        public float thrustLerpTime = -1f;  // -1 is auto-compute from animation length.
         #endregion
 
 
         #region bimodal state
-        private enum Mode { Primary, Secondary, Unpaired }
-        private BidirectionalDictionary<string, string> configPairs;  // (primary, secondary)
-        private Mode mode;
-        [KSPField(guiName = "Mode (toggleable)", isPersistant = true, guiActive = true,
-            groupName = groupName, groupDisplayName = groupDisplayName)]
-        public string stateDisplay;
-        private ModuleEngines activeEngine;
+        protected enum Mode { Primary, Secondary, Unpaired }
+        protected BidirectionalDictionary<string, string> configPairs;  // (primary, secondary)
+        protected Mode mode;
+        protected ModuleEngines activeEngine;
 
-        private void LoadConfigPairs()
+        protected void LoadConfigPairs()
         {
             CheckConfigs(); // Ensure that `configs` have been deserialized already.
 
@@ -130,7 +123,7 @@ namespace RealFuels
             }
         }
 
-        private Mode GetMode(string configName)
+        protected Mode GetMode(string configName)
         {
             if (configPairs == null) return Mode.Unpaired;
             if (configPairs.Fwd.ContainsKey(configName)) return Mode.Primary;
@@ -138,7 +131,7 @@ namespace RealFuels
             return Mode.Unpaired;
         }
 
-        private string GetPairedConfig(string configName)
+        protected string GetPairedConfig(string configName)
         {
             var status = GetMode(configName);
             if (status == Mode.Unpaired) return null;
@@ -158,19 +151,198 @@ namespace RealFuels
                 : toTargetText;
         }
 
+        [KSPEvent(guiActive = true, guiActiveEditor = true)]
+        virtual public void ToggleMode()
+        {
+            if (mode == Mode.Unpaired) return;
+            SetConfiguration(GetPairedConfig(configuration));
+            UpdateSymmetryCounterparts();
+        }
+        #endregion
+
+
+        #region PartModule overrides
+        public override void OnLoad(ConfigNode node)
+        {
+            base.OnLoad(node);
+            LoadConfigPairs();
+        }
+
+        public override void OnStart(StartState state)
+        {
+            if (configPairs == null || configPairs.Count == 0) LoadConfigPairs();
+            base.OnStart(state);
+            activeEngine = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType) as ModuleEngines;
+        }
+        #endregion
+
+
+        #region MEC overrides
+        public override void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
+        {
+            base.SetConfiguration(newConfiguration, resetTechLevels);
+            if (configPairs == null) return;
+            mode = GetMode(configuration);
+        }
+
+        public override string GetConfigDisplayName(ConfigNode node)
+        {
+            string name = node.GetValue("name");
+            return $"{(GetMode(name) == Mode.Secondary ? configPairs.Rev[name] : name)} ({GetModeDescription(name)})";
+        }
+
+        public override string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
+        {
+            string info = base.GetConfigInfo(config, addDescription, colorName);
+            string name = config.GetValue("name");
+
+            var mode = GetMode(name);
+            if (mode == Mode.Unpaired) return info;
+
+            var toggleDescription = mode == Mode.Primary ? "upgraded" : "downgraded";
+            var pairedConfigInfo = base.GetConfigInfo(GetConfigByName(GetPairedConfig(name)), false, colorName);
+            return $"{info}\nCan be {toggleDescription}:\n{pairedConfigInfo}";
+        }
+
+        public override string GUIButtonName => "Engine";
+        public override string EditorDescription => "This engine has an optional upgrade. Select a configuration and whether you want to apply the upgrade using the button below.";
+
+        virtual protected string GetToggleTextForConfigGUI(string configName)
+        {
+            var targetConfig = GetConfigByName(GetPairedConfig(configName));
+            var costString = GetCostString(targetConfig);
+            return $"{GetToggleText(configName)}{costString}";
+        }
+
+        // TODO(al2me6): Try to find ways to alleviate code duplication in this function.
+        protected override void ConfigSelectionGUI()
+        {
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button(new GUIContent(GetToggleTextForConfigGUI(configuration))))
+            {
+                ToggleMode();
+                MarkWindowDirty();
+            }
+            GUILayout.EndHorizontal();
+
+            foreach (string primaryCfgName in configPairs.Fwd.Keys)
+            {
+                ConfigNode primaryCfg = GetConfigByName(primaryCfgName);
+                string secondaryCfgName = configPairs.Fwd[primaryCfgName];
+                ConfigNode secondaryCfg = GetConfigByName(secondaryCfgName);
+
+                string displayName = primaryCfgName;
+
+                ConfigNode targetCfg = mode == Mode.Primary ? primaryCfg : secondaryCfg;
+                string targetCfgName = targetCfg.GetValue("name");
+
+                GUILayout.BeginHorizontal();
+
+                var costString = GetCostString(targetCfg);
+
+                if (configuration == primaryCfgName || configuration == secondaryCfgName)
+                {
+                    GUILayout.Label(new GUIContent($"Current config: {displayName}{costString}", GetConfigInfo(targetCfg)));
+                }
+                else
+                {
+                    if (CanConfig(primaryCfg))
+                    {
+                        if (UnlockedConfig(primaryCfg, part))
+                        {
+                            if (!UnlockedConfig(secondaryCfg, part))
+                            {
+                                EntryCostDatabase.SetUnlocked(secondaryCfgName);
+                                EntryCostDatabase.UpdatePartEntryCosts();
+                            }
+                            if (GUILayout.Button(new GUIContent($"Switch to {displayName}{costString}", GetConfigInfo(targetCfg))))
+                            {
+                                SetConfiguration(targetCfgName, true);
+                                UpdateSymmetryCounterparts();
+                                MarkWindowDirty();
+                            }
+                        }
+                        else
+                        {
+                            double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(primaryCfgName);
+                            costString = string.Empty;
+                            if (upgradeCost > 0d)
+                            {
+                                costString = $"({upgradeCost:N0}f)";
+                                if (GUILayout.Button(new GUIContent($"Purchase {displayName}{costString}", GetConfigInfo(targetCfg))))
+                                {
+                                    if (EntryCostManager.Instance.PurchaseConfig(primaryCfgName))
+                                    {
+                                        EntryCostDatabase.SetUnlocked(secondaryCfgName);
+                                        EntryCostDatabase.UpdatePartEntryCosts();
+                                        SetConfiguration(targetCfgName, true);
+                                        UpdateSymmetryCounterparts();
+                                        MarkWindowDirty();
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // autobuy
+                                EntryCostManager.Instance.PurchaseConfig(primaryCfgName);
+                                EntryCostDatabase.SetUnlocked(secondaryCfgName);
+                                EntryCostDatabase.UpdatePartEntryCosts();
+                                if (GUILayout.Button(new GUIContent($"Switch to {displayName}{costString}", GetConfigInfo(targetCfg))))
+                                {
+                                    SetConfiguration(targetCfgName, true);
+                                    UpdateSymmetryCounterparts();
+                                    MarkWindowDirty();
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (techNameToTitle.TryGetValue(primaryCfg.GetValue("techRequired"), out string techStr))
+                            techStr = "\nRequires: " + techStr;
+                        GUILayout.Label(new GUIContent("Lack tech for " + displayName, GetConfigInfo(targetCfg) + techStr));
+                    }
+                }
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        protected override void PartInfoGUI()
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"<b>Current mode:</b> {GetModeDescription(configuration)}");
+            GUILayout.EndHorizontal();
+            base.PartInfoGUI();
+        }
+        #endregion
+    }
+
+
+
+    public class ModuleAnimatedBimodalEngine : ModulePairedConfigsEngine
+    {
+        #region fields
+        [KSPField]
+        public string animationName = string.Empty;
+        [KSPField]
+        public float thrustLerpTime = -1f;  // -1 is auto-compute from animation length.
+        [KSPField(guiName = "Mode (toggleable)", isPersistant = true, guiActive = true,
+            groupName = groupName, groupDisplayName = groupDisplayName)]
+        public string stateDisplay;
+        #endregion
+
+        #region in-flight toggling
         [KSPAction("Toggle Engine Mode")]
         public void ToggleAction(KSPActionParam _) => ToggleMode();
 
-        [KSPEvent(guiActive = true, guiActiveEditor = true)]
-        public void ToggleMode()
+        public override void ToggleMode()
         {
             if (mode == Mode.Unpaired) return;
 
             var oldAtmCurve = activeEngine.atmosphereCurve;
             float oldFuelFlow = activeEngine.maxFuelFlow;
 
-            SetConfiguration(GetPairedConfig(configuration));
-            UpdateSymmetryCounterparts();
+            base.ToggleMode();
 
             StartToggleCoroutines(oldAtmCurve, oldFuelFlow);
             DoForEachSymmetryCounterpart(
@@ -192,13 +364,11 @@ namespace RealFuels
 
         private IEnumerator TemporarilyRemoveSpoolUp()
         {
-            if (activeEngine is ModuleEnginesRF merf)
-            {
-                float originalResponseRate = merf.throttleResponseRate;
-                merf.throttleResponseRate = 1_000_000f;
-                yield return new WaitForFixedUpdate();
-                merf.throttleResponseRate = originalResponseRate;
-            }
+            if (!(activeEngine is ModuleEnginesRF merf)) yield break;
+            float originalResponseRate = merf.throttleResponseRate;
+            merf.throttleResponseRate = 1_000_000f;
+            yield return new WaitForFixedUpdate();
+            merf.throttleResponseRate = originalResponseRate;
         }
 
         private IEnumerator LerpThrust(FloatCurve oldAtmCurve, float oldFuelFlow)
@@ -206,45 +376,38 @@ namespace RealFuels
             float time = 0f;
             float? prevIspMult = null;
             float? prevFlowMult = null;
-            bool bailed = false;
 
-            if (activeEngine is SolverEngines.ModuleEnginesSolver eng
-                // If something else has overridden these values, bail because that thing is
-                // probably more important.
-                && Mathf.Approximately((float)eng.ispMult, 1f)
-                && Mathf.Approximately((float)eng.flowMult, 1f))
+            if (!(activeEngine is SolverEngines.ModuleEnginesSolver eng)) yield break;
+
+            // If something else has overridden these values, bail because that thing is probably
+            // more important.
+            if (!Mathf.Approximately((float)eng.ispMult, 1f) || !Mathf.Approximately((float)eng.flowMult, 1f))
+                yield break;
+
+            while (time < thrustLerpTime)
             {
-                while (time < thrustLerpTime)
-                {
-                    if (prevIspMult is float iMult && !Mathf.Approximately(iMult, (float)eng.ispMult)
+                if (prevIspMult is float iMult && !Mathf.Approximately(iMult, (float)eng.ispMult)
                         || prevFlowMult is float fMult && !Mathf.Approximately(fMult, (float)eng.flowMult))
-                    {
-                        bailed = true;
-                        break;
-                    }
+                    yield break;
 
-                    var atmPressure = (float)(part.atmDensity * 0.8163265147242933); // kg/m^3 to atm
-                    prevIspMult = Mathf.Lerp(
-                        oldAtmCurve.Evaluate(atmPressure) / eng.atmosphereCurve.Evaluate(atmPressure),
-                        1f,
-                        time / thrustLerpTime
-                    );
-                    eng.ispMult = prevIspMult.Value;
+                var atmPressure = (float)(part.atmDensity * 0.8163265147242933); // kg/m^3 to atm
+                prevIspMult = Mathf.Lerp(
+                    oldAtmCurve.Evaluate(atmPressure) / eng.atmosphereCurve.Evaluate(atmPressure),
+                    1f,
+                    time / thrustLerpTime
+                );
+                eng.ispMult = prevIspMult.Value;
 
-                    prevFlowMult = Mathf.Lerp((float)(oldFuelFlow / eng.maxFuelFlow), 1f, time / thrustLerpTime);
-                    eng.flowMult = prevFlowMult.Value;
+                prevFlowMult = Mathf.Lerp((float)(oldFuelFlow / eng.maxFuelFlow), 1f, time / thrustLerpTime);
+                eng.flowMult = prevFlowMult.Value;
 
-                    time += TimeWarp.fixedDeltaTime;
-                    yield return new WaitForFixedUpdate();
-                }
-
-                // Set it back to exactly 1 once we're done.
-                if (!bailed)
-                {
-                    eng.ispMult = 1d;
-                    eng.flowMult = 1d;
-                }
+                time += TimeWarp.fixedDeltaTime;
+                yield return new WaitForFixedUpdate();
             }
+
+            // Set it back to exactly 1 once we're done.
+            eng.ispMult = 1d;
+            eng.flowMult = 1d;
         }
 
         #region animation handling
@@ -334,21 +497,12 @@ namespace RealFuels
         #endregion
 
 
-        #region part module overrides
-        public override void OnLoad(ConfigNode node)
-        {
-            base.OnLoad(node);
-            LoadConfigPairs();
-        }
-
+        #region PartModule overrides
         public override void OnStart(StartState state)
         {
-            if (configPairs == null || configPairs.Count == 0) LoadConfigPairs();
-            LoadAnimations();
             base.OnStart(state);
+            LoadAnimations();
             ForceAnimationPosition();
-
-            activeEngine = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType) as ModuleEngines;
         }
 
         public override void OnUpdate()
@@ -362,12 +516,8 @@ namespace RealFuels
         #region MEC overrides
         public override void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
-            base.SetConfiguration(newConfiguration, resetTechLevels);
-
-            if (configPairs == null) return;
-
             var oldMode = mode;
-            mode = GetMode(configuration);
+            base.SetConfiguration(newConfiguration, resetTechLevels);
 
             if (mode != Mode.Unpaired && isMaster)
             {
@@ -386,126 +536,17 @@ namespace RealFuels
             UpdateAnimationTarget(oldMode);
         }
 
-        public override string GetConfigDisplayName(ConfigNode node)
-        {
-            string name = node.GetValue("name");
-            return $"{(GetMode(name) == Mode.Secondary ? configPairs.Rev[name] : name)} ({GetModeDescription(name)} mode)";
-        }
-
         public override string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
         {
-            string info = base.GetConfigInfo(config, addDescription, colorName);
-            string name = config.GetValue("name");
-
-            if (GetMode(name) != Mode.Unpaired)
-                return $"{info}\nCan be toggled in-flight:\n{base.GetConfigInfo(GetConfigByName(GetPairedConfig(name)), false, colorName)}";
-
-            return info;
+            return base.GetConfigInfo(config, addDescription, colorName)
+                .Replace("upgraded", "toggled in-flight")
+                .Replace("downgraded", "toggled in-flight");
         }
 
         public override string GUIButtonName => "Bimodal Engine";
         public override string EditorDescription => "This engine can operate in two different modes. Select a configuration and an initial mode; you can change between modes (even in-flight) using the PAW or the button below.";
 
-        // TODO(al2me6): Try to find ways to alleviate code duplication in this function.
-        protected override void ConfigSelectionGUI()
-        {
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button(new GUIContent(GetToggleText(configuration))))
-            {
-                ToggleMode();
-                MarkWindowDirty();
-            }
-            GUILayout.EndHorizontal();
-
-            foreach (string primaryCfgName in configPairs.Fwd.Keys)
-            {
-                ConfigNode primaryCfg = GetConfigByName(primaryCfgName);
-                string secondaryCfgName = configPairs.Fwd[primaryCfgName];
-                ConfigNode secondaryCfg = GetConfigByName(secondaryCfgName);
-
-                string displayName = primaryCfgName;
-
-                ConfigNode targetCfg = mode == Mode.Primary ? primaryCfg : secondaryCfg;
-                string targetCfgName = targetCfg.GetValue("name");
-
-                GUILayout.BeginHorizontal();
-
-                var costString = GetCostString(primaryCfg);
-
-                if (configuration == primaryCfgName || configuration == secondaryCfgName)
-                {
-                    GUILayout.Label(new GUIContent($"Current config: {displayName}{costString}", GetConfigInfo(targetCfg)));
-                }
-                else
-                {
-                    if (CanConfig(primaryCfg))
-                    {
-                        if (UnlockedConfig(primaryCfg, part))
-                        {
-                            if (!UnlockedConfig(secondaryCfg, part))
-                            {
-                                EntryCostDatabase.SetUnlocked(secondaryCfgName);
-                                EntryCostDatabase.UpdatePartEntryCosts();
-                            }
-                            if (GUILayout.Button(new GUIContent($"Switch to {displayName}{costString}", GetConfigInfo(targetCfg))))
-                            {
-                                SetConfiguration(displayName, true);
-                                UpdateSymmetryCounterparts();
-                                MarkWindowDirty();
-                            }
-                        }
-                        else
-                        {
-                            double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(primaryCfgName);
-                            costString = string.Empty;
-                            if (upgradeCost > 0d)
-                            {
-                                costString = $"({upgradeCost:N0}f)";
-                                if (GUILayout.Button(new GUIContent($"Purchase {displayName}{costString}", GetConfigInfo(targetCfg))))
-                                {
-                                    if (EntryCostManager.Instance.PurchaseConfig(primaryCfgName))
-                                    {
-                                        EntryCostDatabase.SetUnlocked(secondaryCfgName);
-                                        EntryCostDatabase.UpdatePartEntryCosts();
-                                        SetConfiguration(targetCfgName, true);
-                                        UpdateSymmetryCounterparts();
-                                        MarkWindowDirty();
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // autobuy
-                                EntryCostManager.Instance.PurchaseConfig(primaryCfgName);
-                                EntryCostDatabase.SetUnlocked(secondaryCfgName);
-                                EntryCostDatabase.UpdatePartEntryCosts();
-                                if (GUILayout.Button(new GUIContent($"Switch to {displayName}{costString}", GetConfigInfo(targetCfg))))
-                                {
-                                    SetConfiguration(targetCfgName, true);
-                                    UpdateSymmetryCounterparts();
-                                    MarkWindowDirty();
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (techNameToTitle.TryGetValue(primaryCfg.GetValue("techRequired"), out string techStr))
-                            techStr = "\nRequires: " + techStr;
-                        GUILayout.Label(new GUIContent("Lack tech for " + displayName, GetConfigInfo(targetCfg) + techStr));
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-        }
-
-        protected override void PartInfoGUI()
-        {
-            GUILayout.BeginHorizontal();
-            GUILayout.Label($"<b>Current mode:</b> {GetModeDescription(configuration)}");
-            GUILayout.EndHorizontal();
-            base.PartInfoGUI();
-        }
+        protected override string GetToggleTextForConfigGUI(string config) => GetToggleText(config);
         #endregion
     }
 }
