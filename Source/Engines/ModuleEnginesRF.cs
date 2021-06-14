@@ -307,6 +307,7 @@ namespace RealFuels
                     case "PUPE": propMultiplier = 1.25d; break;
                     case "PBAA": propMultiplier = 1.4d; break;
                     case "PBAN": propMultiplier = 1.2d; break;
+                    case "CTPB": propMultiplier = 1.18d; break;
                     case "HTPB": propMultiplier = 1d; break;
                     default: propMultiplier = 1d; break;
                 }
