@@ -106,6 +106,9 @@ namespace RealFuels
         public bool pressureFed = false;
 
         [KSPField]
+        public double autoVariationScale = -1d;
+
+        [KSPField]
         public double varyIsp = -1d;
 
         [KSPField]
@@ -297,18 +300,18 @@ namespace RealFuels
                 double propMultiplier = 1d;
                 string propName = propellants.Count > 0 ? propellants[0].name : string.Empty;
                 //Debug.Log("MERF: For part " + part.name + " is solid, found propellant " + propName);
-                if (propName == "NGNC")
+                switch (propName)
                 {
-                    propMultiplier = 2d;
+                    case "NGNC": propMultiplier = 2.5d; break;
+                    case "PSPC": propMultiplier = 1.75d; break;
+                    case "PUPE": propMultiplier = 1.25d; break;
+                    case "PBAA": propMultiplier = 1.4d; break;
+                    case "PBAN": propMultiplier = 1d; break;
+                    case "HTPB": propMultiplier = 0.75d; break;
+                    default: propMultiplier = 1d; break;
                 }
-                else if (propName == "PSPC")
-                {
-                    propMultiplier = 1.5d;
-                }
-                else //if (propName == "HTPB" || propName == "PBAN")
-                {
-                    propMultiplier = 1d;
-                }
+                if (autoVariationScale >= 0d)
+                    propMultiplier = autoVariationScale;
 
                 if (localVaryIsp < 0d)
                     localVaryIsp = 0.015d * propMultiplier;
@@ -328,28 +331,28 @@ namespace RealFuels
                 if (pressureFed)
                 {
                     if (localVaryIsp < 0d)
-                        localVaryIsp = 0.01d;
+                        localVaryIsp = 0.01d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
                     if (localVaryFlow < 0d)
-                        localVaryFlow = 0.05d;
+                        localVaryFlow = 0.05d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
                     if (localVaryMixture < 0d)
-                        localVaryMixture = 0.05d;
+                        localVaryMixture = 0.05d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
 
                     if (localResidualsThresholdBase < 0d)
-                        localResidualsThresholdBase = 0.008d;
+                        localResidualsThresholdBase = 0.008d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
                     if (localVaryResiduals < 0d)
                         localVaryResiduals = 0d;
                 }
                 else
                 {
                     if (localVaryIsp < 0d)
-                        localVaryIsp = 0.003d;
+                        localVaryIsp = 0.003d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
                     if (localVaryFlow < 0d)
-                        localVaryFlow = 0.005d;
+                        localVaryFlow = 0.005d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
                     if (localVaryMixture < 0d)
-                        localVaryMixture = 0.005d;
+                        localVaryMixture = 0.005d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
 
                     if (residualsThresholdBase < 0d)
-                        localResidualsThresholdBase = 0.004d;
+                        localResidualsThresholdBase = 0.004d * (autoVariationScale >= 0d ? autoVariationScale : 1d);
                     if (localVaryResiduals < 0d)
                         localVaryResiduals = 0d;
                 }
@@ -357,7 +360,7 @@ namespace RealFuels
                 if (ignitions == -1 || ignitions > 4)
                     localResidualsThresholdBase *= 2d;
                 else if (ignitions == 0)
-                    localResidualsThresholdBase *= 0.7d;
+                    localResidualsThresholdBase *= 0.8d;
                 else
                     localResidualsThresholdBase *= (1d + (ignitions - 1) * 0.25d);
             }
