@@ -552,11 +552,12 @@ namespace RealFuels
         public override void UpdateThrottle()
         {
             if (throttleLocked)
-                requestedThrottle = 1f;
+                requestedThrottle = thrustPercentage * 0.01f; // We are overriding Solver's determination, so we have to include thrust limiter.
 
             if (ignited)
             {
-                float requiredThrottle = Mathf.Lerp(MinThrottle, 1f, requestedThrottle * thrustPercentage * 0.01f);
+                // thrustPercentage is already multiplied in by SolverEngines, don't include it here.
+                float requiredThrottle = Mathf.Lerp(MinThrottle, 1f, requestedThrottle);
 
                 if (instantThrottle)
                     currentThrottle = requiredThrottle;
