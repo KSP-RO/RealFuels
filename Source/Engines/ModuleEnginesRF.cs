@@ -145,7 +145,6 @@ namespace RealFuels
         protected double localVaryMixture = 0d;
         protected double localResidualsThresholdBase = 0d;
         protected double localVaryResiduals = 0d;
-        protected bool isSolid = false;
 
         [SerializeField]
         public List<ModuleResource> ignitionResources;
@@ -206,7 +205,7 @@ namespace RealFuels
                 localVaryFlow,
                 localVaryIsp,
                 localVaryMixture,
-                isSolid,
+                engineType == EngineType.SolidBooster,
                 partSeed);
 
             rfSolver.SetScale(scale);
@@ -281,21 +280,15 @@ namespace RealFuels
             localVaryResiduals = varyResiduals;
 
             // Use instant throttle response as proxy.
-            isSolid = false;
             numRealPropellants = 0;
             foreach (Propellant p in propellants)
             {
                 if (!p.ignoreForIsp && p.resourceDef.density != 0d )
                     ++numRealPropellants;
-
-                if (RFSettings.Instance.instantThrottleProps.Contains(p.name))
-                {
-                    isSolid = true;
-                }
             }
             // Create reasonable values for variation
             // Solids
-            if (isSolid)
+            if (engineType == EngineType.SolidBooster)
             {
                 double propMultiplier = 1d;
                 string propName = propellants.Count > 0 ? propellants[0].name : string.Empty;
