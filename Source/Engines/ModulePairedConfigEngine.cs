@@ -66,6 +66,8 @@ namespace RealFuels
         public string toPrimaryText = string.Empty;
         [KSPField]
         public string toSecondaryText = string.Empty;
+        [KSPField]
+        public string pairSwitchDescription = string.Empty;
         #endregion
 
 
@@ -102,24 +104,9 @@ namespace RealFuels
                     Debug.LogError($"*RFMEC* Config `{primaryName}` of {part} specifies `{secondaryName}` as its secondary config, but this config has already been declared as the secondary config of `{configPairs.Rev[primaryName]}`!");
                 // Check if the primary config is the *secondary* config of another config.
                 else if (configPairs.Rev.ContainsKey(primaryName))
-                    Debug.LogError($"*RFMEC* Config `{primaryName}` declares an secondaryConfig itself, but it has already been specified to be the secondary of config `{configPairs.Rev[primaryName]}`!");
+                    Debug.LogError($"*RFMEC* Config `{primaryName}` declares a secondaryConfig itself, but it has already been specified to be the secondary of config `{configPairs.Rev[primaryName]}`!");
                 else
                     configPairs.Add(primaryName, secondaryName);
-            }
-
-            // Delete all unmatched configs.
-            if (configPairs.Count * 2 != configs.Count)
-            {
-                List<ConfigNode> badConfigs = configs
-                    .Where(c => GetMode(c.GetValue("name")) == Mode.Unpaired)
-                    .ToList();
-                foreach (var badConfig in badConfigs)
-                {
-                    Debug.LogWarning($"*RFMEC* {part} has unpaired config `{badConfig.GetValue("name")}`; removing!");
-                    configs.Remove(badConfig);
-                }
-                OverwriteSavedConfigs();
-                SetConfiguration();
             }
         }
 
@@ -133,19 +120,22 @@ namespace RealFuels
 
         protected string GetPairedConfig(string configName)
         {
-            var status = GetMode(configName);
-            if (status == Mode.Unpaired) return null;
-            return status == Mode.Primary ? configPairs.Fwd[configName] : configPairs.Rev[configName];
+            var mode = GetMode(configName);
+            if (mode == Mode.Unpaired) return null;
+            return mode == Mode.Primary ? configPairs.Fwd[configName] : configPairs.Rev[configName];
         }
 
         public string GetModeDescription(string configName)
         {
-            return GetMode(configName) == Mode.Primary ? primaryDescription : secondaryDescription;
+            var mode = GetMode(configName);
+            return mode == Mode.Primary || mode == Mode.Unpaired ? primaryDescription : secondaryDescription;
         }
 
         public string GetToggleText(string configName)
         {
-            var toTargetText = GetMode(configName) == Mode.Primary ? toSecondaryText : toPrimaryText;
+            var mode = GetMode(configName);
+            if (mode == Mode.Unpaired) return "This config cannot be switched.";
+            var toTargetText = mode == Mode.Primary ? toSecondaryText : toPrimaryText;
             return string.IsNullOrEmpty(toTargetText)
                 ? $"Switch to {GetModeDescription(GetPairedConfig(configName))} mode"
                 : toTargetText;
@@ -188,7 +178,9 @@ namespace RealFuels
         public override string GetConfigDisplayName(ConfigNode node)
         {
             string name = node.GetValue("name");
-            return $"{(GetMode(name) == Mode.Secondary ? configPairs.Rev[name] : name)} ({GetModeDescription(name)})";
+            var mode = GetMode(name);
+            if (mode == Mode.Unpaired) return name;
+            return $"{(mode == Mode.Primary ? name : configPairs.Rev[name])} ({GetModeDescription(name)})";
         }
 
         public override string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
@@ -209,6 +201,7 @@ namespace RealFuels
 
         virtual protected string GetToggleTextForConfigGUI(string configName)
         {
+            if (GetMode(configName) == Mode.Unpaired) return GetToggleText(configName);
             var targetConfig = GetConfigByName(GetPairedConfig(configName));
             var costString = GetCostString(targetConfig);
             return $"{GetToggleText(configName)}{costString}";
@@ -218,22 +211,33 @@ namespace RealFuels
         protected override void ConfigSelectionGUI()
         {
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button(new GUIContent(GetToggleTextForConfigGUI(configuration))))
+            var toggleText = GetToggleTextForConfigGUI(configuration);
+            if (GetMode(configuration) != Mode.Unpaired)
             {
-                ToggleMode();
-                MarkWindowDirty();
+                if (GUILayout.Button(new GUIContent(toggleText, pairSwitchDescription)))
+                {
+                    ToggleMode();
+                    MarkWindowDirty();
+                }
+            }
+            else
+            {
+                GUILayout.Label(toggleText);
             }
             GUILayout.EndHorizontal();
 
-            foreach (string primaryCfgName in configPairs.Fwd.Keys)
+            // Display all primary and unpaired configs.
+            foreach (ConfigNode primaryCfg in configs.Where(c => GetMode(c.GetValue("name")) != Mode.Secondary))
             {
-                ConfigNode primaryCfg = GetConfigByName(primaryCfgName);
-                string secondaryCfgName = configPairs.Fwd[primaryCfgName];
+                string primaryCfgName = primaryCfg.GetValue("name");
+                // HACK: When the 'primary' is actually unpaired, make the secondary the same as the primary.
+                // This way unpaired-ness is transparent to the rest of the code.
+                string secondaryCfgName = GetMode(primaryCfgName) == Mode.Primary ? configPairs.Fwd[primaryCfgName] : primaryCfgName;
                 ConfigNode secondaryCfg = GetConfigByName(secondaryCfgName);
 
                 string displayName = primaryCfgName;
 
-                ConfigNode targetCfg = mode == Mode.Primary ? primaryCfg : secondaryCfg;
+                ConfigNode targetCfg = mode == Mode.Primary || mode == Mode.Unpaired ? primaryCfg : secondaryCfg;
                 string targetCfgName = targetCfg.GetValue("name");
 
                 GUILayout.BeginHorizontal();
@@ -445,18 +449,20 @@ namespace RealFuels
 
         private void UpdateAnimationTarget(Mode oldMode)
         {
-            if (mode == Mode.Unpaired || animationStates == null) return;
+            if (animationStates == null) return;
 
             if (HighLogic.LoadedSceneIsEditor)
             {
                 ForceAnimationPosition();
                 return;
             }
-            if (oldMode == Mode.Primary && mode == Mode.Secondary)
+            if (oldMode != Mode.Secondary && mode == Mode.Secondary)
                 animPos = AnimPosition.Forward;
-            if (oldMode == Mode.Secondary && mode == Mode.Primary)
+            if (oldMode != Mode.Primary && mode == Mode.Primary)
                 animPos = AnimPosition.Reverse;
-            if (oldMode == Mode.Unpaired && mode != Mode.Unpaired)
+            if (mode == Mode.Unpaired)
+                animPos = AnimPosition.Begin;
+            if (oldMode == Mode.Unpaired || mode == Mode.Unpaired)
                 ForceAnimationPosition();
 
             UpdateAnimationSpeed();
@@ -475,7 +481,7 @@ namespace RealFuels
 
         private void CheckAnimationPosition()
         {
-            if (mode == Mode.Unpaired || animationStates == null) return;
+            if (animationStates == null) return;
 
             foreach (AnimationState animState in animationStates)
             {
