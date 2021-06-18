@@ -34,7 +34,7 @@ namespace RealFuels
         public void SwitchEngine()
         {
             ConfigNode currentConfig = GetConfigByName(configuration);
-            string nextConfiguration = configs[(configs.IndexOf (currentConfig) + 1) % configs.Count].GetValue ("name");
+            string nextConfiguration = configs[(configs.IndexOf(currentConfig) + 1) % configs.Count].GetValue("name");
             SetConfiguration(nextConfiguration);
             // TODO: Does Engine Ignitor get switched here?
         }
@@ -1116,6 +1116,32 @@ namespace RealFuels
         private bool styleSetup = false;
         private bool editorLocked = false;
 
+        private int toolTipWidth => EditorLogic.fetch.editorScreen == EditorScreen.Parts ? 220 : 300;
+        private int _toolTipHash;
+        private int _toolTipHeight;
+        private int toolTipHeight
+        {
+            get
+            {
+                int hash = myToolTip.GetHashCode();
+                if (hash != _toolTipHash)
+                {
+                    _toolTipHash = hash;
+                    // This procedure is very much not rigorous/correct, but should work fine as an approximation.
+                    int numLines = myToolTip
+                        .Split('\n')
+                        .Select(line => new GUIContent(line))
+                        .Select(Styles.styleEditorTooltip.CalcSize)
+                        .Select(size => size.x / toolTipWidth * 0.95f) // Margins.
+                        .Select(Mathf.CeilToInt)
+                        .Sum();
+                    // Each line is 14px high, also add some extra just in case the computation is off.
+                    _toolTipHeight = (int)(numLines * 14 * 1.2);
+                }
+                return _toolTipHeight;
+            }
+        }
+
         public void OnGUI()
         {
             if (!compatible || !isMaster || !HighLogic.LoadedSceneIsEditor || EditorLogic.fetch == null)
@@ -1155,8 +1181,7 @@ namespace RealFuels
             if (!string.IsNullOrEmpty(myToolTip))
             {
                 int offset = inPartsEditor ? -222 : 440;
-                int width = inPartsEditor ? 220 : 300;
-                GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, width, 200), myToolTip, Styles.styleEditorTooltip);
+                GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, toolTipWidth, toolTipHeight), myToolTip, Styles.styleEditorTooltip);
             }
 
             guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, EngineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
