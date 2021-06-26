@@ -11,6 +11,8 @@ namespace RealFuels
 {
     public class ModuleHybridEngine : ModuleEngineConfigs
     {
+        public override string GUIButtonName => "Multi-Mode Engine";
+        public override string EditorDescription => "Select a default configuration. You can cycle through all other configurations in flight.";
         ModuleEngines ActiveEngine = null;
 
         public override void OnLoad(ConfigNode node)
@@ -31,7 +33,7 @@ namespace RealFuels
         [KSPEvent(guiActive = true, guiName = "Switch Engine Mode")]
         public void SwitchEngine()
         {
-            ConfigNode currentConfig = configs.Find(c => c.GetValue("name").Equals(configuration));
+            ConfigNode currentConfig = GetConfigByName(configuration);
             string nextConfiguration = configs[(configs.IndexOf(currentConfig) + 1) % configs.Count].GetValue("name");
             SetConfiguration(nextConfiguration);
             // TODO: Does Engine Ignitor get switched here?
@@ -60,8 +62,13 @@ namespace RealFuels
         #region Fields
         protected bool compatible = true;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(isPersistant = true)]
         public string configuration = string.Empty;
+
+        // For display purposes only.
+        [KSPField(guiName = "Configuration", isPersistant = true, guiActiveEditor = true,
+            groupName = groupName, groupDisplayName = groupDisplayName)]
+        public string configurationDisplay = string.Empty;
 
         // Tech Level stuff
         [KSPField(isPersistant = true)]
@@ -356,6 +363,8 @@ namespace RealFuels
 
             SetConfiguration();
 
+            Fields[nameof(showRFGUI)].guiName = GUIButtonName;
+
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
         }
@@ -400,6 +409,8 @@ namespace RealFuels
             return retStr;
         }
 
+        virtual public string GetConfigDisplayName(ConfigNode node) => node.GetValue("name");
+
         public override string GetInfo()
         {
             if (!compatible)
@@ -416,7 +427,7 @@ namespace RealFuels
             return info;
         }
 
-        public string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
+        virtual public string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
         {
             TechLevel cTL = new TechLevel();
             if (!cTL.Load(config, techNodes, engineType, techLevel))
@@ -425,7 +436,7 @@ namespace RealFuels
 
             if (colorName)
                 info.Append("<color=green>");
-            info.Append(config.GetValue("name"));
+            info.Append(GetConfigDisplayName(config));
             if (colorName)
                 info.Append("</color>");
             info.Append("\n");
@@ -536,7 +547,7 @@ namespace RealFuels
 
             string val = string.Empty;
             IEnumerable<ConfigNode> others = configs.Where(x => !x.GetValue("name").Equals(configuration));
-            ConfigNode ours = configs.FirstOrDefault(x => x.GetValue("name").Equals(configuration));
+            ConfigNode ours = GetConfigByName(configuration);
             foreach (string fxName in effectsNames)
             {
                 foreach (ConfigNode cfg in others)
@@ -555,6 +566,7 @@ namespace RealFuels
 
         #region Configuration
         public PartModule pModule = null;
+        protected ConfigNode GetConfigByName(string name) => configs.Find(c => c.GetValue("name") == name);
 
         virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
         {
@@ -570,7 +582,7 @@ namespace RealFuels
                 return;
             }
 
-            ConfigNode newConfig = configs.Find(c => c.GetValue("name").Equals(newConfiguration));
+            ConfigNode newConfig = GetConfigByName(newConfiguration);
             if (!(newConfig is ConfigNode))
             {
                 newConfig = configs.First();
@@ -674,6 +686,8 @@ namespace RealFuels
             UpdateTFInterops(); // update TestFlight if it's installed
 
             StopFX();
+
+            configurationDisplay = GetConfigDisplayName(GetConfigByName(configuration));
         }
 
         virtual protected int ConfigIgnitions(int ignitions)
@@ -1074,6 +1088,8 @@ namespace RealFuels
         #endregion
 
         #region GUI
+        public virtual string GUIButtonName => "Engine";
+        public virtual string EditorDescription => "Select a configuration for this engine.";
         [KSPField(guiActiveEditor = true, guiName = "Engine", groupName = groupName),
          UI_Toggle(enabledText = "Hide GUI", disabledText = "Show GUI")]
         [NonSerialized]
@@ -1099,6 +1115,32 @@ namespace RealFuels
         private int counterTT;
         private bool styleSetup = false;
         private bool editorLocked = false;
+
+        private int toolTipWidth => EditorLogic.fetch.editorScreen == EditorScreen.Parts ? 220 : 300;
+        private int _toolTipHash;
+        private int _toolTipHeight;
+        private int toolTipHeight
+        {
+            get
+            {
+                int hash = myToolTip.GetHashCode();
+                if (hash != _toolTipHash)
+                {
+                    _toolTipHash = hash;
+                    // This procedure is very much not rigorous/correct, but should work fine as an approximation.
+                    int numLines = myToolTip
+                        .Split('\n')
+                        .Select(line => new GUIContent(line))
+                        .Select(Styles.styleEditorTooltip.CalcSize)
+                        .Select(size => size.x / toolTipWidth * 0.95f) // Margins.
+                        .Select(Mathf.CeilToInt)
+                        .Sum();
+                    // Each line is 14px high, also add some extra just in case the computation is off.
+                    _toolTipHeight = (int)(numLines * 14 * 1.2);
+                }
+                return _toolTipHeight;
+            }
+        }
 
         public void OnGUI()
         {
@@ -1139,8 +1181,7 @@ namespace RealFuels
             if (!string.IsNullOrEmpty(myToolTip))
             {
                 int offset = inPartsEditor ? -222 : 440;
-                int width = inPartsEditor ? 220 : 300;
-                GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, width, 200), myToolTip, Styles.styleEditorTooltip);
+                GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, toolTipWidth, toolTipHeight), myToolTip, Styles.styleEditorTooltip);
             }
 
             guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, EngineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
@@ -1165,26 +1206,30 @@ namespace RealFuels
             }
         }
 
-        private void EngineManagerGUI(int WindowID)
+        protected string GetCostString(ConfigNode node)
         {
-            GUILayout.Space(20);
+            string costString = string.Empty;
+            if (node.HasValue("cost"))
+            {
+                float curCost = scale * float.Parse(node.GetValue("cost"));
+
+                if (techLevel != -1)
+                {
+                    curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
+                }
+                costString = $" ({((curCost < 0) ? string.Empty : "+")}{curCost:N0}f)";
+            }
+            return costString;
+        }
+
+        virtual protected void ConfigSelectionGUI()
+        {
             foreach (ConfigNode node in configs)
             {
                 string nName = node.GetValue("name");
                 GUILayout.BeginHorizontal();
 
-                // get cost
-                string costString = string.Empty;
-                if (node.HasValue("cost"))
-                {
-                    float curCost = scale * float.Parse(node.GetValue("cost"));
-
-                    if (techLevel != -1)
-                    {
-                        curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
-                    }
-                    costString = $" ({((curCost < 0) ? string.Empty : "+")}{curCost:N0}f)";
-                }
+                var costString = GetCostString(node);
 
                 if (nName.Equals(configuration))
                 {
@@ -1242,6 +1287,37 @@ namespace RealFuels
                 }
                 GUILayout.EndHorizontal();
             }
+        }
+
+        virtual protected void PartInfoGUI()
+        {
+            // show current info, cost
+            if (pModule != null && part.partInfo != null)
+            {
+                GUILayout.BeginHorizontal();
+                var ratedBurnTime = string.Empty;
+                if (config.HasValue("ratedBurnTime"))
+                    ratedBurnTime += $"Rated burn time: {config.GetValue("ratedBurnTime")}\n";
+                string label = $"<b>Engine mass:</b> {part.mass:N3}t\n" +
+                               $"{ratedBurnTime}" +
+                               $"{pModule.GetInfo()}\n" +
+                               $"{TLTInfo()}\n" +
+                               $"Total cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}";
+                GUILayout.Label(label);
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        private void EngineManagerGUI(int WindowID)
+        {
+            GUILayout.Space(20);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(EditorDescription);
+            GUILayout.EndHorizontal();
+
+            ConfigSelectionGUI();
+
             // NK Tech Level
             if (techLevel != -1)
             {
@@ -1318,21 +1394,7 @@ namespace RealFuels
                 GUILayout.EndHorizontal();
             }
 
-            // show current info, cost
-            if (pModule != null && part.partInfo != null)
-            {
-                GUILayout.BeginHorizontal();
-                var ratedBurnTime = string.Empty;
-                if (config.HasValue("ratedBurnTime"))
-                    ratedBurnTime += $"Rated burn time: {config.GetValue("ratedBurnTime")}\n";
-                string label = $"<b>Engine mass:</b> {part.mass:N3}t\n" +
-                               $"{ratedBurnTime}" +
-                               $"{pModule.GetInfo()}\n" +
-                               $"{TLTInfo()}\n" +
-                               $"Total cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}";
-                GUILayout.Label(label);
-                GUILayout.EndHorizontal();
-            }
+            PartInfoGUI();
 
             if (!myToolTip.Equals(string.Empty) && GUI.tooltip.Equals(string.Empty))
             {
@@ -1358,7 +1420,7 @@ namespace RealFuels
         #endregion
 
         #region Helpers
-        virtual public int UpdateSymmetryCounterparts()
+        public int DoForEachSymmetryCounterpart(Action<ModuleEngineConfigs> action)
         {
             int i = 0;
             int mIdx = moduleIndex;
@@ -1369,12 +1431,20 @@ namespace RealFuels
             {
                 if (GetSpecifiedModule(p, engineID, mIdx, GetType().Name, false) is ModuleEngineConfigs engine)
                 {
-                    engine.techLevel = techLevel;
-                    engine.SetConfiguration(configuration);
+                    action(engine);
                     ++i;
                 }
             }
             return i;
+        }
+
+        virtual public int UpdateSymmetryCounterparts()
+        {
+            return DoForEachSymmetryCounterpart((engine) =>
+            {
+                engine.techLevel = techLevel;
+                engine.SetConfiguration(configuration);
+            });
         }
 
         virtual protected void UpdateOtherModules(ConfigNode node)
@@ -1404,12 +1474,18 @@ namespace RealFuels
             if (configs.Count > 0)
             {
                 if (!RFSettings.Instance.engineConfigs.ContainsKey(partName))
-                    RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
+                    OverwriteSavedConfigs();
             }
             else if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
             else
                 Debug.LogError($"*RFMEC* ERROR: could not find configs definition for {partName}");
+        }
+        protected void OverwriteSavedConfigs()
+        {
+            string partName = Utilities.GetPartName(part) + moduleIndex + engineID;
+            if (configs.Count > 0)
+                RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
         }
 
         protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType) => GetSpecifiedModules(p, eID, mIdx, eType, weakType).FirstOrDefault();
