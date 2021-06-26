@@ -407,7 +407,7 @@ namespace RealFuels
                 prevFlowMult = Mathf.Lerp((float)(oldFuelFlow / eng.maxFuelFlow), 1f, time / thrustLerpTime);
                 eng.flowMult = prevFlowMult.Value;
 
-                if (prevFlowMult > 1f)
+                if (eng.flowMult > 1f)
                 {
                     eng.maxEngineTemp = origMaxTemp * eng.flowMult;
                 }
