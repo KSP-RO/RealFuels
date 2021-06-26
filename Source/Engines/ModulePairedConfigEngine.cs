@@ -383,6 +383,8 @@ namespace RealFuels
 
             if (!(activeEngine is SolverEngines.ModuleEnginesSolver eng)) yield break;
 
+            double origMaxTemp = eng.maxEngineTemp;
+
             // If something else has overridden these values, bail because that thing is probably
             // more important.
             if (!Mathf.Approximately((float)eng.ispMult, 1f) || !Mathf.Approximately((float)eng.flowMult, 1f))
@@ -405,6 +407,11 @@ namespace RealFuels
                 prevFlowMult = Mathf.Lerp((float)(oldFuelFlow / eng.maxFuelFlow), 1f, time / thrustLerpTime);
                 eng.flowMult = prevFlowMult.Value;
 
+                if (prevFlowMult > 1f)
+                {
+                    eng.maxEngineTemp = origMaxTemp * (double)prevFlowMult;
+                }
+
                 time += TimeWarp.fixedDeltaTime;
                 yield return new WaitForFixedUpdate();
             }
@@ -412,6 +419,7 @@ namespace RealFuels
             // Set it back to exactly 1 once we're done.
             eng.ispMult = 1d;
             eng.flowMult = 1d;
+            eng.maxEngineTemp = origMaxTemp;
         }
 
         #region animation handling
