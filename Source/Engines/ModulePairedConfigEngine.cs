@@ -409,7 +409,7 @@ namespace RealFuels
 
                 if (prevFlowMult > 1f)
                 {
-                    eng.maxEngineTemp = origMaxTemp * (double)prevFlowMult;
+                    eng.maxEngineTemp = origMaxTemp * eng.flowMult;
                 }
 
                 time += TimeWarp.fixedDeltaTime;
