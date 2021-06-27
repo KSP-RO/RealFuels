@@ -24,7 +24,7 @@ namespace RealFuels
 
         public double configCostToScienceMultiplier = 0.1d;
 
-        public double varianceAndResiduals = 1d;
+        public double varianceAndResiduals = 0d;
 
         public bool usePartNameInConfigUnlock = true;
 
