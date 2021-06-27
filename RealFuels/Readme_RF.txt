@@ -1,6 +1,6 @@
 **** RealFuels ****
 by NathanKell
-Contributors: Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!), blowfish
+Contributors: Butcher, DRVeyl, Al2Me6, siimav, Standecco, Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!), blowfish
 ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the RealFuels branch.
 
 License remains CC-BY-SA as modified by ialdabaoth.
@@ -49,6 +49,16 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+
+v13.0.0
+* Added ability to gate Tanks behind PartUpgrades. set partUpgradeRequired just like techRequired.
+* Add B9PS integration to apply a switch when changing engine config.
+* Add Animated Bimodal engine support so engines can have nozzles extending in flight, etc.
+* Add support for enhanced variance in engine performance. Engines now vary from engine to engine, run to run (i.e. per ignition), and during a run. Engines vary in specific impulse, flow rate, and (if they only have two major propellants) mixture ratio. This defaults to off, and replaces the previous variance system.
+* Add support for residuals. Engines can't burn all propellant in their tanks (or casings, if solid) and leave some behind unburnt. A predicted value for this is displayed on the PAW in the VAB/SPH and in flight, and it is a worst-reasonable-case estimate. NOTE: You must use the latest dev version of MechJeb (or KER, once KER accepts Butcher's PR) or the estimated delta V will be higher than what you actually get out of your stage. This defaults to off. (API integration: get the KSPfield predictedMaximumResiduals which is a multiplier to the total propellant the engine has access to that will be left unburnt.
+* Variation and residuals have reasonable guesses at default values for pump-fed and pressure-fed liquid engines and various types of solid rocket motors.
+* Support applying ECMs to PARTUPGRADEs.
+
 
 v12.9.1
 * Fix for ullage status display on pressure fed engines.
