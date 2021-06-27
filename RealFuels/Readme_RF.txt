@@ -50,6 +50,25 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v12.9.1
+* Fix for ullage status display on pressure fed engines.
+* Fix for PAW caching for 1.10+ KSP versions.
+* Fix for bulk part purchasing costs.
+
+v12.9.0
+* Drag cubes fixes for procedural parts.
+* Kerbalism integration for boiloff.
+* Grouped GUI controls in editor PAW.
+* Remove empty tank nodes from save files for file size reduction.
+* Multiple part ECM cost improvements.
+* ModuleEngineRealFuels refactoring.
+* Improved PAW displays.
+* Refuelling pump rewrite.
+* ModuleFuelTanksRealFuels refactoring including improved boiloff calculations.
+* Boiloff calcs are now instant instead of deferred to a coroutine.
+* Cryogenic tank lists are now cached for improved performance.
+* Removed version check on startup.
+
 v12.8.5
 * Add PAW grouping for RF debugging. (all four boiloff debug fields will be in a group labeled RF Boiloff
 
