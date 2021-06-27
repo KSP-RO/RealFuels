@@ -407,13 +407,26 @@ namespace RealFuels
                 prevFlowMult = Mathf.Lerp((float)(oldFuelFlow / eng.maxFuelFlow), 1f, time / thrustLerpTime);
                 eng.flowMult = prevFlowMult.Value;
 
-                if (eng.flowMult > 1f)
+                if (oldFuelFlow > eng.maxFuelFlow)
                 {
-                    eng.maxEngineTemp = origMaxTemp * eng.flowMult;
+                    // 20% margin
+                    eng.maxEngineTemp = origMaxTemp * eng.flowMult * 1.2d;
                 }
 
                 time += TimeWarp.fixedDeltaTime;
                 yield return new WaitForFixedUpdate();
+            }
+
+            if (oldFuelFlow > eng.maxFuelFlow)
+            {
+                time -= thrustLerpTime;
+                double newLerpTime = thrustLerpTime * 0.5d;
+                while (time < newLerpTime)
+                {
+                    eng.maxEngineTemp = origMaxTemp * UtilMath.LerpUnclamped(1.2d, 1.0d, time / newLerpTime);
+                    time += TimeWarp.fixedDeltaTime;
+                    yield return new WaitForFixedUpdate();
+                }
             }
 
             // Set it back to exactly 1 once we're done.
