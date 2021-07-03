@@ -939,9 +939,18 @@ namespace RealFuels
         {
             for (int i = 0; i < propellants.Count; i++)
             {
-                if (propellants[i].totalResourceAvailable / propellants[i].totalResourceCapacity < calculatedResiduals )
+                Propellant p = propellants[i];
+                if (p.ignoreForIsp)
                 {
-                    return false;
+                    if (p.totalResourceAvailable <= 0d)
+                        return false;
+                }
+                else
+                {
+                    if (p.totalResourceAvailable / p.totalResourceCapacity < calculatedResiduals)
+                    {
+                        return false;
+                    }
                 }
             }
             return true;
