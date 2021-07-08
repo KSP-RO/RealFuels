@@ -178,6 +178,7 @@ namespace RealFuels
         protected static bool _b9psReflectionInitialized = false;
         protected static FieldInfo B9PS_moduleID;
         protected static MethodInfo B9PS_SwitchSubtype;
+        protected static FieldInfo B9PS_switchInFlight;
         public Dictionary<string, PartModule> B9PSModules;
 
         private void InitializeB9PSReflection()
@@ -185,6 +186,7 @@ namespace RealFuels
             if (_b9psReflectionInitialized || !Utilities.B9PSFound) return;
             B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
             B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
+            B9PS_switchInFlight = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetField("switchInFlight");
             _b9psReflectionInitialized = true;
         }
 
@@ -251,6 +253,13 @@ namespace RealFuels
             {
                 string moduleID = entry.Key;
                 PartModule module = entry.Value;
+
+                if (HighLogic.LoadedSceneIsFlight
+                    && B9PS_switchInFlight != null
+                    && !(bool)B9PS_switchInFlight.GetValue(module))
+                {
+                    continue;
+                }
 
                 if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
                 {
