@@ -488,7 +488,12 @@ namespace RealFuels
             }
 
             if (config.HasValue("ratedBurnTime"))
-                info.Append($"  Rated burn time: {config.GetValue("ratedBurnTime")}s\n");
+            {
+                if (config.HasValue("ratedContinuousBurnTime"))
+                    info.Append($"  Rated burn time: {config.GetValue("ratedContinuousBurnTime")}/{config.GetValue("ratedBurnTime")}s\n");
+                else
+                    info.Append($"  Rated burn time: {config.GetValue("ratedBurnTime")}s\n");
+            }
 
             if (config.HasValue("gimbalRange"))
             {
@@ -1304,9 +1309,14 @@ namespace RealFuels
             if (pModule != null && part.partInfo != null)
             {
                 GUILayout.BeginHorizontal();
-                var ratedBurnTime = string.Empty;
+                string ratedBurnTime = string.Empty;
                 if (config.HasValue("ratedBurnTime"))
-                    ratedBurnTime += $"Rated burn time: {config.GetValue("ratedBurnTime")}\n";
+                {
+                    if (config.HasValue("ratedContinuousBurnTime"))
+                        ratedBurnTime = $"Rated burn time: {config.GetValue("ratedContinuousBurnTime")}/{config.GetValue("ratedBurnTime")}s\n";
+                    else
+                        ratedBurnTime = $"Rated burn time: {config.GetValue("ratedBurnTime")}s\n";
+                }
                 string label = $"<b>Engine mass:</b> {part.mass:N3}t\n" +
                                $"{ratedBurnTime}" +
                                $"{pModule.GetInfo()}\n" +

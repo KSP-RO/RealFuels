@@ -34,6 +34,9 @@ namespace RealFuels
         [KSPField]
         public double ratedBurnTime = -1d;
 
+        [KSPField]
+        public double ratedContinuousBurnTime = -1d;
+
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Symmetric Auto-cutoff", groupName = groupName, groupDisplayName = groupDisplayName),
             UI_Toggle(disabledText = "No", enabledText = "Yes", affectSymCounterparts = UI_Scene.Editor)]
         public bool autoCutoff = true;
@@ -840,6 +843,14 @@ namespace RealFuels
             string output = $"{GetThrustInfo()}" +
                 $"<b>Engine Isp: </b>{atmosphereCurve.Evaluate(1):0.###} (ASL) - {atmosphereCurve.Evaluate(0):0.###} (Vac.)\n";
             output += $"{GetUllageIgnition()}\n";
+            if (ratedBurnTime > 0d)
+            {
+                output += "<b>Rated Burn Time: </b>";
+                if (ratedContinuousBurnTime > 0d)
+                    output += $"{ratedContinuousBurnTime.ToString("F0")}/{ratedBurnTime.ToString("F0")}s\n";
+                else
+                    output += $"{ratedBurnTime.ToString("F0")}s\n";
+            }
             output += $"<b><color=#99ff00ff>Propellants:</color></b>\n";
 
             foreach (Propellant p in propellants)
