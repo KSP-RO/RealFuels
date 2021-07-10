@@ -50,6 +50,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.1.0
+* Fix B9PS autoswitching when the part in question has resources (#268)
+* Ignore residuals requirements with ignoreForIsp propellants.
+* Fix bug with the implementation of MLI upgrades that led to the total MLI layers being broken on craft load in career.
+* Support showing rated continuous burn time as well as rated burn time in the module info text.
+
 v13.0.0
 * Added ability to gate Tanks behind PartUpgrades. set partUpgradeRequired just like techRequired.
 * Add B9PS integration to apply a switch when changing engine config.
