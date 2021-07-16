@@ -91,6 +91,8 @@ namespace RealFuels
         public string sISP;
 
         [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Predicted Residuals", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)]
+        public double predictedMaximumResidualsGUI = 0d;
+
         public double predictedMaximumResiduals = 0d;
 
         [KSPField(guiActive = true, guiName = "Mixture Ratio", guiFormat = "F3", groupName = groupName, groupDisplayName = groupDisplayName)]
@@ -236,6 +238,16 @@ namespace RealFuels
                 for (int i = 0; i < propellants.Count; ++i)
                 {
                     propellants[i].ratio = backupPropellantRatios[i];
+                }
+            }
+            if (ignited && predictedMaximumResiduals > 0d)
+            {
+                predictedMaximumResidualsGUI = predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
+                if (localVaryMixture > 0d)
+                {
+                    double massExtra = CalculateMaxExtraMassFromMRVariation();
+                    predictedMaximumResiduals += massExtra * MinPropellantFraction();
+                    predictedMaximumResidualsGUI += massExtra;
                 }
             }
         }
@@ -438,20 +450,13 @@ namespace RealFuels
                 currentMixtureRatio = mixtureRatio = (oxidizerPropellant.ratio * oxidizerPropellant.resourceDef.density) / (fuelPropellant.ratio * fuelPropellant.resourceDef.density);
             }
 
-            predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
+            predictedMaximumResidualsGUI = predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
             if (localVaryMixture > 0d)
             {
-                // assume worst-case variation in mixture ratio
-                double mTotal = 1d + mixtureRatio;
-                double highMR = mixtureRatio * (1d + localVaryMixture);
-                double newMROx = (highMR * mTotal) / (1 + highMR);
-                double fuelRemaining = 1d - mixtureRatio / newMROx;
-                double massExtra = fuelRemaining / mTotal;
-                double lowMR = mixtureRatio * (1d - localVaryMixture);
-                newMROx = (lowMR * mTotal) / (1 + lowMR);
-                double newMRFuel = mTotal - newMROx;
-                double oxRemaining = 1d - 1d / newMRFuel;
-                massExtra = Math.Max(massExtra, oxRemaining * mixtureRatio / mTotal);
+                double massExtra = CalculateMaxExtraMassFromMRVariation();
+                predictedMaximumResidualsGUI += massExtra;
+                if (HighLogic.LoadedSceneIsFlight)
+                    massExtra *= MinPropellantFraction();
                 predictedMaximumResiduals += massExtra;
             }
 
@@ -967,7 +972,35 @@ namespace RealFuels
             return true;
         }
 
+        protected double MinPropellantFraction()
+        {
+            double minFrac = 1d;
+            for (int i = 0; i < propellants.Count; i++)
+            {
+                Propellant p = propellants[i];
+                double frac = p.totalResourceAvailable / p.totalResourceCapacity;
+                if (frac < minFrac)
+                {
+                    minFrac = frac;
+                }
+            }
+            return UtilMath.Clamp01((minFrac - calculatedResiduals) / (1d - calculatedResiduals));
+        }
 
+        protected double CalculateMaxExtraMassFromMRVariation()
+        {
+            // Assume worst-case variation in mixture (to 1 standard deviation)
+            double mTotal = 1d + mixtureRatio;
+            double highMR = mixtureRatio * (1d + localVaryMixture);
+            double newMROx = (highMR * mTotal) / (1 + highMR);
+            double fuelRemaining = 1d - mixtureRatio / newMROx;
+            double massExtra = fuelRemaining / mTotal;
+            double lowMR = mixtureRatio * (1d - localVaryMixture);
+            newMROx = (lowMR * mTotal) / (1 + lowMR);
+            double newMRFuel = mTotal - newMROx;
+            double oxRemaining = 1d - 1d / newMRFuel;
+            return Math.Max(massExtra, oxRemaining * mixtureRatio / mTotal);
+        }
         #endregion
     }
 }
