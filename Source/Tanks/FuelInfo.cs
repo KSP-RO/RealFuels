@@ -31,7 +31,7 @@ namespace RealFuels.Tanks
 						if (label.Length > 0) {
 							label += " / ";
 						}
-						label += Math.Round (100000 * tfuel.ratio / ratioFactor, 0)*0.001 + "% " + tfuel.name;
+						label += Math.Round (100000 * tfuel.ratio / efficiency, 0)*0.001 + "% " + tfuel.name;
 					}
 				}
 				return label;
