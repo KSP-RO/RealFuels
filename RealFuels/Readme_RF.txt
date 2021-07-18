@@ -50,6 +50,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.2.0
+* Switch to showing effective tank volume, rather than liters at STP, of propellants in the autofill buttons. Solves the "autofill with 99% pressurant" UI bug.
+* Improve the value passed to MJ/KER regarding predicted residuals.
+
 v13.1.0
 * Fix B9PS autoswitching when the part in question has resources (#268)
 * Ignore residuals requirements with ignoreForIsp propellants.
