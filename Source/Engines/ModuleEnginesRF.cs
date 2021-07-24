@@ -265,6 +265,17 @@ namespace RealFuels
         {
             base.OnLoad(node);
 
+            // Determine thrustAxis when creating prefab
+            if (HighLogic.LoadedScene == GameScenes.LOADING)
+            {
+                thrustAxis = Vector3.zero;
+                for (int i = 0; i < thrustTransforms.Count; ++i)
+                {
+                    thrustAxis -= thrustTransforms[i].forward * thrustTransformMultipliers[i];
+                }
+                thrustAxis = thrustAxis.normalized;
+            }
+
             // load ignition resources
             if (node.HasNode("IGNITOR_RESOURCE"))
                 ignitionResources.Clear();
@@ -273,17 +284,6 @@ namespace RealFuels
                 ModuleResource res = new ModuleResource();
                 res.Load(n);
                 ignitionResources.Add(res);
-            }
-
-            // Determine thrustAxis when creating prefab
-            if (HighLogic.LoadedScene == GameScenes.LOADING)
-            {
-                thrustAxis = Vector3.zero;
-                foreach (Transform t in part.FindModelTransforms(thrustVectorTransformName))
-                {
-                    thrustAxis -= t.forward;
-                }
-                thrustAxis = thrustAxis.normalized;
             }
 
             node.TryGetNode("Ullage", ref ullageNode);
