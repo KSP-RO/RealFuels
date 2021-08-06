@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
@@ -230,6 +231,12 @@ namespace RealFuels
             }
         }
 
+        private IEnumerator HideB9PSInFlightSelector_Coroutine(PartModule module)
+        {
+            yield return null;
+            module.Events["ShowSubtypesWindow"].guiActive = false;
+        }
+
         public void UpdateB9PSVariants()
         {
             if (B9PSModules == null || B9PSModules.Count == 0) return;
@@ -268,6 +275,7 @@ namespace RealFuels
                 }
 
                 B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
+                if(HighLogic.LoadedSceneIsFlight) StartCoroutine(HideB9PSInFlightSelector_Coroutine(module));
             }
         }
         #endregion
