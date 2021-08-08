@@ -275,7 +275,7 @@ namespace RealFuels
                 }
 
                 B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
-                if(HighLogic.LoadedSceneIsFlight) StartCoroutine(HideB9PSInFlightSelector_Coroutine(module));
+                if (HighLogic.LoadedSceneIsFlight) StartCoroutine(HideB9PSInFlightSelector_Coroutine(module));
             }
         }
         #endregion
@@ -1139,30 +1139,7 @@ namespace RealFuels
         private bool editorLocked = false;
 
         private int toolTipWidth => EditorLogic.fetch.editorScreen == EditorScreen.Parts ? 220 : 300;
-        private int _toolTipHash;
-        private int _toolTipHeight;
-        private int toolTipHeight
-        {
-            get
-            {
-                int hash = myToolTip.GetHashCode();
-                if (hash != _toolTipHash)
-                {
-                    _toolTipHash = hash;
-                    // This procedure is very much not rigorous/correct, but should work fine as an approximation.
-                    int numLines = myToolTip
-                        .Split('\n')
-                        .Select(line => new GUIContent(line))
-                        .Select(Styles.styleEditorTooltip.CalcSize)
-                        .Select(size => size.x / toolTipWidth * 0.95f) // Margins.
-                        .Select(Mathf.CeilToInt)
-                        .Sum();
-                    // Each line is 14px high, also add some extra just in case the computation is off.
-                    _toolTipHeight = (int)(numLines * 14 * 1.2);
-                }
-                return _toolTipHeight;
-            }
-        }
+        private int toolTipHeight => (int)Styles.styleEditorTooltip.CalcHeight(new GUIContent(myToolTip), toolTipWidth);
 
         public void OnGUI()
         {
