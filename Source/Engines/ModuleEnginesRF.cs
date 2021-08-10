@@ -634,7 +634,8 @@ namespace RealFuels
             // handle ignition
             if (HighLogic.LoadedSceneIsFlight)
             {
-                if (vessel.ctrlState.mainThrottle > 0f || throttleLocked)
+                float controlThrottle = independentThrottle ? independentThrottlePercentage * 0.01f : vessel.ctrlState.mainThrottle;
+                if (controlThrottle > 0f || throttleLocked)
                     throttledUp = true;
                 else
                     ignited = false; // FIXME handle engine spinning down, non-instant shutoff.
