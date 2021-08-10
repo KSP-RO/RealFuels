@@ -108,6 +108,11 @@ namespace RealFuels
             SetUnlocked(GetPartName(ap));
         }
 
+        public static void SetUnlocked(PartUpgradeHandler.Upgrade up)
+        {
+            SetUnlocked(GetPartName(up.name));
+        }
+
         public static void SetUnlocked(string name)
         {
             unlocks.Add(name);

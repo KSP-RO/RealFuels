@@ -158,6 +158,13 @@ namespace RealFuels
             EntryCostDatabase.UpdatePartEntryCosts();
         }
 
+        public void OnPartUpgradePurchased(PartUpgradeHandler.Upgrade up)
+        {
+            EntryCostDatabase.SetUnlocked(up);
+
+            EntryCostDatabase.UpdateUpgradeEntryCosts();
+        }
+
         public bool ConfigUnlocked(string cfgName)
         {
             return EntryCostDatabase.IsUnlocked(cfgName);
