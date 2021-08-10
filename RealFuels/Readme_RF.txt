@@ -50,6 +50,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.3.0
+* Fixed thrust axis (for ullage etc) to use KSP 1.2+ support for multiple thrust transforms.
+* Fully hide B9PS switcher in flight.
+* Fix some issues with tooltips.
+* Fix EntryCostModifiers not interacting correctly with PartUpgrades.
+* Use independent throttle, if active, when determining if an engine is throttled up.
+
 v13.2.0
 * Switch to showing effective tank volume, rather than liters at STP, of propellants in the autofill buttons. Solves the "autofill with 99% pressurant" UI bug.
 * Improve the value passed to MJ/KER regarding predicted residuals.
