@@ -6,14 +6,13 @@ ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the Rea
 License remains CC-BY-SA as modified by ialdabaoth.
 Source: https://github.com/NathanKell/ModularFuelSystem (shared repository between RF and Modular Fuel Tanks).
 
-Also included (all are required)
+Required mods:
 * Module Manager by sarbian, swamp_ig, and ialdabaoth. See thread for details: http://forum.kerbalspaceprogram.com/threads/55219
 * Community Resource Pack: See thread for details: http://forum.kerbalspaceprogram.com/threads/91998
 * SolverEngines by NathanKell and blowfish. See thread for details: http://forum.kerbalspaceprogram.com/threads/122976
 
 
 Includes ullage simulation code based on that by HoneyFox in EngineIgnitor, reused under MIT License. See end of readme for license details.
-Includes ConfigNodeExtensions by stupid_chris, license CC-BY-SA.
 
 DESCRIPTION:
 Real Fuels does the following:
@@ -56,6 +55,7 @@ v13.3.0
 * Fix some issues with tooltips.
 * Fix EntryCostModifiers not interacting correctly with PartUpgrades.
 * Use independent throttle, if active, when determining if an engine is throttled up.
+* No longer include dependent mods in the archive - CKAN installs them for you.
 
 v13.2.0
 * Switch to showing effective tank volume, rather than liters at STP, of propellants in the autofill buttons. Solves the "autofill with 99% pressurant" UI bug.
