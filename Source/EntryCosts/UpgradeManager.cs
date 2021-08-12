@@ -24,8 +24,7 @@ namespace RealFuels
         {
             if (_instance != null)
             {
-                Object.Destroy(this);
-                return;
+                Object.Destroy(_instance);
             }
             _instance = this;
 
@@ -33,6 +32,12 @@ namespace RealFuels
                 FillUpgrades();
 
             EntryCostDatabase.Initialize(); // should not be needed though.
+        }
+
+        public void Destroy()
+        {
+            if (_instance == this)
+                _instance = null;
         }
 
         protected IEnumerator UpdateEntryCosts_Coroutine()
@@ -75,9 +80,9 @@ namespace RealFuels
                 {
                     tU.Save(node.AddNode("TLUpgrade"));
                 }
-
-                EntryCostDatabase.Save(node.AddNode("Unlocks"));
             }
+
+            EntryCostDatabase.Save(node.AddNode("Unlocks"));
         }
         #endregion
 
