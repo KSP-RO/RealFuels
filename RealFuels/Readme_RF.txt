@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.3.1
+* Tweak variance values for solid propellants.
+
 v13.3.0
 * Fixed thrust axis (for ullage etc) to use KSP 1.2+ support for multiple thrust transforms.
 * Fully hide B9PS switcher in flight.
