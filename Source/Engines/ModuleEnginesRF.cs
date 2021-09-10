@@ -310,10 +310,10 @@ namespace RealFuels
                 //Debug.Log("MERF: For part " + part.name + " is solid, found propellant " + propName);
                 switch (propName)
                 {
-                    case "NGNC": propMultiplier = 2.5d; break;
-                    case "PSPC": propMultiplier = 1.75d; break;
-                    case "PUPE": propMultiplier = 1.25d; break;
-                    case "PBAA": propMultiplier = 1.4d; break;
+                    case "NGNC": propMultiplier = 8d; break;
+                    case "PSPC": propMultiplier = 3.5d; break;
+                    case "PUPE": propMultiplier = 1.4d; break;
+                    case "PBAA": propMultiplier = 1.6d; break;
                     case "PBAN": propMultiplier = 1.2d; break;
                     case "CTPB": propMultiplier = 1.18d; break;
                     case "HTPB": propMultiplier = 1d; break;
@@ -323,9 +323,9 @@ namespace RealFuels
                     propMultiplier = autoVariationScale;
 
                 if (localVaryIsp < 0d)
-                    localVaryIsp = 0.015d * propMultiplier;
+                    localVaryIsp = 0.01d * propMultiplier;
                 if (localVaryFlow < 0d)
-                    localVaryFlow = 0.06d * propMultiplier;
+                    localVaryFlow = 0.015d * propMultiplier;
                 localVaryMixture = 0d;
 
                 if (localResidualsThresholdBase < 0d)
