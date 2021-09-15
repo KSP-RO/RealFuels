@@ -80,9 +80,9 @@ namespace RealFuels
                 return $"{gimbalRangeXP:N1}d";
             var ret = string.Empty;
             if (gimbalRangeXP == gimbalRangeXN)
-                ret += $"{gimbalRangeXP:N1}d pitch; ";
+                ret += $"{gimbalRangeXP:N1}d pitch, ";
             else
-                ret += $"+{gimbalRangeXP:N1}d/-{gimbalRangeXN:N1}d pitch; ";
+                ret += $"+{gimbalRangeXP:N1}d/-{gimbalRangeXN:N1}d pitch, ";
             if (gimbalRangeYP == gimbalRangeYN)
                 ret += $"{gimbalRangeYP:N1}d yaw";
             else
@@ -550,8 +550,11 @@ namespace RealFuels
             }
             else if (config.HasValue("gimbalRange"))
             {
-                float gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                info.Append($"  Gimbal {gimbalR:N1}d\n");
+                // The extracted gimbals contain `gimbalRange` et al. applied to either a specific
+                // transform or all the gimbal transforms on the part. Either way, the values
+                // are all the same, so just take the first one.
+                var gimbal = ExtractGimbals(config).Values.First();
+                info.Append($"  Gimbal {gimbal.Info()}\n");
             }
 
             if (config.HasValue("ullage") || config.HasValue("ignitions") || config.HasValue("pressureFed"))
