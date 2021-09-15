@@ -55,15 +55,15 @@ namespace RealFuels
         }
     }
 
-    internal struct Gimbal
+    public struct Gimbal
     {
-        internal float gimbalRange;
-        internal float gimbalRangeXP;
-        internal float gimbalRangeXN;
-        internal float gimbalRangeYP;
-        internal float gimbalRangeYN;
+        public float gimbalRange;
+        public float gimbalRangeXP;
+        public float gimbalRangeXN;
+        public float gimbalRangeYP;
+        public float gimbalRangeYN;
 
-        internal Gimbal(float gimbalRange, float gimbalRangeXP, float gimbalRangeXN, float gimbalRangeYP, float gimbalRangeYN)
+        public Gimbal(float gimbalRange, float gimbalRangeXP, float gimbalRangeXN, float gimbalRangeYP, float gimbalRangeYN)
         {
             this.gimbalRange = gimbalRange;
             this.gimbalRangeXP = gimbalRangeXP;
@@ -72,7 +72,7 @@ namespace RealFuels
             this.gimbalRangeYN = gimbalRangeYN;
         }
 
-        internal string Info()
+        public string Info()
         {
             if (new[] { gimbalRange, gimbalRangeXP, gimbalRangeXN, gimbalRangeYP, gimbalRangeYN }.Distinct().Count() == 1)
                 return $"{gimbalRange:N1}d";
@@ -1628,7 +1628,7 @@ namespace RealFuels
             return _searchList;
         }
 
-        internal void MarkWindowDirty()
+        public void MarkWindowDirty()
         {
             if (UIPartActionController.Instance?.GetItem(part) is UIPartActionWindow action_window)
                 action_window.displayDirty = true;
