@@ -851,19 +851,19 @@ namespace RealFuels
             {
                 foreach (var node in cfg.GetNodes("GIMBAL"))
                 {
-                    if (!node.HasValue("gimbalTransformName"))
+                    if (!node.HasValue("gimbalTransform"))
                     {
-                        Debug.LogError($"*RFMEC* Config {cfg.GetValue("name")} of part {part.name} has a `GIMBAL` node without a `gimbalTransformName`!");
+                        Debug.LogError($"*RFMEC* Config {cfg.GetValue("name")} of part {part.name} has a `GIMBAL` node without a `gimbalTransform`!");
                         continue;
                     }
-                    gimbals[node.GetValue("gimbalTransformName")] = ExtractGimbalKeys(node);
+                    gimbals[node.GetValue("gimbalTransform")] = ExtractGimbalKeys(node);
                 }
             }
             else if (cfg.HasValue("gimbalRange"))
             {
                 var gimbal = ExtractGimbalKeys(cfg);
-                if (gimbalTransform != string.Empty)
-                    gimbals[gimbalTransform] = gimbal;
+                if (this.gimbalTransform != string.Empty)
+                    gimbals[this.gimbalTransform] = gimbal;
                 else
                     foreach (var g in part.Modules.OfType<ModuleGimbal>())
                         gimbals[g.gimbalTransformName] = gimbal;
