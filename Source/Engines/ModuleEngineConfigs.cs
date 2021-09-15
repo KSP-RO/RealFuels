@@ -301,10 +301,7 @@ namespace RealFuels
 
                 if (HighLogic.LoadedSceneIsFlight
                     && B9PS_switchInFlight != null
-                    && !(bool)B9PS_switchInFlight.GetValue(module))
-                {
-                    continue;
-                }
+                    && !(bool)B9PS_switchInFlight.GetValue(module)) continue;
 
                 if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
                 {
@@ -548,7 +545,7 @@ namespace RealFuels
             {
                 foreach (KeyValuePair<string, Gimbal> kv in ExtractGimbals(config))
                 {
-                    info.Append($"  Gimbal ({kv.Key}) {kv.Value.Info()}\n");
+                    info.Append($"  Gimbal ({kv.Key}): {kv.Value.Info()}\n");
                 }
             }
             else if (config.HasValue("gimbalRange"))
@@ -862,7 +859,6 @@ namespace RealFuels
                     gimbals[node.GetValue("gimbalTransformName")] = ExtractGimbalKeys(node);
                 }
             }
-
             else if (cfg.HasValue("gimbalRange"))
             {
                 var gimbal = ExtractGimbalKeys(cfg);
