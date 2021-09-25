@@ -125,7 +125,7 @@ namespace RealFuels
         [KSPField]
         public bool useGimbalAnyway = false;
 
-        private Dictionary<string, Gimbal> defaultGimbals = new Dictionary<string, Gimbal>();
+        private Dictionary<string, Gimbal> defaultGimbals = null;
 
         [KSPField]
         public bool autoUnlock = true;
@@ -393,9 +393,6 @@ namespace RealFuels
             foreach (ConfigNode n in node.GetNodes("TECHLEVEL"))
                 techNodes.AddNode(n);
 
-            foreach (var g in part.Modules.OfType<ModuleGimbal>())
-                defaultGimbals[g.gimbalTransformName] = new Gimbal(g.gimbalRange, g.gimbalRangeXP, g.gimbalRangeXN, g.gimbalRangeYP, g.gimbalRangeYN);
-
             ConfigSaveLoad();
 
             SetConfiguration();
@@ -415,6 +412,10 @@ namespace RealFuels
             ConfigSaveLoad();
 
             LoadB9PSModules();
+
+            defaultGimbals = new Dictionary<string, Gimbal>();
+            foreach (var g in part.Modules.OfType<ModuleGimbal>())
+                defaultGimbals[g.gimbalTransformName] = new Gimbal(g.gimbalRange, g.gimbalRangeXP, g.gimbalRangeXN, g.gimbalRangeYP, g.gimbalRangeYN);
 
             SetConfiguration();
 
@@ -877,6 +878,9 @@ namespace RealFuels
 
         private void SetGimbalRange(ConfigNode cfg)
         {
+            // Do not override gimbals before default gimbals have been extracted.
+            if (defaultGimbals == null) return;
+
             Dictionary<string, Gimbal> gimbalOverrides = ExtractGimbals(cfg);
             foreach (ModuleGimbal mg in part.Modules.OfType<ModuleGimbal>())
             {
