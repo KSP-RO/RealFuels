@@ -1628,7 +1628,7 @@ namespace RealFuels
             return _searchList;
         }
 
-        public void MarkWindowDirty()
+        internal void MarkWindowDirty()
         {
             if (UIPartActionController.Instance?.GetItem(part) is UIPartActionWindow action_window)
                 action_window.displayDirty = true;
