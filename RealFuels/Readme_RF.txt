@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.4.0
+* Reworked gimbal management system that restores original gimbal parameters correctly and supports managing multiple gimbals (#271).
+
 v13.3.1
 * Tweak variance values for solid propellants.
 
