@@ -367,7 +367,7 @@ namespace RealFuels
                 double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
                 retVal = u * fac;
             }
-            while (Math.Abs(retVal)>stdDevClamp);
+            while (stdDevClamp > 0 && Math.Abs(retVal)>stdDevClamp);
             return retVal;
         }
     }
