@@ -29,6 +29,7 @@ namespace RealFuels
         private double runVaryIsp = 0d;
         private double runVaryMR = 0d;
         private System.Random seededRandom;
+        private static System.Random staticRandom = new System.Random();
         private bool pressure = true, ullage = true, disableUnderwater;
         private double scale = 1d; // scale for tweakscale
 
@@ -338,7 +339,7 @@ namespace RealFuels
             if (useSeed)
                 return seededRandom.NextDouble() * 2d - 1d;
             else
-                return UnityEngine.Random.Range(-1f, 1f);
+                return staticRandom.NextDouble() * 2d - 1d;
         }
 
         protected void GetVariances(bool useSeed, out double varianceFlow, out double varianceMR, out double varianceIsp)

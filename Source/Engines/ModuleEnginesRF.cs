@@ -160,6 +160,8 @@ namespace RealFuels
 
         protected bool started = false; // Track start state, don't handle MEC notification before first start.
 
+        protected static System.Random staticRandom = new System.Random();
+
         #endregion
 
         #region Overrides
@@ -421,8 +423,8 @@ namespace RealFuels
             {
                 if (partSeed == -1)
                 {
-                    calculatedResiduals = localResidualsThresholdBase + UnityEngine.Random.Range(0f, (float)localVaryResiduals);
-                    partSeed = UnityEngine.Random.Range(0, int.MaxValue);
+                    calculatedResiduals = localResidualsThresholdBase + staticRandom.NextDouble() * localVaryResiduals;
+                    partSeed = staticRandom.Next();
                 }
             }
 
