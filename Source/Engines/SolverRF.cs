@@ -353,20 +353,21 @@ namespace RealFuels
 
         protected double GetNormal(bool useSeed, double stdDevClamp)
         {
-            double u, v, S;
-
+            double u, v, S, retVal;
             do
             {
-                u = GetRandom(useSeed);
-                v = GetRandom(useSeed);
-                S = u * u + v * v;
-            }
-            while (S >= 1d);
+                do
+                {
+                    u = GetRandom(useSeed);
+                    v = GetRandom(useSeed);
+                    S = u * u + v * v;
+                }
+                while (S >= 1d);
 
-            double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
-            double retVal = u * fac;
-            if (stdDevClamp > 0)
-                retVal = Math.Min(stdDevClamp, Math.Abs(retVal)) * Math.Sign(retVal);
+                double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
+                retVal = u * fac;
+            }
+            while (Math.Abs(retVal)>stdDevClamp);
             return retVal;
         }
     }
