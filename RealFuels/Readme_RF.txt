@@ -51,6 +51,8 @@ Changelog:
 
 v13.5.1
 * Fix a crash resulting from loading a part that has multiple configs, uses gimbal management, and does not have a ModuleGimbal.
+* Changed normal distribution to reroll if it falls outside the desired range, instead of clamping it. This avoids a problem where the edge value of the interval was more likely to occur than some values closer to the mean (#272).
+* Changed the weights in varianceIsp to have the correct variance of 1 (#272).
 
 v13.5.0
 * Change from using Unity's Random to using System Random since Unity's version is not producing properly unique results.
