@@ -542,20 +542,23 @@ namespace RealFuels
                     info.Append($"  Rated burn time: {config.GetValue("ratedBurnTime")}s\n");
             }
 
-            if (config.HasNode("GIMBAL"))
+            if (part.HasModuleImplementing<ModuleGimbal>())
             {
-                foreach (KeyValuePair<string, Gimbal> kv in ExtractGimbals(config))
+                if (config.HasNode("GIMBAL"))
                 {
-                    info.Append($"  Gimbal ({kv.Key}): {kv.Value.Info()}\n");
+                    foreach (KeyValuePair<string, Gimbal> kv in ExtractGimbals(config))
+                    {
+                        info.Append($"  Gimbal ({kv.Key}): {kv.Value.Info()}\n");
+                    }
                 }
-            }
-            else if (config.HasValue("gimbalRange"))
-            {
-                // The extracted gimbals contain `gimbalRange` et al. applied to either a specific
-                // transform or all the gimbal transforms on the part. Either way, the values
-                // are all the same, so just take the first one.
-                var gimbal = ExtractGimbals(config).Values.First();
-                info.Append($"  Gimbal {gimbal.Info()}\n");
+                else if (config.HasValue("gimbalRange"))
+                {
+                    // The extracted gimbals contain `gimbalRange` et al. applied to either a specific
+                    // transform or all the gimbal transforms on the part. Either way, the values
+                    // are all the same, so just take the first one.
+                    var gimbal = ExtractGimbals(config).Values.First();
+                    info.Append($"  Gimbal {gimbal.Info()}\n");
+                }
             }
 
             if (config.HasValue("ullage") || config.HasValue("ignitions") || config.HasValue("pressureFed"))
@@ -878,6 +881,7 @@ namespace RealFuels
 
         private void SetGimbalRange(ConfigNode cfg)
         {
+            if (!part.HasModuleImplementing<ModuleGimbal>()) return;
             // Do not override gimbals before default gimbals have been extracted.
             if (defaultGimbals == null) return;
 
