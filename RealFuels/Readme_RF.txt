@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.5.1
+* Fix a crash resulting from loading a part that has multiple configs, uses gimbal management, and does not have a ModuleGimbal.
+
 v13.5.0
 * Change from using Unity's Random to using System Random since Unity's version is not producing properly unique results.
 
