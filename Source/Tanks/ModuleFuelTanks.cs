@@ -866,6 +866,7 @@ namespace RealFuels.Tanks
                 Debug.LogWarning ("[MFT] Unable to parse baseCost \"" + baseCost + "\"");
             } else {
                 baseCostPV = defaultBaseCostPV;
+                baseCostConst = 0f;
             }
         }
 
@@ -970,9 +971,9 @@ namespace RealFuels.Tanks
 
         public float GetModuleCost (float defaultCost, ModifierStagingSituation sit)
         {
-            double cst = 0;
-            if (baseCostPV >= 0) {
-                cst = volume * baseCostPV;
+            double cst = Mathf.Max(0f, baseCostConst);
+            if (baseCostPV >= 0f && baseCostConst >= 0f ) {
+                cst += volume * Mathf.Max(baseCostPV, 0f);
                 if (PartResourceLibrary.Instance != null && tankList != null) {
                     for (int i = 0; i < tankList.Count; i++) {
                         FuelTank t = tankList[i];
