@@ -719,6 +719,9 @@ namespace RealFuels
                     }
                 }
 
+                // Trigger re-computation of the response rate if one is not set explicitly.
+                if (!config.HasValue("throttleResponseRate")) config.AddValue("throttleResponseRate", 0.0);
+
                 if (pModule is ModuleEnginesRF)
                     (pModule as ModuleEnginesRF).SetScale(1d);
                 pModule.Load(config);
