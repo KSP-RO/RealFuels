@@ -74,8 +74,8 @@ namespace RealFuels
             bool solid,
             int nSeed)
         {
-            minFlow = nMinFlow;
-            maxFlow = nMaxFlow;
+            minFlow = nMinFlow * 1000d; // to kg
+            maxFlow = nMaxFlow * 1000d;
             maxFlowRecip = 1d / maxFlow;
             atmosphereCurve = nAtmosphereCurve;
             atmCurve = nAtmCurve;
@@ -254,7 +254,8 @@ namespace RealFuels
                 // or fix fuel flow here in light of MR. But it's mostly just a visual bug, since the variation will be fine in most cases.
 
                 // apply fuel flow multiplier
-                fuelFlow *= fuelFlowMult;
+                double ffMult = fuelFlow * fuelFlowMult;
+                fuelFlow = ffMult;
 
                 double ispOtherMult = 1d;
                 if (atmCurveIsp != null)
@@ -274,7 +275,7 @@ namespace RealFuels
                 double exhaustVelocity = Isp * 9.80665d;
                 SFC = 3600d / Isp;
 
-                thrust = fuelFlow * exhaustVelocity * 1000d; // either way, thrust is base * mult * EV
+                thrust = ffMult * exhaustVelocity; // either way, thrust is base * mult * EV
 
                 // Calculate chamber temperature as ratio
                 double desiredTempRatio = Math.Max(tempMin, fxPower);
