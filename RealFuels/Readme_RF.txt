@@ -49,6 +49,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.5.2
+
+* Fix an incompatibility between ModuleEnginesRF and stock ModuleEngines, where MERF used kilograms instead of tons for the `fuelFlowGui` field.
+  * Note that this is REQUIRED for compatibility with Waterfall Core v0.7.1 and later!
+* Recompute throttle response rate when switching to an engine config without an explicitly defined rate. This ensures that response rates are always correct for the config. However, any response rate values set directly in ModuleEnginesRF will be overridden.
+* Display effective engine spool-up time in the PAW. For a more detailed explanation, see #273.
+
 v13.5.1
 * Fix a crash resulting from loading a part that has multiple configs, uses gimbal management, and does not have a ModuleGimbal.
 * Changed normal distribution to reroll if it falls outside the desired range, instead of clamping it. This avoids a problem where the edge value of the interval was more likely to occur than some values closer to the mean (#272).
