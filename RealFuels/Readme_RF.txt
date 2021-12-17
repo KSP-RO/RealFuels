@@ -49,6 +49,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.5.3
+
+This is a hotfix to release v13.5.2, which contained a bug resulting in fuel consumption being lowered by a factor of 1000.
+
+* Recompute throttle response rate when switching to an engine config without an explicitly defined rate. This ensures that response rates are always correct for the config. However, any response rate values set directly in ModuleEnginesRF will be overridden.
+* Display effective engine spool-up time in the PAW. For a more detailed explanation, see #273.
+
 v13.5.2
 
 * Fix an incompatibility between ModuleEnginesRF and stock ModuleEngines, where MERF used kilograms instead of tons for the `fuelFlowGui` field.
