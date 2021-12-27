@@ -208,7 +208,7 @@ namespace RealFuels
         }
 
         // TODO(al2me6): Try to find ways to alleviate code duplication in this function.
-        protected override void ConfigSelectionGUI()
+        protected override void DrawConfigSelectors()
         {
             GUILayout.BeginHorizontal();
             var toggleText = GetToggleTextForConfigGUI(configuration);
@@ -311,12 +311,12 @@ namespace RealFuels
             }
         }
 
-        protected override void PartInfoGUI()
+        protected override void DrawPartInfo()
         {
             GUILayout.BeginHorizontal();
             GUILayout.Label($"<b>Current mode:</b> {GetModeDescription(configuration)}");
             GUILayout.EndHorizontal();
-            base.PartInfoGUI();
+            base.DrawPartInfo();
         }
         #endregion
     }

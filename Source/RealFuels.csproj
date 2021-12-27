@@ -86,6 +86,7 @@
     <Compile Include="EntryCosts\EngineConfigUpgrade.cs" />
     <Compile Include="Engines\ModuleEngineConfigs.cs" />
     <Compile Include="Engines\ModulePairedConfigsEngine.cs" />
+    <Compile Include="Engines\ModulePatchableEngineConfigs.cs" />
     <Compile Include="Engines\RFSettings.cs" />
     <Compile Include="Engines\ModuleEnginesRF.cs" />
     <Compile Include="Engines\SolverRF.cs" />

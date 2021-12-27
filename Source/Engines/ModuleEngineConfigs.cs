@@ -590,28 +590,10 @@ namespace RealFuels
         public PartModule pModule = null;
         protected ConfigNode GetConfigByName(string name) => configs.Find(c => c.GetValue("name") == name);
 
-        virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
+        protected void SetConfiguration(ConfigNode newConfig, bool resetTechLevels)
         {
-            if (newConfiguration == null)
-                newConfiguration = configuration;
+            string newConfiguration = newConfig.GetValue("name");
 
-            ConfigSaveLoad();
-
-            if (configs.Count == 0)
-            {
-                Debug.LogError($"*RFMEC* configuration set was empty for {part}!");
-                StopFX();
-                return;
-            }
-
-            ConfigNode newConfig = GetConfigByName(newConfiguration);
-            if (!(newConfig is ConfigNode))
-            {
-                newConfig = configs.First();
-                string s = newConfig.GetValue("name");
-                Debug.LogWarning($"*RFMEC* WARNING could not find configuration \"{newConfiguration}\" for part {part.name}: Fallback to \"{s}\".");
-                newConfiguration = s;
-            }
             if (configuration != newConfiguration)
             {
                 if (resetTechLevels)
@@ -626,6 +608,7 @@ namespace RealFuels
                 part.partInfo.title = configuration;
 
             configuration = newConfiguration;
+            configurationDisplay = GetConfigDisplayName(newConfig);
             config = new ConfigNode("MODULE");
             newConfig.CopyTo(config);
             config.name = "MODULE";
@@ -708,8 +691,36 @@ namespace RealFuels
             UpdateTFInterops(); // update TestFlight if it's installed
 
             StopFX();
+        }
 
-            configurationDisplay = GetConfigDisplayName(GetConfigByName(configuration));
+        /// Allows subclasses to determine the configuration to switch to based on additional info.
+        /// Used by MPEC to inject the patch if necessary.
+        virtual protected ConfigNode GetSetConfigurationTarget(string newConfiguration) => GetConfigByName(newConfiguration);
+
+        virtual public void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
+        {
+            if (newConfiguration == null)
+                newConfiguration = configuration;
+
+            ConfigSaveLoad();
+
+            if (configs.Count == 0)
+            {
+                Debug.LogError($"*RFMEC* configuration set was empty for {part}!");
+                StopFX();
+                return;
+            }
+
+            ConfigNode newConfig = GetSetConfigurationTarget(newConfiguration);
+            if (!(newConfig is ConfigNode))
+            {
+                newConfig = configs.First();
+                string s = newConfig.GetValue("name");
+                Debug.LogWarning($"*RFMEC* WARNING could not find configuration \"{newConfiguration}\" for part {part.name}: Fallback to \"{s}\".");
+                newConfiguration = s;
+            }
+
+            SetConfiguration(newConfig, resetTechLevels);
         }
 
         virtual protected int ConfigIgnitions(int ignitions)
@@ -1221,74 +1232,75 @@ namespace RealFuels
             return costString;
         }
 
-        virtual protected void ConfigSelectionGUI()
+        /// Normal apply action for the 'select <config>' button.
+        protected void GUIApplyConfig(string configName)
         {
-            foreach (ConfigNode node in configs)
+            SetConfiguration(configName, true);
+            UpdateSymmetryCounterparts();
+            MarkWindowDirty();
+        }
+
+        protected void DrawSelectButton(ConfigNode node, bool isSelected, Action<string> apply)
+        {
+            var nName = node.GetValue("name");
+            var dispName = GetConfigDisplayName(node);
+            var costString = GetCostString(node);
+            var configInfo = GetConfigInfo(node);
+
+            using (new GUILayout.HorizontalScope())
             {
-                string nName = node.GetValue("name");
-                GUILayout.BeginHorizontal();
-
-                var costString = GetCostString(node);
-
-                if (nName.Equals(configuration))
+                // Currently selected.
+                if (isSelected)
                 {
-                    GUILayout.Label(new GUIContent($"Current config: {nName}{costString}", GetConfigInfo(node)));
+                    GUILayout.Label(new GUIContent($"Current config: {dispName}{costString}", configInfo));
+                    return;
+                }
+
+                // Locked.
+                if (!CanConfig(node))
+                {
+                    if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
+                        techStr = "\nRequires: " + techStr;
+                    GUILayout.Label(new GUIContent($"Lacks tech for {dispName}", configInfo + techStr));
+                    return;
+                }
+
+                // Available.
+                if (UnlockedConfig(node, part))
+                {
+                    if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                        apply(nName);
+                    return;
+                }
+
+                // Purchase.
+                double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
+                if (upgradeCost > 0d)
+                {
+                    costString = $" ({upgradeCost:N0}f)";
+                    if (GUILayout.Button(new GUIContent($"Purchase {dispName}{costString}", configInfo)))
+                    {
+                        if (EntryCostManager.Instance.PurchaseConfig(nName))
+                            apply(nName);
+                    }
                 }
                 else
                 {
-                    if (CanConfig(node))
-                    {
-                        if (UnlockedConfig(node, part))
-                        {
-                            if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
-                            {
-                                SetConfiguration(nName, true);
-                                UpdateSymmetryCounterparts();
-                                MarkWindowDirty();
-                            }
-                        }
-                        else
-                        {
-                            double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
-                            costString = string.Empty;
-                            if (upgradeCost > 0d)
-                            {
-                                costString = $"({upgradeCost:N0}f)";
-                                if (GUILayout.Button(new GUIContent($"Purchase {nName}{costString}", GetConfigInfo(node))))
-                                {
-                                    if (EntryCostManager.Instance.PurchaseConfig(nName))
-                                    {
-                                        SetConfiguration(nName, true);
-                                        UpdateSymmetryCounterparts();
-                                        MarkWindowDirty();
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                // autobuy
-                                EntryCostManager.Instance.PurchaseConfig(nName);
-                                if (GUILayout.Button(new GUIContent($"Switch to {nName}{costString}", GetConfigInfo(node))))
-                                {
-                                    SetConfiguration(nName, true);
-                                    UpdateSymmetryCounterparts();
-                                    MarkWindowDirty();
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
-                            techStr = "\nRequires: " + techStr;
-                        GUILayout.Label(new GUIContent("Lack tech for " + nName, GetConfigInfo(node) + techStr));
-                    }
+                    // Auto-buy.
+                    EntryCostManager.Instance.PurchaseConfig(nName);
+                    if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                        apply(nName);
                 }
-                GUILayout.EndHorizontal();
             }
         }
 
-        virtual protected void PartInfoGUI()
+        virtual protected void DrawConfigSelectors()
+        {
+            foreach (ConfigNode node in configs)
+                DrawSelectButton(node, node.GetValue("name") == configuration, GUIApplyConfig);
+        }
+
+        virtual protected void DrawPartInfo()
         {
             // show current info, cost
             if (pModule != null && part.partInfo != null)
@@ -1312,16 +1324,8 @@ namespace RealFuels
             }
         }
 
-        private void EngineManagerGUI(int WindowID)
+        protected void DrawTechLevelSelector()
         {
-            GUILayout.Space(20);
-
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(EditorDescription);
-            GUILayout.EndHorizontal();
-
-            ConfigSelectionGUI();
-
             // NK Tech Level
             if (techLevel != -1)
             {
@@ -1397,8 +1401,19 @@ namespace RealFuels
                 }
                 GUILayout.EndHorizontal();
             }
+        }
 
-            PartInfoGUI();
+        private void EngineManagerGUI(int WindowID)
+        {
+            GUILayout.Space(20);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(EditorDescription);
+            GUILayout.EndHorizontal();
+
+            DrawConfigSelectors();
+            DrawTechLevelSelector();
+            DrawPartInfo();
 
             if (!myToolTip.Equals(string.Empty) && GUI.tooltip.Equals(string.Empty))
             {
