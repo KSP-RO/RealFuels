@@ -107,6 +107,9 @@ namespace RealFuels
         [KSPField(guiName = "Min Throttle", guiActiveEditor = true, groupName = groupName, guiFormat = "P0")]
         protected float _minThrottle;
 
+        [KSPField(guiName = "Effective Spool-Up Time", groupName = groupName, groupDisplayName = groupDisplayName, guiFormat = "F2", guiUnits = "s")]
+        public float effectiveSpoolUpTime;
+
         [KSPField]
         public bool pressureFed = false;
 
@@ -160,15 +163,17 @@ namespace RealFuels
 
         protected bool started = false; // Track start state, don't handle MEC notification before first start.
 
+        protected static System.Random staticRandom = new System.Random();
+
         #endregion
 
         #region Overrides
         public override void CreateEngine()
         {
             rfSolver = new SolverRF();
-            if(!useAtmCurve)
+            if (!useAtmCurve)
                 atmCurve = null;
-            if(!useVelCurve)
+            if (!useVelCurve)
                 velCurve = null;
 
             // FIXME quick temp hax
@@ -298,7 +303,7 @@ namespace RealFuels
             numRealPropellants = 0;
             foreach (Propellant p in propellants)
             {
-                if (!p.ignoreForIsp && p.resourceDef.density != 0d )
+                if (!p.ignoreForIsp && p.resourceDef.density != 0d)
                     ++numRealPropellants;
             }
             // Create reasonable values for variation
@@ -410,6 +415,7 @@ namespace RealFuels
             useThrustCurve = curveProp is Propellant;
 
             CalcThrottleResponseRate(ref throttleResponseRate, ref instantThrottle);
+            CalcEffectiveSpoolUpTime();
 
             if (!HighLogic.LoadedSceneIsFlight)
             {
@@ -421,8 +427,8 @@ namespace RealFuels
             {
                 if (partSeed == -1)
                 {
-                    calculatedResiduals = localResidualsThresholdBase + UnityEngine.Random.Range(0f, (float)localVaryResiduals);
-                    partSeed = UnityEngine.Random.Range(0, int.MaxValue);
+                    calculatedResiduals = localResidualsThresholdBase + staticRandom.NextDouble() * localVaryResiduals;
+                    partSeed = staticRandom.Next();
                 }
             }
 
@@ -488,6 +494,8 @@ namespace RealFuels
 
             Fields[nameof(currentMixtureRatio)].guiActive = oxidizerPropellant != null && mixtureRatio > 0d;
 
+            Fields[nameof(effectiveSpoolUpTime)].guiActive = Fields[nameof(effectiveSpoolUpTime)].guiActiveEditor = engineType != EngineType.SolidBooster;
+
             SetFields();
             started = true;
         }
@@ -530,7 +538,8 @@ namespace RealFuels
             {
                 propellantStatus = ullageSet.GetUllageState(out Color ullageColor);
                 part.stackIcon.SetIconColor(ullageColor);
-            } else
+            }
+            else
                 propellantStatus = pressureFed ? "Feed pressure OK" : "Nominal";
         }
 
@@ -547,7 +556,37 @@ namespace RealFuels
                     responseRate = (float)(RFSettings.Instance.throttlingRate / Math.Log(Math.Max(RFSettings.Instance.throttlingClamp, Math.Sqrt(part.mass * maxThrust * maxThrust))));
             }
             else
-                responseRate = 1000000f;
+                responseRate = 1E6f;
+        }
+
+        protected virtual float CalcUpdatedThrottle(float currThrottle, float reqThrottle)
+        {
+            float igniteLevel = 0.01f * throttleIgniteLevelMult;
+            // This yields F-1 like curves where F-1 responserate is about 1.
+            float deltaThrottle = reqThrottle - currThrottle;
+            int deltaThrottleSign = Math.Sign(deltaThrottle);
+            if (deltaThrottle != 0)
+            {
+                float deltaThisTick = throttleResponseRate * TimeWarp.fixedDeltaTime;
+                deltaThrottle = Math.Abs(deltaThrottle);
+                // FIXME this doesn't actually matter much because we force-set to 0 if not ignited...
+                if (deltaThrottleSign < 0 && currThrottle <= igniteLevel)
+                    deltaThisTick *= throttleDownMult;
+
+                if (currThrottle > igniteLevel)
+                {
+                    float invDelta = 1f - deltaThrottle;
+                    deltaThisTick *= (1f - invDelta * invDelta) * 5f * throttleStartedMult;
+                }
+                else
+                    deltaThisTick *= 0.0005f + 4.05f * currThrottle * throttleStartupMult * (pressureFed ? throttlePressureFedStartupMult : 1);
+
+                if (deltaThrottle > deltaThisTick && deltaThrottle > throttleClamp)
+                    currThrottle += deltaThisTick * deltaThrottleSign;
+                else
+                    currThrottle = reqThrottle;
+            }
+            return currThrottle;
         }
 
         public override void UpdateThrottle()
@@ -559,44 +598,46 @@ namespace RealFuels
             {
                 // thrustPercentage is already multiplied in by SolverEngines, don't include it here.
                 float requiredThrottle = Mathf.Lerp(MinThrottle, 1f, requestedThrottle);
-
-                if (instantThrottle)
-                    currentThrottle = requiredThrottle;
-                else
-                {
-                    float IGNITELEVEL = 0.01f * throttleIgniteLevelMult;
-                    // This yields F-1 like curves where F-1 responserate is about 1.
-                    float deltaT = TimeWarp.fixedDeltaTime;
-
-                    float delta = requiredThrottle - currentThrottle;
-                    int sign = Math.Sign(delta);
-                    if (sign != 0)
-                    {
-                        float thisTick = throttleResponseRate * deltaT;
-                        delta = Math.Abs(delta);
-                        // FIXME this doesn't actually matter much because we force-set to 0 if not ignited...
-                        if (sign < 0 && currentThrottle <= IGNITELEVEL)
-                            thisTick *= throttleDownMult;
-
-                        if (currentThrottle > IGNITELEVEL)
-                        {
-                            float invDelta = 1f - delta;
-                            thisTick *= (1f - invDelta * invDelta) * 5f * throttleStartedMult;
-                        }
-                        else
-                            thisTick *= 0.0005f + 4.05f * currentThrottle * throttleStartupMult * (pressureFed ? throttlePressureFedStartupMult : 1);
-
-                        if (delta > thisTick && delta > throttleClamp)
-                            currentThrottle += thisTick * sign;
-                        else
-                            currentThrottle = requiredThrottle;
-                    }
-                }
+                currentThrottle = instantThrottle ? requiredThrottle : CalcUpdatedThrottle(currentThrottle, requiredThrottle);
             }
             else
                 currentThrottle = 0f;
 
             actualThrottle = (int)(currentThrottle * 100f);
+        }
+
+        // Compute the 'effective spool-up time.' That is, the total spool-up time from 0% to 100%,
+        // minus the total amount of fractional thrust produced during spool-up converted to the
+        // equivalent amount of time firing at full thrust.
+        //
+        // Sketch:
+        // The actual spool-up curve:
+        // |          .-----
+        // |        /
+        // |      /
+        // |.---'
+        // +----------------> time
+        // |~~~~~~~~~~|       total spool-up time
+        //
+        // is treated instead as:
+        // |       ---------
+        // |       |
+        // |       |
+        // |_______|
+        // +----------------> time
+        // |~~~~~~~~~~|       total spool-up time with original curve
+        // |~~~~~~~|          effective spool-up time
+        //         |~~|       equivalent amount of thrust as produced by the original curve, but at 100%
+        protected virtual void CalcEffectiveSpoolUpTime()
+        {
+            float currThrottle = 0f, integratedThrottle = 0f, deltaT = 0f;
+            while (currThrottle < 1f)
+            {
+                currThrottle = CalcUpdatedThrottle(currThrottle, 1f);
+                integratedThrottle += currThrottle * TimeWarp.fixedDeltaTime;
+                deltaT += TimeWarp.fixedDeltaTime;
+            }
+            effectiveSpoolUpTime = deltaT - integratedThrottle;
         }
 
         // from SolverEngines but we don't play FX here.
@@ -622,7 +663,7 @@ namespace RealFuels
         public override void Shutdown()
         {
             base.Shutdown();
-            if(allowShutdown)
+            if (allowShutdown)
                 ignited = false; // FIXME handle engine spinning down, non-instant shutoff.
         }
 

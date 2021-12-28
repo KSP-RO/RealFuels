@@ -29,6 +29,7 @@ namespace RealFuels
         private double runVaryIsp = 0d;
         private double runVaryMR = 0d;
         private System.Random seededRandom;
+        private static System.Random staticRandom = new System.Random();
         private bool pressure = true, ullage = true, disableUnderwater;
         private double scale = 1d; // scale for tweakscale
 
@@ -338,7 +339,7 @@ namespace RealFuels
             if (useSeed)
                 return seededRandom.NextDouble() * 2d - 1d;
             else
-                return UnityEngine.Random.Range(-1f, 1f);
+                return staticRandom.NextDouble() * 2d - 1d;
         }
 
         protected void GetVariances(bool useSeed, out double varianceFlow, out double varianceMR, out double varianceIsp)
@@ -347,25 +348,27 @@ namespace RealFuels
             varianceMR = GetNormal(useSeed, 3d) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
             // MR probably has an effect on Isp but it's hard to say what. When running fuel-rich, increasing
             // oxidizer might raise Isp? And vice versa for ox-rich. So for now ignore MR.
-            varianceIsp = (varianceFlow * 0.8d + GetNormal(useSeed, 3d) * 0.2d);
+            varianceIsp = varianceFlow * 0.89442719099991587856366946749251d + GetNormal(useSeed, 3d) * 0.44721359549995793928183473374626d;
+            // (these are sqrt(0.8) and sqrt(0.2) )
         }
 
         protected double GetNormal(bool useSeed, double stdDevClamp)
         {
-            double u, v, S;
-
+            double u, v, S, retVal;
             do
             {
-                u = GetRandom(useSeed);
-                v = GetRandom(useSeed);
-                S = u * u + v * v;
-            }
-            while (S >= 1d);
+                do
+                {
+                    u = GetRandom(useSeed);
+                    v = GetRandom(useSeed);
+                    S = u * u + v * v;
+                }
+                while (S >= 1d);
 
-            double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
-            double retVal = u * fac;
-            if (stdDevClamp > 0)
-                retVal = Math.Min(stdDevClamp, Math.Abs(retVal)) * Math.Sign(retVal);
+                double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
+                retVal = u * fac;
+            }
+            while (stdDevClamp > 0 && Math.Abs(retVal)>stdDevClamp);
             return retVal;
         }
     }

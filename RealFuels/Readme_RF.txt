@@ -49,6 +49,31 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.5.3
+
+This is a hotfix to release v13.5.2, which contained a bug resulting in fuel consumption being lowered by a factor of 1000.
+
+* Recompute throttle response rate when switching to an engine config without an explicitly defined rate. This ensures that response rates are always correct for the config. However, any response rate values set directly in ModuleEnginesRF will be overridden.
+* Display effective engine spool-up time in the PAW. For a more detailed explanation, see #273.
+
+v13.5.2
+
+* Fix an incompatibility between ModuleEnginesRF and stock ModuleEngines, where MERF used kilograms instead of tons for the `fuelFlowGui` field.
+  * Note that this is REQUIRED for compatibility with Waterfall Core v0.7.1 and later!
+* Recompute throttle response rate when switching to an engine config without an explicitly defined rate. This ensures that response rates are always correct for the config. However, any response rate values set directly in ModuleEnginesRF will be overridden.
+* Display effective engine spool-up time in the PAW. For a more detailed explanation, see #273.
+
+v13.5.1
+* Fix a crash resulting from loading a part that has multiple configs, uses gimbal management, and does not have a ModuleGimbal.
+* Changed normal distribution to reroll if it falls outside the desired range, instead of clamping it. This avoids a problem where the edge value of the interval was more likely to occur than some values closer to the mean (#272).
+* Changed the weights in varianceIsp to have the correct variance of 1 (#272).
+
+v13.5.0
+* Change from using Unity's Random to using System Random since Unity's version is not producing properly unique results.
+
+v13.4.0
+* Reworked gimbal management system that restores original gimbal parameters correctly and supports managing multiple gimbals (#271).
+
 v13.3.1
 * Tweak variance values for solid propellants.
 

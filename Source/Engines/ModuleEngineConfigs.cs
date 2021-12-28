@@ -55,6 +55,42 @@ namespace RealFuels
         }
     }
 
+    public struct Gimbal
+    {
+        public float gimbalRange;
+        public float gimbalRangeXP;
+        public float gimbalRangeXN;
+        public float gimbalRangeYP;
+        public float gimbalRangeYN;
+
+        public Gimbal(float gimbalRange, float gimbalRangeXP, float gimbalRangeXN, float gimbalRangeYP, float gimbalRangeYN)
+        {
+            this.gimbalRange = gimbalRange;
+            this.gimbalRangeXP = gimbalRangeXP;
+            this.gimbalRangeXN = gimbalRangeXN;
+            this.gimbalRangeYP = gimbalRangeYP;
+            this.gimbalRangeYN = gimbalRangeYN;
+        }
+
+        public string Info()
+        {
+            if (new[] { gimbalRange, gimbalRangeXP, gimbalRangeXN, gimbalRangeYP, gimbalRangeYN }.Distinct().Count() == 1)
+                return $"{gimbalRange:N1}d";
+            if (new[] { gimbalRangeXP, gimbalRangeXN, gimbalRangeYP, gimbalRangeYN }.Distinct().Count() == 1)
+                return $"{gimbalRangeXP:N1}d";
+            var ret = string.Empty;
+            if (gimbalRangeXP == gimbalRangeXN)
+                ret += $"{gimbalRangeXP:N1}d pitch, ";
+            else
+                ret += $"+{gimbalRangeXP:N1}d/-{gimbalRangeXN:N1}d pitch, ";
+            if (gimbalRangeYP == gimbalRangeYN)
+                ret += $"{gimbalRangeYP:N1}d yaw";
+            else
+                ret += $"+{gimbalRangeYP:N1}d/-{gimbalRangeYN:N1}d yaw";
+            return ret;
+        }
+    }
+
     public class ModuleEngineConfigs : PartModule, IPartCostModifier, IPartMassModifier
     {
         //protected const string groupName = "ModuleEngineConfigs";
@@ -88,6 +124,8 @@ namespace RealFuels
         public float gimbalMult = 1f;
         [KSPField]
         public bool useGimbalAnyway = false;
+
+        private Dictionary<string, Gimbal> defaultGimbals = null;
 
         [KSPField]
         public bool autoUnlock = true;
@@ -263,10 +301,7 @@ namespace RealFuels
 
                 if (HighLogic.LoadedSceneIsFlight
                     && B9PS_switchInFlight != null
-                    && !(bool)B9PS_switchInFlight.GetValue(module))
-                {
-                    continue;
-                }
+                    && !(bool)B9PS_switchInFlight.GetValue(module)) continue;
 
                 if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
                 {
@@ -313,6 +348,23 @@ namespace RealFuels
                     }
                 }
             }
+        }
+
+        private void LoadDefaultGimbals()
+        {
+            defaultGimbals = new Dictionary<string, Gimbal>();
+            foreach (var g in part.Modules.OfType<ModuleGimbal>())
+                defaultGimbals[g.gimbalTransformName] = new Gimbal(g.gimbalRange, g.gimbalRangeXP, g.gimbalRangeXN, g.gimbalRangeYP, g.gimbalRangeYN);
+        }
+
+        private void RelocateRCSPawItems(ModuleRCS module)
+        {
+            var field = pModule.Fields["thrusterPower"];
+            field.guiActive = true;
+            field.guiActiveEditor = true;
+            field.guiName = "Thruster Power";
+            field.guiUnits = "kN";
+            field.group = new BasePAWGroup(groupName, groupDisplayName, false);
         }
 
         #region PartModule Overrides
@@ -378,12 +430,16 @@ namespace RealFuels
 
             LoadB9PSModules();
 
+            LoadDefaultGimbals();
+
             SetConfiguration();
 
             Fields[nameof(showRFGUI)].guiName = GUIButtonName;
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
+
+            if (pModule is ModuleRCS mrcs) RelocateRCSPawItems(mrcs);
         }
 
         public override void OnStartFinished(StartState state) => HideB9PSVariantSelectors();
@@ -503,10 +559,23 @@ namespace RealFuels
                     info.Append($"  Rated burn time: {config.GetValue("ratedBurnTime")}s\n");
             }
 
-            if (config.HasValue("gimbalRange"))
+            if (part.HasModuleImplementing<ModuleGimbal>())
             {
-                float gimbalR = float.Parse(config.GetValue("gimbalRange"));
-                info.Append($"  Gimbal {gimbalR:N1}d\n");
+                if (config.HasNode("GIMBAL"))
+                {
+                    foreach (KeyValuePair<string, Gimbal> kv in ExtractGimbals(config))
+                    {
+                        info.Append($"  Gimbal ({kv.Key}): {kv.Value.Info()}\n");
+                    }
+                }
+                else if (config.HasValue("gimbalRange"))
+                {
+                    // The extracted gimbals contain `gimbalRange` et al. applied to either a specific
+                    // transform or all the gimbal transforms on the part. Either way, the values
+                    // are all the same, so just take the first one.
+                    var gimbal = ExtractGimbals(config).Values.First();
+                    info.Append($"  Gimbal {gimbal.Info()}\n");
+                }
             }
 
             if (config.HasValue("ullage") || config.HasValue("ignitions") || config.HasValue("pressureFed"))
@@ -649,6 +718,9 @@ namespace RealFuels
                         config.SetValue("ignitions", ignitions);
                     }
                 }
+
+                // Trigger re-computation of the response rate if one is not set explicitly.
+                if (!config.HasValue("throttleResponseRate")) config.AddValue("throttleResponseRate", 0.0);
 
                 if (pModule is ModuleEnginesRF)
                     (pModule as ModuleEnginesRF).SetScale(1d);
@@ -794,34 +866,74 @@ namespace RealFuels
             }
         }
 
+        private Dictionary<string, Gimbal> ExtractGimbals(ConfigNode cfg)
+        {
+            Gimbal ExtractGimbalKeys(ConfigNode c)
+            {
+                float.TryParse(c.GetValue("gimbalRange"), out float range);
+                float xp = 0, xn = 0, yp = 0, yn = 0;
+                if (!c.TryGetValue("gimbalRangeXP", ref xp))
+                    xp = range;
+                if (!c.TryGetValue("gimbalRangeXN", ref xn))
+                    xn = range;
+                if (!c.TryGetValue("gimbalRangeYP", ref yp))
+                    yp = range;
+                if (!c.TryGetValue("gimbalRangeYN", ref yn))
+                    yn = range;
+                return new Gimbal(range, xp, xn, yp, yn);
+            }
+
+            var gimbals = new Dictionary<string, Gimbal>();
+
+            if (cfg.HasNode("GIMBAL"))
+            {
+                foreach (var node in cfg.GetNodes("GIMBAL"))
+                {
+                    if (!node.HasValue("gimbalTransform"))
+                    {
+                        Debug.LogError($"*RFMEC* Config {cfg.GetValue("name")} of part {part.name} has a `GIMBAL` node without a `gimbalTransform`!");
+                        continue;
+                    }
+                    gimbals[node.GetValue("gimbalTransform")] = ExtractGimbalKeys(node);
+                }
+            }
+            else if (cfg.HasValue("gimbalRange"))
+            {
+                var gimbal = ExtractGimbalKeys(cfg);
+                if (this.gimbalTransform != string.Empty)
+                    gimbals[this.gimbalTransform] = gimbal;
+                else
+                    foreach (var g in part.Modules.OfType<ModuleGimbal>())
+                        gimbals[g.gimbalTransformName] = gimbal;
+            }
+
+            return gimbals;
+        }
+
         private void SetGimbalRange(ConfigNode cfg)
         {
-            if (cfg.HasValue("gimbalRange"))
+            if (!part.HasModuleImplementing<ModuleGimbal>()) return;
+            // Do not override gimbals before default gimbals have been extracted.
+            if (defaultGimbals == null) return;
+
+            Dictionary<string, Gimbal> gimbalOverrides = ExtractGimbals(cfg);
+            foreach (ModuleGimbal mg in part.Modules.OfType<ModuleGimbal>())
             {
-                float.TryParse(cfg.GetValue("gimbalRange"), out float newGimbal);
-                float newGimbalXP = 0, newGimbalXN = 0, newGimbalYP = 0, newGimbalYN = 0;
-
-                if (!cfg.TryGetValue("gimbalRangeXP", ref newGimbalXP))
-                    newGimbalXP = newGimbal;
-                if (!cfg.TryGetValue("gimbalRangeXN", ref newGimbalXN))
-                    newGimbalXN = newGimbal;
-                if (!cfg.TryGetValue("gimbalRangeYP", ref newGimbalYP))
-                    newGimbalYP = newGimbal;
-                if (!cfg.TryGetValue("gimbalRangeYN", ref newGimbalYN))
-                    newGimbalYN = newGimbal;
-
-                foreach (var m in part.Modules)
+                string transform = mg.gimbalTransformName;
+                if (!gimbalOverrides.TryGetValue(transform, out Gimbal g))
                 {
-                    if (m is ModuleGimbal g &&
-                        (gimbalTransform.Equals(string.Empty) || g.gimbalTransformName.Equals(gimbalTransform)))
+                    if (!defaultGimbals.ContainsKey(transform))
                     {
-                        g.gimbalRange = newGimbal;
-                        g.gimbalRangeXN = newGimbalXN;
-                        g.gimbalRangeXP = newGimbalXP;
-                        g.gimbalRangeYN = newGimbalYN;
-                        g.gimbalRangeYP = newGimbalYP;
+                        Debug.LogWarning($"*RFMEC* default gimbal settings were not found for gimbal transform `{transform}` for part {part.name}");
+                        continue;
                     }
+                    g = defaultGimbals[transform];
                 }
+                mg.gimbalRange = g.gimbalRange;
+                mg.gimbalRangeXP = g.gimbalRangeXP;
+                mg.gimbalRangeXN = g.gimbalRangeXN;
+                mg.gimbalRangeYP = g.gimbalRangeYP;
+                mg.gimbalRangeYN = g.gimbalRangeYN;
             }
         }
 
