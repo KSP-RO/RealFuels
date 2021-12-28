@@ -350,6 +350,23 @@ namespace RealFuels
             }
         }
 
+        private void LoadDefaultGimbals()
+        {
+            defaultGimbals = new Dictionary<string, Gimbal>();
+            foreach (var g in part.Modules.OfType<ModuleGimbal>())
+                defaultGimbals[g.gimbalTransformName] = new Gimbal(g.gimbalRange, g.gimbalRangeXP, g.gimbalRangeXN, g.gimbalRangeYP, g.gimbalRangeYN);
+        }
+
+        private void RelocateRCSPawItems(ModuleRCS module)
+        {
+            var field = pModule.Fields["thrusterPower"];
+            field.guiActive = true;
+            field.guiActiveEditor = true;
+            field.guiName = "Thruster Power";
+            field.guiUnits = "kN";
+            field.group = new BasePAWGroup(groupName, groupDisplayName, false);
+        }
+
         #region PartModule Overrides
         public override void OnAwake()
         {
@@ -413,9 +430,7 @@ namespace RealFuels
 
             LoadB9PSModules();
 
-            defaultGimbals = new Dictionary<string, Gimbal>();
-            foreach (var g in part.Modules.OfType<ModuleGimbal>())
-                defaultGimbals[g.gimbalTransformName] = new Gimbal(g.gimbalRange, g.gimbalRangeXP, g.gimbalRangeXN, g.gimbalRangeYP, g.gimbalRangeYN);
+            LoadDefaultGimbals();
 
             SetConfiguration();
 
@@ -423,6 +438,8 @@ namespace RealFuels
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
+
+            if (pModule is ModuleRCS mrcs) RelocateRCSPawItems(mrcs);
         }
 
         public override void OnStartFinished(StartState state) => HideB9PSVariantSelectors();
