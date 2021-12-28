@@ -438,11 +438,13 @@ namespace RealFuels
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
-
-            if (pModule is ModuleRCS mrcs) RelocateRCSPawItems(mrcs);
         }
 
-        public override void OnStartFinished(StartState state) => HideB9PSVariantSelectors();
+        public override void OnStartFinished(StartState state)
+        {
+            HideB9PSVariantSelectors();
+            if (pModule is ModuleRCS mrcs) RelocateRCSPawItems(mrcs);
+        }
         #endregion
 
         #region Info Methods
