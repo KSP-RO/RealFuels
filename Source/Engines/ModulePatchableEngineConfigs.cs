@@ -9,7 +9,7 @@ namespace RealFuels
         protected const string PatchNameKey = "__mpecPatchName";
 
         [KSPField(isPersistant = true)]
-        public string activePatchName = null;
+        public string activePatchName = "";
 
         [KSPField(isPersistant = true)]
         public bool dynamicPatchApplied = false;
@@ -23,28 +23,31 @@ namespace RealFuels
         }
 
         // TODO: This is called a lot, performance concern?
-        protected ConfigNode PatchConfig(ConfigNode parentConfig, ConfigNode patch)
+        protected ConfigNode PatchConfig(ConfigNode parentConfig, ConfigNode patch, bool dynamic)
         {
             var patchedNode = parentConfig.CreateCopy();
             // TODO: Check if this handles multiple keys/values properly.
             patch.CopyTo(patchedNode, overwrite: true);
             patchedNode.SetValue("name", parentConfig.GetValue("name"));
-            patchedNode.AddValue(PatchNameKey, patch.GetValue("name"));
+            if (!dynamic)
+                patchedNode.AddValue(PatchNameKey, patch.GetValue("name"));
             return patchedNode;
         }
 
+        public ConfigNode GetNonDynamicPatchedConfiguration() => GetSetConfigurationTarget(configuration);
+
         public void ApplyDynamicPatch(ConfigNode patch)
         {
-            Debug.Log($"**RFMPEC** dynamic patch applied to active config `{configurationDisplay}`");
-            SetConfiguration(PatchConfig(config, patch), false);
+            // Debug.Log($"**RFMPEC** dynamic patch applied to active config `{configurationDisplay}`");
+            SetConfiguration(PatchConfig(GetNonDynamicPatchedConfiguration(), patch, true), false);
             dynamicPatchApplied = true;
         }
 
         protected override ConfigNode GetSetConfigurationTarget(string newConfiguration)
         {
-            if (string.IsNullOrEmpty(activePatchName))
+            if (activePatchName == "")
                 return base.GetSetConfigurationTarget(newConfiguration);
-            return PatchConfig(GetConfigByName(newConfiguration), GetPatch(newConfiguration, activePatchName));
+            return PatchConfig(GetConfigByName(newConfiguration), GetPatch(newConfiguration, activePatchName), false);
         }
 
         public override void SetConfiguration(string newConfiguration = null, bool resetTechLevels = false)
@@ -71,15 +74,15 @@ namespace RealFuels
             {
                 DrawSelectButton(
                     node,
-                    node.GetValue("name") == configuration && string.IsNullOrEmpty(activePatchName),
+                    node.GetValue("name") == configuration && activePatchName == "",
                     (configName) =>
                     {
-                        activePatchName = null;
+                        activePatchName = "";
                         GUIApplyConfig(configName);
                     });
                 foreach (var patch in GetPatchesOfConfig(node))
                 {
-                    var patchedNode = PatchConfig(node, patch);
+                    var patchedNode = PatchConfig(node, patch, false);
                     string patchName = patch.GetValue("name");
                     using (new GUILayout.HorizontalScope())
                     {
