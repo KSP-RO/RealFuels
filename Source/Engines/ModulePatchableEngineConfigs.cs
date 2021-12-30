@@ -60,8 +60,17 @@ namespace RealFuels
             }
         }
 
+        public override int UpdateSymmetryCounterparts()
+        {
+            DoForEachSymmetryCounterpart((engine) =>
+                (engine as ModulePatchableEngineConfigs).activePatchName = activePatchName);
+            return base.UpdateSymmetryCounterparts();
+        }
+
         public override string GetConfigDisplayName(ConfigNode node)
         {
+            if (node.HasValue("displayName"))
+                return node.GetValue("displayName");
             var name = node.GetValue("name");
             if (!node.HasValue(PatchNameKey))
                 return name;

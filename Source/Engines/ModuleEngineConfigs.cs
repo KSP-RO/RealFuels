@@ -286,9 +286,9 @@ namespace RealFuels
                 {
                     string moduleID = null, subtype = null;
                     if (!link.TryGetValue("name", ref moduleID))
-                        Debug.LogError($"*RFMEC* Config `{configuration}` of {part} has a LinkB9PSModule specification without a name key!");
+                        Debug.LogError($"*RFMEC* Config `{configurationDisplay}` of {part} has a LinkB9PSModule specification without a name key!");
                     if (!link.TryGetValue("subtype", ref subtype))
-                        Debug.LogError($"*RFMEC* Config `{configuration}` of {part} has a LinkB9PSModule specification without a subtype key!");
+                        Debug.LogError($"*RFMEC* Config `{configurationDisplay}` of {part} has a LinkB9PSModule specification without a subtype key!");
                     if (moduleID != null && subtype != null)
                         subtypeSpecifications[moduleID] = subtype;
                 }
@@ -305,7 +305,7 @@ namespace RealFuels
 
                 if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
                 {
-                    Debug.LogError($"*RFMEC* Config {configuration} of {part} does not specify a subtype for linked B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
+                    Debug.LogError($"*RFMEC* Config {configurationDisplay} of {part} does not specify a subtype for linked B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
                     subtypeName = configuration;
                 }
 
