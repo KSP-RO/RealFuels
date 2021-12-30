@@ -115,16 +115,15 @@ namespace RealFuels
         {
             var info = ConfigInfoString(config, addDescription, colorName);
 
-            if (ConfigHasSecondary(config))
-            {
-                var secondaryInfo = ConfigInfoString(SecondaryConfig(config), false, false);
-                if (addDescription) info += "\n";
-                var secondaryHeader = colorName
-                    ? $" <color=yellow>{secondaryDescription} mode:</color>"
-                    : $" {secondaryDescription} mode:";
-                info += secondaryInfo.Replace(GetConfigDisplayName(config), secondaryHeader);
-            }
+            if (!ConfigHasSecondary(config))
+                return info;
 
+            var secondaryInfo = ConfigInfoString(SecondaryConfig(config), false, false);
+            if (addDescription) info += "\n";
+            var secondaryHeader = colorName
+                ? $" <color=yellow>{secondaryDescription} mode:</color>"
+                : $" {secondaryDescription} mode:";
+            info += secondaryInfo.Replace(GetConfigDisplayName(config), secondaryHeader);
             return info;
         }
 

@@ -81,12 +81,12 @@ namespace RealFuels
         {
             var info = base.GetConfigInfo(config, addDescription, colorName);
 
-            if (!ConfigHasPatch(config))
+            if (!ConfigHasPatch(config) || ConfigIsPatched(config))
                 return info;
 
+            if (addDescription) info += "\n";
             foreach (var patch in GetPatchesOfConfig(config))
                 info += ConfigInfoString(PatchConfig(config, patch, false), false, colorName);
-            info += "\n";
             return info;
         }
 
