@@ -138,7 +138,8 @@ namespace RealFuels.Tanks
 
         partial void UpdateRF()
         {
-            if (HighLogic.LoadedSceneIsFlight && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW) && SupportsBoiloff)
+            if (HighLogic.LoadedSceneIsFlight && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW) && SupportsBoiloff &&
+                UIPartActionController.Instance.GetItem(part) != null)
             {
                 string MLIText = totalMLILayers > 0 ? $"{GetMLITransferRate(part.skinTemperature, part.temperature):F4}" : "No MLI";
                 sWallTemp = $"{part.temperature:F4} ({MLIText} * {part.radiativeArea:F2} m2)";
