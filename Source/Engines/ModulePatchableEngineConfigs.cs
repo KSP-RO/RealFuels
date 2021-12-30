@@ -24,12 +24,20 @@ namespace RealFuels
                 .FirstOrDefault(patch => patch.GetValue("name") == patchName);
         }
 
+        protected bool ConfigIsPatched(ConfigNode config) => config.HasValue(PatchNameKey);
+
         // TODO: This is called a lot, performance concern?
         protected ConfigNode PatchConfig(ConfigNode parentConfig, ConfigNode patch, bool dynamic)
         {
             var patchedNode = parentConfig.CreateCopy();
-            // TODO: Check if this handles multiple keys/values properly.
-            patch.CopyTo(patchedNode, overwrite: true);
+
+            foreach (var key in patch.values.DistinctNames())
+                patchedNode.RemoveValues(key);
+            foreach (var nodeName in patch.nodes.DistinctNames())
+                patchedNode.RemoveNodes(nodeName);
+
+            patch.CopyTo(patchedNode);
+
             patchedNode.SetValue("name", parentConfig.GetValue("name"));
             if (!dynamic)
                 patchedNode.AddValue(PatchNameKey, patch.GetValue("name"));
