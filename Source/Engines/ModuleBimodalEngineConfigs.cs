@@ -8,9 +8,9 @@ namespace RealFuels
     public class ModuleBimodalEngineConfigs : ModulePatchableEngineConfigs
     {
         [KSPField]
-        public string primaryDescription = "retracted";
+        public string primaryDescription = "Retracted";
         [KSPField]
-        public string secondaryDescription = "extended";
+        public string secondaryDescription = "Extended";
         [KSPField]
         public string toPrimaryText = "Retract Nozzle";
         [KSPField]
@@ -41,7 +41,7 @@ namespace RealFuels
             }
         }
 
-        protected bool ConfigHasSecondary(ConfigNode node) => node.HasNode(PatchNodeName);
+        protected bool ConfigHasSecondary(ConfigNode node) => ConfigHasPatch(node);
 
         protected ConfigNode SecondaryConfig(ConfigNode primary)
         {
@@ -109,6 +109,23 @@ namespace RealFuels
             activePatchName = patchName;
             SetConfiguration(newConfiguration);
             UpdateAnimationTarget(modeWasPrimary);
+        }
+
+        public override string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
+        {
+            var info = ConfigInfoString(config, addDescription, colorName);
+
+            if (ConfigHasSecondary(config))
+            {
+                var secondaryInfo = ConfigInfoString(SecondaryConfig(config), false, false);
+                if (addDescription) info += "\n";
+                var secondaryHeader = colorName
+                    ? $" <color=yellow>{secondaryDescription} mode:</color>"
+                    : $" {secondaryDescription} mode:";
+                info += secondaryInfo.Replace(GetConfigDisplayName(config), secondaryHeader);
+            }
+
+            return info;
         }
 
         protected override void DrawConfigSelectors()

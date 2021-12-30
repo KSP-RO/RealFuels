@@ -14,6 +14,8 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         public bool dynamicPatchApplied = false;
 
+        protected bool ConfigHasPatch(ConfigNode config) => config.HasNode(PatchNodeName);
+
         protected ConfigNode[] GetPatchesOfConfig(ConfigNode config) => config.GetNodes(PatchNodeName);
 
         protected ConfigNode GetPatch(string configName, string patchName)
@@ -65,6 +67,19 @@ namespace RealFuels
             DoForEachSymmetryCounterpart((engine) =>
                 (engine as ModulePatchableEngineConfigs).activePatchName = activePatchName);
             return base.UpdateSymmetryCounterparts();
+        }
+
+        public override string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
+        {
+            var info = base.GetConfigInfo(config, addDescription, colorName);
+
+            if (!ConfigHasPatch(config))
+                return info;
+
+            foreach (var patch in GetPatchesOfConfig(config))
+                info += ConfigInfoString(PatchConfig(config, patch, false), false, colorName);
+            info += "\n";
+            return info;
         }
 
         public override string GetConfigDisplayName(ConfigNode node)
