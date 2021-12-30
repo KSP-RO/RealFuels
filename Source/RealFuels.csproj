@@ -84,8 +84,9 @@
     <Compile Include="assembly\Checkers.cs" />
     <Compile Include="assembly\VersionReport.cs" />
     <Compile Include="EntryCosts\EngineConfigUpgrade.cs" />
-    <Compile Include="Engines\ModuleEngineConfigs.cs" />
     <Compile Include="Engines\ModuleBimodalEngineConfigs.cs" />
+    <Compile Include="Engines\ModuleEngineConfigs.cs" />
+    <Compile Include="Engines\ModuleHybridEngine.cs" />
     <Compile Include="Engines\ModulePatchableEngineConfigs.cs" />
     <Compile Include="Engines\RFSettings.cs" />
     <Compile Include="Engines\ModuleEnginesRF.cs" />
