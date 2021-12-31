@@ -66,7 +66,7 @@ namespace RealFuels
             if (dynamicPatchApplied)
             {
                 dynamicPatchApplied = false;
-                part.SendMessage("OnMPECDynamicPatchOverwritten", SendMessageOptions.DontRequireReceiver);
+                part.SendMessage("OnMPECDynamicPatchReset", SendMessageOptions.DontRequireReceiver);
             }
         }
 
