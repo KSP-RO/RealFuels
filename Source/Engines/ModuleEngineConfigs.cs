@@ -269,7 +269,7 @@ namespace RealFuels
             }
         }
 
-        public void UpdateB9PSVariants() => ActivateB9PSVariantsOfConfig(config);
+        virtual public void UpdateB9PSVariants() => ActivateB9PSVariantsOfConfig(config);
         #endregion
 
         #region Callbacks

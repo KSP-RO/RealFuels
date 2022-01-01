@@ -23,11 +23,12 @@ namespace RealFuels
         private enum AnimPosition { Begin, End, Forward, Reverse }
         private List<AnimationState> animationStates;
         private AnimPosition animPos;
+        [KSPField]
+        public float switchB9PSAtAnimationTime = -1f;
+        private bool b9psNeedsReset = false;
 
         [KSPField]
         public float thrustLerpTime = -1f;  // -1 is auto-compute from animation length.
-        [KSPField]
-        public bool switchB9PSAfterLerpOnSecondaryToPrimary = false;
 
         [KSPField(guiName = "Mode", isPersistant = true, guiActive = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
         public string modeDisplay;
@@ -91,6 +92,12 @@ namespace RealFuels
 
         public override string GUIButtonName => "Bimodal Engine";
         public override string EditorDescription => "This engine can operate in two different modes. Select a configuration and an initial mode; you can change between modes (even in-flight) using the PAW or the button below.";
+
+        public override void UpdateB9PSVariants()
+        {
+            base.UpdateB9PSVariants();
+            b9psNeedsReset = false;
+        }
 
         public override string GetConfigDisplayName(ConfigNode node)
         {
@@ -213,9 +220,6 @@ namespace RealFuels
 
             if (!(activeEngine is SolverEngines.ModuleEnginesSolver eng)) yield break;
 
-            if (IsPrimaryMode && switchB9PSAfterLerpOnSecondaryToPrimary)
-                ActivateB9PSVariantsOfConfig(SecondaryConfig(config));
-
             double origMaxTemp = eng.maxEngineTemp;
 
             // If something else has overridden these values, bail because that thing is probably
@@ -266,9 +270,6 @@ namespace RealFuels
             eng.ispMult = 1d;
             eng.flowMult = 1d;
             eng.maxEngineTemp = origMaxTemp;
-
-            if (IsPrimaryMode && switchB9PSAfterLerpOnSecondaryToPrimary)
-                UpdateB9PSVariants();
         }
 
 
@@ -309,12 +310,22 @@ namespace RealFuels
                 ForceAnimationPosition();
                 return;
             }
-            if (modeWasPrimary && IsSecondaryMode)
+
+            bool forward = modeWasPrimary && IsSecondaryMode;
+            bool reverse = !modeWasPrimary && IsPrimaryMode;
+
+            if (forward)
                 animPos = AnimPosition.Forward;
-            if (!modeWasPrimary && IsPrimaryMode)
+            if (reverse)
                 animPos = AnimPosition.Reverse;
 
             UpdateAnimationSpeed();
+
+            if (B9PSModules != null && B9PSModules.Count != 0 && switchB9PSAtAnimationTime > 0f && (forward || reverse))
+            {
+                ActivateB9PSVariantsOfConfig(IsPrimaryMode ? SecondaryConfig(config) : GetConfigByName(configuration));
+                b9psNeedsReset = true;
+            }
         }
 
         private void UpdateAnimationSpeed()
@@ -326,6 +337,7 @@ namespace RealFuels
                 else if (animPos == AnimPosition.Reverse) animState.speed = -1f;
                 else animState.speed = 0f;
             }
+            if (b9psNeedsReset) UpdateB9PSVariants();
         }
 
         private void CheckAnimationPosition()
@@ -334,6 +346,13 @@ namespace RealFuels
 
             foreach (AnimationState animState in animationStates)
             {
+                if (b9psNeedsReset)
+                {
+                    if (animPos == AnimPosition.Forward && animState.normalizedTime >= switchB9PSAtAnimationTime)
+                        UpdateB9PSVariants();
+                    if (animPos == AnimPosition.Reverse && animState.normalizedTime <= switchB9PSAtAnimationTime)
+                        UpdateB9PSVariants();
+                }
                 if (animState.normalizedTime >= 1f && animPos == AnimPosition.Forward)
                 {
                     animPos = AnimPosition.End;
