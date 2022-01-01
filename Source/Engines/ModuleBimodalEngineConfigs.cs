@@ -26,6 +26,9 @@ namespace RealFuels
 
         [KSPField]
         public float thrustLerpTime = -1f;  // -1 is auto-compute from animation length.
+        [KSPField]
+        public bool switchB9PSAfterLerpOnSecondaryToPrimary = false;
+
         [KSPField(guiName = "Mode", isPersistant = true, guiActive = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
         public string modeDisplay;
 
@@ -206,6 +209,9 @@ namespace RealFuels
 
             if (!(activeEngine is SolverEngines.ModuleEnginesSolver eng)) yield break;
 
+            if (IsPrimaryMode && switchB9PSAfterLerpOnSecondaryToPrimary)
+                ActivateB9PSVariantsOfConfig(SecondaryConfig(config));
+
             double origMaxTemp = eng.maxEngineTemp;
 
             // If something else has overridden these values, bail because that thing is probably
@@ -256,6 +262,9 @@ namespace RealFuels
             eng.ispMult = 1d;
             eng.flowMult = 1d;
             eng.maxEngineTemp = origMaxTemp;
+
+            if (IsPrimaryMode && switchB9PSAfterLerpOnSecondaryToPrimary)
+                UpdateB9PSVariants();
         }
 
 

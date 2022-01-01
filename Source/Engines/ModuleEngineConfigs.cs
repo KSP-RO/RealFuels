@@ -230,12 +230,12 @@ namespace RealFuels
             module.Events["ShowSubtypesWindow"].guiActive = false;
         }
 
-        public void UpdateB9PSVariants()
+        protected void ActivateB9PSVariantsOfConfig(ConfigNode node)
         {
             if (B9PSModules == null || B9PSModules.Count == 0) return;
 
             var subtypeSpecifications = new Dictionary<string, string>(B9PSModules.Count);
-            if (config.GetNodes("LinkB9PSModule") is ConfigNode[] links)
+            if (node.GetNodes("LinkB9PSModule") is ConfigNode[] links)
             {
                 foreach (ConfigNode link in links)
                 {
@@ -268,6 +268,8 @@ namespace RealFuels
                 if (HighLogic.LoadedSceneIsFlight) StartCoroutine(HideB9PSInFlightSelector_Coroutine(module));
             }
         }
+
+        public void UpdateB9PSVariants() => ActivateB9PSVariantsOfConfig(config);
         #endregion
 
         #region Callbacks
