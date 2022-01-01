@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,12 +21,9 @@ namespace RealFuels
 
         [KSPField]
         public string animationName = string.Empty;
-        private enum AnimPosition { Begin, End, Forward, Reverse }
         private List<AnimationState> animationStates;
-        private AnimPosition animPos;
         [KSPField]
         public float switchB9PSAtAnimationTime = -1f;
-        private bool b9psNeedsReset = false;
 
         [KSPField]
         public float thrustLerpTime = -1f;  // -1 is auto-compute from animation length.
@@ -83,21 +81,9 @@ namespace RealFuels
             ForceAnimationPosition();
         }
 
-        public override void OnUpdate()
-        {
-            base.OnUpdate();
-            CheckAnimationPosition();
-        }
-
 
         public override string GUIButtonName => "Bimodal Engine";
         public override string EditorDescription => "This engine can operate in two different modes. Select a configuration and an initial mode; you can change between modes (even in-flight) using the PAW or the button below.";
-
-        public override void UpdateB9PSVariants()
-        {
-            base.UpdateB9PSVariants();
-            b9psNeedsReset = false;
-        }
 
         public override string GetConfigDisplayName(ConfigNode node)
         {
@@ -111,14 +97,7 @@ namespace RealFuels
             base.SetConfiguration(newConfiguration, resetTechLevels);
             modeDisplay = ActiveModeDescription;
             Events[nameof(ToggleMode)].guiName = ToggleText;
-        }
-
-        protected void SetConfigurationAndMode(string newConfiguration, string patchName, bool resetTechLevels = false)
-        {
-            bool modeWasPrimary = IsPrimaryMode;
-            activePatchName = patchName;
-            SetConfiguration(newConfiguration);
-            UpdateAnimationTarget(modeWasPrimary);
+            ForceAnimationPosition();
         }
 
         public override string GetConfigInfo(ConfigNode config, bool addDescription = true, bool colorName = false)
@@ -154,9 +133,8 @@ namespace RealFuels
                     node.GetValue("name") == configuration,
                     (configName) =>
                     {
-                        SetConfigurationAndMode(configName, IsSecondaryMode && hasSecondary ? SecondaryPatchName(node) : "", true);
-                        UpdateSymmetryCounterparts();
-                        MarkWindowDirty();
+                        activePatchName = IsSecondaryMode && hasSecondary ? SecondaryPatchName(node) : "";
+                        GUIApplyConfig(configName);
                     });
             }
         }
@@ -179,27 +157,30 @@ namespace RealFuels
         {
             if (!ConfigHasSecondary(config)) return;
 
-            var oldAtmCurve = activeEngine.atmosphereCurve;
+            bool animateForward = IsPrimaryMode;
+            FloatCurve oldAtmCurve = activeEngine.atmosphereCurve;
             float oldFuelFlow = activeEngine.maxFuelFlow;
 
-            SetConfigurationAndMode(configuration, IsSecondaryMode ? "" : SecondaryPatchName(config));
+            activePatchName = IsPrimaryMode ? SecondaryPatchName(config) : "";
+            SetConfiguration();
             UpdateSymmetryCounterparts();
 
-            StartToggleCoroutines(oldAtmCurve, oldFuelFlow);
+            StartToggleCoroutines(animateForward, oldAtmCurve, oldFuelFlow);
             DoForEachSymmetryCounterpart(
-                (eng) => (eng as ModuleBimodalEngineConfigs).StartToggleCoroutines(oldAtmCurve, oldFuelFlow)
-            );
+                (eng) => (eng as ModuleBimodalEngineConfigs).StartToggleCoroutines(animateForward, oldAtmCurve, oldFuelFlow));
         }
 
-        private void StartToggleCoroutines(FloatCurve oldAtmCurve, float oldFuelFlow)
+        private void StartToggleCoroutines(bool animateForward, FloatCurve oldAtmCurve, float oldFuelFlow)
         {
-            if (HighLogic.LoadedSceneIsFlight && activeEngine.getIgnitionState)
+            if (!HighLogic.LoadedSceneIsFlight) return;
+
+            StartCoroutine(DriveAnimation(animateForward));
+
+            if (activeEngine.getIgnitionState)
             {
                 StartCoroutine(TemporarilyRemoveSpoolUp());
-
-                if (thrustLerpTime == -1 && animationStates != null)
-                    thrustLerpTime = animationStates.Select(a => a.clip.length).Average();
-                if (thrustLerpTime > 0f) StartCoroutine(LerpThrust(oldAtmCurve, oldFuelFlow));
+                if (thrustLerpTime > 0f)
+                    StartCoroutine(LerpThrust(oldAtmCurve, oldFuelFlow));
             }
         }
 
@@ -288,84 +269,65 @@ namespace RealFuels
                 anim.Blend(animationName);
                 animationStates.Add(animState);
             }
+
+            if (thrustLerpTime == -1 && animationStates.Count > 0)
+                thrustLerpTime = animationStates.Select(a => a.clip.length).Average();
         }
 
         private void ForceAnimationPosition()
         {
-            if (animationStates == null) return;
-            foreach (AnimationState animState in animationStates)
-            {
-                animState.normalizedTime = IsPrimaryMode ? 0f : 1f;
-                animState.speed = 0f;
-                animPos = IsPrimaryMode ? AnimPosition.Begin : AnimPosition.End;
-            }
+            SetAnimationTime(IsPrimaryMode ? 0f : 1f);
+            SetAnimationSpeed(0f);
         }
 
-        private void UpdateAnimationTarget(bool modeWasPrimary)
+        private void SetAnimationTime(float time)
         {
             if (animationStates == null) return;
+            foreach (var state in animationStates)
+                state.normalizedTime = time;
+        }
 
-            if (HighLogic.LoadedSceneIsEditor)
-            {
-                ForceAnimationPosition();
-                return;
-            }
+        private void SetAnimationSpeed(float speed)
+        {
+            if (animationStates == null) return;
+            foreach (var state in animationStates)
+                state.speed = speed;
+        }
 
-            bool forward = modeWasPrimary && IsSecondaryMode;
-            bool reverse = !modeWasPrimary && IsPrimaryMode;
+        private IEnumerator DriveAnimation(bool forward)
+        {
+            if (animationStates == null) yield break;
 
-            if (forward)
-                animPos = AnimPosition.Forward;
-            if (reverse)
-                animPos = AnimPosition.Reverse;
-
-            UpdateAnimationSpeed();
-
-            if (B9PSModules != null && B9PSModules.Count != 0 && switchB9PSAtAnimationTime > 0f && (forward || reverse))
+            bool b9psNeedsReset = false;
+            if (B9PSModules != null && B9PSModules.Count != 0 && switchB9PSAtAnimationTime >= 0f)
             {
                 ActivateB9PSVariantsOfConfig(IsPrimaryMode ? SecondaryConfig(config) : GetConfigByName(configuration));
                 b9psNeedsReset = true;
             }
-        }
 
-        private void UpdateAnimationSpeed()
-        {
-            if (animationStates == null) return;
-            foreach (AnimationState animState in animationStates)
+            SetAnimationTime(forward ? 0f : 1f);
+            SetAnimationSpeed(forward ? 1f : -1f);
+            bool animationFinished = false;
+            while (!animationFinished)
             {
-                if (animPos == AnimPosition.Forward) animState.speed = 1f;
-                else if (animPos == AnimPosition.Reverse) animState.speed = -1f;
-                else animState.speed = 0f;
+                foreach (var animState in animationStates)
+                {
+                    if (forward && animState.normalizedTime >= 1f || !forward && animState.normalizedTime <= 0f)
+                        animationFinished = true;
+
+                    if (!b9psNeedsReset) continue;
+                    if (forward && animState.normalizedTime >= switchB9PSAtAnimationTime
+                        || !forward && animState.normalizedTime <= switchB9PSAtAnimationTime)
+                    {
+                        UpdateB9PSVariants();
+                        b9psNeedsReset = false;
+                    }
+                }
+                yield return new WaitForFixedUpdate();
             }
+            SetAnimationSpeed(0f);
+
             if (b9psNeedsReset) UpdateB9PSVariants();
-        }
-
-        private void CheckAnimationPosition()
-        {
-            if (animationStates == null) return;
-
-            foreach (AnimationState animState in animationStates)
-            {
-                if (b9psNeedsReset)
-                {
-                    if (animPos == AnimPosition.Forward && animState.normalizedTime >= switchB9PSAtAnimationTime)
-                        UpdateB9PSVariants();
-                    if (animPos == AnimPosition.Reverse && animState.normalizedTime <= switchB9PSAtAnimationTime)
-                        UpdateB9PSVariants();
-                }
-                if (animState.normalizedTime >= 1f && animPos == AnimPosition.Forward)
-                {
-                    animPos = AnimPosition.End;
-                    UpdateAnimationSpeed();
-                    break;
-                }
-                if (animState.normalizedTime <= 0f && animPos == AnimPosition.Reverse)
-                {
-                    animPos = AnimPosition.Begin;
-                    UpdateAnimationSpeed();
-                    break;
-                }
-            }
         }
     }
 }
