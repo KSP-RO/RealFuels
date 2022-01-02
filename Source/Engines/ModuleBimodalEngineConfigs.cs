@@ -228,7 +228,7 @@ namespace RealFuels
                 if (oldFuelFlow > eng.maxFuelFlow)
                 {
                     // 20% margin
-                    eng.maxEngineTemp = origMaxTemp * eng.flowMult * 1.2d;
+                    eng.maxEngineTemp = origMaxTemp * eng.flowMult * eng.ispMult * 1.2d;
                 }
 
                 time += TimeWarp.fixedDeltaTime;
