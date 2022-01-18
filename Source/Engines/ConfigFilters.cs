@@ -6,14 +6,45 @@ namespace RealFuels
 {
     public class ConfigFilters : MonoBehaviour
     {
-        public List<Func<ConfigNode, bool>> configDisplayFilters;
+        public class FilterList
+        {
+            private List<Func<ConfigNode, bool>> filterList;
+
+            public FilterList()
+            {
+                this.filterList = new List<Func<ConfigNode, bool>>();
+            }
+
+            public void AddFilter(Func<ConfigNode, bool> filter)
+            {
+                if (this.filterList.Contains(filter))
+                {
+                    return;
+                }
+                this.filterList.Add(filter);
+            }
+
+            public void RemoveFilter(Func<ConfigNode, bool> filter)
+            {
+                if (!this.filterList.Contains(filter))
+                {
+                    return;
+                }
+                this.filterList.Remove(filter);
+            }
+
+            public List<Func<ConfigNode, bool>>.Enumerator GetEnumerator() => this.filterList.GetEnumerator();
+
+        }
+        public FilterList configDisplayFilters;
+
 
         public List<ConfigNode> FilterDisplayConfigs(List<ConfigNode> configs)
         {
             return FilterConfigs(configs, configDisplayFilters);
         }
 
-        public List<ConfigNode> FilterConfigs(List<ConfigNode> configs, List<Func<ConfigNode,bool>> filters)
+        public List<ConfigNode> FilterConfigs(List<ConfigNode> configs, FilterList filters)
         {
             List<ConfigNode> filteredConfigs = new List<ConfigNode>(configs);
             foreach (var filter in filters)
