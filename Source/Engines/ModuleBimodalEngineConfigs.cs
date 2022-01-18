@@ -120,11 +120,11 @@ namespace RealFuels
             return info;
         }
 
-        protected override void DrawConfigSelectors()
+        protected override void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
         {
             if (GUILayout.Button(new GUIContent(ToggleText, toggleButtonHoverInfo)))
                 ToggleMode();
-            foreach (var node in configs)
+            foreach (var node in availableConfigNodes)
             {
                 bool hasSecondary = ConfigHasSecondary(node);
                 var nodeApplied = IsSecondaryMode && hasSecondary ? SecondaryConfig(node) : node;

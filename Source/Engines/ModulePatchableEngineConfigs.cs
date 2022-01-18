@@ -1,6 +1,8 @@
 using System.Linq;
 using UnityEngine;
 
+using System.Collections.Generic;
+
 namespace RealFuels
 {
     public class ModulePatchableEngineConfigs : ModuleEngineConfigs
@@ -100,9 +102,9 @@ namespace RealFuels
             return $"{name} [Subconfig {node.GetValue(PatchNameKey)}]";
         }
 
-        protected override void DrawConfigSelectors()
+        protected override void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
         {
-            foreach (var node in configs)
+            foreach (var node in availableConfigNodes)
             {
                 DrawSelectButton(
                     node,

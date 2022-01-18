@@ -129,6 +129,7 @@ namespace RealFuels
         public bool literalZeroIgnitions = false; /* Normally, ignitions = 0 means unlimited.  Setting this changes it to really mean zero */
 
         public List<ConfigNode> configs;
+        public List<ConfigNode> filteredDisplayConfigs;
         public ConfigNode config;
 
         public static Dictionary<string, string> techNameToTitle = new Dictionary<string, string>();
@@ -1370,9 +1371,9 @@ namespace RealFuels
             }
         }
 
-        virtual protected void DrawConfigSelectors()
+        virtual protected void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
         {
-            foreach (ConfigNode node in configs)
+            foreach (ConfigNode node in availableConfigNodes)
                 DrawSelectButton(node, node.GetValue("name") == configuration, GUIApplyConfig);
         }
 
@@ -1487,7 +1488,7 @@ namespace RealFuels
             GUILayout.Label(EditorDescription);
             GUILayout.EndHorizontal();
 
-            DrawConfigSelectors();
+            DrawConfigSelectors(filteredDisplayConfigs);
             DrawTechLevelSelector();
             DrawPartInfo();
 
@@ -1573,6 +1574,8 @@ namespace RealFuels
                     if (configs.Count > 0)
                         RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
                 }
+                // Is this a good location to set filtered configs?
+                filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
             }
             else if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);
