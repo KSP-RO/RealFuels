@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace RealFuels
 {
-    public class ConfigFilters : MonoBehaviour
+    public class ConfigFilters
     {
         public class FilterList
         {
@@ -38,6 +38,11 @@ namespace RealFuels
         }
         public FilterList configDisplayFilters;
 
+        public ConfigFilters()
+        {
+            this.configDisplayFilters = new FilterList();
+        }
+
 
         public List<ConfigNode> FilterDisplayConfigs(List<ConfigNode> configs)
         {
@@ -64,13 +69,8 @@ namespace RealFuels
         {
             get
             {
-                if (_instance != null && _instance)
-                    return _instance;
-
-                GameObject gameObject = new GameObject(typeof(ConfigFilters).FullName);
-                _instance = gameObject.AddComponent<ConfigFilters>();
-                UnityEngine.Object.DontDestroyOnLoad(_instance);
-                UnityEngine.Object.DontDestroyOnLoad(gameObject);
+                if (_instance == null)
+                    return new ConfigFilters();
                 return _instance;
             }
         }
