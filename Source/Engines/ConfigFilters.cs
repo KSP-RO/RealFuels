@@ -100,7 +100,7 @@ namespace RealFuels
             get
             {
                 if (_instance == null)
-                    return new ConfigFilters();
+                    _instance = new ConfigFilters();
                 return _instance;
             }
         }
