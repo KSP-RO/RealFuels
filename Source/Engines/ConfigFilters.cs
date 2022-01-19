@@ -6,16 +6,28 @@ namespace RealFuels
 {
     public class ConfigFilters
     {
+        public class Filter
+        {
+            public string filterID;
+            public Func<ConfigNode, bool> criteria;
+
+            public Filter(string filterID, Func<ConfigNode, bool> criteria)
+            {
+                this.filterID = filterID;
+                this.criteria = criteria;
+            }
+        }
+
         public class FilterList
         {
-            private List<Func<ConfigNode, bool>> filterList;
+            private List<Filter> filterList;
 
             public FilterList()
             {
-                this.filterList = new List<Func<ConfigNode, bool>>();
+                this.filterList = new List<Filter>();
             }
 
-            public void AddFilter(Func<ConfigNode, bool> filter)
+            public void AddFilter(Filter filter)
             {
                 if (this.filterList.Contains(filter))
                 {
@@ -24,7 +36,12 @@ namespace RealFuels
                 this.filterList.Add(filter);
             }
 
-            public void RemoveFilter(Func<ConfigNode, bool> filter)
+            public void RemoveFilter(string id)
+            {
+                RemoveFilter(GetFilterFromID(id));
+            }
+
+            public void RemoveFilter(Filter filter)
             {
                 if (!this.filterList.Contains(filter))
                 {
@@ -33,9 +50,22 @@ namespace RealFuels
                 this.filterList.Remove(filter);
             }
 
-            public List<Func<ConfigNode, bool>>.Enumerator GetEnumerator() => this.filterList.GetEnumerator();
+            public Filter GetFilterFromID(string id)
+            {
+                foreach (var filter in this.filterList)
+                {
+                    if (filter.filterID == id)
+                    {
+                        return filter;
+                    }
+                }
+                return null;
+            }
+
+            public List<Filter>.Enumerator GetEnumerator() => this.filterList.GetEnumerator();
 
         }
+
         public FilterList configDisplayFilters;
 
         public ConfigFilters()
@@ -57,7 +87,7 @@ namespace RealFuels
                 int count = filteredConfigs.Count;
                 while(count-- > 0)
                 {
-                    if (!filter(filteredConfigs[count]))
+                    if (!filter.criteria(filteredConfigs[count]))
                         filteredConfigs.RemoveAt(count);
                 }
             }
