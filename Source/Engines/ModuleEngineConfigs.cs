@@ -130,8 +130,6 @@ namespace RealFuels
 
         public List<ConfigNode> configs;
         internal List<ConfigNode> _filteredDisplayConfigs;
-        internal bool displayConfigsNeedUpdating = true;
-        public List<ConfigNode> filteredDisplayConfigs => FilterDisplayConfigs();
         public ConfigNode config;
 
         public static Dictionary<string, string> techNameToTitle = new Dictionary<string, string>();
@@ -327,19 +325,13 @@ namespace RealFuels
             field.group = new BasePAWGroup(groupName, groupDisplayName, false);
         }
 
-        private List<ConfigNode> FilterDisplayConfigs()
+        private List<ConfigNode> FilteredDisplayConfigs(bool update)
         {
-            if (displayConfigsNeedUpdating)
+            if (update || _filteredDisplayConfigs == null)
             {
-                 _filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
-                 displayConfigsNeedUpdating = false;
+                _filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
             }
             return _filteredDisplayConfigs;
-        }
-
-        private void onGameSettingsApplied()
-        {
-            displayConfigsNeedUpdating = true;
         }
 
         #region PartModule Overrides
@@ -413,8 +405,6 @@ namespace RealFuels
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
-
-            GameEvents.OnGameSettingsApplied.Add(onGameSettingsApplied);
         }
 
         public override void OnStartFinished(StartState state)
@@ -467,12 +457,13 @@ namespace RealFuels
         {
             if (!compatible)
                 return string.Empty;
-            if (configs.Count < 2)
+            var configsToDisplay = FilteredDisplayConfigs(true);
+            if (configsToDisplay.Count < 2)
                 return TLTInfo();
 
             string info = TLTInfo() + "\nAlternate configurations:\n";
 
-            foreach (ConfigNode config in filteredDisplayConfigs)
+            foreach (ConfigNode config in configsToDisplay)
                 if (!config.GetValue("name").Equals(configuration))
                     info += GetConfigInfo(config, addDescription: false, colorName: true);
 
@@ -1507,7 +1498,8 @@ namespace RealFuels
             GUILayout.Label(EditorDescription);
             GUILayout.EndHorizontal();
 
-            DrawConfigSelectors(filteredDisplayConfigs);
+            DrawConfigSelectors(FilteredDisplayConfigs(false));
+
             DrawTechLevelSelector();
             DrawPartInfo();
 
