@@ -330,8 +330,10 @@ namespace RealFuels
         private List<ConfigNode> FilterDisplayConfigs()
         {
             if (displayConfigsNeedUpdating)
+            {
                  _filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
                  displayConfigsNeedUpdating = false;
+            }
             return _filteredDisplayConfigs;
         }
 
