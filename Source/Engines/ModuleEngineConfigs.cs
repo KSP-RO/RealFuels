@@ -129,7 +129,9 @@ namespace RealFuels
         public bool literalZeroIgnitions = false; /* Normally, ignitions = 0 means unlimited.  Setting this changes it to really mean zero */
 
         public List<ConfigNode> configs;
-        public List<ConfigNode> filteredDisplayConfigs;
+        internal List<ConfigNode> _filteredDisplayConfigs;
+        internal bool displayConfigsNeedUpdating = true;
+        public List<ConfigNode> filteredDisplayConfigs => FilterDisplayConfigs();
         public ConfigNode config;
 
         public static Dictionary<string, string> techNameToTitle = new Dictionary<string, string>();
@@ -325,6 +327,19 @@ namespace RealFuels
             field.group = new BasePAWGroup(groupName, groupDisplayName, false);
         }
 
+        private List<ConfigNode> FilterDisplayConfigs()
+        {
+            if (displayConfigsNeedUpdating)
+                 _filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
+                 displayConfigsNeedUpdating = false;
+            return _filteredDisplayConfigs;
+        }
+
+        private void onGameSettingsApplied()
+        {
+            displayConfigsNeedUpdating = true;
+        }
+
         #region PartModule Overrides
         public override void OnAwake()
         {
@@ -396,6 +411,8 @@ namespace RealFuels
 
             // Why is this here, if KSP will call this normally?
             part.Modules.GetModule("ModuleEngineIgnitor")?.OnStart(state);
+
+            GameEvents.OnGameSettingsApplied.Add(onGameSettingsApplied);
         }
 
         public override void OnStartFinished(StartState state)
@@ -453,7 +470,7 @@ namespace RealFuels
 
             string info = TLTInfo() + "\nAlternate configurations:\n";
 
-            foreach (ConfigNode config in configs)
+            foreach (ConfigNode config in filteredDisplayConfigs)
                 if (!config.GetValue("name").Equals(configuration))
                     info += GetConfigInfo(config, addDescription: false, colorName: true);
 
@@ -1574,8 +1591,6 @@ namespace RealFuels
                     if (configs.Count > 0)
                         RFSettings.Instance.engineConfigs[partName] = new List<ConfigNode>(configs);
                 }
-                // Is this a good location to set filtered configs?
-                filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
             }
             else if (RFSettings.Instance.engineConfigs.ContainsKey(partName))
                 configs = new List<ConfigNode>(RFSettings.Instance.engineConfigs[partName]);

@@ -4,6 +4,35 @@ using UnityEngine;
 
 namespace RealFuels
 {
+    [KSPAddon(KSPAddon.Startup.EditorAny, false)]
+    public class ModuleShowInfoUpdater : MonoBehaviour
+    {
+        protected bool run = true;
+        private void Update()
+        {
+            if (run)
+            {
+                Debug.Log("[RealFuelsFilters] Updated Info boxes");
+                foreach (AvailablePart ap in PartLoader.LoadedPartsList)
+                {
+                    if (ap.partPrefab.FindModuleImplementing<ModuleEngineConfigs>() is ModuleEngineConfigs mec)
+                    {
+                        foreach (AvailablePart.ModuleInfo x in ap.moduleInfos)
+                        {
+                            if (x.moduleName.Equals("Engine Configs"))
+                            {
+                                x.info = mec.GetInfo();
+                            }
+                        }
+                    }
+                }
+
+                run = false;
+                GameObject.Destroy(this);
+            }
+        }
+    }
+
     public class ConfigFilters
     {
         public class Filter
