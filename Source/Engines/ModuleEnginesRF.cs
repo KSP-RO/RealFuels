@@ -11,10 +11,6 @@ namespace RealFuels
         public const string groupName = "ModuleEnginesRF";
         public const string groupDisplayName = "Engine";
         #region Fields
-
-        [KSPField]
-        public string specLevel = "real";
-
         [KSPField]
         public double chamberNominalTemp = 0d;
         [KSPField]
