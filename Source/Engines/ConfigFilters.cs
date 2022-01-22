@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace RealFuels
 {
-    [KSPAddon(KSPAddon.Startup.EditorAny, false)]
+    [KSPAddon(KSPAddon.Startup.AllGameScenes, false)]
     public class ModuleShowInfoUpdater : MonoBehaviour
     {
         protected bool run = true;
