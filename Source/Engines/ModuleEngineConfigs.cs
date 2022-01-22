@@ -129,7 +129,7 @@ namespace RealFuels
         public bool literalZeroIgnitions = false; /* Normally, ignitions = 0 means unlimited.  Setting this changes it to really mean zero */
 
         public List<ConfigNode> configs;
-        internal List<ConfigNode> _filteredDisplayConfigs;
+        internal List<ConfigNode> filteredDisplayConfigs;
         public ConfigNode config;
 
         public static Dictionary<string, string> techNameToTitle = new Dictionary<string, string>();
@@ -327,11 +327,11 @@ namespace RealFuels
 
         private List<ConfigNode> FilteredDisplayConfigs(bool update)
         {
-            if (update || _filteredDisplayConfigs == null)
+            if (update || filteredDisplayConfigs == null)
             {
-                _filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
+                filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
             }
-            return _filteredDisplayConfigs;
+            return filteredDisplayConfigs;
         }
 
         #region PartModule Overrides
