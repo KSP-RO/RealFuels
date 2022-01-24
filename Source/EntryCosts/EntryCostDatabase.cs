@@ -124,6 +124,13 @@ namespace RealFuels
 
         public static int GetCost(string name)
         {
+            TryGetCost(name, out int cost);
+            return cost;
+        }
+
+        public static bool TryGetCost(string name, out int cost)
+        {
+            cost = 0;
             if (unlockPathTracker.Contains(name))
             {
                 /*string msg = "[EntryCostDatabase]: Circular reference on " + name;
@@ -131,15 +138,18 @@ namespace RealFuels
                     msg += "\n" + s;
 
                 Debug.LogError(msg);*/
-                return 0;
+                return true;
             }
 
             unlockPathTracker.Add(name);
 
             if (holders.TryGetValue(name, out PartEntryCostHolder h))
-                return h.GetCost();
+            {
+                cost = h.GetCost();
+                return true;
+            }
 
-            return 0;
+            return false;
         }
 
         public static void UpdateEntryCost(AvailablePart ap)

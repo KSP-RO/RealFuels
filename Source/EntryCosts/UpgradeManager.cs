@@ -193,6 +193,20 @@ namespace RealFuels
             return sum;
         }
 
+        public double EntryCostForParts(IEnumerable<AvailablePart> parts)
+        {
+            EntryCostDatabase.ClearTracker();
+            double sum = 0;
+            foreach (AvailablePart ap in parts)
+            {
+                if (!EntryCostDatabase.TryGetCost(ap.name, out int cost))
+                    cost = ap.entryCost;
+                sum += cost;
+            }
+
+            return sum;
+        }
+
         public bool PurchaseConfig(string cfgName)
         {
             if (ConfigUnlocked(cfgName))
