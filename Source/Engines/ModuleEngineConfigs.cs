@@ -314,9 +314,9 @@ namespace RealFuels
                 defaultGimbals[g.gimbalTransformName] = new Gimbal(g.gimbalRange, g.gimbalRangeXP, g.gimbalRangeXN, g.gimbalRangeYP, g.gimbalRangeYN);
         }
 
-        private void RelocateRCSPawItems(ModuleRCS module)
+        public static void RelocateRCSPawItems(ModuleRCS module)
         {
-            var field = pModule.Fields["thrusterPower"];
+            var field = module.Fields["thrusterPower"];
             field.guiActive = true;
             field.guiActiveEditor = true;
             field.guiName = "Thruster Power";
