@@ -16,9 +16,14 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         public bool dynamicPatchApplied = false;
 
-        protected bool ConfigHasPatch(ConfigNode config) => config.HasNode(PatchNodeName);
+        protected bool ConfigHasPatch(ConfigNode config) => GetPatchesOfConfig(config).Count > 0;
 
-        protected ConfigNode[] GetPatchesOfConfig(ConfigNode config) => config.GetNodes(PatchNodeName);
+        protected List<ConfigNode> GetPatchesOfConfig(ConfigNode config)
+        {
+            ConfigNode[] list = config.GetNodes(PatchNodeName);
+            List<ConfigNode> sortedList = ConfigFilters.Instance.FilterDisplayConfigs(list.ToList());
+            return sortedList;
+        }
 
         protected ConfigNode GetPatch(string configName, string patchName)
         {
