@@ -482,6 +482,7 @@ namespace RealFuels
             Fields[nameof(thrustCurveDisplay)].guiActive = useThrustCurve;
 
             var group = Fields[nameof(propellantStatus)].group;
+            Fields[nameof(engineTemp)].group = group;
             Fields[nameof(actualThrottle)].group = group;
             Fields[nameof(realIsp)].group = group;
             Fields[nameof(finalThrust)].group = group;
