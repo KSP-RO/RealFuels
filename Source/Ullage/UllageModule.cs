@@ -64,15 +64,11 @@ namespace RealFuels.Ullage
             }
 
 #if DEBUG
-            var str = new System.Text.StringBuilder("Ullage states: ");
+            var str = StringBuilderCache.Acquire();
+            str.AppendLine("Ullage states:");
             foreach (var set in ullageSets)
-            {
-                str.Append(set.Engine());
-                str.Append(" is ");
-                str.Append(set.GetUllageStability().ToString("N4"));
-                str.Append("\n");
-            }
-            print(str);
+                str.AppendLine($"{set.Engine()} is {set.GetUllageStability():N4}");
+            Debug.Log(str.ToStringAndRelease());
 #endif
         }
 
