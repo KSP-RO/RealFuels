@@ -28,4 +28,4 @@ using System.Runtime.CompilerServices;
 //[assembly: AssemblyKeyFile("")]
 
 [assembly: KSPAssembly("RealFuels", @MAJOR_VERSION@, @MINOR_VERSION@, @PATCH_VERSION@)]
-[assembly: KSPAssemblyDependency("SolverEngines", 3, 3)]
+[assembly: KSPAssemblyDependency("SolverEngines", 3, 13)]
