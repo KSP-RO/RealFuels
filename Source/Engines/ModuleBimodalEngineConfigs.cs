@@ -38,7 +38,7 @@ namespace RealFuels
         {
             foreach (var node in configs)
             {
-                if (GetPatchesOfConfig(node).Length != 1)
+                if (GetPatchesOfConfig(node).Count != 1)
                     Debug.LogError($"**ModuleAnimatedBimodalEngine** Configuration {node.GetValue("name")} does not specify a `SUBCONFIG` for its `{secondaryDescription}` mode!");
             }
         }
