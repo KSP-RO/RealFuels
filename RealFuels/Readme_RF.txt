@@ -49,6 +49,14 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.6.0
+* Support a subconfig system for Engine Configs, to support e.g. the retracted and extended states of the XLR129-P-1.
+* Many performance improvements.
+* Support filtering available configs based on external input (e.g. realism level).
+* Support (and require) SolverEngines v3.13+.
+* Better ECM integration with RP-1.
+
+
 v13.5.3
 
 This is a hotfix to release v13.5.2, which contained a bug resulting in fuel consumption being lowered by a factor of 1000.
