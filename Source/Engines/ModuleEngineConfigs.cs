@@ -129,6 +129,7 @@ namespace RealFuels
         public bool literalZeroIgnitions = false; /* Normally, ignitions = 0 means unlimited.  Setting this changes it to really mean zero */
 
         public List<ConfigNode> configs;
+        internal List<ConfigNode> filteredDisplayConfigs;
         public ConfigNode config;
 
         public static Dictionary<string, string> techNameToTitle = new Dictionary<string, string>();
@@ -324,6 +325,15 @@ namespace RealFuels
             field.group = new BasePAWGroup(groupName, groupDisplayName, false);
         }
 
+        private List<ConfigNode> FilteredDisplayConfigs(bool update)
+        {
+            if (update || filteredDisplayConfigs == null)
+            {
+                filteredDisplayConfigs = ConfigFilters.Instance.FilterDisplayConfigs(configs);
+            }
+            return filteredDisplayConfigs;
+        }
+
         #region PartModule Overrides
         public override void OnAwake()
         {
@@ -447,12 +457,13 @@ namespace RealFuels
         {
             if (!compatible)
                 return string.Empty;
-            if (configs.Count < 2)
+            var configsToDisplay = FilteredDisplayConfigs(true);
+            if (configsToDisplay.Count < 2)
                 return TLTInfo();
 
             string info = TLTInfo() + "\nAlternate configurations:\n";
 
-            foreach (ConfigNode config in configs)
+            foreach (ConfigNode config in configsToDisplay)
                 if (!config.GetValue("name").Equals(configuration))
                     info += GetConfigInfo(config, addDescription: false, colorName: true);
 
@@ -1370,9 +1381,9 @@ namespace RealFuels
             }
         }
 
-        virtual protected void DrawConfigSelectors()
+        virtual protected void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
         {
-            foreach (ConfigNode node in configs)
+            foreach (ConfigNode node in availableConfigNodes)
                 DrawSelectButton(node, node.GetValue("name") == configuration, GUIApplyConfig);
         }
 
@@ -1487,7 +1498,8 @@ namespace RealFuels
             GUILayout.Label(EditorDescription);
             GUILayout.EndHorizontal();
 
-            DrawConfigSelectors();
+            DrawConfigSelectors(FilteredDisplayConfigs(false));
+
             DrawTechLevelSelector();
             DrawPartInfo();
 

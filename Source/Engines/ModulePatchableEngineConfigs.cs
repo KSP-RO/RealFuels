@@ -1,6 +1,8 @@
 using System.Linq;
 using UnityEngine;
 
+using System.Collections.Generic;
+
 namespace RealFuels
 {
     public class ModulePatchableEngineConfigs : ModuleEngineConfigs
@@ -14,9 +16,14 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         public bool dynamicPatchApplied = false;
 
-        protected bool ConfigHasPatch(ConfigNode config) => config.HasNode(PatchNodeName);
+        protected bool ConfigHasPatch(ConfigNode config) => GetPatchesOfConfig(config).Count > 0;
 
-        protected ConfigNode[] GetPatchesOfConfig(ConfigNode config) => config.GetNodes(PatchNodeName);
+        protected List<ConfigNode> GetPatchesOfConfig(ConfigNode config)
+        {
+            ConfigNode[] list = config.GetNodes(PatchNodeName);
+            List<ConfigNode> sortedList = ConfigFilters.Instance.FilterDisplayConfigs(list.ToList());
+            return sortedList;
+        }
 
         protected ConfigNode GetPatch(string configName, string patchName)
         {
@@ -100,9 +107,9 @@ namespace RealFuels
             return $"{name} [Subconfig {node.GetValue(PatchNameKey)}]";
         }
 
-        protected override void DrawConfigSelectors()
+        protected override void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
         {
-            foreach (var node in configs)
+            foreach (var node in availableConfigNodes)
             {
                 DrawSelectButton(
                     node,
