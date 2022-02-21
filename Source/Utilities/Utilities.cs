@@ -55,6 +55,20 @@ namespace RealFuels
             }
         }
 
+        private static bool? _RP1Found = null;
+        public static bool RP1Found
+        {
+            get
+            {
+                if (!_RP1Found.HasValue)
+                {
+                    var assembly = AssemblyLoader.loadedAssemblies.FirstOrDefault(a => a.assembly.GetName().Name == "RP0")?.assembly;
+                    _RP1Found = (assembly is Assembly);
+                }
+                return _RP1Found.Value;
+            }
+        }
+
         public static FloatCurve Mod(FloatCurve fc, float sMult, float vMult)
         {
             FloatCurve newCurve = new FloatCurve();
