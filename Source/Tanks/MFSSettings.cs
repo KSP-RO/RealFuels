@@ -1,13 +1,11 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
 
 namespace RealFuels
 {
-	[KSPAddon (KSPAddon.Startup.Instantly, false)]
-    public class MFSSettings : MonoBehaviour
+    public class MFSSettings
 	{
         public static bool useRealisticMass = true;
         public static float tankMassMultiplier = 1;
@@ -18,14 +16,15 @@ namespace RealFuels
         public static bool basemassUseTotalVolume = false;
         public static double radiatorMinTempMult = 0.99d;
 
-        public static HashSet<string> ignoreFuelsForFill;
-        public static Tanks.TankDefinitionList tankDefinitions;
+        public static HashSet<string> ignoreFuelsForFill = new HashSet<string>();
+        public static Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
 
-		public static Dictionary<string, HashSet<string>> managedResources;
-        public static Dictionary<string, double> resourceVsps;
-        public static Dictionary<string, double> resourceConductivities;
+		public static Dictionary<string, HashSet<string>> managedResources = new Dictionary<string, HashSet<string>>();
+        public static Dictionary<string, double> resourceVsps = new Dictionary<string, double>();
+        public static Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();
 
-        private static Dictionary<string, ConfigNode[]> overrides;
+        private static Dictionary<string, ConfigNode[]> overrides = new Dictionary<string, ConfigNode[]>();
+        private static bool Initialized = false;
 
         static string version;
         public static string GetVersion ()
@@ -41,123 +40,79 @@ namespace RealFuels
             return version;
         }
 
-		void Awake ()
-		{
-			ignoreFuelsForFill = null;
-			tankDefinitions = null;
-			managedResources = null;
-
-			Destroy (this);
-		}
-
         public static void SaveOverrideList(Part p, ConfigNode[] nodes)
         {
             string id = GetPartIdentifier(p);
             if (overrides.ContainsKey(id))
-            {
                 Debug.Log("*MFT* ERROR: overrides already stored for " + id);
-            }
             else
-            {
                 overrides[id] = nodes;
-            }
         }
 
         public static ConfigNode[] GetOverrideList(Part p)
         {
             string id = GetPartIdentifier(p);
-            if (overrides.ContainsKey(id))
-            {
-                return overrides[id];
-            }
+            if (overrides.TryGetValue(id, out var result))
+                return result;
+
             Debug.Log("*MFT* WARNING: no entry in overrides for " + id);
             return new ConfigNode[0];
         }
 
         private static string GetPartIdentifier(Part part)
         {
-            string partName = part.name;
-            if (part.partInfo != null)
-                partName = part.partInfo.name;
+            string partName = part.partInfo != null ? part.partInfo.name : part.name;
             partName = Utilities.SanitizeName(partName);
             return partName;
         }
 
+        public static void TryInitialize()
+        {
+            if (!Initialized) Initialize();
+        }
+
         public static void Initialize ()
         {
-			ignoreFuelsForFill = new HashSet<string> ();
-			tankDefinitions = new Tanks.TankDefinitionList ();
-			managedResources = new Dictionary<string,HashSet<string>> ();
-            overrides = new Dictionary<string, ConfigNode[]>();
-
             // fill vsps & conductivities
-            resourceVsps = new Dictionary<string, double>();
-            resourceConductivities = new Dictionary<string, double>();
             foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("RESOURCE_DEFINITION"))
             {
-                if (n.HasValue("vsp"))
-                {
-                    double dtmp;
-                    if (double.TryParse(n.GetValue("vsp"), out dtmp))
-                        resourceVsps[n.GetValue("name")] = dtmp;
-                }
-                if (n.HasValue("conductivity"))
-                {
-                    double dtmp;
-                    if (double.TryParse(n.GetValue("conductivity"), out dtmp))
-                        resourceConductivities[n.GetValue("name")] = dtmp;
-                }
+                string nm = n.GetValue("name");
+                double dtmp = 0;
+                if (n.TryGetValue("vsp", ref dtmp))
+                    resourceVsps[nm] = dtmp;
+                if (n.TryGetValue("conductivity", ref dtmp))
+                    resourceConductivities[nm] = dtmp;
             }
 
-
-            ConfigNode node = GameDatabase.Instance.GetConfigNodes ("MFSSETTINGS").LastOrDefault ();
+            ConfigNode node = GameDatabase.Instance.GetConfigNodes("MFSSETTINGS").LastOrDefault();
             Debug.Log ("[MFS] Loading global settings");
 
 			if (node != null) {
-				bool tb;
-				float tf;
-                double td;
+                node.TryGetValue("useRealisticMass", ref useRealisticMass);
+                node.TryGetValue("tankMassMultiplier", ref tankMassMultiplier);
+                node.TryGetValue("baseCostPV", ref baseCostPV);
+                node.TryGetValue("partUtilizationDefault", ref partUtilizationDefault);
+                node.TryGetValue("partUtilizationTweakable", ref partUtilizationTweakable);
+                node.TryGetValue("unitLabel", ref unitLabel);
+                node.TryGetValue("basemassUseTotalVolume", ref basemassUseTotalVolume);
+                node.TryGetValue("radiatorMinTempMult", ref radiatorMinTempMult);
 
-				if (bool.TryParse (node.GetValue ("useRealisticMass"), out tb)) {
-					useRealisticMass = tb;
-				}
-				if (float.TryParse (node.GetValue ("tankMassMultiplier"), out tf)) {
-					tankMassMultiplier = tf;
-				}
-				if (float.TryParse (node.GetValue ("baseCostPV"), out tf)) {
-					baseCostPV = tf;
-				}
-				if (float.TryParse (node.GetValue ("partUtilizationDefault"), out tf)) {
-					partUtilizationDefault = tf;
-				}
-				if (bool.TryParse (node.GetValue ("partUtilizationTweakable"), out tb)) {
-					partUtilizationTweakable = tb;
-				}
-                if (node.HasValue ("unitLabel")) {
-					unitLabel = node.GetValue ("unitLabel");
-				}
-                if (bool.TryParse(node.GetValue("basemassUseTotalVolume"), out tb)) {
-                    basemassUseTotalVolume = tb;
-                }
-                if (node.HasValue("radiatorMinTempMult"))
-                    if (double.TryParse(node.GetValue("radiatorMinTempMult"), out td))
-                        radiatorMinTempMult = td;
-
-                ConfigNode ignoreNode = node.GetNode ("IgnoreFuelsForFill");
+                ConfigNode ignoreNode = node.GetNode("IgnoreFuelsForFill");
 				if (ignoreNode != null) {
 					foreach (ConfigNode.Value v in ignoreNode.values) {
-						ignoreFuelsForFill.Add (v.name);
+                        ignoreFuelsForFill.Add(v.name);
 					}
 				}
 			}
 
-            foreach (ConfigNode defNode in GameDatabase.Instance.GetConfigNodes ("TANK_DEFINITION")) {
-                if (tankDefinitions.Contains (defNode.GetValue ("name"))) {
+            foreach (ConfigNode defNode in GameDatabase.Instance.GetConfigNodes("TANK_DEFINITION")) {
+                if (tankDefinitions.Contains(defNode.GetValue("name"))) {
                     Debug.LogWarning ("[MFS] Ignored duplicate definition of tank type " + defNode.GetValue ("name"));
                 } else {
-                    tankDefinitions.Add (new Tanks.TankDefinition (defNode));
+                    tankDefinitions.Add(new Tanks.TankDefinition(defNode));
 				}
             }
+            Initialized = true;
         }
     }
 }

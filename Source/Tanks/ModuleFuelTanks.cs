@@ -58,6 +58,7 @@ namespace RealFuels.Tanks
 
         public override void OnAwake ()
         {
+            MFSSettings.TryInitialize();
             enabled = false;
 
             InitUtilization();
@@ -206,11 +207,6 @@ namespace RealFuels.Tanks
             }
             else
             {
-                if (MFSSettings.tankDefinitions == null)
-                {
-                    MFSSettings.Initialize();
-                }
-
                 ConfigNode[] unmanagedResourceNodes = node.GetNodes("UNMANAGED_RESOURCE");
                 //Debug.Log("[ModuleFuelTanks.OnLoad()] " + unmanagedResourceNodes.Count() + " UNMANAGED_RESOURCE nodes found");
                 for (int i = unmanagedResourceNodes.Count() - 1; i >= 0; --i)
