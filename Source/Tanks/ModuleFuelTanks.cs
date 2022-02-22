@@ -28,13 +28,69 @@ namespace RealFuels.Tanks
 
         public Dictionary<string, UnmanagedResource> unmanagedResources;
 
+        // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
+        internal FuelTankList tankList = new FuelTankList();
+        public List<string> typesAvailable = new List<string>();
+
+        // for EngineIgnitor integration: store a public list of the fuel tanks, and
+        [NonSerialized]
+        public List<FuelTank> fuelList = new List<FuelTank>();
+
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string type = "Default";
+        private string oldType;
+
+        // The total tank volume. This is prior to utilization
+        public double totalVolume;
+
+        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName),
+         UI_FloatRange(minValue = 1, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
+        public float utilization = -1;
+        private float oldUtilization = -1;
+
+        [KSPField]
+        public bool utilizationTweakable = false;
+
+        [KSPField]
+        public float minUtilization = 1f;
+
+        [KSPField]
+        public float maxUtilization = 100f;
+
+        [KSPField(isPersistant = true)]
+        public double volume;
+
+        [KSPField(guiActiveEditor = true, guiName = "Volume", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        public string volumeDisplay;
+
+        // Conversion between tank volume in kL, and whatever units this tank uses.
+        // Default to 1000 for RF. Varies for MFT. Needed to interface with PP.
+        [KSPField]
+        public float tankVolumeConversion = 1000;
+
+        [KSPField(isPersistant = true)]
+        public float mass;
+
+        [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        public string massDisplay;
+
+        [KSPField(guiActiveEditor = true, guiName = "Tank UI", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        [UI_Toggle(enabledText = "Hide", disabledText = "Show", suppressEditorShipModified = true)]
+        [NonSerialized]
+        public bool showUI;
+
         bool started;
+        internal bool massDirty = true;
         private bool windowDirty = false;
 
         public bool fueledByLaunchClamp = false;
 
         private const string guiGroupName = "RealFuels";
         private const string guiGroupDisplayName = "Real Fuels";
+
+        public double UsedVolume { get; private set; }
+
+        public double AvailableVolume => volume - UsedVolume;
 
         private static double MassMult => MFSSettings.useRealisticMass ? 1.0 : MFSSettings.tankMassMultiplier;
 
@@ -391,18 +447,6 @@ namespace RealFuels.Tanks
             UpdateRF();
         }
 
-        // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
-        internal FuelTankList tankList = new FuelTankList ();
-
-        [KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption (scene = UI_Scene.Editor)]
-        public string type = "Default";
-        private string oldType;
-
-        public List<string> typesAvailable = new List<string>(); 
-
-        // for EngineIgnitor integration: store a public list of the fuel tanks, and
-        [NonSerialized]
-        public List<FuelTank> fuelList = new List<FuelTank> ();
 
         private void InitializeTankType ()
         {
@@ -530,37 +574,7 @@ namespace RealFuels.Tanks
             UpdateTestFlight();
         }
 
-        // The total tank volume. This is prior to utilization
-        public double totalVolume;
 
-        [KSPField (isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName),
-         UI_FloatRange (minValue = 1, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
-        public float utilization = -1;
-        private float oldUtilization = -1;
-
-        [KSPField]
-        public bool utilizationTweakable = false;
-
-        [KSPField]
-        public float minUtilization = 1f;
-
-        [KSPField]
-        public float maxUtilization = 100f;
-
-        [KSPField (isPersistant = true)]
-        public double volume;
-
-        [KSPField (guiActiveEditor = true, guiName = "Volume", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
-        public string volumeDisplay;
-
-        public double UsedVolume { get; private set; }
-
-        public double AvailableVolume => volume - UsedVolume;
-
-        // Conversion between tank volume in kL, and whatever units this tank uses.
-        // Default to 1000 for RF. Varies for MFT. Needed to interface with PP.
-        [KSPField]
-        public float tankVolumeConversion = 1000;
 
         [KSPEvent (guiActive=false, active = true)]
         void OnPartVolumeChanged (BaseEventDetails data)
@@ -639,12 +653,6 @@ namespace RealFuels.Tanks
         }
 
 
-        [KSPField (isPersistant = true)]
-        public float mass;
-        internal bool massDirty = true;
-
-        [KSPField (guiActiveEditor = true, guiName = "Mass", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
-        public string massDisplay;
 
         // public so they copy
         public bool basemassOverride;
@@ -842,11 +850,6 @@ namespace RealFuels.Tanks
             // We'll need to update the volume display regardless
             massDirty = true;
         }
-
-        [KSPField(guiActiveEditor = true, guiName = "Tank UI", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
-        [UI_Toggle(enabledText = "Hide", disabledText = "Show", suppressEditorShipModified = true)]
-        [NonSerialized]
-        public bool showUI;
 
         [KSPEvent (guiName = "Remove All Tanks", guiActive = false, guiActiveEditor = true, name = "Empty", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
         public void Empty ()
