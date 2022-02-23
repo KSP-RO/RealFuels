@@ -43,10 +43,9 @@ namespace RealFuels.Tanks
         // The total tank volume. This is prior to utilization
         public double totalVolume;
 
-        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName),
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName),
          UI_FloatRange(minValue = 1, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
         public float utilization = -1;
-        private float oldUtilization = -1;
 
         [KSPField]
         public bool utilizationTweakable = false;
@@ -276,6 +275,8 @@ namespace RealFuels.Tanks
 
                 InitializeTankType();
                 InitUtilization();
+                Fields[nameof(utilization)].uiControlEditor.onFieldChanged += OnUtilizationChanged;
+                Fields[nameof(utilization)].uiControlEditor.onSymmetryFieldChanged += OnUtilizationChanged;
             }
 
             OnStartRF(state);
@@ -304,37 +305,36 @@ namespace RealFuels.Tanks
 
         private const int wait_frames = 2;
         private int update_wait_frames = 0;
+        private int updateusedby_wait_frames = 0;
 
-        private IEnumerator WaitAndUpdate (ShipConstruct ship)
+        private IEnumerator WaitAndUpdateResources(ShipConstruct ship)
         {
             while (--update_wait_frames > 0) yield return null;
             PartResourcesChanged();
         }
+        private IEnumerator WaitAndUpdateUsedBy()
+        {
+            while (--updateusedby_wait_frames > 0) yield return null;
+            UpdateUsedBy();
+        }
+
+        private void OnUtilizationChanged(BaseField f, object obj) => ChangeTotalVolume(totalVolume);
 
         private void OnEditorShipModified(ShipConstruct ship)
         {
             // some parts/modules fire the event before doing things
             if (update_wait_frames == 0) {
                 update_wait_frames = wait_frames;
-                StartCoroutine (WaitAndUpdate (ship));
-            } else {
+                StartCoroutine(WaitAndUpdateResources(ship));
+            } else
                 update_wait_frames = wait_frames;
-            }
-        }
-
-        private int updateusedby_wait_frames = 0;
-
-        private IEnumerator WaitAndUpdateUsedBy ()
-        {
-            while (--updateusedby_wait_frames > 0) yield return null;
-            UpdateUsedBy();
         }
 
         private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> hostTarget)
         {
             if (updateusedby_wait_frames == 0) {
                 updateusedby_wait_frames = wait_frames;
-                StartCoroutine (WaitAndUpdateUsedBy ());
+                StartCoroutine(WaitAndUpdateUsedBy());
             } else {
                 updateusedby_wait_frames = wait_frames;
             }
@@ -363,7 +363,6 @@ namespace RealFuels.Tanks
             if (HighLogic.LoadedSceneIsEditor)
             {
                 UpdateTankType();
-                UpdateUtilization();
                 CalculateMass();
 
                 bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
@@ -550,19 +549,6 @@ namespace RealFuels.Tanks
         {
             ChangeTotalVolume (totalVolume * ratio, propagate);
         }
-
-        private void UpdateUtilization ()
-        {
-            if (oldUtilization == utilization) {
-                return;
-            }
-
-            oldUtilization = utilization;
-
-            ChangeTotalVolume (totalVolume);
-        }
-
-
 
         // public so they copy
         public bool basemassOverride;
