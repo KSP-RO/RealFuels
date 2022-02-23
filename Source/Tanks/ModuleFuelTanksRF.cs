@@ -367,11 +367,6 @@ namespace RealFuels.Tanks
                 pressurizedFuels[f.name] = def.highlyPressurized || f.note.ToLower().Contains("pressurized");
         }
 
-        partial void ParseInsulationFactor(ConfigNode node)
-        {
-            node.TryGetValue("numberOfMLILayers", ref numberOfMLILayers);
-        }
-
         // Fired from ProcParts when updating the collider and drag cubes, after OnPartVolumeChanged
         [KSPEvent(guiActive = false, active = true)]
         public void OnPartColliderChanged() => CalculateTankArea();

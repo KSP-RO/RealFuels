@@ -213,7 +213,6 @@ namespace RealFuels.Tanks
                     MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
                     ParseBaseMass(node);
                     ParseBaseCost(node);
-                    ParseInsulationFactor(node);
                     typesAvailable.AddUniqueRange(node.GetValues("typeAvailable"));
                     typesAvailable.AddUnique(type);
                     RecordManagedResources();
@@ -987,7 +986,6 @@ namespace RealFuels.Tanks
 
         partial void OnStartRF(StartState state);
         partial void UpdateTestFlight();
-        partial void ParseInsulationFactor(ConfigNode node);
         partial void UpdateTankTypeRF(TankDefinition def);
         partial void GetModuleCostRF(ref double cost);
         partial void CalculateMassRF(ref double mass);
