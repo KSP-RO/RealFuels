@@ -351,7 +351,7 @@ namespace RealFuels.Tanks
 
             InitUtilization();
 
-            if (isDatabaseLoad)
+            if (HighLogic.LoadedScene == GameScenes.LOADING)
                 UpdateEngineIgnitor(def);
         }
 
