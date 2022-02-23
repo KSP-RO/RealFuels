@@ -106,10 +106,11 @@ namespace RealFuels
 			}
 
             foreach (ConfigNode defNode in GameDatabase.Instance.GetConfigNodes("TANK_DEFINITION")) {
-                if (tankDefinitions.Contains(defNode.GetValue("name"))) {
+                if (tankDefinitions.ContainsKey(defNode.GetValue("name"))) {
                     Debug.LogWarning ("[MFS] Ignored duplicate definition of tank type " + defNode.GetValue ("name"));
                 } else {
-                    tankDefinitions.Add(new Tanks.TankDefinition(defNode));
+                    var def = new Tanks.TankDefinition(defNode);
+                    tankDefinitions.Add(def.name, def);
 				}
             }
             Initialized = true;

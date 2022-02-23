@@ -36,7 +36,7 @@ namespace RealFuels.Tanks
         [NonSerialized]
         public List<FuelTank> fuelList = new List<FuelTank>();
 
-        [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
         public string type = "Default";
         private string oldType;
 
@@ -130,7 +130,8 @@ namespace RealFuels.Tanks
 
         private void RecordManagedResources()
         {
-            var resources = new HashSet<string>();
+            if (!MFSSettings.managedResources.TryGetValue(part.name, out var resources))
+                resources = new HashSet<string>();
             foreach (string t in typesAvailable)
                 RecordTankTypeResources(resources, t);
             MFSSettings.managedResources[part.name] = resources;
@@ -185,6 +186,7 @@ namespace RealFuels.Tanks
                 if (typeAvailableUpgrades.Length > 0)
                 {
                     typesAvailable.AddUniqueRange(typeAvailableUpgrades);
+                    RecordManagedResources();
                     InitializeTankType();
                 }
             }
@@ -402,75 +404,36 @@ namespace RealFuels.Tanks
 
             // Copy the tank list from the tank definitiion
             if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def)) {
-                Debug.LogError ("Unable to find tank definition for type \"" + type + "\" reverting.");
-                type = oldType;
-                return;
-            }
-            if (!def.canHave)
-            {
-                type = oldType;
-                if (!string.IsNullOrEmpty(oldType)) // we have an old type
-                {
-                    def = MFSSettings.tankDefinitions[type];
-                    if (def.canHave)
-                        return; // go back to old type
-                }
-                // else find one that does work
-                if (typesAvailable != null)
-                {
-                    for (int i = 0; i < typesAvailable.Count(); i++)
-                    {
-                        string tn = typesAvailable[i];
-                        if (MFSSettings.tankDefinitions.TryGetValue(tn, out TankDefinition newDef) && newDef.canHave)
-                        {
-                            def = newDef;
-                            type = newDef.name;
-                            break;
-                        }
-                    }
-                }
-                if (type == oldType) // if we didn't find a new one
-                {
-                    Debug.LogError("Unable to find a type that is tech-available for part " + part.name);
-                    return;
-                }
+                string msg = $"[ModuleFuelTanks] Somehow tried to set tank type to {type} but it has no definition.";
+                type = MFSSettings.tankDefinitions.ContainsKey(oldType) ? oldType : typesAvailable.First();
+                Debug.LogError($"{msg} Reset to {type}");
             }
 
             oldType = type;
 
             // Build the new tank list.
-            tankList = new FuelTankList ();
-            for (int i = 0; i < def.tankList.Count; i++) {
-                FuelTank tank = def.tankList[i];
+            tankList = new FuelTankList();
+            foreach (FuelTank tank in def.tankList) {
                 // Pull the override from the list of overrides
                 ConfigNode overNode = MFSSettings.GetOverrideList(part).FirstOrDefault(n => n.GetValue("name") == tank.name);
-
-                tankList.Add (tank.CreateCopy (this, overNode, initializeAmounts));
+                tankList.Add(tank.CreateCopy(this, overNode, initializeAmounts));
             }
             tankList.TechAmounts(); // update for current techs
 
             // Destroy any managed resources that are not in the new type.
             HashSet<string> managed = MFSSettings.managedResources[part.name];  // if this throws, we have some big fish to fry
-            bool needsMesage = false;
-            for (int i = part.Resources.Count - 1; i >= 0; --i) {
-                PartResource partResource = part.Resources[i];
-                string resname = partResource.resourceName;
-                if (!managed.Contains(resname) || tankList.Contains(resname) || unmanagedResources.ContainsKey(resname))
-                    continue;
-                part.Resources.Remove (partResource.info.id);
-                part.SimulationResources.Remove (partResource.info.id);
-                needsMesage = true;
+            var removeList = part.Resources.Where(x => managed.Contains(x.resourceName) && !tankList.Contains(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
+            foreach (var partResource in removeList)
+            {
+                part.Resources.Remove(partResource.info.id);
+                part.SimulationResources.Remove(partResource.info.id);
             }
-            if (needsMesage) {
-                RaiseResourceListChanged ();
-            }
-            if (!basemassOverride) {
-                ParseBaseMass (def.basemass);
-            }
-            if (!baseCostOverride) {
-                ParseBaseCost (def.baseCost);
-            }
-
+            if (removeList.Count > 0)
+                RaiseResourceListChanged();
+            if (!basemassOverride)
+                ParseBaseMass(def.basemass);
+            if (!baseCostOverride)
+                ParseBaseCost(def.baseCost);
 
             if (HighLogic.LoadedScene != GameScenes.LOADING) {
                 // being called in the SpaceCenter scene is assumed to be a database reload
@@ -488,10 +451,10 @@ namespace RealFuels.Tanks
         [KSPEvent (guiActive=false, active = true)]
         void OnPartVolumeChanged (BaseEventDetails data)
         {
-            string volName = data.Get<string> ("volName");
-            double newTotalVolume = data.Get<double> ("newTotalVolume") * tankVolumeConversion;
-            if (volName == "Tankage") {
-                ChangeTotalVolume (newTotalVolume);
+            if (data.Get<string>("volName").Equals("Tankage"))
+            {
+                double newTotalVolume = data.Get<double>("newTotalVolume") * tankVolumeConversion;
+                ChangeTotalVolume(newTotalVolume);
             }
         }
 
