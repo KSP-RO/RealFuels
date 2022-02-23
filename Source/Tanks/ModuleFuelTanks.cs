@@ -126,40 +126,34 @@ namespace RealFuels.Tanks
 
         void RecordTankTypeResources (HashSet<string> resources, string type)
         {
-            if (!MFSSettings.tankDefinitions.Contains (type)) {
-                return;
-            }
-            TankDefinition def = MFSSettings.tankDefinitions[type];
-
-            foreach (FuelTank tank in def.tankList)
-                resources.Add (tank.name);
+            if (MFSSettings.tankDefinitions.TryGetValue(type, out var def))
+                foreach (FuelTank tank in def.tankList)
+                    resources.Add(tank.name);
         }
 
         void RecordManagedResources ()
         {
-            HashSet<string> resources = new HashSet<string> ();
-
-            RecordTankTypeResources (resources, type);
+            var resources = new HashSet<string>();
             foreach (string t in typesAvailable)
-                RecordTankTypeResources (resources, t);
+                RecordTankTypeResources(resources, t);
             MFSSettings.managedResources[part.name] = resources;
         }
 
-        void CleanResources ()
+        void CleanResources()
         {
-            // Destroy any resources still hanging around from the LOADING phase
-            for (int i = part.Resources.Count - 1; i >= 0; --i) {
-                PartResource partResource = part.Resources[i];
-                // Do not remove any resources not managed by MFT
-                if (!tankList.Contains (partResource.resourceName))
-                    continue;
-                part.Resources.Remove(partResource.info.id);
-                part.SimulationResources.Remove(partResource.info.id);
+            // Do not remove any resources not managed by MFT
+            List<PartResource> removeList = part.Resources.Where(x => tankList.Contains(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
+            if (removeList.Count > 0)
+            {
+                foreach (var resource in removeList)
+                {
+                    part.Resources.Remove(resource.info.id);
+                    part.SimulationResources.Remove(resource.info.id);
+                }
+                RaiseResourceListChanged();
+                massDirty = true;
+                CalculateMass();
             }
-            RaiseResourceListChanged ();
-            // Setup the mass
-            massDirty = true;
-            CalculateMass();
         }
 
         public override void OnCopy (PartModule fromModule)
@@ -403,16 +397,14 @@ namespace RealFuels.Tanks
                 List<string> typesTech = new List<string>();
                 foreach (string curType in typesAvailable)
                 {
-                    TankDefinition def;
-                    if (!MFSSettings.tankDefinitions.Contains(curType))
+                    if (!MFSSettings.tankDefinitions.TryGetValue(curType, out TankDefinition def))
                     {
                         string loadedTypes = "";
-                        foreach (TankDefinition d2 in MFSSettings.tankDefinitions)
-                            loadedTypes += " " + d2.name;
+                        foreach (string d2 in MFSSettings.tankDefinitions.Keys)
+                            loadedTypes += " " + d2;
                         Debug.LogError("Unable to find tank definition for type \"" + curType + "\". Available types are:" + loadedTypes);
                         continue;
                     }
-                    def = MFSSettings.tankDefinitions[curType];
                     if (def.canHave)
                         typesTech.Add(curType);
                 }
@@ -435,13 +427,11 @@ namespace RealFuels.Tanks
             }
 
             // Copy the tank list from the tank definitiion
-            TankDefinition def;
-            if (!MFSSettings.tankDefinitions.Contains (type)) {
+            if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def)) {
                 Debug.LogError ("Unable to find tank definition for type \"" + type + "\" reverting.");
                 type = oldType;
                 return;
             }
-            def = MFSSettings.tankDefinitions[type];
             if (!def.canHave)
             {
                 type = oldType;
@@ -457,8 +447,7 @@ namespace RealFuels.Tanks
                     for (int i = 0; i < typesAvailable.Count(); i++)
                     {
                         string tn = typesAvailable[i];
-                        TankDefinition newDef = MFSSettings.tankDefinitions.Contains(tn) ? MFSSettings.tankDefinitions[tn] : null;
-                        if (newDef != null && newDef.canHave)
+                        if (MFSSettings.tankDefinitions.TryGetValue(tn, out TankDefinition newDef) && newDef.canHave)
                         {
                             def = newDef;
                             type = newDef.name;
