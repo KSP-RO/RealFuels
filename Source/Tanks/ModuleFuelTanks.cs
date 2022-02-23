@@ -32,10 +32,6 @@ namespace RealFuels.Tanks
         internal FuelTankList tankList = new FuelTankList();
         public List<string> typesAvailable = new List<string>();
 
-        // for EngineIgnitor integration: store a public list of the fuel tanks, and
-        [NonSerialized]
-        public List<FuelTank> fuelList = new List<FuelTank>();
-
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
         public string type = "Default";
         private string oldType;

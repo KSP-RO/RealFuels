@@ -357,11 +357,6 @@ namespace RealFuels.Tanks
 
         private void UpdateEngineIgnitor(TankDefinition def)
         {
-            // collect pressurized propellants for EngineIgnitor
-            // XXX Dirty hack until engine ignitor is fixed
-            fuelList.Clear();               //XXX
-            fuelList.AddRange(tankList);    //XXX
-
             pressurizedFuels.Clear();
             foreach (var f in tankList)
                 pressurizedFuels[f.name] = def.highlyPressurized || f.note.ToLower().Contains("pressurized");
