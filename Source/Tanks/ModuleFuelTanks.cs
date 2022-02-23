@@ -101,8 +101,7 @@ namespace RealFuels.Tanks
             MFSSettings.TryInitialize();
 
             if (utilization == -1)
-                utilization = MFSSettings.partUtilizationDefault;
-            InitUtilization();
+                utilization = Mathf.Clamp(MFSSettings.partUtilizationDefault, minUtilization, maxUtilization);
 
             if (HighLogic.LoadedScene == GameScenes.LOADING)
                 unmanagedResources = new Dictionary<string, UnmanagedResource>();
@@ -205,61 +204,9 @@ namespace RealFuels.Tanks
             }
             else
             {
-                foreach (ConfigNode unmanagedResourceNode in node.GetNodes("UNMANAGED_RESOURCE"))
-                {
-                    string name = "";
-                    double amount = 0;
-                    double maxAmount = 0;
-                    // we're going to be strict and demand all of these be present
-                    if (!unmanagedResourceNode.TryGetValue("name", ref name) || !unmanagedResourceNode.TryGetValue("amount", ref amount) || !unmanagedResourceNode.TryGetValue("maxAmount", ref maxAmount))
-                    {
-                        Debug.Log($"[ModuleFuelTanks.OnLoad()] was missing either name, amount or maxAmount for UNMANAGED_RESOURCE: {unmanagedResourceNode}");
-                        continue;
-                    }
-                    if (PartResourceLibrary.Instance.GetDefinition(name) == null)
-                    {
-                        Debug.Log("[ModuleFuelTanks.OnLoad()] could not find resource by the name of " + name);
-                        continue;
-                    }
-                    amount = Math.Max(amount, 0d);
-                    maxAmount = Math.Max(amount, maxAmount);
-                    if (!unmanagedResources.ContainsKey(name))
-                    {
-                        if (maxAmount > 0)
-                        {
-                            unmanagedResources.Add(name, new UnmanagedResource(name, amount, maxAmount));
-                            Debug.Log("[ModuleFuelTanks.OnLoad()] added new UnmanagedResource " + name + " with " + amount + "/" + maxAmount);
-                            if (!part.Resources.Contains(name))
-                            {
-                                ConfigNode resNode = new ConfigNode("RESOURCE");
-                                resNode.AddValue("name", name);
-                                resNode.AddValue("amount", amount);
-                                resNode.AddValue("maxAmount", maxAmount);
-                                part.AddResource(resNode);
-                            }
-                        }
-                        else
-                            Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
-                    }
-                    else
-                    {
-                        if (maxAmount > 0)
-                        {
-                            unmanagedResources[name].amount += amount;
-                            unmanagedResources[name].maxAmount += maxAmount;
-                            //Debug.Log("[ModuleFuelTanks.OnLoad()] modified UnmanagedResource: " + name + "; amount = " + amount + " / maxAmount = " + maxAmount);
-
-                            // this should be safe; if we're here then we previously would have added this resource if missing.
-                            part.Resources[name].amount = Math.Max(part.Resources[name].amount, unmanagedResources[name].amount);
-                            part.Resources[name].maxAmount = Math.Max(part.Resources[name].maxAmount, unmanagedResources[name].maxAmount);
-                        }
-                        else
-                            Debug.Log("[ModuleFuelTanks.OnLoad()] did not add new UnmanagedResource; maxAmount = 0");
-                    }
-                }
-
                 if (isDatabaseLoad)
                 {
+                    GatherUnmanagedResources(node);
                     InitUtilization();
                     InitVolume(node);
 
@@ -859,11 +806,10 @@ namespace RealFuels.Tanks
             MarkWindowDirty();
             GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
         }
+
         internal void MarkWindowDirty ()
         {
-            if (!started) {
-                return;
-            }
+            if (!started) return;
             if (UIPartActionController.Instance?.GetItem(part) is UIPartActionWindow paw)
                 paw.displayDirty = true;
             else
@@ -871,6 +817,55 @@ namespace RealFuels.Tanks
             //MonoUtilities.RefreshPartContextWindow(part);
         }
 
+        private void GatherUnmanagedResources(ConfigNode node)
+        {
+            foreach (ConfigNode unmanagedResourceNode in node.GetNodes("UNMANAGED_RESOURCE"))
+            {
+                string name = "";
+                double amount = 0;
+                double maxAmount = 0;
+                // we're going to be strict and demand all of these be present
+                if (!unmanagedResourceNode.TryGetValue("name", ref name) || !unmanagedResourceNode.TryGetValue("amount", ref amount) || !unmanagedResourceNode.TryGetValue("maxAmount", ref maxAmount))
+                {
+                    Debug.Log($"[ModuleFuelTanks.OnLoad()] UNMANAGED_RESOURCE on {part} was missing either name, amount or maxAmount: {unmanagedResourceNode}");
+                    continue;
+                }
+                if (PartResourceLibrary.Instance.GetDefinition(name) == null)
+                {
+                    Debug.Log($"[ModuleFuelTanks.OnLoad()] {part} could not find UNMANAGED_RESOURCE resource {name}");
+                    continue;
+                }
+                amount = Math.Max(amount, 0d);
+                maxAmount = Math.Max(amount, maxAmount);
+                if (maxAmount <= 0)
+                    Debug.Log($"[ModuleFuelTanks.OnLoad()] did not add UnmanagedResource {name}; maxAmount = 0");
+                else
+                {
+                    if (!unmanagedResources.TryGetValue(name, out var unmanagedResource))
+                    {
+                        unmanagedResource = new UnmanagedResource(name, 0, 0);
+                        unmanagedResources.Add(name, unmanagedResource);
+                    }
+                    unmanagedResource.amount += amount;
+                    unmanagedResource.maxAmount += maxAmount;
+
+                    Debug.Log($"[ModuleFuelTanks.OnLoad()] Adding UnmanagedResource {name}: {amount}/{maxAmount}");
+                    if (!part.Resources.Contains(name))
+                    {
+                        ConfigNode resNode = new ConfigNode("RESOURCE");
+                        resNode.AddValue("name", name);
+                        resNode.AddValue("amount", unmanagedResource.amount);
+                        resNode.AddValue("maxAmount", unmanagedResource.maxAmount);
+                        part.AddResource(resNode);
+                    }
+                    else
+                    {
+                        part.Resources[name].amount = unmanagedResource.amount;
+                        part.Resources[name].maxAmount = unmanagedResource.maxAmount;
+                    }
+                }
+            }
+        }
 
         // looks to see if we should ignore this fuel when creating an autofill for an engine
         private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
