@@ -19,7 +19,6 @@ namespace RealFuels
         public static HashSet<string> ignoreFuelsForFill = new HashSet<string>();
         public static Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
 
-		public static Dictionary<string, HashSet<string>> managedResources = new Dictionary<string, HashSet<string>>();
         public static Dictionary<string, double> resourceVsps = new Dictionary<string, double>();
         public static Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();
 

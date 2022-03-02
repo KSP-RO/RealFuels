@@ -78,6 +78,8 @@ namespace RealFuels.Tanks
         internal bool massDirty = true;
         private bool windowDirty = false;
 
+        private readonly HashSet<string> managedResources = new HashSet<string>(32);
+
         public bool fueledByLaunchClamp = false;
 
         private const string guiGroupName = "RealFuels";
@@ -117,20 +119,13 @@ namespace RealFuels.Tanks
             utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
         }
 
-        private void RecordTankTypeResources(HashSet<string> resources, string type)
-        {
-            if (MFSSettings.tankDefinitions.TryGetValue(type, out var def))
-                foreach (FuelTank tank in def.tankList)
-                    resources.Add(tank.name);
-        }
-
         private void RecordManagedResources()
         {
-            if (!MFSSettings.managedResources.TryGetValue(part.name, out var resources))
-                resources = new HashSet<string>();
+            managedResources.Clear();
             foreach (string t in typesAvailable)
-                RecordTankTypeResources(resources, t);
-            MFSSettings.managedResources[part.name] = resources;
+                if (MFSSettings.tankDefinitions.TryGetValue(type, out var def))
+                    foreach (FuelTank tank in def.tankList)
+                        managedResources.Add(tank.name);
         }
 
         private void CleanResources()
@@ -176,18 +171,10 @@ namespace RealFuels.Tanks
             // Make sure this isn't an upgrade node because if we got here during an upgrade application
             // then RaiseResourceListChanged will throw an error when it hits SendEvent()
             if (node.name == "CURRENTUPGRADE")
-            {
-                // Special handling for adding tank types via upgrade system
-                string[] typeAvailableUpgrades = node.GetValues("typeAvailable");
-                if (typeAvailableUpgrades.Length > 0)
-                {
-                    typesAvailable.AddUniqueRange(typeAvailableUpgrades);
-                    RecordManagedResources();
-                    InitializeTankType();
-                }
-            }
+                UpdateTypesAvailable(node);
             else if (HighLogic.LoadedScene == GameScenes.LOADING)
             {
+                typesAvailable.AddUnique(type);
                 GatherUnmanagedResources(node);
                 InitUtilization();
                 InitVolume(node);
@@ -195,12 +182,15 @@ namespace RealFuels.Tanks
                 MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
                 ParseBaseMass(node);
                 ParseBaseCost(node);
-                typesAvailable.AddUniqueRange(node.GetValues("typeAvailable"));
-                typesAvailable.AddUnique(type);
-                RecordManagedResources();
+                UpdateTypesAvailable(node);
+                UpdateTankType(initializeAmounts: true);
             }
             else if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
             {
+                // Always re-generate this list from the current set of available types
+                // Also called via UpdateTypesAvailable()
+                RecordManagedResources();
+
                 // The amounts initialized flag is there so that the tank type loading doesn't
                 // try to set up any resources. They'll get loaded directly from the save.
                 UpdateTankType(false);
@@ -272,6 +262,8 @@ namespace RealFuels.Tanks
                 }
 
                 InitializeTankType();
+                // This seems questionable: should we create resources in OnStart() ??
+                UpdateTankType();   // Extracted from InitializeTankType().
                 InitUtilization();
                 Fields[nameof(utilization)].uiControlEditor.onFieldChanged += OnUtilizationChanged;
                 Fields[nameof(utilization)].uiControlEditor.onSymmetryFieldChanged += OnUtilizationChanged;
@@ -384,11 +376,19 @@ namespace RealFuels.Tanks
                 string res = string.Join(" ", invalidTypes);
                 Debug.LogError($"{part} declared these available types that have no definition: {res}");
                 typesAvailable = validTypes.ToList();
+                if (typesAvailable.Count == 0)
+                    typesAvailable = new List<string>() { MFSSettings.tankDefinitions.Keys.FirstOrDefault() };
             }
             Fields[nameof(type)].guiActiveEditor = typesAvailable.Count > 1;
             (Fields[nameof(type)].uiControlEditor as UI_ChooseOption).options = typesAvailable.ToArray();
+        }
 
-            UpdateTankType();
+        private void UpdateTypesAvailable(ConfigNode node) => UpdateTypesAvailable(node.GetValuesList("typeAvailable"));
+        private void UpdateTypesAvailable(List<string> types)
+        {
+            typesAvailable.AddUniqueRange(types);
+            RecordManagedResources();
+            InitializeTankType();
         }
 
         // This is strictly a change handler!
@@ -417,8 +417,7 @@ namespace RealFuels.Tanks
             tankList.TechAmounts(); // update for current techs
 
             // Destroy any managed resources that are not in the new type.
-            HashSet<string> managed = MFSSettings.managedResources[part.name];  // if this throws, we have some big fish to fry
-            var removeList = part.Resources.Where(x => managed.Contains(x.resourceName) && !tankList.Contains(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
+            var removeList = part.Resources.Where(x => managedResources.Contains(x.resourceName) && !tankList.Contains(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
             foreach (var partResource in removeList)
             {
                 part.Resources.Remove(partResource.info.id);
