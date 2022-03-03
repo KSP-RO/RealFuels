@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 
 using KSP.UI.Screens;
+using System.Reflection;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -127,7 +128,7 @@ namespace RealFuels.Tanks
             UI_FloatRange f = field.uiControlEditor as UI_FloatRange;
             f.minValue = minUtilization;
             f.maxValue = maxUtilization;
-            utilization = Mathf.Clamp(utilization, minUtilization, maxUtilization);
+            SetUtilization(Mathf.Clamp(utilization, minUtilization, maxUtilization));
         }
 
         private void RecordManagedResources()
@@ -266,13 +267,8 @@ namespace RealFuels.Tanks
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
                 GameEvents.onPartActionUIShown.Add(OnPartActionUIShown);
 
-                if (part.symmetryCounterparts.Count > 0) {
-                    UpdateTankType(false);
-                }
-
                 InitializeTankType();
-                // This seems questionable: should we create resources in OnStart() ??
-                UpdateTankType();   // Extracted from InitializeTankType().
+                UpdateTankType(false);
                 InitUtilization();
                 Fields[nameof(utilization)].uiControlEditor.onFieldChanged += OnUtilizationChanged;
                 Fields[nameof(utilization)].uiControlEditor.onSymmetryFieldChanged += OnUtilizationChanged;
@@ -365,7 +361,7 @@ namespace RealFuels.Tanks
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
-                UpdateTankType();
+                UpdateTankType(false);
                 CalculateMass();
 
                 bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
@@ -405,7 +401,7 @@ namespace RealFuels.Tanks
         }
 
         // This is strictly a change handler!
-        private void UpdateTankType (bool initializeAmounts = true)
+        private void UpdateTankType (bool initializeAmounts = false)
         {
             if (oldType == type || type == null) {
                 return;
@@ -785,6 +781,22 @@ namespace RealFuels.Tanks
                     }
                 }
             }
+        }
+
+        private void SetUtilization(float value)
+        {
+            var f = Fields[nameof(utilization)].uiControlEditor as UI_FloatRange;
+            // If the PAW is available, grab the item in order to trigger the change handlers
+            // If it is not... we could force it, but let's not for now.
+            // We don't actually need to here, really only during change handling and this is an initializer being slightly misused.
+            //field.SetValue(Mathf.Clamp(utilization, minUtilization, maxUtilization), this);
+            if (f.partActionItem is UIPartActionFieldItem item && item != null
+                && item.GetType().GetMethod("SetFieldValue", BindingFlags.Instance | BindingFlags.NonPublic) is MethodInfo mi)
+            {
+                mi.Invoke(f.partActionItem, new object[] { value });
+            }
+            else
+                utilization = value;
         }
 
         // looks to see if we should ignore this fuel when creating an autofill for an engine
