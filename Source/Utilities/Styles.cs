@@ -15,13 +15,15 @@ namespace RealFuels
         // Base styles
         public static GUIStyle styleEditorTooltip;
         public static GUIStyle styleEditorPanel;
-
+        public static GUIStyle styleEditorBox;
+        private static bool styleSetup = false;
 
         /// <summary>
         /// This one sets up the styles we use
         /// </summary>
         internal static void InitStyles()
         {
+            if (styleSetup) return;
             styleEditorTooltip = new GUIStyle();
             styleEditorTooltip.name = "Tooltip";
             styleEditorTooltip.fontSize = 12;
@@ -39,6 +41,13 @@ namespace RealFuels
             styleEditorPanel.padding = new RectOffset(10, 10, 10, 10);
             styleEditorPanel.normal.textColor = new Color32(147,161,161,255);
             styleEditorPanel.fontSize = 12;
+
+            styleEditorBox = new GUIStyle(HighLogic.Skin.box);
+            styleEditorBox.normal.textColor = new Color32(147, 161, 161, 255);
+            styleEditorBox.wordWrap = false;
+            styleEditorBox.fontSize = 12;
+            styleEditorBox.alignment = TextAnchor.UpperCenter;
+            styleSetup = true;
         }
 
 

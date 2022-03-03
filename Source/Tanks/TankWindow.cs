@@ -162,14 +162,9 @@ namespace RealFuels.Tanks
 
         private Rect guiWindowRect = new Rect (0, 0, 0, 0);
         private static Vector3 mousePos = Vector3.zero;
-        private bool styleSetup = false;
         public void OnGUI ()
         {
-            if (!styleSetup)
-            {
-                styleSetup = true;
-                Styles.InitStyles ();
-            }
+            Styles.InitStyles();
 
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor) {
