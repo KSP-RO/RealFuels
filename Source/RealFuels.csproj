@@ -13,7 +13,7 @@
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj</BaseIntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugType>full</DebugType>
+    <DebugType>portable</DebugType>
     <Optimize>False</Optimize>
     <BaseIntermediateOutputPath>..\..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
     <OutputPath>..\RealFuels\Plugins\</OutputPath>
@@ -107,6 +107,7 @@
     <Compile Include="Tanks\ModuleFuelTanksTestFlight.cs" />
     <Compile Include="Tanks\TankDefinition.cs" />
     <Compile Include="Tanks\TankDefinitionList.cs" />
+    <Compile Include="Tanks\TankDefinitionSelectionGUI.cs" />
     <Compile Include="Tanks\TankWindow.cs" />
     <Compile Include="TechLevels\TechLevel.cs" />
     <Compile Include="Ullage\UllageModule.cs" />

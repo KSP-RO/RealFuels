@@ -36,6 +36,17 @@ namespace RealFuels.Tanks
         public string type = "Default";
         private string oldType;
 
+        [KSPEvent(active =true, groupName = guiGroupName, guiActiveEditor = true, guiName = "Choose Tank Type")]
+        public void ChooseTankDefinition()
+        {
+            if (tankDefinitionSelectionGUI == null)
+            {
+                tankDefinitionSelectionGUI = gameObject.AddComponent<TankDefinitionSelectionGUI>();
+                tankDefinitionSelectionGUI.parentModule = this;
+            }
+        }
+        private TankDefinitionSelectionGUI tankDefinitionSelectionGUI = null;
+
         // The total tank volume. This is prior to utilization
         public double totalVolume;
 
@@ -78,7 +89,7 @@ namespace RealFuels.Tanks
         internal bool massDirty = true;
         private bool windowDirty = false;
 
-        private readonly HashSet<string> managedResources = new HashSet<string>(32);
+        internal readonly HashSet<string> managedResources = new HashSet<string>(32);
 
         public bool fueledByLaunchClamp = false;
 
@@ -230,8 +241,6 @@ namespace RealFuels.Tanks
 
         public override string GetInfo ()
         {
-            UpdateTankType ();
-
             var info = StringBuilderCache.Acquire();
             info.AppendLine ("Modular Fuel Tank:");
             info.Append ("  Max Volume: ").AppendLine (KSPUtil.PrintSI (volume, MFSSettings.unitLabel));
@@ -345,7 +354,11 @@ namespace RealFuels.Tanks
         private void OnPartActionGuiDismiss(Part p)
         {
             if (p == part)
+            {
                 showUI = false;
+                if (tankDefinitionSelectionGUI != null)
+                    Destroy(tankDefinitionSelectionGUI);
+            }
         }
 
         public void Update ()
