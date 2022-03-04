@@ -432,7 +432,7 @@ namespace RealFuels.Tanks
                 foreach (FuelInfo info in tank_module.usedBy.Values)
                 {
                     GUILayout.BeginHorizontal ();
-                    if (GUILayout.Button (new GUIContent (info.Label, info.names))) {
+                    if (GUILayout.Button (new GUIContent (info.Label, string.Join(",", info.partNames)))) {
                         tank_module.ConfigureFor (info);
                     }
                     GUILayout.EndHorizontal ();

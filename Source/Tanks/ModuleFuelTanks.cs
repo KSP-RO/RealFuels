@@ -300,17 +300,11 @@ namespace RealFuels.Tanks
 
         private const int wait_frames = 2;
         private int update_wait_frames = 0;
-        private int updateusedby_wait_frames = 0;
 
         private IEnumerator WaitAndUpdateResources(ShipConstruct ship)
         {
             while (--update_wait_frames > 0) yield return null;
             PartResourcesChanged();
-        }
-        private IEnumerator WaitAndUpdateUsedBy()
-        {
-            while (--updateusedby_wait_frames > 0) yield return null;
-            UpdateUsedBy();
         }
 
         private void OnUtilizationChanged(BaseField f, object obj) => ChangeTotalVolume(totalVolume);
@@ -327,12 +321,13 @@ namespace RealFuels.Tanks
 
         private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> hostTarget)
         {
-            if (updateusedby_wait_frames == 0) {
-                updateusedby_wait_frames = wait_frames;
-                StartCoroutine(WaitAndUpdateUsedBy());
-            } else {
-                updateusedby_wait_frames = wait_frames;
-            }
+            // Only trigger updates if the part that was added/removed is a fuel consumer
+            Part p = hostTarget.host;
+            bool update = p != null && (p.FindModuleImplementing<ModuleEngines>() || p.FindModuleImplementing<ModuleRCS>());
+            p = hostTarget.target;
+            update |= p != null && (p.FindModuleImplementing<ModuleEngines>() || p.FindModuleImplementing<ModuleRCS>());
+            if (update)
+                UpdateUsedBy();
         }
 
         private void OnPartRemove(GameEvents.HostTargetAction<Part, Part> hostTarget) => OnPartAttach(hostTarget);
@@ -449,7 +444,6 @@ namespace RealFuels.Tanks
             UpdateTankTypeRF(def);
             UpdateTestFlight();
         }
-
 
 
         [KSPEvent (guiActive=false, active = true)]
@@ -804,23 +798,17 @@ namespace RealFuels.Tanks
 
         internal readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
 
-        private void UpdateFuelInfo(FuelInfo f, string title)
+        private void UpdateFuelInfo(FuelInfo f, PartModule source)
         {
             if (!usedBy.TryGetValue(f.Label, out FuelInfo found))
-            {
                 usedBy.Add(f.Label, f);
-            }
-            else if (!found.names.Contains(title))
-            {
-                found.names += ", " + title;
-            }
+            else
+                found.AddSource(source);
         }
 
-        public void UpdateUsedBy ()
+        public void UpdateUsedBy()
         {
-            //print ("*RK* Updating UsedBy");
-
-            usedBy.Clear ();
+            usedBy.Clear();
 
             // Get part list
             List<Part> parts;
@@ -828,29 +816,29 @@ namespace RealFuels.Tanks
                 parts = EditorLogic.fetch.ship.parts;
             else if (HighLogic.LoadedSceneIsFlight && vessel != null)
                 parts = vessel.parts;
-            else parts = new List<Part>();
+            else
+                return;
 
             foreach(Part p in parts)
             {
                 string title = p.partInfo.title;
-                for(int j = 0; j < p.Modules.Count; ++j)
+                foreach(PartModule m in p.Modules)
                 {
                     FuelInfo f = null;
-                    PartModule m = p.Modules[j];
                     if (m is ModuleEngines)
-                        f = new FuelInfo((m as ModuleEngines).propellants, this, title);
+                        f = new FuelInfo((m as ModuleEngines).propellants, this, m);
                     else if (m is ModuleRCS)
-                        f = new FuelInfo((m as ModuleRCS).propellants, this, title);
+                        f = new FuelInfo((m as ModuleRCS).propellants, this, m);
                     if (f?.ratioFactor > 0d)
-                        UpdateFuelInfo(f, title);
+                        UpdateFuelInfo(f, m);
                 }
             }
 
             // Need to update the tweakable menu too
-            if (HighLogic.LoadedSceneIsEditor) {
-                Events.RemoveAll (button => button.name.StartsWith ("MFT"));
-
-                bool activeEditor = (AvailableVolume >= 0.001);
+            if (HighLogic.LoadedSceneIsEditor)
+            {
+                Events.RemoveAll(button => button.name.StartsWith("MFT"));
+                bool activeEditor = AvailableVolume >= 0.001;
 
                 int idx = 0;
                 foreach (FuelInfo info in usedBy.Values) {
@@ -858,7 +846,7 @@ namespace RealFuels.Tanks
                         name = "MFT" + idx++,
                         guiActive = false,
                         guiActiveEditor = activeEditor,
-                        guiName = info.Label,
+                        guiName = info.title, //info.Label,
                         groupName = guiGroupName,
                         groupDisplayName = guiGroupDisplayName
                     };
@@ -866,36 +854,37 @@ namespace RealFuels.Tanks
                     BaseEvent button = new BaseEvent (Events, kspEvent.name, () => ConfigureFor (info1), kspEvent) {
                         guiActiveEditor = activeEditor
                     };
-                    Events.Add (button);
+                    Events.Add(button);
                 }
-                MarkWindowDirty ();
+                MonoUtilities.RefreshPartContextWindow(part);
             }
         }
 
-        public void ConfigureFor (Part engine)
+        public void ConfigureFor(Part engine)
         {
             foreach (PartModule engine_module in engine.Modules)
             {
-                List<Propellant> propellants = GetEnginePropellants (engine_module);
+                List<Propellant> propellants = GetEnginePropellants(engine_module);
                 if (propellants != null)
                 {
-                    ConfigureFor (new FuelInfo (propellants, this, engine.partInfo.title));
+                    ConfigureFor(new FuelInfo(propellants, this, engine_module));
                     break;
                 }
             }
         }
 
-        internal void ConfigureFor (FuelInfo fi)
+        internal void ConfigureFor(FuelInfo fi)
         {
             if (fi.ratioFactor == 0.0 || fi.efficiency == 0) // can't configure for this engine
                 return;
 
             double availableVolume = AvailableVolume;
-            foreach (Propellant tfuel in fi.propellants)
+            foreach (Propellant tfuel in fi.propellantVolumeMults.Keys)
             {
+                // Extra sanity check, FuelInfo.propellantVolumeMults will have filtered this case out already:
                 if (PartResourceLibrary.Instance.GetDefinition (tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                 {
-                    if (tankList.TryGet (tfuel.name, out FuelTank tank))
+                    if (tankList.TryGet(tfuel.name, out FuelTank tank))
                     {
                         double amt = availableVolume * tfuel.ratio / fi.efficiency;
                         tank.maxAmount += amt;
@@ -903,15 +892,15 @@ namespace RealFuels.Tanks
                     }
                 }
             }
-            GameEvents.onEditorShipModified.Fire (EditorLogic.fetch.ship);
+            GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
         }
 
         List<Propellant> GetEnginePropellants(PartModule engine)
         {
-            if (engine is ModuleEngines)
-                return (engine as ModuleEngines).propellants;
-            else if (engine is ModuleRCS)
-                return (engine as ModuleRCS).propellants;
+            if (engine is ModuleEngines me)
+                return me.propellants;
+            else if (engine is ModuleRCS mr)
+                return mr.propellants;
             return null;
         }
 

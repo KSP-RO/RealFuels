@@ -1,77 +1,89 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using UnityEngine;
-using System.Collections.ObjectModel;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
 namespace RealFuels.Tanks
 {
-	internal class FuelInfo
+    internal class FuelInfo
 	{
-		public string names;
-		public readonly List<Propellant> propellants;
-		public readonly List<double> volumeMults;
+		public readonly string title;
+		public readonly string Label;
+		public readonly Dictionary<Propellant, double> propellantVolumeMults = new Dictionary<Propellant, double>();
+		public readonly HashSet<string> partNames = new HashSet<string>();
+		public readonly List<PartModule> sources = new List<PartModule>();
 		public readonly double efficiency;
 		public readonly double ratioFactor;
 
-		// looks to see if we should ignore this fuel when creating an autofill for an engine
-		private static bool IgnoreFuel (string name)
-		{
-			return MFSSettings.ignoreFuelsForFill.Contains (name);
-		}
+        // looks to see if we should ignore this fuel when creating an autofill for an engine
+        private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
 
-		public string Label
+		private string BuildLabel()
 		{
-			get {
-				string label = "";
-				for (int i = 0; i < propellants.Count; ++i) {
-					Propellant tfuel = propellants[i];
-					if (PartResourceLibrary.Instance.GetDefinition (tfuel.name).resourceTransferMode != ResourceTransferMode.NONE && !IgnoreFuel (tfuel.name)) {
-						if (label.Length > 0) {
-							label += " / ";
-						}
-						label += Math.Round (100000 * tfuel.ratio * volumeMults[i] / efficiency, 0)*0.001 + "% " + tfuel.name;
-					}
+			var text = StringBuilderCache.Acquire();
+			bool first = true;
+			foreach (KeyValuePair<Propellant,double> kvp in propellantVolumeMults)
+			{
+				Propellant tfuel = kvp.Key;
+				double mult = kvp.Value;
+				if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE && !IgnoreFuel(tfuel.name))
+				{
+					if (!first)
+						text.Append(" / ");
+					first = false;
+					text.Append(Math.Round(100000 * tfuel.ratio * mult / efficiency, 0) * 0.001).Append("% ").Append(tfuel.name);
 				}
-				return label;
 			}
+			return text.ToStringAndRelease();
 		}
 
-		public FuelInfo (List<Propellant> props, ModuleFuelTanks tank, string title)
+		public FuelInfo(List<Propellant> props, ModuleFuelTanks tank, PartModule source)
 		{
 			// tank math:
 			// efficiency = sum[utilization * ratio]
 			// then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
-
+			string _title = source.part.partInfo.title;
+			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
+				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";
+			title = _title;
+			partNames.Add(title);
+			sources.Add(source);
 			ratioFactor = 0.0;
 			efficiency = 0.0;
-			propellants = props;
-			volumeMults = new List<double>(props.Count);
 
-			for (int i = 0; i < propellants.Count; ++i) {
-				Propellant tfuel = propellants[i];
-				if (PartResourceLibrary.Instance.GetDefinition (tfuel.name) == null) {
-					Debug.LogError ("Unknown RESOURCE {" + tfuel.name + "}");
+			foreach (Propellant tfuel in props)
+			{
+				PartResourceDefinition def = PartResourceLibrary.Instance.GetDefinition(tfuel.name);
+				if (def == null) {
+					Debug.LogError($"Unknown RESOURCE: {tfuel.name}");
 					ratioFactor = 0.0;
 					break;
 				}
-				if (PartResourceLibrary.Instance.GetDefinition (tfuel.name).resourceTransferMode != ResourceTransferMode.NONE) {
-					FuelTank t;
-					if (tank.tankList.TryGet (tfuel.name, out t)) {
+				if (def.resourceTransferMode != ResourceTransferMode.NONE)
+				{
+					if (tank.tankList.TryGet(tfuel.name, out FuelTank t))
+					{
 						double volumeMultiplier = 1d / t.utilization;
 						efficiency += tfuel.ratio * volumeMultiplier;
 						ratioFactor += tfuel.ratio;
-						volumeMults.Add(volumeMultiplier);
+						propellantVolumeMults.Add(tfuel, volumeMultiplier);
 					} else if (!IgnoreFuel (tfuel.name)) {
 						ratioFactor = 0.0;
 						break;
 					}
 				}
 			}
-			names = "Used by: " + title;
+			Label = BuildLabel();
 		}
+
+		public void AddSource(PartModule source)
+        {
+			string _title = source.part.partInfo.title;
+			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
+				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";
+			sources.Add(source);
+			partNames.Add(_title);
+        }
 	}
 }
