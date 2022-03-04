@@ -272,6 +272,7 @@ namespace RealFuels.Tanks
                 InitUtilization();
                 Fields[nameof(utilization)].uiControlEditor.onFieldChanged += OnUtilizationChanged;
                 Fields[nameof(utilization)].uiControlEditor.onSymmetryFieldChanged += OnUtilizationChanged;
+                UpdateUsedBy();
             }
 
             OnStartRF(state);
