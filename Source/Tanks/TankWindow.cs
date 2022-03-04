@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 using KSP.UI.Screens;
+using System.Linq;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -22,11 +23,11 @@ namespace RealFuels.Tanks
         [NonSerialized]
         public bool showRFGUI;
 
-        private static GUIStyle unchanged;
-        private static GUIStyle changed;
-        private static GUIStyle greyed;
-        private static GUIStyle overfull;
-        public static string myToolTip = "";
+        private GUIStyle unchanged;
+        private GUIStyle changed;
+        private GUIStyle greyed;
+        private GUIStyle overfull;
+        public string myToolTip = "";
 
         private static TankWindow instance;
 
@@ -120,7 +121,6 @@ namespace RealFuels.Tanks
 
         private void Awake()
         {
-            Styles.InitStyles();
             enabled = false;
             instance = this;
             StartCoroutine (CheckActionGroupEditor ());
@@ -135,8 +135,6 @@ namespace RealFuels.Tanks
         private static Vector3 mousePos = Vector3.zero;
         public void OnGUI()
         {
-            InitializeStyles();
-
             EditorLogic editor = EditorLogic.fetch;
             if (!HighLogic.LoadedSceneIsEditor || !editor)
                 return;
@@ -169,8 +167,7 @@ namespace RealFuels.Tanks
             } else {
                 editor.Unlock ("MFTGUILock");
             }
-            myToolTip = myToolTip.Trim ();
-            if (!String.IsNullOrEmpty(myToolTip))
+            if (!string.IsNullOrEmpty(myToolTip))
                 GUI.Label(tooltipRect, myToolTip, Styles.styleEditorTooltip);
             guiWindowRect = GUILayout.Window (GetInstanceID (), guiWindowRect, GUIWindow, "Fuel Tanks for " + tank_module.part.partInfo.title, Styles.styleEditorPanel);
         }
@@ -183,6 +180,8 @@ namespace RealFuels.Tanks
 
         public void GUIWindow (int windowID)
         {
+            InitializeStyles();
+
             GUILayout.BeginVertical();
             GUILayout.Space(20);
 
@@ -211,7 +210,7 @@ namespace RealFuels.Tanks
                 counterTT++;   // Delay 5 frames before syncing myToolTip to GUI.tooltip, only when clearing it.
             else
             {
-                myToolTip = GUI.tooltip;
+                myToolTip = GUI.tooltip.Trim();
                 counterTT = 0;
             }
             GUI.DragWindow();
@@ -344,9 +343,16 @@ namespace RealFuels.Tanks
         private void GUITanks()
         {
             EnsureFreshAddLabelCache();
-            GUILayout.BeginVertical(Styles.styleEditorBox, GUILayout.ExpandHeight(true));
 
-            foreach (FuelTank tank in tank_module.tankList) {
+            // "Sort" the tanks: give priority to ones in the usedBy list.
+            GUILayout.BeginVertical(Styles.styleEditorBox);
+            foreach (FuelTank tank in tank_module.usedByTanks)
+                TankLine(tank);
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(Styles.styleEditorBox, GUILayout.ExpandHeight(true));
+            foreach (FuelTank tank in tank_module.tankList.Where(x => !tank_module.usedByTanks.Contains(x)))
+            {
                 if (tank.canHave)
                     TankLine(tank);
                 else
@@ -355,13 +361,12 @@ namespace RealFuels.Tanks
 
             if (GUILayout.Button("Remove All Tanks"))
                 tank_module.Empty();
-
             GUILayout.EndVertical();
         }
 
         private void GUIEngines()
         {
-            GUILayout.BeginVertical(Styles.styleEditorBox, GUILayout.ExpandHeight(true));
+            GUILayout.BeginVertical(Styles.styleEditorBox);
             if (tank_module.usedBy.Count > 0 && tank_module.AvailableVolume >= 0.001)
             {
                 GUILayout.Label("Configure remaining volume for detected engines:");
@@ -369,7 +374,6 @@ namespace RealFuels.Tanks
                 foreach (FuelInfo info in tank_module.usedBy.Values)
                     if (GUILayout.Button(new GUIContent(info.title, info.JoinedPartNames)))
                         tank_module.ConfigureFor(info);
-                   
             }
             GUILayout.EndVertical();
         }

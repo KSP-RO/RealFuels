@@ -37,7 +37,7 @@ namespace RealFuels.Tanks
         public string type = "Default";
         private string oldType;
 
-        [KSPEvent(active =true, groupName = guiGroupName, guiActiveEditor = true, guiName = "Choose Tank Type")]
+        [KSPEvent(active = true, guiActiveEditor = true, guiName = "Choose Tank Type", groupName = guiGroupName)]
         public void ChooseTankDefinition()
         {
             if (tankDefinitionSelectionGUI == null)
@@ -453,6 +453,7 @@ namespace RealFuels.Tanks
                 
                 massDirty = true;
             }
+            UpdateUsedBy();
 
             UpdateTankTypeRF(def);
             UpdateTestFlight();
@@ -810,11 +811,17 @@ namespace RealFuels.Tanks
         private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
 
         internal readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
+        internal readonly HashSet<FuelTank> usedByTanks = new HashSet<FuelTank>();
 
         private void UpdateFuelInfo(FuelInfo f, PartModule source)
         {
             if (!usedBy.TryGetValue(f.Label, out FuelInfo found))
+            {
                 usedBy.Add(f.Label, f);
+                foreach (Propellant tfuel in f.propellantVolumeMults.Keys)
+                    if (tankList.TryGet(tfuel.name, out FuelTank tank) && tank.canHave)
+                        usedByTanks.Add(tank);
+            }
             else
                 found.AddSource(source);
         }
@@ -822,6 +829,7 @@ namespace RealFuels.Tanks
         public void UpdateUsedBy()
         {
             usedBy.Clear();
+            usedByTanks.Clear();
 
             // Get part list
             List<Part> parts;
