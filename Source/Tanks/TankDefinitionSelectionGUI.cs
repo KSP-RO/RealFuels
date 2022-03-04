@@ -22,7 +22,6 @@ namespace RealFuels.Tanks
 
         public void Awake()
         {
-            Styles.InitStyles();
             windowStyle = new GUIStyle(Styles.styleEditorPanel);
             windowStyle.alignment = TextAnchor.UpperCenter;
 
@@ -30,6 +29,7 @@ namespace RealFuels.Tanks
             tooltipStyle.wordWrap = false;
             tooltipStyle.stretchWidth = true;
             tooltipStyle.stretchHeight = false;
+            tooltipStyle.clipping = TextClipping.Overflow;
 
             Debug.Log($"[MFT/RF Styles] {HighLogic.Skin.window.normal.background} / {HighLogic.Skin.box.normal.background}");
 
@@ -43,7 +43,7 @@ namespace RealFuels.Tanks
         {
             if (!string.IsNullOrWhiteSpace(tooltip))
             {
-                guiTooltipRect = GUILayout.Window(_tooltipWindowId, guiTooltipRect, GUITooltipWindow, "Tooltip", tooltipStyle, expandWidth);
+                guiTooltipRect = GUILayout.Window(_tooltipWindowId, guiTooltipRect, GUITooltipWindow, "", tooltipStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(false));
                 GUI.BringWindowToFront(_tooltipWindowId);
             }
             guiWindowRect = GUILayout.Window(GetInstanceID(), guiWindowRect, GUIWindow, $"{part.partInfo.title} Tank Definition Selection", windowStyle, expandWidth, expandHeight);
@@ -65,9 +65,7 @@ namespace RealFuels.Tanks
 
         public void GUITooltipWindow(int windowID)
         {
-            GUILayout.BeginVertical(expandWidth);
             GUILayout.Label(tooltip, Styles.styleEditorTooltip, expandWidth);
-            GUILayout.EndVertical();
         }
 
         private List<string> available = new List<string>();
@@ -111,7 +109,7 @@ namespace RealFuels.Tanks
                 tooltip = GUI.tooltip.Trim();
                 Vector3 mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
                 mousePos.y = Screen.height - mousePos.y;
-                guiTooltipRect = new Rect(guiWindowRect.xMin + 10, mousePos.y - 5, 150, 20);
+                guiTooltipRect = new Rect(guiWindowRect.xMin + 30, mousePos.y + 10, 250, 15);
             }
             GUI.DragWindow();
         }

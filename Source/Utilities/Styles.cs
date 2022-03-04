@@ -1,29 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-using System.IO;
-
-using KSP;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace RealFuels
 {
-    internal class Styles
+    [KSPAddon(KSPAddon.Startup.EditorAny, false)]
+    internal class Styles : MonoBehaviour
     {
         // Base styles
         public static GUIStyle styleEditorTooltip;
         public static GUIStyle styleEditorPanel;
         public static GUIStyle styleEditorBox;
-        private static bool styleSetup = false;
+
+        private void Start()
+        {
+            InitStyles();
+        }
 
         /// <summary>
         /// This one sets up the styles we use
         /// </summary>
         internal static void InitStyles()
         {
-            if (styleSetup) return;
             styleEditorTooltip = new GUIStyle();
             styleEditorTooltip.name = "Tooltip";
             styleEditorTooltip.fontSize = 12;
@@ -47,7 +43,6 @@ namespace RealFuels
             styleEditorBox.wordWrap = false;
             styleEditorBox.fontSize = 12;
             styleEditorBox.alignment = TextAnchor.UpperCenter;
-            styleSetup = true;
         }
 
 
