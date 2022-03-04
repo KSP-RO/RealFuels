@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
@@ -15,6 +16,7 @@ namespace RealFuels.Tanks
 		public readonly List<PartModule> sources = new List<PartModule>();
 		public readonly double efficiency;
 		public readonly double ratioFactor;
+		public string JoinedPartNames = string.Empty;
 
         // looks to see if we should ignore this fuel when creating an autofill for an engine
         private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
@@ -43,12 +45,8 @@ namespace RealFuels.Tanks
 			// tank math:
 			// efficiency = sum[utilization * ratio]
 			// then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
-			string _title = source.part.partInfo.title;
-			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
-				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";
-			title = _title;
-			partNames.Add(title);
-			sources.Add(source);
+			AddSource(source);
+			title = partNames.First();
 			ratioFactor = 0.0;
 			efficiency = 0.0;
 
@@ -84,6 +82,7 @@ namespace RealFuels.Tanks
 				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";
 			sources.Add(source);
 			partNames.Add(_title);
-        }
+			JoinedPartNames = string.Join(",", partNames);
+		}
 	}
 }
