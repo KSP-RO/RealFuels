@@ -21,6 +21,7 @@ MFT_FILES := \
     Tanks/ModuleFuelTanks.cs		\
     Tanks/TankDefinition.cs			\
     Tanks/TankDefinitionList.cs		\
+    Tanks/TankDefinitionSelectionGUI.cs	\
     Tanks/TankWindow.cs				\
 	Utilities/Styles.cs				\
     Pumps/RefuelingPump.cs			\
