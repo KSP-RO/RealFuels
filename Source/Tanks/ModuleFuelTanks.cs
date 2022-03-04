@@ -319,18 +319,30 @@ namespace RealFuels.Tanks
                 update_wait_frames = wait_frames;
         }
 
+        private bool PartContainsEngineOrRCS(Part p, bool testChildren = false)
+        {
+            if (p == null) return false;
+            bool result = p.FindModuleImplementing<ModuleEngines>() || p.FindModuleImplementing<ModuleRCS>();
+            if (testChildren && !result)
+                foreach (Part p2 in p.children)
+                    result |= PartContainsEngineOrRCS(p2, testChildren);
+            return result;
+        }
+
+        // Only trigger updates if a part in the tree that was added/removed is a fuel consumer
         private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> hostTarget)
         {
-            // Only trigger updates if the part that was added/removed is a fuel consumer
-            Part p = hostTarget.host;
-            bool update = p != null && (p.FindModuleImplementing<ModuleEngines>() || p.FindModuleImplementing<ModuleRCS>());
-            p = hostTarget.target;
-            update |= p != null && (p.FindModuleImplementing<ModuleEngines>() || p.FindModuleImplementing<ModuleRCS>());
-            if (update)
+            // Attaching: host is the incoming part
+            if (PartContainsEngineOrRCS(hostTarget.host, true) || PartContainsEngineOrRCS(hostTarget.target, false))
                 UpdateUsedBy();
         }
 
-        private void OnPartRemove(GameEvents.HostTargetAction<Part, Part> hostTarget) => OnPartAttach(hostTarget);
+        private void OnPartRemove(GameEvents.HostTargetAction<Part, Part> hostTarget)
+        {
+            // Removing: target is the detaching part
+            if (PartContainsEngineOrRCS(hostTarget.host, false) || PartContainsEngineOrRCS(hostTarget.target, true))
+                UpdateUsedBy();
+        }
 
         private void OnPartActionUIShown(UIPartActionWindow window, Part p)
         {
