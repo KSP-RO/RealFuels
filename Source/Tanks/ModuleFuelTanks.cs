@@ -105,7 +105,7 @@ namespace RealFuels.Tanks
 
         private static float DefaultBaseCostPV => MFSSettings.baseCostPV;
 
-        public override void OnAwake ()
+        public override void OnAwake()
         {
             MFSSettings.TryInitialize();
 
@@ -284,41 +284,24 @@ namespace RealFuels.Tanks
             started = true;
         }
 
-        void OnDestroy ()
+        void OnDestroy()
         {
-            GameEvents.onPartAttach.Remove (OnPartAttach);
-            GameEvents.onPartRemove.Remove (OnPartRemove);
-            GameEvents.onEditorShipModified.Remove (OnEditorShipModified);
-            GameEvents.onPartActionUIDismiss.Remove (OnPartActionGuiDismiss);
+            GameEvents.onPartAttach.Remove(OnPartAttach);
+            GameEvents.onPartRemove.Remove(OnPartRemove);
+            GameEvents.onEditorShipModified.Remove(OnEditorShipModified);
+            GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
             GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
             TankWindow.HideGUI();
         }
 
         public override void OnSave (ConfigNode node)
         {
-            tankList.Save (node, false);
-        }
-
-        private const int wait_frames = 2;
-        private int update_wait_frames = 0;
-
-        private IEnumerator WaitAndUpdateResources(ShipConstruct ship)
-        {
-            while (--update_wait_frames > 0) yield return null;
-            PartResourcesChanged();
+            tankList.Save(node, false);
         }
 
         private void OnUtilizationChanged(BaseField f, object obj) => ChangeTotalVolume(totalVolume);
 
-        private void OnEditorShipModified(ShipConstruct ship)
-        {
-            // some parts/modules fire the event before doing things
-            if (update_wait_frames == 0) {
-                update_wait_frames = wait_frames;
-                StartCoroutine(WaitAndUpdateResources(ship));
-            } else
-                update_wait_frames = wait_frames;
-        }
+        private void OnEditorShipModified(ShipConstruct _) => PartResourcesChanged();
 
         private bool PartContainsEngineOrRCS(Part p, bool testChildren = false)
         {
@@ -365,7 +348,7 @@ namespace RealFuels.Tanks
             }
         }
 
-        public void Update ()
+        public void Update()
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
