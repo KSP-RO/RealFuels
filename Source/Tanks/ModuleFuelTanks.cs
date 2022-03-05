@@ -32,6 +32,7 @@ namespace RealFuels.Tanks
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
         internal FuelTankList tankList = new FuelTankList();
         public List<string> typesAvailable = new List<string>();
+        internal List<string> lockedTypes = new List<string>();
 
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
         public string type = "Default";
@@ -383,6 +384,13 @@ namespace RealFuels.Tanks
             (Fields[nameof(type)].uiControlEditor as UI_ChooseOption).options = typesAvailable.ToArray();
         }
 
+        public void AllowLockedTypes(List<string> lockedList)
+        {
+            var validLockedTypes = lockedList.Where(x => MFSSettings.tankDefinitions.ContainsKey(x) && !typesAvailable.Contains(x));
+            typesAvailable.AddUniqueRange(validLockedTypes);
+            lockedTypes.AddUniqueRange(validLockedTypes);
+        }
+
         private void UpdateTypesAvailable(ConfigNode node) => UpdateTypesAvailable(node.GetValuesList("typeAvailable"));
         private void UpdateTypesAvailable(List<string> types)
         {
@@ -390,6 +398,7 @@ namespace RealFuels.Tanks
             RecordManagedResources();
             InitializeTankType();
         }
+        public bool Validate() => MFSSettings.tankDefinitions.ContainsKey(type) && typesAvailable.Contains(type) && !lockedTypes.Contains(type);
 
         // This is strictly a change handler!
         private void UpdateTankType (bool initializeAmounts = false)

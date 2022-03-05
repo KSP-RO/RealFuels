@@ -38,6 +38,7 @@ namespace RealFuels.Tanks
 
             filterList.Add(new Filter("Highly Pressurized", false, (x) => x.highlyPressurized));
             filterList.Add(new Filter("Not Highly Pressurized", false, (x) => !x.highlyPressurized));
+            filterList.Add(new Filter("Unlocked types", true, (x) => !parentModule.lockedTypes.Contains(x.name)));
         }
         public void OnGUI()
         {
