@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace RealFuels.Tanks
 {
-    internal class FuelInfo
+	internal class FuelInfo
 	{
 		public readonly string title;
 		public readonly string Label;
@@ -18,8 +18,8 @@ namespace RealFuels.Tanks
 		public readonly double ratioFactor;
 		public string JoinedPartNames = string.Empty;
 
-        // looks to see if we should ignore this fuel when creating an autofill for an engine
-        private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
+		// looks to see if we should ignore this fuel when creating an autofill for an engine
+		private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
 
 		private string BuildLabel()
 		{
@@ -76,7 +76,7 @@ namespace RealFuels.Tanks
 		}
 
 		public void AddSource(PartModule source)
-        {
+		{
 			string _title = source.part.partInfo.title;
 			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
 				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";

@@ -855,19 +855,24 @@ namespace RealFuels.Tanks
 
                 int idx = 0;
                 foreach (FuelInfo info in usedBy.Values) {
-                    KSPEvent kspEvent = new KSPEvent {
-                        name = "MFT" + idx++,
-                        guiActive = false,
-                        guiActiveEditor = activeEditor,
-                        guiName = info.title, //info.Label,
-                        groupName = guiGroupName,
-                        groupDisplayName = guiGroupDisplayName
-                    };
-                    FuelInfo info1 = info;
-                    BaseEvent button = new BaseEvent (Events, kspEvent.name, () => ConfigureFor (info1), kspEvent) {
-                        guiActiveEditor = activeEditor
-                    };
-                    Events.Add(button);
+                    foreach (string title in info.partNames)
+                    {
+                        KSPEvent kspEvent = new KSPEvent
+                        {
+                            name = "MFT" + idx++,
+                            guiActive = false,
+                            guiActiveEditor = activeEditor,
+                            guiName = title,
+                            groupName = guiGroupName,
+                            groupDisplayName = guiGroupDisplayName
+                        };
+                        FuelInfo info1 = info;
+                        BaseEvent button = new BaseEvent(Events, kspEvent.name, () => ConfigureFor(info1), kspEvent)
+                        {
+                            guiActiveEditor = activeEditor
+                        };
+                        Events.Add(button);
+                    }
                 }
                 MonoUtilities.RefreshPartContextWindow(part);
             }
