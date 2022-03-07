@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UnityEngine;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
@@ -48,13 +49,13 @@ namespace RealFuels.Tanks
         public double totalArea = -1;
         public double tankRatio = -1;
 
-        [Persistent]
+		[Persistent]
 		public double wallThickness = 0.1;
-        [Persistent]
+		[Persistent]
 		public double wallConduction = 205; // Aluminum conductive factor (@cryogenic temperatures)
-        [Persistent]
+		[Persistent]
 		public double insulationThickness = 0.0;
-        [Persistent]
+		[Persistent]
 		public double insulationConduction = 1.0;
 		[Persistent]
 		public bool isDewar;
@@ -63,16 +64,16 @@ namespace RealFuels.Tanks
 		public float temperature = 300.0f;
 		[Persistent]
 		public bool fillable = true;
-        [Persistent]
-        public string techRequired = "";
+		[Persistent]
+		public string techRequired = "";
 
 		public bool locked = false;
 
 		public bool propagate = true;
 
-        public double density = 0d;
+		public double density = 0d;
 
-        public bool resourceAvailable;
+		public bool resourceAvailable;
 
 		internal string amountExpression;
 		internal string maxAmountExpression;
@@ -88,7 +89,7 @@ namespace RealFuels.Tanks
 
 		public PartResource resource => part != null ? part.Resources[name] : null;
 
-        public void RaiseResourceInitialChanged (Part part, PartResource resource, double amount)
+		public void RaiseResourceInitialChanged (Part part, PartResource resource, double amount)
 		{
 			var data = new BaseEventDetails (BaseEventDetails.Sender.USER);
 			data.Set<PartResource> ("resource", resource);
@@ -132,7 +133,7 @@ namespace RealFuels.Tanks
 				if (value == partResource.amount)
 					return;
 
-                amountExpression = null;
+				amountExpression = null;
 
 				partResource.amount = value;
 				if (HighLogic.LoadedSceneIsEditor) {
@@ -149,7 +150,7 @@ namespace RealFuels.Tanks
 			}
 		}
 
-        public bool canHave => techRequired.Equals("") || HighLogic.CurrentGame == null || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX
+		public bool canHave => techRequired.Equals("") || HighLogic.CurrentGame == null || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX
 								|| ResearchAndDevelopment.GetTechnologyState(techRequired) == RDTech.State.Available;
 
 		void DeleteTank()
@@ -160,21 +161,21 @@ namespace RealFuels.Tanks
 			if (module.unmanagedResources.ContainsKey(partResource.resourceName))
 				return;
 
-            part.Resources.Remove(partResource);
-            part.SimulationResources.Remove(partResource);
+			part.Resources.Remove(partResource);
+			part.SimulationResources.Remove(partResource);
 			module.RaiseResourceListChanged();
 
 			// Update symmetry counterparts.
 			if (HighLogic.LoadedSceneIsEditor && propagate)
-            {
+			{
 				foreach (Part sym in part.symmetryCounterparts)
-                {
+				{
 					PartResource symResc = sym.Resources[name];
 					sym.Resources.Remove(symResc);
 					sym.SimulationResources.Remove(symResc);
 					RaiseResourceListChanged(sym);
-                }
-            }
+				}
+			}
 		}
 
 		void UpdateTank (double value)
@@ -183,8 +184,8 @@ namespace RealFuels.Tanks
 			if (module.unmanagedResources.ContainsKey(partResource.resourceName))
 				return;
 
-            if (value > partResource.maxAmount)
-            {
+			if (value > partResource.maxAmount)
+			{
 				// If expanding, modify it to be less than overfull
 				double maxQty = (module.AvailableVolume * utilization) + partResource.maxAmount;
 				value = Math.Min(maxQty, value);
@@ -194,31 +195,42 @@ namespace RealFuels.Tanks
 			if (value == partResource.maxAmount)
 				return;
 
+			double fillFrac = fillFraction;	// fillFraction is a live value, gather it before changing a resource amount
 			maxAmountExpression = null;
 			partResource.maxAmount = value;
 			module.RaiseResourceMaxChanged(partResource, value);
 
 			// Keep the same fill fraction
-			double newAmount = value * fillFraction;
+			double newAmount = value * fillFrac;
 			if (newAmount != partResource.amount)
-            {
+			{
 				partResource.amount = newAmount;
 				module.RaiseResourceInitialChanged(partResource, newAmount);
+			}
+			if (partResource.part.PartActionWindow?.ListItems.FirstOrDefault(r => r is UIPartActionResourceEditor e && partResource == e.Resource) is UIPartActionResourceEditor resItem && resItem != null)
+			{
+				resItem.resourceAmnt.text = KSPUtil.LocalizeNumber(partResource.amount, "F1");
+				resItem.resourceMax.text = KSPUtil.LocalizeNumber(partResource.maxAmount, "F1");
 			}
 
 			// Update symmetry counterparts.
 			if (HighLogic.LoadedSceneIsEditor && propagate)
-            {
+			{
 				foreach (Part sym in part.symmetryCounterparts)
-                {
+				{
 					PartResource symResc = sym.Resources[name];
 					symResc.maxAmount = value;
 					RaiseResourceMaxChanged(sym, symResc, value);
 
 					if (newAmount != symResc.amount)
-                    {
+					{
 						symResc.amount = newAmount;
 						RaiseResourceInitialChanged(sym, symResc, newAmount);
+					}
+					if (symResc.part.PartActionWindow?.ListItems.FirstOrDefault(r => r is UIPartActionResourceEditor e && symResc == e.Resource) is UIPartActionResourceEditor symResItem && symResItem != null)
+					{
+						symResItem.resourceAmnt.text = KSPUtil.LocalizeNumber(symResc.amount, "F1");
+						symResItem.resourceMax.text = KSPUtil.LocalizeNumber(symResc.maxAmount, "F1");
 					}
 				}
 			}
@@ -278,7 +290,7 @@ namespace RealFuels.Tanks
 					UpdateTank(value);
 				else if (value > 0.0)
 					AddTank(value);
-                module.massDirty = true;
+				module.massDirty = true;
 			}
 		}
 
