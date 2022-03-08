@@ -106,9 +106,13 @@ namespace RealFuels.Tanks
 
         private static float DefaultBaseCostPV => MFSSettings.baseCostPV;
 
+        public delegate void UpdateTweakableButtonsDelegateType();
+        public UpdateTweakableButtonsDelegateType UpdateTweakableButtonsDelegate;
         public override void OnAwake()
         {
             MFSSettings.TryInitialize();
+
+            UpdateTweakableButtonsDelegate = (UpdateTweakableButtonsDelegateType)Delegate.CreateDelegate(typeof(UpdateTweakableButtonsDelegateType), this, "UpdateTweakableButtons", true);
 
             if (utilization == -1)
                 utilization = Mathf.Clamp(MFSSettings.partUtilizationDefault, minUtilization, maxUtilization);
@@ -120,6 +124,7 @@ namespace RealFuels.Tanks
                 unmanagedResources = part.partInfo.partPrefab.FindModuleImplementing<ModuleFuelTanks>().unmanagedResources;
                 typesAvailable = new List<string>(typesAvailable);  // Copy so any changes don't impact the prefab
             }
+            OnAwakeRF();
         }
 
         protected void InitUtilization()
@@ -802,20 +807,15 @@ namespace RealFuels.Tanks
         // looks to see if we should ignore this fuel when creating an autofill for an engine
         private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
 
-        internal readonly Dictionary<string, FuelInfo> usedBy = new Dictionary<string, FuelInfo>();
+        internal readonly Dictionary<PartModule, FuelInfo> usedBy = new Dictionary<PartModule, FuelInfo>();
         internal readonly HashSet<FuelTank> usedByTanks = new HashSet<FuelTank>();
 
         private void UpdateFuelInfo(FuelInfo f, PartModule source)
         {
-            if (!usedBy.TryGetValue(f.Label, out FuelInfo found))
-            {
-                usedBy.Add(f.Label, f);
-                foreach (Propellant tfuel in f.propellantVolumeMults.Keys)
-                    if (tankList.TryGet(tfuel.name, out FuelTank tank) && tank.canHave)
-                        usedByTanks.Add(tank);
-            }
-            else
-                found.AddSource(source);
+            usedBy[source] = f;
+            foreach (Propellant tfuel in f.propellantVolumeMults.Keys)
+                if (tankList.TryGet(tfuel.name, out FuelTank tank) && tank.canHave)
+                    usedByTanks.Add(tank);
         }
 
         public void UpdateUsedBy()
@@ -847,22 +847,29 @@ namespace RealFuels.Tanks
                 }
             }
 
-            // Need to update the tweakable menu too
+            UpdateTweakableButtonsDelegate();
+        }
+
+        private readonly HashSet<string> displayedParts = new HashSet<string>();
+        protected void UpdateTweakableButtons()
+        {
             if (HighLogic.LoadedSceneIsEditor)
             {
+                displayedParts.Clear();
                 Events.RemoveAll(button => button.name.StartsWith("MFT"));
                 bool activeEditor = AvailableVolume >= 0.001;
 
                 int idx = 0;
-                foreach (FuelInfo info in usedBy.Values) {
-                    foreach (string title in info.partNames)
+                foreach (FuelInfo info in usedBy.Values)
+                {
+                    if (!displayedParts.Contains(info.title))
                     {
                         KSPEvent kspEvent = new KSPEvent
                         {
                             name = "MFT" + idx++,
                             guiActive = false,
                             guiActiveEditor = activeEditor,
-                            guiName = title,
+                            guiName = info.title,
                             groupName = guiGroupName,
                             groupDisplayName = guiGroupDisplayName
                         };
@@ -872,6 +879,7 @@ namespace RealFuels.Tanks
                             guiActiveEditor = activeEditor
                         };
                         Events.Add(button);
+                        displayedParts.Add(info.title);
                     }
                 }
                 MonoUtilities.RefreshPartContextWindow(part);
@@ -924,6 +932,7 @@ namespace RealFuels.Tanks
 
         #region Partial Methods
 
+        partial void OnAwakeRF();
         partial void OnStartRF(StartState state);
         partial void UpdateTestFlight();
         partial void UpdateTankTypeRF(TankDefinition def);
