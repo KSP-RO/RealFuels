@@ -800,10 +800,6 @@ namespace RealFuels
             newConfig.CopyTo(config);
             config.name = "MODULE";
 
-#if DEBUG
-            Debug.Log($"replacing {type} with:\n{newConfig}");
-#endif
-
             if ((pModule = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType)) is null)
             {
                 Debug.LogError($"*RFMEC* Could not find appropriate module of type {type}, with ID={engineID} and index {moduleIndex}");
