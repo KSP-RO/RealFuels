@@ -372,7 +372,7 @@ namespace RealFuels.Tanks
                 GUILayout.Label("Configure remaining volume for detected engines:");
 
                 foreach (FuelInfo info in tank_module.usedBy.Values)
-                    if (GUILayout.Button(new GUIContent(info.title, info.JoinedPartNames)))
+                    if (GUILayout.Button(info.title))
                         tank_module.ConfigureFor(info);
             }
             GUILayout.EndVertical();

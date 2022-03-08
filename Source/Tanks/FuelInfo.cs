@@ -11,12 +11,10 @@ namespace RealFuels.Tanks
 	{
 		public readonly string title;
 		public readonly string Label;
+		public readonly PartModule source;
 		public readonly Dictionary<Propellant, double> propellantVolumeMults = new Dictionary<Propellant, double>();
-		public readonly HashSet<string> partNames = new HashSet<string>();
-		public readonly List<PartModule> sources = new List<PartModule>();
 		public readonly double efficiency;
 		public readonly double ratioFactor;
-		public string JoinedPartNames = string.Empty;
 
 		// looks to see if we should ignore this fuel when creating an autofill for an engine
 		private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
@@ -45,8 +43,11 @@ namespace RealFuels.Tanks
 			// tank math:
 			// efficiency = sum[utilization * ratio]
 			// then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
-			AddSource(source);
-			title = partNames.First();
+			this.source = source;
+			string _title = source.part.partInfo.title;
+			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
+				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";
+			title = _title;
 			ratioFactor = 0.0;
 			efficiency = 0.0;
 
@@ -73,16 +74,6 @@ namespace RealFuels.Tanks
 				}
 			}
 			Label = BuildLabel();
-		}
-
-		public void AddSource(PartModule source)
-		{
-			string _title = source.part.partInfo.title;
-			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
-				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";
-			sources.Add(source);
-			partNames.Add(_title);
-			JoinedPartNames = string.Join(",", partNames);
 		}
 	}
 }
