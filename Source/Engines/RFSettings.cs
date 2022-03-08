@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
@@ -7,114 +6,100 @@ using UnityEngine;
 namespace RealFuels
 {
     // ReSharper disable once InconsistentNaming
-    public class RFSettings : MonoBehaviour
+    public class RFSettings
     {
-        
-        private float engineMassMultiplier = 1;
-        
-        public float heatMultiplier = 1;
-        
-        public bool useRealisticMass = true;
+        [Persistent] public float engineMassMultiplier = 1;
 
-        public double configEntryCostMultiplier = 20d;
-        public double configScienceCostMultiplier = 0d;
+        [Persistent] public float heatMultiplier = 1;
 
-        public double techLevelEntryCostFraction = 0.1d;
-        public double techLevelScienceEntryCostFraction = 0d;
+        [Persistent] public bool useRealisticMass = true;
 
-        public double configCostToScienceMultiplier = 0.1d;
+        [Persistent] public double configEntryCostMultiplier = 20d;
+        [Persistent] public double configScienceCostMultiplier = 0d;
 
-        public double varianceAndResiduals = 0d;
+        [Persistent] public double techLevelEntryCostFraction = 0.1d;
+        [Persistent] public double techLevelScienceEntryCostFraction = 0d;
 
-        public bool usePartNameInConfigUnlock = true;
+        [Persistent] public double configCostToScienceMultiplier = 0.1d;
+
+        [Persistent] public double varianceAndResiduals = 0d;
+
+        [Persistent] public bool usePartNameInConfigUnlock = true;
 
         public ConfigNode techLevels = null;
 
         public List<string> instantThrottleProps;
-        public double throttlingRate = 10d;
-        public double throttlingClamp = 1.1d;
+        [Persistent] public double throttlingRate = 10d;
+        [Persistent] public double throttlingClamp = 1.1d;
 
-        public bool ferociousBoilOff = false;
-        public bool globalConductionCompensation = false;
-        public bool debugBoilOff = false;
-        public bool debugBoilOffPAW = true;
-        public double QvCoefficient = 0.0028466; // convective coefficient for Real Fuels MLI calculations
-        public double analyticInsulationMultiplier = 1;
+        [Persistent] public bool ferociousBoilOff = false;
+        [Persistent] public bool globalConductionCompensation = false;
+        [Persistent] public bool debugBoilOff = false;
+        [Persistent] public bool debugBoilOffPAW = true;
+        [Persistent] public double QvCoefficient = 0.0028466; // convective coefficient for Real Fuels MLI calculations
+        [Persistent] public double analyticInsulationMultiplier = 1;
+
+        public List<string> Pressurants;
 
         #region Ullage
-        public bool simulateUllage = true;
-        public bool limitedIgnitions = true;
-        public bool shutdownEngineWhenUnstable = true;
-        public bool explodeEngineWhenTooUnstable = false;
-        public double stabilityPower = 0.03d;
+        [Persistent] public bool simulateUllage = true;
+        [Persistent] public bool limitedIgnitions = true;
+        [Persistent] public bool shutdownEngineWhenUnstable = true;
+        [Persistent] public bool explodeEngineWhenTooUnstable = false;
+        [Persistent] public double stabilityPower = 0.03d;
 
-        public double naturalDiffusionRateX = 0.02d;
-        public double naturalDiffusionRateY = 0.03d;
-        public double naturalDiffusionAccThresh = 0.01d;
+        [Persistent] public double naturalDiffusionRateX = 0.02d;
+        [Persistent] public double naturalDiffusionRateY = 0.03d;
+        [Persistent] public double naturalDiffusionAccThresh = 0.01d;
 
-        public double translateAxialCoefficientX = 0.06d;
-        public double translateAxialCoefficientY = 0.06d;
+        [Persistent] public double translateAxialCoefficientX = 0.06d;
+        [Persistent] public double translateAxialCoefficientY = 0.06d;
 
-        public double translateSidewayCoefficientX = 0.04d;
-        public double translateSidewayCoefficientY = 0.02d;
+        [Persistent] public double translateSidewayCoefficientX = 0.04d;
+        [Persistent] public double translateSidewayCoefficientY = 0.02d;
 
-        public double rotateYawPitchCoefficientX = 0.003d;
-        public double rotateYawPitchCoefficientY = 0.004d;
+        [Persistent] public double rotateYawPitchCoefficientX = 0.003d;
+        [Persistent] public double rotateYawPitchCoefficientY = 0.004d;
 
-        public double rotateRollCoefficientX = 0.005d;
-        public double rotateRollCoefficientY = 0.006d;
+        [Persistent] public double rotateRollCoefficientX = 0.005d;
+        [Persistent] public double rotateRollCoefficientY = 0.006d;
 
-        public double ventingVelocity = 100.0d;
-        public double ventingAccThreshold = 0.00000004d;
+        [Persistent] public double ventingVelocity = 100.0d;
+        [Persistent] public double ventingAccThreshold = 0.00000004d;
         #endregion
 
         // storage
-        public Dictionary<string, List<ConfigNode>> engineConfigs = null;
+        public Dictionary<string, List<ConfigNode>> engineConfigs = new Dictionary<string, List<ConfigNode>>(64);
 
-        public float EngineMassMultiplier
-        {
-            get { return useRealisticMass ? 1f : engineMassMultiplier; }
-        }
+        public float EngineMassMultiplier => useRealisticMass ? 1f : engineMassMultiplier;
 
         private static RFSettings _instance;
         public static RFSettings Instance
         {
             get
             {
-                // no longer destroy on scene reload
-                // because we need to store configuration data because of stupid serialization issues
-                if (_instance != null && _instance)
-                    return _instance;
-
-                //Debug.Log("*MHE* Loading settings");
-
-                GameObject gameObject = new GameObject(typeof(RFSettings).FullName);
-                _instance = gameObject.AddComponent<RFSettings>();
-                UnityEngine.Object.DontDestroyOnLoad(_instance);
-                UnityEngine.Object.DontDestroyOnLoad(gameObject);
+                if (_instance == null)
+                {
+                    _instance = new RFSettings();
+                    _instance.Init();
+                }
                 return _instance;
             }
         }
 
-        static string version;
+        private static string version;
         public static string GetVersion()
         {
-            if (version != null) {
-                return version;
+            if (version == null)
+            {
+                var asm = Assembly.GetCallingAssembly();
+                version = $"{MFSVersionReport.GetAssemblyTitle(asm)} {MFSVersionReport.GetAssemblyVersionString(asm)}";
             }
-
-            var asm = Assembly.GetCallingAssembly ();
-            var title = MFSVersionReport.GetAssemblyTitle (asm);
-            version = title + " " + MFSVersionReport.GetAssemblyVersionString (asm);
-
             return version;
         }
 
-        internal void Awake()
+        private void Init()
         {
-            if(engineConfigs == null)
-                engineConfigs = new Dictionary<string, List<ConfigNode>>();
-
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("RFSETTINGS").Last();
             
             Debug.Log("*RF* Loading RFSETTINGS global settings");
@@ -123,69 +108,15 @@ namespace RealFuels
                 throw new UnityException("*RF* Could not find RF global settings!");
 
             // parse values
-            node.TryGetValue("engineMassMultiplier", ref engineMassMultiplier);
-            node.TryGetValue("heatMultiplier", ref heatMultiplier);
-            node.TryGetValue("useRealisticMass", ref useRealisticMass);
-            node.TryGetValue("varianceAndResiduals", ref varianceAndResiduals);
+            ConfigNode.LoadObjectFromConfig(this, node);
 
             if (node.HasNode("RF_TECHLEVELS"))
                 techLevels = node.GetNode("RF_TECHLEVELS");
+            instantThrottleProps = node.HasNode("instantThrottleProps") ? node.GetNode("instantThrottleProps").GetValuesList("val") : new List<string>();
+            Pressurants = node.HasNode("Pressurants") ? node.GetNode("Pressurants").GetValuesList("val") : new List<string>();
 
-            // Throttling
-            instantThrottleProps = new List<string>();
-            if (node.HasNode("instantThrottleProps"))
-                foreach (ConfigNode.Value val in node.GetNode("instantThrottleProps").values)
-                    instantThrottleProps.Add(val.value);
-
-            node.TryGetValue("throttlingRate", ref throttlingRate);
-            node.TryGetValue("throttlingClamp", ref throttlingClamp);
-
-            // Upgrade costs
-            node.TryGetValue("configEntryCostMultiplier", ref configEntryCostMultiplier);
-            node.TryGetValue("techLevelEntryCostFraction", ref techLevelEntryCostFraction);
-            node.TryGetValue("configScienceCostMultiplier", ref configScienceCostMultiplier);
-            node.TryGetValue("techLevelScienceEntryCostFraction", ref techLevelScienceEntryCostFraction);
-            node.TryGetValue("configCostToScienceMultiplier", ref configCostToScienceMultiplier);
-            node.TryGetValue("usePartNameInConfigUnlock", ref usePartNameInConfigUnlock);
-            node.TryGetValue("ferociousBoilOff", ref ferociousBoilOff);
-            node.TryGetValue("globalConductionCompensation", ref globalConductionCompensation);
-            node.TryGetValue("debugBoilOff", ref debugBoilOff);
-            node.TryGetValue("debugBoilOffPAW", ref debugBoilOffPAW);
-            node.TryGetValue("QvCoefficient", ref QvCoefficient);
-            node.TryGetValue("analyticInsulationMultiplier", ref analyticInsulationMultiplier);
-
-            #region Ullage
             if (node.HasNode("Ullage"))
-            {
-                ConfigNode ullageNode = node.GetNode("Ullage");
-
-                ullageNode.TryGetValue("simulateUllage", ref simulateUllage);
-                ullageNode.TryGetValue("limitedIgnitions", ref limitedIgnitions);
-                ullageNode.TryGetValue("shutdownEngineWhenUnstable", ref shutdownEngineWhenUnstable);
-                ullageNode.TryGetValue("explodeEngineWhenTooUnstable", ref explodeEngineWhenTooUnstable);
-                ullageNode.TryGetValue("stabilityPower", ref stabilityPower);
-
-                ullageNode.TryGetValue("naturalDiffusionRateX", ref naturalDiffusionRateX);
-                ullageNode.TryGetValue("naturalDiffusionRateY", ref naturalDiffusionRateY);
-                ullageNode.TryGetValue("naturalDiffusionAccThresh", ref naturalDiffusionAccThresh);
-
-                ullageNode.TryGetValue("translateAxialCoefficientX", ref translateAxialCoefficientX);
-                ullageNode.TryGetValue("translateAxialCoefficientY", ref translateAxialCoefficientY);
-
-                ullageNode.TryGetValue("translateSidewayCoefficientX", ref translateSidewayCoefficientX);
-                ullageNode.TryGetValue("translateSidewayCoefficientY", ref translateSidewayCoefficientY);
-
-                ullageNode.TryGetValue("rotateYawPitchCoefficientX", ref rotateYawPitchCoefficientX);
-                ullageNode.TryGetValue("rotateYawPitchCoefficientY", ref rotateYawPitchCoefficientY);
-
-                ullageNode.TryGetValue("rotateRollCoefficientX", ref rotateRollCoefficientX);
-                ullageNode.TryGetValue("rotateRollCoefficientY", ref rotateRollCoefficientY);
-
-                ullageNode.TryGetValue("ventingVelocity", ref ventingVelocity);
-                ullageNode.TryGetValue("ventingAccThreshold", ref ventingAccThreshold);
-            }
-            #endregion
+                ConfigNode.LoadObjectFromConfig(this, node.GetNode("Ullage"));
         }
     }
-
 }
