@@ -9,6 +9,9 @@ namespace RealFuels
         public static GUIStyle styleEditorTooltip;
         public static GUIStyle styleEditorPanel;
         public static GUIStyle styleEditorBox;
+        public static GUIStyle labelGreen;
+        public static GUIStyle labelYellow;
+        public static GUIStyle labelOrange;
 
         private void Start()
         {
@@ -43,6 +46,18 @@ namespace RealFuels
             styleEditorBox.wordWrap = false;
             styleEditorBox.fontSize = 12;
             styleEditorBox.alignment = TextAnchor.UpperCenter;
+
+            labelGreen = new GUIStyle(HighLogic.Skin.label);
+            labelGreen.normal.textColor = XKCDColors.Green;
+            labelGreen.stretchWidth = true;
+
+            labelYellow = new GUIStyle(HighLogic.Skin.label);
+            labelYellow.normal.textColor = XKCDColors.Yellow;
+            labelYellow.stretchWidth = true;
+
+            labelOrange = new GUIStyle(HighLogic.Skin.label);
+            labelOrange.normal.textColor = XKCDColors.Orange;
+            labelOrange.stretchWidth = true;
         }
 
 
