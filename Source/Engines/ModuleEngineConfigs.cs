@@ -1336,47 +1336,87 @@ namespace RealFuels
 
             using (new GUILayout.HorizontalScope())
             {
-                // Currently selected.
-                if (isSelected)
+                // For simulations, RP-1 will allow selecting all configs despite tech status or whether the entry cost has been paid.
+                // The KCT that comes with RP-1 will call the Validate() method when the player tries to add a vessel to the build queue.
+                if (Utilities.RP1Found)
                 {
-                    GUILayout.Label(new GUIContent($"Current config: {dispName}{costString}", configInfo));
-                    return;
-                }
-
-                // Locked.
-                if (!CanConfig(node))
-                {
-                    if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
-                        techStr = "\nRequires: " + techStr;
-                    GUILayout.Label(new GUIContent($"Lacks tech for {dispName}", configInfo + techStr));
-                    return;
-                }
-
-                // Available.
-                if (UnlockedConfig(node, part))
-                {
-                    if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
-                        apply(nName);
-                    return;
-                }
-
-                // Purchase.
-                double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
-                if (upgradeCost > 0d)
-                {
-                    costString = $" ({upgradeCost:N0}f)";
-                    if (GUILayout.Button(new GUIContent($"Purchase {dispName}{costString}", configInfo)))
+                    // Currently selected.
+                    if (isSelected)
                     {
-                        if (EntryCostManager.Instance.PurchaseConfig(nName))
-                            apply(nName);
+                        GUILayout.Label(new GUIContent($"Current config: {dispName}{costString}", configInfo));
+                    }
+                    else if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                        apply(nName);
+
+                    if (!UnlockedConfig(node, part))
+                    {
+                        double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
+                        if (upgradeCost <= 0)
+                        {
+                            // Auto-buy.
+                            EntryCostManager.Instance.PurchaseConfig(nName);
+                        }
+
+                        bool isConfigAvailable = CanConfig(node);
+                        string tooltip = string.Empty;
+                        if (!isConfigAvailable && techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
+                        {
+                            tooltip = $"Lacks tech for {techStr}";
+                        }
+
+                        GUI.enabled = isConfigAvailable;
+                        if (GUILayout.Button(new GUIContent($"Purchase ({upgradeCost:N0}f)", tooltip), GUILayout.Width(145)))
+                        {
+                            if (EntryCostManager.Instance.PurchaseConfig(nName))
+                                apply(nName);
+                        }
+                        GUI.enabled = true;
                     }
                 }
                 else
                 {
-                    // Auto-buy.
-                    EntryCostManager.Instance.PurchaseConfig(nName);
-                    if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
-                        apply(nName);
+                    // Currently selected.
+                    if (isSelected)
+                    {
+                        GUILayout.Label(new GUIContent($"Current config: {dispName}{costString}", configInfo));
+                        return;
+                    }
+
+                    // Locked.
+                    if (!CanConfig(node))
+                    {
+                        if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
+                            techStr = "\nRequires: " + techStr;
+                        GUILayout.Label(new GUIContent($"Lacks tech for {dispName}", configInfo + techStr));
+                        return;
+                    }
+
+                    // Available.
+                    if (UnlockedConfig(node, part))
+                    {
+                        if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                            apply(nName);
+                        return;
+                    }
+
+                    // Purchase.
+                    double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
+                    if (upgradeCost > 0d)
+                    {
+                        costString = $" ({upgradeCost:N0}f)";
+                        if (GUILayout.Button(new GUIContent($"Purchase {dispName}{costString}", configInfo)))
+                        {
+                            if (EntryCostManager.Instance.PurchaseConfig(nName))
+                                apply(nName);
+                        }
+                    }
+                    else
+                    {
+                        // Auto-buy.
+                        EntryCostManager.Instance.PurchaseConfig(nName);
+                        if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                            apply(nName);
+                    }
                 }
             }
         }
@@ -1650,5 +1690,48 @@ namespace RealFuels
                 action_window.displayDirty = true;
         }
         #endregion
+
+        /// <summary>
+        /// Called from RP0KCT when adding vessels to queue to validate whether all the currently selected configs are available and unlocked.
+        /// </summary>
+        /// <param name="validationError"></param>
+        /// <param name="canBeResolved"></param>
+        /// <param name="costToResolve"></param>
+        /// <returns></returns>
+        public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve)
+        {
+            validationError = null;
+            canBeResolved = false;
+            costToResolve = 0;
+
+            ConfigNode node = GetConfigByName(configuration);
+
+            if (UnlockedConfig(node, part)) return true;
+
+            if (!CanConfig(node))
+            {
+                validationError = $"unlock tech {ResearchAndDevelopment.GetTechnologyTitle(config.GetValue("techRequired"))}";
+                return false;
+            }
+
+            string nName = node.GetValue("name");
+            double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
+            canBeResolved = true;
+            costToResolve = (float)upgradeCost;
+            validationError = $"pay entry cost";
+
+            return false;
+        }
+
+        /// <summary>
+        /// Called from RP0KCT to purchase configs that were returned as errors in the Validate() method.
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool ResolveValidationError()
+        {
+            ConfigNode node = GetConfigByName(configuration);
+            string nName = node.GetValue("name");
+            return EntryCostManager.Instance.PurchaseConfig(nName);
+        }
     }
 }
