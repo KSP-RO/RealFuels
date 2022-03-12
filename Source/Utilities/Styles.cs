@@ -49,15 +49,15 @@ namespace RealFuels
 
             labelGreen = new GUIStyle(HighLogic.Skin.label);
             labelGreen.normal.textColor = XKCDColors.Green;
-            labelGreen.stretchWidth = true;
+            labelGreen.stretchWidth = false;
 
             labelYellow = new GUIStyle(HighLogic.Skin.label);
             labelYellow.normal.textColor = XKCDColors.Yellow;
-            labelYellow.stretchWidth = true;
+            labelYellow.stretchWidth = false;
 
             labelOrange = new GUIStyle(HighLogic.Skin.label);
             labelOrange.normal.textColor = XKCDColors.Orange;
-            labelOrange.stretchWidth = true;
+            labelOrange.stretchWidth = false;
         }
 
 
