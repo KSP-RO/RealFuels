@@ -299,13 +299,8 @@ namespace RealFuels
             localResidualsThresholdBase = residualsThresholdBase;
             localVaryResiduals = varyResiduals;
 
-            // Use instant throttle response as proxy.
-            numRealPropellants = 0;
-            foreach (Propellant p in propellants)
-            {
-                if (!p.ignoreForIsp && p.resourceDef.density != 0d)
-                    ++numRealPropellants;
-            }
+            numRealPropellants = propellants.Where(p => !p.ignoreForIsp && p.resourceDef.density != 0).Count();
+
             // Create reasonable values for variation
             // Solids
             if (engineType == EngineType.SolidBooster)
@@ -437,25 +432,16 @@ namespace RealFuels
             if (!(engineSolver is SolverRF)) CreateEngine();
 
             // Setup for mixture variation
-            backupPropellantRatios.Clear();
-            oxidizerPropellant = fuelPropellant = null;
-            for (int i = 0; i < propellants.Count(); ++i)
+            backupPropellantRatios = propellants.Select(p => p.ratio).ToList();
+            var props = propellants.Where(p => !p.ignoreForIsp && p.resourceDef.density > 0).ToArray();
+            if (props.Length >= 2)
             {
-                Propellant p = propellants[i];
-                backupPropellantRatios.Add(p.ratio);
-
-                if (p.ignoreForIsp || p.resourceDef.density == 0d)
-                    continue;
-
-                if (fuelPropellant == null)
-                    fuelPropellant = p;
-                else if (oxidizerPropellant == null)
-                    oxidizerPropellant = p;
-            }
-            if (fuelPropellant != null && oxidizerPropellant != null)
-            {
+                fuelPropellant = props[0];
+                oxidizerPropellant = props[1];
                 currentMixtureRatio = mixtureRatio = (oxidizerPropellant.ratio * oxidizerPropellant.resourceDef.density) / (fuelPropellant.ratio * fuelPropellant.resourceDef.density);
             }
+            else
+                fuelPropellant = oxidizerPropellant = null;
 
             predictedMaximumResidualsGUI = predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
             if (localVaryMixture > 0d)
