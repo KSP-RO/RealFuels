@@ -141,7 +141,7 @@ namespace RealFuels.Tanks
         {
             managedResources.Clear();
             foreach (string t in typesAvailable)
-                if (MFSSettings.tankDefinitions.TryGetValue(type, out var def))
+                if (MFSSettings.tankDefinitions.TryGetValue(t, out var def))
                     foreach (FuelTank tank in def.tankList)
                         managedResources.Add(tank.name);
         }
