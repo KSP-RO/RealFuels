@@ -31,8 +31,6 @@ namespace RealFuels.Tanks
             tooltipStyle.stretchHeight = false;
             tooltipStyle.clipping = TextClipping.Overflow;
 
-            Debug.Log($"[MFT/RF Styles] {HighLogic.Skin.window.normal.background} / {HighLogic.Skin.box.normal.background}");
-
             expandWidth = GUILayout.ExpandWidth(true);
             expandHeight = GUILayout.ExpandHeight(true);
 
@@ -104,6 +102,7 @@ namespace RealFuels.Tanks
                 }
             }
             GUILayout.EndVertical();
+            bool destroy = GUILayout.Button("Close");
             GUILayout.EndVertical();
             if (Event.current.type == EventType.Repaint && !tooltip.Equals(GUI.tooltip.Trim(), StringComparison.OrdinalIgnoreCase))
             {
@@ -113,6 +112,8 @@ namespace RealFuels.Tanks
                 guiTooltipRect = new Rect(guiWindowRect.xMin + 30, mousePos.y + 10, 250, 15);
             }
             GUI.DragWindow();
+            if (destroy)
+                Destroy(this);
         }
     }
 }
