@@ -83,7 +83,8 @@ namespace RealFuels.Tanks
             if (HighLogic.LoadedSceneIsEditor)
             {
                 Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = maxMLILayers > 0;
-                (Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor as UI_FloatRange).maxValue = maxMLILayers;
+                _numberOfAddedMLILayers = Mathf.Clamp(_numberOfAddedMLILayers, 0, maxMLILayers);
+                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
                 Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
                 {
                     massDirty = true;
@@ -341,7 +342,7 @@ namespace RealFuels.Tanks
             minUtilization = def.minUtilization > 0 ? def.minUtilization : (float)Fields[nameof(minUtilization)].originalValue;
             maxUtilization = def.maxUtilization > 0 ? def.maxUtilization : (float)Fields[nameof(maxUtilization)].originalValue;
 
-            if (HighLogic.LoadedSceneIsEditor)
+            if (HighLogic.LoadedSceneIsEditor && started)
             {
                 Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = maxMLILayers > 0;
                 _numberOfAddedMLILayers = Mathf.Clamp(_numberOfAddedMLILayers, 0, maxMLILayers);
