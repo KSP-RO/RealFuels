@@ -49,6 +49,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.7.0
+* Fixed MLI layers setting on tanks not persisting through load.
+* Support RP-1's config validation feature.
+
 v13.6.0
 * Support a subconfig system for Engine Configs, to support e.g. the retracted and extended states of the XLR129-P-1.
 * Many performance improvements.
