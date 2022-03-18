@@ -690,21 +690,13 @@ namespace RealFuels.Tanks
             }
         }
 
-        public float GetModuleCost (float defaultCost, ModifierStagingSituation sit)
+        public float GetModuleCost(float defaultCost, ModifierStagingSituation sit)
         {
             double cst = Mathf.Max(0f, baseCostConst);
-            if (baseCostPV >= 0f && baseCostConst >= 0f ) {
+            if (baseCostPV >= 0f && baseCostConst >= 0f)
+            {
                 cst += volume * Mathf.Max(baseCostPV, 0f);
-                if (PartResourceLibrary.Instance != null) {
-                    foreach (FuelTank t in tankList) {
-                        if (t.resource != null) {
-                            PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition (t.resource.resourceName);
-                            if (d != null) {
-                                cst += t.maxAmount * (d.unitCost + t.cost / t.utilization);
-                            }
-                        }
-                    }
-                }
+                cst += tankList.Sum(t => t.maxAmount * t.cost / t.utilization);
             }
             GetModuleCostRF(ref cst);
             return (float)cst;
