@@ -33,6 +33,7 @@ namespace RealFuels.Tanks
         internal FuelTankList tankList = new FuelTankList();
         public List<string> typesAvailable = new List<string>();
         internal List<string> lockedTypes = new List<string>();
+        internal List<string> allPossibleTypes = new List<string>();    // typesAvailable if all upgrades were applied
 
         [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
         public string type = "Default";
@@ -121,8 +122,10 @@ namespace RealFuels.Tanks
                 unmanagedResources = new Dictionary<string, UnmanagedResource>();
             else
             {
-                unmanagedResources = part.partInfo.partPrefab.FindModuleImplementing<ModuleFuelTanks>().unmanagedResources;
-                typesAvailable = new List<string>(typesAvailable);  // Copy so any changes don't impact the prefab
+                var mft = part.partInfo.partPrefab.FindModuleImplementing<ModuleFuelTanks>();
+                unmanagedResources = mft.unmanagedResources;
+                typesAvailable = new List<string>(mft.typesAvailable);  // Copy so any changes don't impact the prefab
+                allPossibleTypes = new List<string>(mft.allPossibleTypes);
             }
             OnAwakeRF();
         }
@@ -201,6 +204,7 @@ namespace RealFuels.Tanks
                 ParseBaseMass(node);
                 ParseBaseCost(node);
                 UpdateTypesAvailable(node);
+                GatherAllPossibleTypes(node);
                 UpdateTankType(initializeAmounts: true);
             }
             else if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
@@ -265,6 +269,7 @@ namespace RealFuels.Tanks
 
         public override void OnStart(StartState state)
         {
+            //MFSSettings.previewAllLockedTypes = true;   // For testing only
             if (HighLogic.LoadedSceneIsEditor)
             {
                 GameEvents.onPartAttach.Add(OnPartAttach);
@@ -272,7 +277,8 @@ namespace RealFuels.Tanks
                 GameEvents.onEditorShipModified.Add(OnEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
                 GameEvents.onPartActionUIShown.Add(OnPartActionUIShown);
-
+                if (MFSSettings.previewAllLockedTypes)
+                    GatherLockedTypesFromAllPossible();
                 InitializeTankType();
                 UpdateTankType(false);
                 InitUtilization();
@@ -403,7 +409,24 @@ namespace RealFuels.Tanks
             RecordManagedResources();
             InitializeTankType();
         }
-        public bool Validate() => MFSSettings.tankDefinitions.ContainsKey(type) && typesAvailable.Contains(type) && !lockedTypes.Contains(type);
+        public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve)
+        {
+            validationError = null;
+            canBeResolved = false;
+            costToResolve = 0;
+            if (!MFSSettings.tankDefinitions.ContainsKey(type))
+                validationError = $"definition {type} has no global definition";
+            else if (!typesAvailable.Contains(type))
+                validationError = $"definition {type} is not available";
+            else if (lockedTypes.Contains(type))
+            {
+                validationError = $"definition {type} is currently locked";
+                //canBeResolved = true;
+            }
+            return validationError != null;
+        }
+
+        public virtual bool ResolveValidationError() => false;
 
         // This is strictly a change handler!
         private void UpdateTankType (bool initializeAmounts = false)
@@ -786,6 +809,23 @@ namespace RealFuels.Tanks
                     }
                 }
             }
+        }
+
+        private void GatherAllPossibleTypes(ConfigNode node)
+        {
+            allPossibleTypes.Clear();
+            allPossibleTypes.Add(type);
+            allPossibleTypes.AddUniqueRange(node.GetValuesList("typeAvailable"));
+            if (node.GetNode("UPGRADES") is ConfigNode upgradeNodeContainer)
+                foreach (var upgradeNode in upgradeNodeContainer.GetNodes("UPGRADE"))
+                    allPossibleTypes.AddUniqueRange(upgradeNode.GetValuesList("typeAvailable"));
+        }
+
+        private void GatherLockedTypesFromAllPossible()
+        {
+            var validLockedTypes = allPossibleTypes.Where(x => MFSSettings.tankDefinitions.ContainsKey(x) && !typesAvailable.Contains(x));
+            lockedTypes.AddUniqueRange(validLockedTypes);
+            typesAvailable.AddUniqueRange(lockedTypes);
         }
 
         private void SetUtilization(float value)

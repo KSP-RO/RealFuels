@@ -16,13 +16,18 @@ namespace RealFuels
         public static bool basemassUseTotalVolume = false;
         public static double radiatorMinTempMult = 0.99d;
 
-        public static HashSet<string> ignoreFuelsForFill = new HashSet<string>();
-        public static Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
+        // Move all possible tank upgrades into the preview list in OnStart
+        // This is intentionally not configured via MFSSettings MM node.
+        // It requires an external mod to toggle, which will be responsible for calling the Validate() method.
+        public static bool previewAllLockedTypes = false;
 
-        public static Dictionary<string, double> resourceVsps = new Dictionary<string, double>();
-        public static Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();
+        public static readonly HashSet<string> ignoreFuelsForFill = new HashSet<string>();
+        public static readonly Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
 
-        private static Dictionary<string, ConfigNode[]> overrides = new Dictionary<string, ConfigNode[]>();
+        public static readonly Dictionary<string, double> resourceVsps = new Dictionary<string, double>();
+        public static readonly Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();
+
+        private static readonly Dictionary<string, ConfigNode[]> overrides = new Dictionary<string, ConfigNode[]>();
         private static bool Initialized = false;
 
         static string version;
