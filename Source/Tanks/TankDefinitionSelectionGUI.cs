@@ -10,7 +10,7 @@ namespace RealFuels.Tanks
         public ModuleFuelTanks parentModule;
         public Part part => parentModule.part;
 
-        private Rect guiWindowRect = new Rect(0, 0, 0, 0);
+        private Rect guiWindowRect = new Rect(300, 300, 0, 0);
         private Rect guiTooltipRect = new Rect(0, 0, 0, 0);
         private static readonly int _tooltipWindowId = "MFTTooltipID".GetHashCode();
         private GUILayoutOption expandWidth, expandHeight;
