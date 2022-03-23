@@ -364,7 +364,7 @@ namespace RealFuels.Tanks
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
-                UpdateTankType(false);
+                UpdateTankType(true);
                 CalculateMass();
 
                 bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
@@ -423,7 +423,7 @@ namespace RealFuels.Tanks
                 validationError = $"definition {type} is currently locked";
                 //canBeResolved = true;
             }
-            return validationError != null;
+            return validationError == null;
         }
 
         public virtual bool ResolveValidationError() => false;
