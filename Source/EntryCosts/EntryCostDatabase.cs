@@ -92,15 +92,14 @@ namespace RealFuels
 
         protected static string GetPartName(string partName)
         {
-            partName = partName.Replace(".", "-");
-            return partName.Replace("_", "-");
+            return Utilities.SanitizeName(partName);
         }
         #endregion
 
         #region Interface
         public static bool IsUnlocked(string name)
         {
-            return unlocks.Contains(name);
+            return unlocks.Contains(Utilities.SanitizeName(name));
         }
 
         public static void SetUnlocked(AvailablePart ap)
@@ -115,6 +114,7 @@ namespace RealFuels
 
         public static void SetUnlocked(string name)
         {
+            name = Utilities.SanitizeName(name);
             unlocks.Add(name);
 
             if (holders.TryGetValue(name, out PartEntryCostHolder h))
@@ -131,6 +131,7 @@ namespace RealFuels
         public static bool TryGetCost(string name, out int cost)
         {
             cost = 0;
+            name = Utilities.SanitizeName(name);
             if (unlockPathTracker.Contains(name))
             {
                 /*string msg = "[EntryCostDatabase]: Circular reference on " + name;
