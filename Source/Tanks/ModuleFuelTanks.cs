@@ -37,10 +37,11 @@ namespace RealFuels.Tanks
         public List<TankDefinition> typesAvailable = new List<TankDefinition>();
         internal List<TankDefinition> lockedTypes = new List<TankDefinition>();
         internal List<TankDefinition> allPossibleTypes = new List<TankDefinition>();    // typesAvailable if all upgrades were applied
+        public ConfigNode config;
 
         [KSPField(isPersistant = true)]
-        public string type = Localizer.GetStringByTag("#RF_FuelTank_Default"); // "Default"
         private string oldType;
+        public string type = "Default"
 
         [KSPField(guiActiveEditor = true, guiActive = true, guiName = "#RF_FuelTank_TankType", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)] //Tank Type
         public string typeDisp = Localizer.GetStringByTag("#RF_FuelTank_Default"); // "Default"
@@ -109,8 +110,8 @@ namespace RealFuels.Tanks
         private const string guiGroupName = "RealFuels";
         private const string guiGroupDisplayName = "#RF_FuelTank_GroupDisplayName"; // "Real Fuels"
 
+        public TankDefinition TankDefinition => MFSSettings.tankDefinitions[type];
         public double UsedVolume { get; private set; }
-
         public double AvailableVolume => volume - UsedVolume;
 
         private static double MassMult => MFSSettings.useRealisticMass ? 1.0 : MFSSettings.tankMassMultiplier;
@@ -142,7 +143,7 @@ namespace RealFuels.Tanks
                 unmanagedResources = mft.unmanagedResources;
                 typesAvailable = new List<TankDefinition>(mft.typesAvailable);  // Copy so any changes don't impact the prefab
                 allPossibleTypes = mft.allPossibleTypes;
-                managedResources = mft.managedResources;
+                config = mft.config;
             }
             OnAwakeRF();
         }
@@ -165,6 +166,15 @@ namespace RealFuels.Tanks
                     managedResources.Add(kvp.Key);
         }
 
+        // Return list of resources that are not declared unmanaged and not storable by the given tank definition
+        private List<PartResource> UnsupportedResources(string type)
+        {
+            if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
+                return part.Resources.ToList();
+            return part.Resources.Where(r => !unmanagedResources.ContainsKey(r.resourceName) && !def.tankList.Any(t => t.name.Equals(r.resourceName) && t.canHave)).ToList();
+        }
+
+        // Remove all resources not valid for this type.
         private void CleanResources(bool leaveValid = false)
         {
             // Remove only MFT-managed resources
@@ -172,6 +182,8 @@ namespace RealFuels.Tanks
             List<PartResource> removeList = part.Resources.Where(x => IsManaged(x.resourceName) && (!leaveValid || !tanksDict.ContainsKey(x.resourceName))).ToList();
             if (removeList.Count > 0)
             {
+                if (!leaveValid)
+                    removeList = new List<PartResource>(part.Resources);
                 foreach (var resource in removeList)
                 {
                     part.Resources.Remove(resource.info.id);
@@ -180,30 +192,6 @@ namespace RealFuels.Tanks
                 RaiseResourceListChanged();
                 massDirty = true;
                 CalculateMass();
-            }
-        }
-
-        public override void OnCopy (PartModule fromModule)
-        {
-            //Debug.Log ($"[ModuleFuelTanks] OnCopy: {fromModule}");
-
-            var prefab = fromModule as ModuleFuelTanks;
-            utilization = prefab.utilization;
-            totalVolume = prefab.totalVolume;
-            volume = prefab.volume;
-            type = prefab.type;
-            UpdateTankType (false);
-            CleanResources ();
-            tanksDict.Clear ();
-            tankList.Clear();
-            foreach (var kvp in prefab.tanksDict)
-            {
-                FuelTank src = kvp.Value;
-                var tank = src.CreateCopy(this, null, false);
-                tank.maxAmount = src.maxAmount;
-                tank.amount = src.amount;
-                tanksDict.Add(kvp.Key, tank);
-                tankList.Add(tank);
             }
         }
 
@@ -220,22 +208,24 @@ namespace RealFuels.Tanks
             {
                 typesAvailable.ResolveAndAddUnique(type);
                 GatherUnmanagedResources(node);
+                config = node;
                 InitUtilization();
                 InitVolume(node);
-
-                MFSSettings.SaveOverrideList(part, node.GetNodes("TANK"));
+                UpdateTypesAvailable(node);
+                ValidateTankType();
+                BuildTanks(node, true);    // Starting from the definition, apply the node on top and set resources
                 ParseBaseMass(node);
                 ParseBaseCost(node);
-                UpdateTypesAvailable(node);
                 GatherAllPossibleTypes(node);
-                RecordManagedResources(allPossibleTypes);
-                UpdateTankType(initializeAmounts: true);
+                UpdateTankTypeRF(MFSSettings.tankDefinitions[type]);
             }
             else if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
             {
-                // The amounts initialized flag is there so that the tank type loading doesn't
-                // try to set up any resources. They'll get loaded directly from the save.
-                UpdateTankType(false);
+                // Load the persistent data (from .craft or .sfs)
+                // Always re-generate this list from the current set of available types
+                RecordManagedResources();   // Also called via UpdateTypesAvailable()
+                config = node;
+                ValidateTankType();
 
                 InitUtilization();
                 InitVolume(node);
@@ -289,20 +279,24 @@ namespace RealFuels.Tanks
                 if (MFSSettings.previewAllLockedTypes)
                     GatherLockedTypesFromAllPossible();
                 InitializeTankType();
-                UpdateTankType(false);
                 InitUtilization();
                 Fields[nameof(utilization)].uiControlEditor.onFieldChanged += OnUtilizationChanged;
                 Fields[nameof(utilization)].uiControlEditor.onSymmetryFieldChanged += OnUtilizationChanged;
                 Fields[nameof(typeDisp)].uiControlEditor.onFieldChanged += OnTypeDispChanged;
                 Fields[nameof(typeDisp)].uiControlEditor.onSymmetryFieldChanged += OnTypeDispChanged;
-                UpdateUsedBy();
+                Fields[nameof(type)].uiControlEditor.onFieldChanged += OnTankTypeChanged;
+                Fields[nameof(type)].uiControlEditor.onSymmetryFieldChanged += OnTankTypeChanged;
             }
-
+            ValidateTankType();
+            // If we never passed an OnLoad() then config will be from the prefab
+            BuildTanks(config, false);    // Starting from definition, apply the node on top but do not adjust amounts
+            UpdateTankTypeRF(MFSSettings.tankDefinitions[type]);
             OnStartRF(state);
 
             massDirty = true;
-            CalculateMass ();
+            CalculateMass();
 
+            UpdateUsedBy();
             UpdateTestFlight();
             started = true;
         }
@@ -314,6 +308,7 @@ namespace RealFuels.Tanks
             GameEvents.onEditorShipModified.Remove(OnEditorShipModified);
             GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
             GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
+            OnDestroyRF();
             TankWindow.HideGUI();
         }
 
@@ -388,7 +383,6 @@ namespace RealFuels.Tanks
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
-                UpdateTankType(true);
                 CalculateMass();
 
                 bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
@@ -539,66 +533,64 @@ namespace RealFuels.Tanks
             return true;
         }
 
-        // This is strictly a change handler!
-        private void UpdateTankType (bool initializeAmounts = false)
+        private void ValidateTankType()
         {
-            if (oldType == type || type == null) {
-                return;
-            }
-
-            // Copy the tank list from the tank definitiion
             if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
             {
-                string msg = $"[ModuleFuelTanks] Tried to set tank type to {type} but it has no definition.";
-                if (!MFSSettings.tankDefinitions.TryGetValue(oldType, out def))
-                {
-                    def = typesAvailable.First();
-                }
-                type = def.name;
-                Debug.LogError($"{msg} Reset to {type}");
+                string replacementType = typesAvailable.FirstOrDefault().name;
+                Debug.LogError($"[ModuleFuelTanks] Found tank type {type} on {part} but it has no definition.  Reset to {replacementType}");
+                type = replacementType;
             }
+        }
 
-            string oldTypeForEvent = oldType;
-            oldType = type;
-            typeDisp = def.Title;
-
-            // Build the new tank list.
+        // Starting from the definition, apply the node on top
+        private void BuildTanks(ConfigNode node, bool initializeAmounts = false)
+        {
             tanksDict.Clear();
             tankList.Clear();
-            foreach (FuelTank tank in def.tankList.Values) {
-                // Pull the override from the list of overrides
-                ConfigNode overNode = MFSSettings.GetOverrideList(part).FirstOrDefault(n => n.GetValue("name") == tank.name);
-                var newTank = tank.CreateCopy(this, overNode, initializeAmounts);
-                if (!newTank.canHave)
-                    newTank.maxAmount = 0;
-                tanksDict.Add(newTank.name, newTank);
-                tankList.Add(newTank);
-            }
-
-            // Destroy any managed resources that are not in the new type.
-            var removeList = part.Resources.Where(x => managedResources.Contains(x.resourceName) && !tanksDict.ContainsKey(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
-            foreach (var partResource in removeList)
+            if (MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
             {
-                part.Resources.Remove(partResource.info.id);
-                part.SimulationResources.Remove(partResource.info.id);
+                foreach (var res in UnsupportedResources(type))
+                {
+                    part.Resources.Remove(res);
+                    part.SimulationResources?.Remove(res);
+                }
+                foreach (FuelTank tank in def.tankList.Where(t => !unmanagedResources.ContainsKey(t.name) && t.canHave))
+                {
+                    ConfigNode tankNode = node?.GetNode("TANK", "name", tank.name);
+                    FuelTank newTank = tank.CreateCopy(this, tankNode, initializeAmounts);
+                    tankList.Add(newTank.name, newTank);
+                }
             }
-            if (removeList.Count > 0)
-                RaiseResourceListChanged();
+            BuildTanksRF();
+        }
+
+        private void OnTankTypeChanged(BaseField field, object obj) => UpdateTankType();
+        private void UpdateTankType()
+        {
+            ValidateTankType();
+            if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
+                return;
+
+            // If there are any unsupported resources for the new type, remove *all* resources.
+            CleanResources(true);
+            BuildTanks(config, false);
             if (!basemassOverride)
                 ParseBaseMass(def.basemass);
             if (!baseCostOverride)
                 ParseBaseCost(def.baseCost);
 
-            if (HighLogic.LoadedScene != GameScenes.LOADING) {
-                // being called in the SpaceCenter scene is assumed to be a database reload
-                //FIXME is this really needed?
-                
-                massDirty = true;
-            }
+            typeDisp = def.Title;
             UpdateUsedBy();
-
             UpdateTankTypeRF(def);
             UpdateTestFlight();
+            if (oldType != type)
+            {
+                string oldTypeForEvent = oldType;
+                oldType = type;
+            }
+            massDirty = true;
+            CalculateMass();
             RaiseTankDefinitionChanged(oldTypeForEvent, def);
         }
 
@@ -1138,6 +1130,8 @@ namespace RealFuels.Tanks
         partial void OnLoadRF(ConfigNode node);
         partial void OnSaveRF(ConfigNode node);
         partial void UpdateRF();
+        partial void OnDestroyRF();
+        partial void BuildTanksRF();
 
         #endregion
     }
