@@ -5,6 +5,9 @@ using SolverEngines;
 using System.Linq;
 using KSP.Localization;
 using ROUtils;
+using System.Reflection;
+using System.Reflection.Emit;
+using RealFuels.Tanks;
 
 namespace RealFuels
 {
@@ -119,6 +122,9 @@ namespace RealFuels
         public bool pressureFed = false;
 
         [KSPField]
+        public float requiredTankPressure = 1.2f;
+
+        [KSPField]
         public double autoVariationScale = -1d;
 
         [KSPField]
@@ -164,6 +170,8 @@ namespace RealFuels
         ScreenMessage igniteFailIgnitions;
         ScreenMessage igniteFailResources;
         ScreenMessage ullageFail;
+
+        Func<PartSet, Dictionary<int, PartSet.ResourcePrioritySet>> PartSetPullListGetter;
         #endregion
 
         protected bool started = false; // Track start state, don't handle MEC notification before first start.
@@ -256,6 +264,139 @@ namespace RealFuels
             }
         }
 
+        private readonly Dictionary<int, PartSet.ResourcePrioritySet> savedResourceSets = new Dictionary<int, PartSet.ResourcePrioritySet>();
+        private readonly Dictionary<int, PartSet.ResourcePrioritySet> propellantSetDict = new Dictionary<int, PartSet.ResourcePrioritySet>();
+        // Swap in our revised resource list for each propellant, discovered during UpdatePropellantStatus
+        public override double RequestPropellant(double mass)
+        {
+            savedResourceSets.Clear();
+            var pullList = PartSetPullListGetter(part.crossfeedPartSet);
+            foreach (var prop in propellants)
+            {
+                savedResourceSets.Add(prop.id, part.crossfeedPartSet.GetResourceList(prop.id, true, false));
+                pullList[prop.id] = propellantSetDict[prop.id];
+            }
+            var result = base.RequestPropellant(mass);
+            foreach (var kvp in savedResourceSets)
+                pullList[kvp.Key] = kvp.Value;
+            return result;
+        }
+
+        protected override void UpdatePropellantStatus(bool doGauge = true)
+        {
+            if (propellants == null)
+                return;
+            foreach (var propellant in propellants)
+            {
+                //propellant.UpdateConnectedResources(part);
+                CustomUpdateConnectedResources(propellant, part);
+                if (propellant.drawStackGauge && doGauge)
+                    UpdatePropellantGauge(propellant);
+            }
+        }
+
+        //public void Propellant.UpdateConnectedResources(Part p) => p.GetConnectedResourceTotals(this.id, this.GetFlowMode(), out this.actualTotalAvailable, out this.totalResourceCapacity);
+        // --> Part.GetConnectedResourceTotals(resourceID, flowMode, false, out amount, out maxAmount, pulling);
+        // This is what stock currently does, there's no magic yet, although traversing a PartSet should be interesting
+        // We can either replicate this ourselves (yuck!) OR we can let stock do the original work, and then refine
+        // the PartSet
+        private void CustomUpdateConnectedResources(Propellant propellant, Part p)
+        {
+            var resourceID = propellant.id;
+            var flowMode = propellant.GetFlowMode();
+            bool simulate = false;
+            bool pulling = true;
+            double amount = 0;
+            double maxAmount = 0;
+            PartSet partSet = null;
+            switch (flowMode)
+            {
+                case ResourceFlowMode.ALL_VESSEL:
+                case ResourceFlowMode.STAGE_PRIORITY_FLOW:
+                case ResourceFlowMode.ALL_VESSEL_BALANCE:
+                case ResourceFlowMode.STAGE_PRIORITY_FLOW_BALANCE:
+                    if (p.ship != null & simulate && HighLogic.LoadedSceneIsEditor)
+                        partSet = p.ship.resourcePartSet;
+                    else if (p.vessel != null)
+                        partSet = simulate ? p.vessel.simulationResourcePartSet : p.vessel.resourcePartSet;
+                    break;
+                case ResourceFlowMode.STACK_PRIORITY_SEARCH:
+                case ResourceFlowMode.STAGE_STACK_FLOW:
+                case ResourceFlowMode.STAGE_STACK_FLOW_BALANCE:
+                    partSet = simulate ? p.simulationCrossfeedPartSet : p.crossfeedPartSet;
+                    break;
+                default:
+                    var res = simulate ? p.SimulationResources : p.Resources;
+                    res.GetFlowingTotals(resourceID, out amount, out maxAmount, pulling);
+                    break;
+            }
+            if (partSet != null)
+                CustomGetConnectedResourceTotals(partSet, propellantSetDict, resourceID, out amount, out maxAmount, pulling, simulate);
+            propellant.actualTotalAvailable = amount;
+            propellant.totalResourceCapacity = maxAmount;
+        }
+
+        //protected PartSet.ResourcePrioritySet GetOrCreateList(int id, bool pulling, bool simulate)
+        //public PartSet.ResourcePrioritySet PartSet.GetResourceList(int id, bool pulling, bool simulate) => this.GetOrCreateList(id, pulling, simulate);
+        // We should build our custom replacements for these lists here.  Then perhaps replace them before and 
+        // after the call to RequestPropellant
+
+        public virtual void CustomGetConnectedResourceTotals(
+          PartSet partSet,
+          Dictionary<int, PartSet.ResourcePrioritySet> propSetDict,
+          int id,
+          out double amount,
+          out double maxAmount,
+          bool pulling,
+          bool simulate)
+        {
+            amount = 0;
+            maxAmount = 0;
+            //PartSet.ResourcePrioritySet list1 = partSet.GetOrCreateList(id, pulling, simulate);
+            PartSet.ResourcePrioritySet stockPrioritySet = partSet.GetResourceList(id, pulling, simulate);
+            if (stockPrioritySet == null)
+                return;
+            if (!propSetDict.TryGetValue(id, out PartSet.ResourcePrioritySet rfPrioritySet) ||
+                rfPrioritySet.lists.Count != stockPrioritySet.lists.Count)
+            {
+                propSetDict[id] = rfPrioritySet = new PartSet.ResourcePrioritySet()
+                {
+                    lists = new List<List<PartResource>>(stockPrioritySet.lists.Count),
+                    set = new HashSet<PartResource>(),
+                };
+                for (int i = 0; i < stockPrioritySet.lists.Count; i++)
+                    rfPrioritySet.lists.Add(new List<PartResource>());
+            }
+            rfPrioritySet.set.Clear();
+            int priority = stockPrioritySet.lists.Count;
+            while (--priority >= 0)
+            {
+                List<PartResource> stockResourceList = stockPrioritySet.lists[priority];
+                List<PartResource> merfResourceList = rfPrioritySet.lists[priority];
+                merfResourceList.Clear();
+                int samePriorityIndex = stockResourceList.Count;
+                while (--samePriorityIndex >= 0)
+                {
+                    PartResource partResource = stockResourceList[samePriorityIndex];
+                    if (partResource.part.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks mft
+                        && mft.tankGroups.FirstOrDefault() is TankGroup group
+                        && group.pressurant is FuelTank pressurant)
+                    {
+                        // How much pressurant volume is needed to keep all tank groups at their target pressure
+                        var currentRequiredPressurantVolume = mft.tankGroups.Sum(g => g.CurrentRequiredPressurantVolume);
+                        if (group.CurrentAvailablePressurantVolume > currentRequiredPressurantVolume)
+                        {
+                            amount += pulling ? partResource.amount : partResource.maxAmount - partResource.amount;
+                            maxAmount += partResource.maxAmount;
+                            rfPrioritySet.set.Add(partResource);
+                            merfResourceList.Add(partResource);
+                        }
+                    }
+                }
+            }
+        }
+
+
         public override void OnAwake()
         {
             base.OnAwake();
@@ -266,6 +407,8 @@ namespace RealFuels
                 ignitionResources = new List<ModuleResource>();
             if (throttleCurve == null)
                 throttleCurve = new FloatCurve();
+            FieldInfo valueField = typeof(PartSet).GetField("pullList", BindingFlags.Instance | BindingFlags.NonPublic);
+            PartSetPullListGetter = CreateGetter<PartSet, Dictionary<int, PartSet.ResourcePrioritySet>>(valueField);
         }
         public override void OnLoad(ConfigNode node)
         {
@@ -484,8 +627,6 @@ namespace RealFuels
             SetFields();
             started = true;
         }
-
-        private void OnToggleDisplayMode(BaseField f, object obj) => SetFields();
 
         private void SetFields()
         {
@@ -926,6 +1067,25 @@ namespace RealFuels
         #endregion
 
         #region Helpers
+
+        static Func<S, T> CreateGetter<S, T>(FieldInfo field)
+        {
+            string methodName = field.ReflectedType.FullName + ".get_" + field.Name;
+            DynamicMethod setterMethod = new DynamicMethod(methodName, typeof(T), new Type[1] { typeof(S) }, true);
+            ILGenerator gen = setterMethod.GetILGenerator();
+            if (field.IsStatic)
+            {
+                gen.Emit(OpCodes.Ldsfld, field);
+            }
+            else
+            {
+                gen.Emit(OpCodes.Ldarg_0);
+                gen.Emit(OpCodes.Ldfld, field);
+            }
+            gen.Emit(OpCodes.Ret);
+            return (Func<S, T>)setterMethod.CreateDelegate(typeof(Func<S, T>));
+        }
+
         protected void IgnitionUpdate()
         {
             if (EngineIgnited && throttledUp)
