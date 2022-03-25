@@ -41,7 +41,6 @@
     </Reference>
     <Reference Include="SolverEngines">
       <Private>False</Private>
-      <HintPath>..\..\SolverEngines\SolverEngines\obj\Release\SolverEngines.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <Private>False</Private>
@@ -105,8 +104,10 @@
     <Compile Include="Tanks\ModuleFuelTanks.cs" />
     <Compile Include="Tanks\ModuleFuelTanksRF.cs" />
     <Compile Include="Tanks\ModuleFuelTanksTestFlight.cs" />
+    <Compile Include="Tanks\TankCreationGUI.cs" />
     <Compile Include="Tanks\TankDefinition.cs" />
     <Compile Include="Tanks\TankDefinitionSelectionGUI.cs" />
+    <Compile Include="Tanks\TankGroup.cs" />
     <Compile Include="Tanks\TankWindow.cs" />
     <Compile Include="TechLevels\TechLevel.cs" />
     <Compile Include="Ullage\UllageModule.cs" />
