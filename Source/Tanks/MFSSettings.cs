@@ -79,8 +79,7 @@ namespace RealFuels
             string partName = part.name;
             if (part.partInfo != null)
                 partName = part.partInfo.name;
-            partName = partName.Replace(".", "-");
-            partName = partName.Replace("_", "-");
+            partName = Utilities.SanitizeName(partName);
             return partName;
         }
 

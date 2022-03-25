@@ -151,6 +151,11 @@ namespace RealFuels
             return partName.Replace("_", "-");
         }
 
+        public static string SanitizeName(string name)
+        {
+            return name.Replace(".", "-").Replace("_", "-");
+        }
+
         public static bool CompareLists<T>(List<T> a, List<T> b)
         {
             if (a.Count != b.Count)
