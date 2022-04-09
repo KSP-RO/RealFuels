@@ -49,6 +49,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.8.0
+* Fix issue with configs with . in their names.
+* Add more thermal data
+
 v13.7.0
 * Fixed MLI layers setting on tanks not persisting through load.
 * Support RP-1's config validation feature.
