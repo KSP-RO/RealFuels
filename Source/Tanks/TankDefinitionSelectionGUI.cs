@@ -45,7 +45,7 @@ namespace RealFuels.Tanks
                 guiTooltipRect = GUILayout.Window(_tooltipWindowId, guiTooltipRect, GUITooltipWindow, "", tooltipStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(false));
                 GUI.BringWindowToFront(_tooltipWindowId);
             }
-            guiWindowRect = GUILayout.Window(GetInstanceID(), guiWindowRect, GUIWindow, $"{part.partInfo.title} Tank Definition Selection", windowStyle, expandWidth, expandHeight);
+            guiWindowRect = GUILayout.Window(GetInstanceID(), guiWindowRect, GUIWindow, "Tank Definitions", windowStyle, expandWidth, expandHeight);
         }
 
         private class Filter
@@ -72,6 +72,7 @@ namespace RealFuels.Tanks
         {
             GUILayout.BeginVertical(expandWidth, expandHeight);
             GUILayout.Space(15);
+            GUILayout.Label($"{part.partInfo.title}");
             GUILayout.Label($"Current type: {parentModule.type}", expandWidth);
 
             available.Clear();
