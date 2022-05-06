@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v13.8.1
+* Hotfix to remove a FOR[RealismOverhaul] that makes MM think RealismOverhaul is installed.
+
 v13.8.0
 * Fix issue with configs with . in their names.
 * Add more thermal data
