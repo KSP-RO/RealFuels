@@ -59,7 +59,7 @@ namespace RealFuels.Tanks
 					ratioFactor = 0.0;
 					break;
 				}
-				if (def.resourceTransferMode != ResourceTransferMode.NONE)
+				if (!IgnoreFuel(tfuel.name))
 				{
 					if (tank.tankList.TryGet(tfuel.name, out FuelTank t))
 					{
@@ -67,7 +67,7 @@ namespace RealFuels.Tanks
 						efficiency += tfuel.ratio * volumeMultiplier;
 						ratioFactor += tfuel.ratio;
 						propellantVolumeMults.Add(tfuel, volumeMultiplier);
-					} else if (!IgnoreFuel (tfuel.name)) {
+					} else {
 						ratioFactor = 0.0;
 						break;
 					}
