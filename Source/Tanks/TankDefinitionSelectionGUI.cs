@@ -95,7 +95,7 @@ namespace RealFuels.Tanks
             {
                 // Tooltip Demonstrator.  Goal: Show dry mass of a new tank with current resources if this def was chosen
                 var def = MFSSettings.tankDefinitions[s];
-                GUIContent content = new GUIContent(s, $"Tooltip = {def.name}: {def.basemass}");
+                GUIContent content = new GUIContent(s, $"{def.name}: {def.description} Max Utilization: {def.maxUtilization}");
                 if (GUILayout.Button(content, expandWidth) && parentModule.type != s)
                 {
                     parentModule.Fields[nameof(parentModule.type)].SetValue(s, parentModule);
@@ -110,7 +110,7 @@ namespace RealFuels.Tanks
                 tooltip = GUI.tooltip.Trim();
                 Vector3 mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
                 mousePos.y = Screen.height - mousePos.y;
-                guiTooltipRect = new Rect(guiWindowRect.xMin + 30, mousePos.y + 10, 250, 15);
+                guiTooltipRect = new Rect(guiWindowRect.xMin + 45, mousePos.y + 20, 250, 15);
             }
             GUI.DragWindow();
             if (destroy)

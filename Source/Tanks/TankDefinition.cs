@@ -8,6 +8,9 @@ namespace RealFuels.Tanks
         public string name;
 
         [Persistent]
+        public string description;
+
+        [Persistent]
         public string basemass;
 
         [Persistent]
