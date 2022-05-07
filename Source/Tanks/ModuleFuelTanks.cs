@@ -92,7 +92,7 @@ namespace RealFuels.Tanks
         internal bool massDirty = true;
         private bool windowDirty = false;
 
-        internal readonly HashSet<string> managedResources = new HashSet<string>(32);
+        internal HashSet<string> managedResources = new HashSet<string>(32);
 
         public bool fueledByLaunchClamp = false;
 
@@ -125,7 +125,8 @@ namespace RealFuels.Tanks
                 var mft = part.partInfo.partPrefab.FindModuleImplementing<ModuleFuelTanks>();
                 unmanagedResources = mft.unmanagedResources;
                 typesAvailable = new List<string>(mft.typesAvailable);  // Copy so any changes don't impact the prefab
-                allPossibleTypes = new List<string>(mft.allPossibleTypes);
+                allPossibleTypes = mft.allPossibleTypes;
+                managedResources = mft.managedResources;
             }
             OnAwakeRF();
         }
@@ -140,10 +141,10 @@ namespace RealFuels.Tanks
             SetUtilization(Mathf.Clamp(utilization, minUtilization, maxUtilization));
         }
 
-        private void RecordManagedResources()
+        private void RecordManagedResources(List<string> types)
         {
             managedResources.Clear();
-            foreach (string t in typesAvailable)
+            foreach (string t in types)
                 if (MFSSettings.tankDefinitions.TryGetValue(t, out var def))
                     foreach (FuelTank tank in def.tankList)
                         managedResources.Add(tank.name);
@@ -205,14 +206,11 @@ namespace RealFuels.Tanks
                 ParseBaseCost(node);
                 UpdateTypesAvailable(node);
                 GatherAllPossibleTypes(node);
+                RecordManagedResources(allPossibleTypes);
                 UpdateTankType(initializeAmounts: true);
             }
             else if (HighLogic.LoadedSceneIsEditor || HighLogic.LoadedSceneIsFlight)
             {
-                // Always re-generate this list from the current set of available types
-                // Also called via UpdateTypesAvailable()
-                RecordManagedResources();
-
                 // The amounts initialized flag is there so that the tank type loading doesn't
                 // try to set up any resources. They'll get loaded directly from the save.
                 UpdateTankType(false);
@@ -406,7 +404,6 @@ namespace RealFuels.Tanks
         private void UpdateTypesAvailable(List<string> types)
         {
             typesAvailable.AddUniqueRange(types);
-            RecordManagedResources();
             InitializeTankType();
         }
         public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve)
