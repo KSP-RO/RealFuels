@@ -86,6 +86,14 @@ namespace RealFuels
 
             patch.CopyTo(patchedNode);
 
+            // Apply cost offset
+            int costOffset = 0;
+            patch.TryGetValue("costOffset", ref costOffset);
+            int cost = 0;
+            patchedNode.TryGetValue("cost", ref cost);
+            cost += costOffset;
+            patchedNode.SetValue("cost", cost, true);
+
             patchedNode.SetValue("name", parentConfig.GetValue("name"));
             if (!dynamic)
                 patchedNode.AddValue(PatchNameKey, patch.GetValue("name"));
