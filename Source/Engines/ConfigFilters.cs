@@ -19,7 +19,7 @@ namespace RealFuels
                     // due to the (private) cachedModuleLists being null on it
                     if (ap.partPrefab.Modules.Count == 0)
                         continue;
-                    if (ap.partPrefab.FindModulesImplementing<ModuleEngineConfigs>() is List<ModuleEngineConfigs> mecs)
+                    if (ap.partPrefab.FindModulesImplementing<ModuleEngineConfigsBase>() is List<ModuleEngineConfigsBase> mecs)
                     {
                         int i = 0;
                         foreach (AvailablePart.ModuleInfo x in ap.moduleInfos)

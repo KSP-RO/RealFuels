@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace RealFuels
 {
-    public class ModuleBimodalEngineConfigs : ModulePatchableEngineConfigs
+    public class ModuleBimodalEngineConfigs : ModuleEngineConfigs
     {
         [KSPField]
         public string primaryDescription = "Retracted";
