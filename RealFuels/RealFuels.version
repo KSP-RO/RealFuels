@@ -3,9 +3,9 @@
 	"URL": "https://raw.githubusercontent.com/NathanKell/ModularFuelSystem/master/RealFuels/RealFuels.version",
 	"VERSION":
 	{
-		"MAJOR": 13,
-		"MINOR": 8,
-		"PATCH": 1
+		"MAJOR": 14,
+		"MINOR": 0,
+		"PATCH": 0
 	},
 	"KSP_VERSION":
 	{

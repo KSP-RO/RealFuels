@@ -49,6 +49,10 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v14.0.0
+* Apply the subconfig system directly to ModuleEngineConfigs.
+* Subconfigs support a special value, `costOffset`, which is an offset applied to the config's cost rather than overwriting the config's cost.
+
 v13.8.1
 * Hotfix to remove a FOR[RealismOverhaul] that makes MM think RealismOverhaul is installed.
 
