@@ -93,6 +93,7 @@ namespace RealFuels.Tanks
         private bool windowDirty = false;
 
         internal HashSet<string> managedResources = new HashSet<string>(32);
+        private bool IsManaged(string n) => managedResources.Contains(n) && !unmanagedResources.ContainsKey(n);
 
         public bool fueledByLaunchClamp = false;
 
@@ -150,10 +151,11 @@ namespace RealFuels.Tanks
                         managedResources.Add(tank.name);
         }
 
-        private void CleanResources()
+        private void CleanResources(bool leaveValid = false)
         {
-            // Do not remove any resources not managed by MFT
-            List<PartResource> removeList = part.Resources.Where(x => tankList.Contains(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
+            // Remove only MFT-managed resources
+            // Exclude resources allowed in the new tank type if leaveValid is true
+            List<PartResource> removeList = part.Resources.Where(x => IsManaged(x.resourceName) && (!leaveValid || !tankList.Contains(x.resourceName))).ToList();
             if (removeList.Count > 0)
             {
                 foreach (var resource in removeList)
@@ -219,18 +221,6 @@ namespace RealFuels.Tanks
                 InitVolume(node);
 
                 CleanResources();
-
-                // Destroy any resources still hanging around from the LOADING phase
-                for (int i = part.Resources.Count - 1; i >= 0; --i)
-                {
-                    PartResource partResource = part.Resources[i];
-                    if (!tankList.Contains(partResource.resourceName) && !unmanagedResources.ContainsKey(partResource.resourceName))
-                    {
-                        part.Resources.Remove(partResource.info.id);
-                        part.SimulationResources.Remove(partResource.info.id);
-                    }
-                }
-                RaiseResourceListChanged();
 
                 // Setup the mass
                 massDirty = true;
