@@ -30,7 +30,7 @@ namespace RealFuels.Tanks
         public Dictionary<string, UnmanagedResource> unmanagedResources;
 
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
-        internal Dictionary<string,FuelTank> tankList = new Dictionary<string, FuelTank>();
+        internal Dictionary<string, FuelTank> tankList = new Dictionary<string, FuelTank>();
         public List<string> typesAvailable = new List<string>();
         internal List<string> lockedTypes = new List<string>();
         internal List<string> allPossibleTypes = new List<string>();    // typesAvailable if all upgrades were applied
@@ -239,7 +239,7 @@ namespace RealFuels.Tanks
                 totalVolume = volume * 100d / utilization;
         }
 
-        public override string GetInfo ()
+        public override string GetInfo()
         {
             var info = StringBuilderCache.Acquire();
             info.AppendLine ("Modular Fuel Tank:");
@@ -297,15 +297,13 @@ namespace RealFuels.Tanks
         public override void OnSave (ConfigNode node)
         {
             // Don't spam save files with empty tank nodes, only save the relevant stuff
-            foreach (FuelTank tank in tankList.Values)
+            foreach (FuelTank tank in tankList.Values.Where(t => t.amount > 0 || t.maxAmount > 0))
             {
-                if (tank.amount > 0 || tank.maxAmount > 0)
-                {
-                    ConfigNode tankNode = new ConfigNode("TANK");
-                    tank.Save(tankNode);
-                    node.AddNode(tankNode);
-                }
+                ConfigNode tankNode = new ConfigNode("TANK");
+                tank.Save(tankNode);
+                node.AddNode(tankNode);
             }
+            OnSaveRF(node);
         }
 
         private void OnUtilizationChanged(BaseField f, object obj) => ChangeTotalVolume(totalVolume);
@@ -446,10 +444,11 @@ namespace RealFuels.Tanks
             foreach (FuelTank tank in def.tankList.Values) {
                 // Pull the override from the list of overrides
                 ConfigNode overNode = MFSSettings.GetOverrideList(part).FirstOrDefault(n => n.GetValue("name") == tank.name);
-                tankList.Add(tank.name, tank.CreateCopy(this, overNode, initializeAmounts));
+                var newTank = tank.CreateCopy(this, overNode, initializeAmounts);
+                if (!newTank.canHave)
+                    newTank.maxAmount = 0;
+                tankList.Add(newTank.name, newTank);
             }
-            foreach (FuelTank tank in tankList.Values.Where(x => !x.canHave))
-                tank.maxAmount = 0;
 
             // Destroy any managed resources that are not in the new type.
             var removeList = part.Resources.Where(x => managedResources.Contains(x.resourceName) && !tankList.ContainsKey(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
@@ -965,6 +964,7 @@ namespace RealFuels.Tanks
         partial void GetModuleCostRF(ref double cost);
         partial void CalculateMassRF(ref double mass);
         partial void OnLoadRF(ConfigNode node);
+        partial void OnSaveRF(ConfigNode node);
         partial void UpdateRF();
 
         #endregion

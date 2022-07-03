@@ -22,6 +22,7 @@ namespace RealFuels.Tanks
 
         public void Awake()
         {
+            Styles.InitStyles();
             windowStyle = new GUIStyle(Styles.styleEditorPanel);
             windowStyle.alignment = TextAnchor.UpperCenter;
 
@@ -64,7 +65,9 @@ namespace RealFuels.Tanks
 
         public void GUITooltipWindow(int windowID)
         {
+            GUILayout.BeginVertical(expandWidth);
             GUILayout.Label(tooltip, Styles.styleEditorTooltip, expandWidth);
+            GUILayout.EndVertical();
         }
 
         private List<string> available = new List<string>();

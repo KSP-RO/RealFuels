@@ -44,9 +44,8 @@ namespace RealFuels.Tanks
 
         public void Load(ConfigNode node)
         {
-            if (! (node.name.Equals ("TANK_DEFINITION") && node.HasValue ("name"))) {
+            if (! (node.name.Equals ("TANK_DEFINITION") && node.HasValue ("name")))
                 return;
-            }
 
             ConfigNode.LoadObjectFromConfig(this, node);
             foreach (ConfigNode tankNode in node.GetNodes("TANK"))
@@ -59,10 +58,13 @@ namespace RealFuels.Tanks
                 tankList.Remove(t.Key);
         }
 
-        public void Save (ConfigNode node)
+        public void Save(ConfigNode node) => Save(node, true);
+
+        public void Save(ConfigNode node, bool includeEmpty)
         {
             ConfigNode.CreateConfigFromObject(this, node);
-            foreach (FuelTank tank in tankList.Values)
+            // Don't spam save files with empty tank nodes, only save the relevant stuff
+            foreach (FuelTank tank in tankList.Values.Where(t => includeEmpty || t.amount > 0 || t.maxAmount > 0))
             {
                 ConfigNode tankNode = new ConfigNode("TANK");
                 tank.Save(tankNode);

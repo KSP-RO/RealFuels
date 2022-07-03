@@ -365,6 +365,7 @@ namespace RealFuels.Tanks
 		}
 
 		//------------------- Constructor
+		public FuelTank() { }
 		public FuelTank(ConfigNode node)
 		{
 			Load(node);
