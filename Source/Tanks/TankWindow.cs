@@ -70,7 +70,7 @@ namespace RealFuels.Tanks
         private void EnsureFreshAddLabelCache()
         {
             if (tank_module.AvailableVolume != oldAvailableVolume || tank_module.type != oldTankType){
-                foreach (FuelTank tank in tank_module.tankList) {
+                foreach (FuelTank tank in tank_module.tankList.Values) {
                     double maxVol = tank_module.AvailableVolume * tank.utilization;
                     string maxVolStr = KSPUtil.PrintSI(maxVol, "L");
                     string label = "Max: " + maxVolStr + " (+" + ModuleFuelTanks.FormatMass((float)(tank_module.AvailableVolume * tank.mass)) + " )";
@@ -351,7 +351,7 @@ namespace RealFuels.Tanks
             GUILayout.EndVertical();
 
             GUILayout.BeginVertical(Styles.styleEditorBox, GUILayout.ExpandHeight(true));
-            foreach (FuelTank tank in tank_module.tankList.Where(x => !tank_module.usedByTanks.Contains(x)))
+            foreach (FuelTank tank in tank_module.tankList.Values.Where(x => !tank_module.usedByTanks.Contains(x)))
             {
                 if (tank.canHave)
                     TankLine(tank);

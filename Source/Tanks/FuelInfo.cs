@@ -61,7 +61,7 @@ namespace RealFuels.Tanks
 				}
 				if (!IgnoreFuel(tfuel.name))
 				{
-					if (tank.tankList.TryGet(tfuel.name, out FuelTank t))
+					if (tank.tankList.TryGetValue(tfuel.name, out FuelTank t))
 					{
 						double volumeMultiplier = 1d / t.utilization;
 						efficiency += tfuel.ratio * volumeMultiplier;

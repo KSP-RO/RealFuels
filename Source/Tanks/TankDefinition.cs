@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace RealFuels.Tanks
 {
@@ -31,7 +32,7 @@ namespace RealFuels.Tanks
         [Persistent]
         public float maxUtilization = 0;
 
-        public Tanks.FuelTankList tankList = new Tanks.FuelTankList ();
+        public Dictionary<string, FuelTank> tankList = new Dictionary<string, FuelTank>();
 
 
         public TankDefinition() { }
@@ -48,20 +49,25 @@ namespace RealFuels.Tanks
             }
 
             ConfigNode.LoadObjectFromConfig(this, node);
-            tankList.Load(node);
-            for (int i = tankList.Count - 1; i >= 0; --i) {
-                var tank = tankList[i];
-                if (!tank.resourceAvailable) {
-                    //Debug.LogWarning ("[MFT] Unable to initialize tank definition for resource \"" + tank.name + "\" in tank definition \"" + name + "\" as this resource is not defined.");
-                    tankList.RemoveAt(i);
-                }
+            foreach (ConfigNode tankNode in node.GetNodes("TANK"))
+            {
+                string name = "";
+                if (node.TryGetValue("name", ref name) && !tankList.ContainsKey(name))
+                    tankList.Add(name, new FuelTank(tankNode));
             }
+            foreach (var t in tankList.Where(x => !x.Value.resourceAvailable).ToList())
+                tankList.Remove(t.Key);
         }
 
         public void Save (ConfigNode node)
         {
             ConfigNode.CreateConfigFromObject(this, node);
-            tankList.Save(node, true);
+            foreach (FuelTank tank in tankList.Values)
+            {
+                ConfigNode tankNode = new ConfigNode("TANK");
+                tank.Save(tankNode);
+                node.AddNode(tankNode);
+            }
         }
     }
 }

@@ -22,7 +22,7 @@ namespace RealFuels
         public static bool previewAllLockedTypes = false;
 
         public static readonly HashSet<string> ignoreFuelsForFill = new HashSet<string>();
-        public static readonly Tanks.TankDefinitionList tankDefinitions = new Tanks.TankDefinitionList();
+        public static readonly Dictionary<string, Tanks.TankDefinition> tankDefinitions = new Dictionary<string, Tanks.TankDefinition>();
 
         public static readonly Dictionary<string, double> resourceVsps = new Dictionary<string, double>();
         public static readonly Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();

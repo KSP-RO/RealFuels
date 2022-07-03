@@ -100,13 +100,11 @@
     <Compile Include="Tanks\EditorCrossfeedSetMaintainer.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
     <Compile Include="Tanks\FuelTank.cs" />
-    <Compile Include="Tanks\FuelTankList.cs" />
     <Compile Include="Tanks\MFSSettings.cs" />
     <Compile Include="Tanks\ModuleFuelTanks.cs" />
     <Compile Include="Tanks\ModuleFuelTanksRF.cs" />
     <Compile Include="Tanks\ModuleFuelTanksTestFlight.cs" />
     <Compile Include="Tanks\TankDefinition.cs" />
-    <Compile Include="Tanks\TankDefinitionList.cs" />
     <Compile Include="Tanks\TankDefinitionSelectionGUI.cs" />
     <Compile Include="Tanks\TankWindow.cs" />
     <Compile Include="TechLevels\TechLevel.cs" />

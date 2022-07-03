@@ -30,7 +30,7 @@ namespace RealFuels.Tanks
         public Dictionary<string, UnmanagedResource> unmanagedResources;
 
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
-        internal FuelTankList tankList = new FuelTankList();
+        internal Dictionary<string,FuelTank> tankList = new Dictionary<string, FuelTank>();
         public List<string> typesAvailable = new List<string>();
         internal List<string> lockedTypes = new List<string>();
         internal List<string> allPossibleTypes = new List<string>();    // typesAvailable if all upgrades were applied
@@ -147,15 +147,15 @@ namespace RealFuels.Tanks
             managedResources.Clear();
             foreach (string t in types)
                 if (MFSSettings.tankDefinitions.TryGetValue(t, out var def))
-                    foreach (FuelTank tank in def.tankList)
-                        managedResources.Add(tank.name);
+                    foreach (var kvp in def.tankList)
+                        managedResources.Add(kvp.Key);
         }
 
         private void CleanResources(bool leaveValid = false)
         {
             // Remove only MFT-managed resources
             // Exclude resources allowed in the new tank type if leaveValid is true
-            List<PartResource> removeList = part.Resources.Where(x => IsManaged(x.resourceName) && (!leaveValid || !tankList.Contains(x.resourceName))).ToList();
+            List<PartResource> removeList = part.Resources.Where(x => IsManaged(x.resourceName) && (!leaveValid || !tankList.ContainsKey(x.resourceName))).ToList();
             if (removeList.Count > 0)
             {
                 foreach (var resource in removeList)
@@ -181,12 +181,13 @@ namespace RealFuels.Tanks
             UpdateTankType (false);
             CleanResources ();
             tankList.Clear ();
-            foreach (FuelTank src in prefab.tankList)
+            foreach (var kvp in prefab.tankList)
             {
+                FuelTank src = kvp.Value;
                 var tank = src.CreateCopy(this, null, false);
                 tank.maxAmount = src.maxAmount;
                 tank.amount = src.amount;
-                tankList.Add(tank);
+                tankList.Add(kvp.Key, tank);
             }
         }
 
@@ -244,7 +245,7 @@ namespace RealFuels.Tanks
             info.AppendLine ("Modular Fuel Tank:");
             info.Append ("  Max Volume: ").AppendLine (KSPUtil.PrintSI (volume, MFSSettings.unitLabel));
             info.AppendLine ("  Tank can hold:");
-            foreach (FuelTank tank in tankList)
+            foreach (FuelTank tank in tankList.Values)
                 info.Append("      ").Append(tank).Append(" ").AppendLine(tank.note);
             return info.ToStringAndRelease();
         }
@@ -296,7 +297,16 @@ namespace RealFuels.Tanks
 
         public override void OnSave (ConfigNode node)
         {
-            tankList.Save(node, false);
+            // Don't spam save files with empty tank nodes, only save the relevant stuff
+            foreach (FuelTank tank in tankList.Values)
+            {
+                if (tank.amount > 0 || tank.maxAmount > 0)
+                {
+                    ConfigNode tankNode = new ConfigNode("TANK");
+                    tank.Save(tankNode);
+                    node.AddNode(tankNode);
+                }
+            }
         }
 
         private void OnUtilizationChanged(BaseField f, object obj) => ChangeTotalVolume(totalVolume);
@@ -433,16 +443,17 @@ namespace RealFuels.Tanks
             oldType = type;
 
             // Build the new tank list.
-            tankList = new FuelTankList();
-            foreach (FuelTank tank in def.tankList) {
+            tankList.Clear();
+            foreach (FuelTank tank in def.tankList.Values) {
                 // Pull the override from the list of overrides
                 ConfigNode overNode = MFSSettings.GetOverrideList(part).FirstOrDefault(n => n.GetValue("name") == tank.name);
-                tankList.Add(tank.CreateCopy(this, overNode, initializeAmounts));
+                tankList.Add(tank.name, tank.CreateCopy(this, overNode, initializeAmounts));
             }
-            tankList.TechAmounts(); // update for current techs
+            foreach (FuelTank tank in tankList.Values.Where(x => !x.canHave))
+                tank.maxAmount = 0;
 
             // Destroy any managed resources that are not in the new type.
-            var removeList = part.Resources.Where(x => managedResources.Contains(x.resourceName) && !tankList.Contains(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
+            var removeList = part.Resources.Where(x => managedResources.Contains(x.resourceName) && !tankList.ContainsKey(x.resourceName) && !unmanagedResources.ContainsKey(x.resourceName)).ToList();
             foreach (var partResource in removeList)
             {
                 part.Resources.Remove(partResource.info.id);
@@ -483,7 +494,7 @@ namespace RealFuels.Tanks
         protected void ChangeResources (double volumeRatio, bool propagate = false)
         {
             // The used volume will rescale automatically when setting maxAmount
-            foreach (FuelTank tank in tankList)
+            foreach (FuelTank tank in tankList.Values)
             {
                 bool save_propagate = tank.propagate;
                 tank.propagate = propagate;
@@ -607,7 +618,7 @@ namespace RealFuels.Tanks
             if (basemass >= 0)
             {
                 double tankDryMass = 0;
-                foreach (FuelTank tank in tankList)
+                foreach (FuelTank tank in tankList.Values)
                     tankDryMass += tank.maxAmount * tank.mass / tank.utilization;
                 mass = (float) ((basemass + tankDryMass) * MassMult);
 
@@ -629,7 +640,7 @@ namespace RealFuels.Tanks
             }
 
             if (HighLogic.LoadedSceneIsEditor) {
-                UsedVolume = tankList
+                UsedVolume = tankList.Values
                     .Where (fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
                     .Sum (fuel => fuel.maxAmount/fuel.utilization);
 
@@ -684,7 +695,7 @@ namespace RealFuels.Tanks
             if (baseCostPV >= 0f && baseCostConst >= 0f)
             {
                 cst += volume * Mathf.Max(baseCostPV, 0f);
-                cst += tankList.Sum(t => t.maxAmount * t.cost / t.utilization);
+                cst += tankList.Values.Sum(t => t.maxAmount * t.cost / t.utilization);
             }
             GetModuleCostRF(ref cst);
             return (float)cst;
@@ -725,7 +736,7 @@ namespace RealFuels.Tanks
         [KSPEvent(guiName = "Remove All Tanks", guiActiveEditor = true, name = "Empty", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
         public void Empty()
         {
-            foreach (FuelTank tank in tankList)
+            foreach (FuelTank tank in tankList.Values)
                 tank.maxAmount = 0;
             MarkWindowDirty();
             GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
@@ -834,7 +845,7 @@ namespace RealFuels.Tanks
         {
             usedBy[source] = f;
             foreach (Propellant tfuel in f.propellantVolumeMults.Keys)
-                if (tankList.TryGet(tfuel.name, out FuelTank tank) && tank.canHave)
+                if (tankList.TryGetValue(tfuel.name, out FuelTank tank) && tank.canHave)
                     usedByTanks.Add(tank);
         }
 
@@ -927,7 +938,7 @@ namespace RealFuels.Tanks
             double availableVolume = AvailableVolume;
             foreach (Propellant tfuel in fi.propellantVolumeMults.Keys)
             {
-                if (tankList.TryGet(tfuel.name, out FuelTank tank))
+                if (tankList.TryGetValue(tfuel.name, out FuelTank tank))
                 {
                     double amt = availableVolume * tfuel.ratio / fi.efficiency;
                     tank.maxAmount += amt;
