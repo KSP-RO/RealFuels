@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace RealFuels.Tanks
@@ -54,6 +55,37 @@ namespace RealFuels.Tanks
         [KSPField]
         public float MLIArealDensity = 0.000015f;
 
+        public float AllocatedVolume => tankGroups.Sum(g => g.volume);
+        public float UnallocatedVolume => (float)Math.Max(volume - AllocatedVolume, 0);
+        public float FilledVolume
+        {
+            get
+            {
+                double sum = 0;
+                foreach (var g in tankGroups)
+                    foreach (var t in g.tanks)
+                        sum += t.FilledVolume;
+                return (float)sum;
+            }
+        }
+        public float VolumeInLockedTankGroups => tankGroups.Where(x => x.volumeLocked).Sum(x => x.volume);
+        public float UnlockedVolume => (float) volume - VolumeInLockedTankGroups;
+
+        private TankCreationGUI tankCreationGUI = null;
+        [KSPEvent(active = true, guiActiveEditor = true, groupName = guiGroupName, guiName = "New RF Tank GUI")]
+        public void NewRFTankGUI()
+        {
+            if (tankCreationGUI == null)
+            {
+                tankCreationGUI = gameObject.AddComponent<TankCreationGUI>();
+                tankCreationGUI.Setup(this);
+            }
+        }
+        public List<TankGroup> tankGroups = new List<TankGroup>();
+        public FuelTank pressurant;
+        public float pressurantStoragePressure = 200;
+        [Persistent] public string sPressurant = string.Empty;
+
         private static double ConductionFactors => RFSettings.Instance.globalConductionCompensation ? Math.Max(1.0d, PhysicsGlobals.ConductionFactor) : 1d;
 
         public double BoiloffMassRate => boiloffMass;
@@ -66,25 +98,47 @@ namespace RealFuels.Tanks
 
         double lowestTankTemperature = 300d;
 
-        partial void OnLoadRF(ConfigNode _) {}
+        partial void OnAwakeRF()
+        {
+            UpdateTweakableButtonsDelegate = (UpdateTweakableButtonsDelegateType)Delegate.CreateDelegate(typeof(UpdateTweakableButtonsDelegateType), this, "UpdateTweakableButtonsRF", true);
+        }
+
+        partial void OnLoadRF(ConfigNode node)
+        {
+            // Load the configured tank groups.  If no pressurant, this part is not yet configured
+            if (!node.TryGetValue(nameof(sPressurant), ref sPressurant))
+                sPressurant = RFSettings.Instance.Pressurants.FirstOrDefault() ?? TankDefinition.tankList.Values.First().name;
+        }
+
+        partial void OnSaveRF(ConfigNode node)
+        {
+            node.SetValue(nameof(sPressurant), pressurant?.name ?? string.Empty, true);
+            foreach (var group in tankGroups)
+            {
+                ConfigNode groupNode = new ConfigNode("TANKGROUP");
+                ConfigNode.CreateConfigFromObject(group, groupNode);
+                foreach (FuelTank tank in group.tanks)
+                    groupNode.AddValue("tank", tank.name);
+                node.AddNode(groupNode);
+            }
+        }
 
         partial void OnStartRF(StartState _)
         {
             if (HighLogic.LoadedSceneIsFlight)
                 _flightIntegrator = vessel.vesselModules.Find(x => x is FlightIntegrator) as FlightIntegrator;
 
-            foreach (var tank in tanksDict.Values)
-            {
-                if (tank.maxAmount > 0 && (tank.vsp > 0 || tank.loss_rate > 0))
-                    cryoTanks.Add(tank);
-            }
+            cryoTanks.Clear();
+            cryoTanks.AddRange(tankDict.Values.Where(t => t.maxAmount > 0 && (t.vsp > 0 || t.loss_rate > 0)));
+
+
             CalculateTankArea();
 
             if (HighLogic.LoadedSceneIsEditor)
             {
                 Fields[nameof(_numberOfAddedMLILayers)].guiActiveEditor = maxMLILayers > 0;
                 _numberOfAddedMLILayers = Mathf.Clamp(_numberOfAddedMLILayers, 0, maxMLILayers);
-                ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
+                (Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor as UI_FloatRange).maxValue = maxMLILayers;
                 Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
                 {
                     massDirty = true;
@@ -100,6 +154,49 @@ namespace RealFuels.Tanks
 
             GameEvents.onPartResourceListChange.Add(OnPartResourceListChange);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
+        }
+
+        partial void OnDestroyRF()
+        {
+            GameEvents.onPartResourceListChange.Remove(OnPartResourceListChange);
+            GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
+        }
+
+        // FIXME: This is falling into the trap of trying to be a setup and a change handler.
+        partial void BuildTanksRF()
+        {
+            tankList.TryGetValue(sPressurant, out pressurant);
+
+            // If no groups, reload from the stored config
+            if (tankGroups.Count == 0)
+                foreach (var groupNode in config.GetNodes("TANKGROUP"))
+                    tankGroups.Add(TankGroup.Create(this, groupNode));
+
+            // Find new instances of tanks in current groups
+            foreach (var group in tankGroups)
+            {
+                var oldList = new List<FuelTank>(group.tanks);
+                group.tanks.Clear();
+                foreach (var oldTank in oldList)
+                    if (tankList.TryGetValue(oldTank.name, out FuelTank newTank))
+                        group.tanks.Add(newTank);
+            }
+
+            // Find all tanks/resources not already part of a group, and add them to a new global group
+            var ungroupedTanks = new List<FuelTank>(tankList.Values.Where(t => t.maxAmount > 0));
+            foreach (var group in tankGroups)
+                ungroupedTanks.RemoveAll(t => group.tanks.Contains(t));
+            if (ungroupedTanks.Any())
+            {
+                float vol = (float)ungroupedTanks.Sum(t => t.Volume);
+                TankGroup group = new TankGroup(pressurant, this, 200, 1, vol);
+                tankGroups.Add(group);
+                group.tanks.AddRange(ungroupedTanks);
+            }
+
+            foreach (var group in tankGroups)
+                foreach (FuelTank tank in group.tanks.Where(t => MFSSettings.resourceGasses.Contains(t.name)))
+                    tank.utilization = group.storagePressure;
         }
 
         private bool IsProcedural => part.Modules.Contains("SSTUModularPart") || part.Modules.Contains("WingProcedural");
@@ -386,7 +483,7 @@ namespace RealFuels.Tanks
             // TODO: Codify a more accurate tank area calculator.
             // Thought: cube YN/YP can be used to find the part diameter / circumference... X or Z finds the length
             // Also should try to determine if tank has a common bulkhead - and adjust heat flux into individual tanks accordingly
-            SetTankAreaInfo(volume);
+            SetTankAreaInfo();
 
             double areaCubes = CalculateTankAreaCubes();
 
@@ -413,6 +510,91 @@ namespace RealFuels.Tanks
                 GameEvents.onPartDestroyed.Remove(OnPartDestroyed);
                 GameEvents.onPartResourceListChange.Remove(OnPartResourceListChange);
             }
+        }
+
+        private readonly List<string> allGroupedTankResourceNames = new List<string>();
+        protected void UpdateTweakableButtonsRF()
+        {
+            Debug.Log($"[MFT] RealFuels version of UpdateTweakableButtons called!");
+            if (!HighLogic.LoadedSceneIsEditor)
+                return;
+
+            Events.RemoveAll(button => button.name.StartsWith("MFT"));
+            if (UnallocatedVolume < 0.1)
+                return;
+
+            displayedParts.Clear();
+            allGroupedTankResourceNames.Clear();
+            foreach (var g in tankGroups)
+                allGroupedTankResourceNames.AddRange(g.tanks.Select(t => t.name));
+
+            int idx = 0;
+            foreach (FuelInfo info in usedBy.Values)
+            {
+                bool used = info.propellantVolumeMults.Keys.Where(prop => allGroupedTankResourceNames.Contains(prop.resourceDef.name)).Any();
+                if (!used && !displayedParts.Contains(info.title))
+                {
+                    KSPEvent kspEvent = new KSPEvent
+                    {
+                        name = "MFT" + idx++,
+                        guiActive = false,
+                        guiActiveEditor = true,
+                        guiName = info.title,
+                        groupName = guiGroupName,
+                        groupDisplayName = guiGroupDisplayName
+                    };
+                    FuelInfo info1 = info;
+                    BaseEvent button = new BaseEvent(Events, kspEvent.name, () => ConfigureForRFEvent(info1), kspEvent)
+                    {
+                        guiActiveEditor = true,
+                    };
+                    Events.Add(button);
+                    displayedParts.Add(info.title);
+                }
+            }
+            MonoUtilities.RefreshPartContextWindow(part);
+        }
+
+        internal void ConfigureForRFEvent(FuelInfo info)
+        {
+            float targetV = UnallocatedVolume;
+            if (!info.valid || targetV < 0.1) // can't configure, or no room
+                return;
+
+            // Set up a tank group for the entire currently-available volume
+            ScreenMessages.PostScreenMessage(new ScreenMessage($"Creating a new subtank group for volume: {targetV}!", 10, ScreenMessageStyle.UPPER_CENTER));
+            TankGroup group = new TankGroup(pressurant, this, 200, 1, targetV);
+            tankGroups.Add(group);
+
+            ConfigureForRF(info, group);
+        }
+
+        internal void ConfigureForRF(FuelInfo fi, TankGroup group)
+        {
+            if (!fi.valid) return;
+            group.targetPressure = fi.source is ModuleEnginesRF merf ? merf.requiredTankPressure : group.targetPressure;
+            group.targetPressureEdit = $"{group.targetPressure}";
+            float availableVolume = group.AvailableVolume;  // Update pressure before getting remaining volume
+            if (availableVolume < 0.1)
+                return;
+            group.mode = fi.title;
+            foreach (Propellant tfuel in fi.propellantVolumeMults.Keys)
+            {
+                // Extra sanity check, FuelInfo.propellantVolumeMults will have filtered this case out already:
+                if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
+                {
+                    if (tankList.TryGetValue(tfuel.name, out FuelTank tank))
+                    {
+                        double amt = availableVolume * tfuel.ratio / fi.efficiency;
+                        tank.maxAmount += amt;
+                        tank.amount += amt;
+                        group.tanks.Add(tank);
+                        tankCreationGUI?.SetTankLock(tank, false);
+                    }
+                }
+            }
+            ScreenMessages.PostScreenMessage(new ScreenMessage($"Filled subgroup {group.mode} for {fi.source.name} volume: {availableVolume}!", 10, ScreenMessageStyle.UPPER_CENTER));
+            GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
         }
 
         private bool CalculateLowestTankTemperature()
@@ -566,16 +748,10 @@ namespace RealFuels.Tanks
 
         #region Tank Dimensions
 
-        private void SetTankAreaInfo(double volume)
+        private void SetTankAreaInfo()
         {
-            foreach (var tank in tanksDict.Values)
-            {
-                double amt = tank.maxAmount;
-                if (amt > 0 && tank.utilization > 0)
-                    amt /= tank.utilization;
-                tank.totalArea = SphericalAreaFromVolume(amt);
-                tank.tankRatio = amt / volume;
-            }
+            foreach (FuelTank tank in tanksDict.Values)
+                tank.totalArea = SphericalAreaFromVolume(tank.Volume);
         }
 
         private double CalculateTankAreaCubes()
@@ -598,17 +774,7 @@ namespace RealFuels.Tanks
             return area;
         }
 
-        private double CalculateTankAreaFromSphericalSubTanks()
-        {
-            double area = 0;
-            foreach (var tank in tanksDict.Values)
-                area += tank.totalArea;
-            /*
-            if (RFSettings.Instance.debugBoilOff)
-                Debug.Log($"[RealFuels.ModuleFuelTankRF] {tank.name} (isDewar: {tank.isDewar}): tankRatio = {tank.tankRatio:F2} | maxAmount = {tank.maxAmount:F2} | surface area = {tank.totalArea}");
-            */
-            return area;
-        }
+        private double CalculateTankAreaFromSphericalSubTanks() => tanksDict.Values.Sum(t => t.totalArea);
 
 #endregion
     }

@@ -166,7 +166,7 @@ namespace RealFuels.Tanks
         {
             if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
                 return part.Resources.ToList();
-            return part.Resources.Where(r => !unmanagedResources.ContainsKey(r.resourceName) && !def.tankList.Any(t => t.name.Equals(r.resourceName) && t.canHave)).ToList();
+            return part.Resources.Where(r => !unmanagedResources.ContainsKey(r.resourceName) && !def.tankList.Values.Any(t => t.name.Equals(r.resourceName) && t.canHave)).ToList();
         }
 
         // Remove all resources not valid for this type.
@@ -218,7 +218,7 @@ namespace RealFuels.Tanks
             {
                 // Load the persistent data (from .craft or .sfs)
                 // Always re-generate this list from the current set of available types
-                RecordManagedResources();   // Also called via UpdateTypesAvailable()
+                RecordManagedResources(typesAvailable);   // Also called via UpdateTypesAvailable()
                 config = node;
                 ValidateTankType();
 
@@ -531,7 +531,7 @@ namespace RealFuels.Tanks
                     part.Resources.Remove(res);
                     part.SimulationResources?.Remove(res);
                 }
-                foreach (FuelTank tank in def.tankList.Where(t => !unmanagedResources.ContainsKey(t.name) && t.canHave))
+                foreach (FuelTank tank in def.tankList.Values.Where(t => !unmanagedResources.ContainsKey(t.name) && t.canHave))
                 {
                     ConfigNode tankNode = node?.GetNode("TANK", "name", tank.name);
                     FuelTank newTank = tank.CreateCopy(this, tankNode, initializeAmounts);
