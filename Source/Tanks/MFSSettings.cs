@@ -27,7 +27,6 @@ namespace RealFuels
         public static readonly Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();
 
         private static readonly Dictionary<string, ConfigNode[]> overrides = new Dictionary<string, ConfigNode[]>();
-        private static bool Initialized = false;
 
         static string version;
         public static string GetVersion ()
@@ -69,13 +68,11 @@ namespace RealFuels
             return partName;
         }
 
-        public static void TryInitialize()
+        public static void ModuleManagerPostLoad()
         {
-            if (!Initialized) Initialize();
-        }
+            resourceVsps.Clear();
+            resourceConductivities.Clear();
 
-        public static void Initialize ()
-        {
             // fill vsps & conductivities
             foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("RESOURCE_DEFINITION"))
             {
@@ -90,7 +87,7 @@ namespace RealFuels
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("MFSSETTINGS").LastOrDefault();
             Debug.Log ("[MFS] Loading global settings");
 
-			if (node != null) {
+            if (node != null) {
                 node.TryGetValue("useRealisticMass", ref useRealisticMass);
                 node.TryGetValue("tankMassMultiplier", ref tankMassMultiplier);
                 node.TryGetValue("baseCostPV", ref baseCostPV);
@@ -101,23 +98,21 @@ namespace RealFuels
                 node.TryGetValue("radiatorMinTempMult", ref radiatorMinTempMult);
                 node.TryGetValue("previewAllLockedTypes", ref previewAllLockedTypes);
 
-                ConfigNode ignoreNode = node.GetNode("IgnoreFuelsForFill");
-				if (ignoreNode != null) {
-					foreach (ConfigNode.Value v in ignoreNode.values) {
+                ignoreFuelsForFill.Clear();
+                if (node.GetNode("IgnoreFuelsForFill") is ConfigNode ignoreNode)
+                    foreach (ConfigNode.Value v in ignoreNode.values)
                         ignoreFuelsForFill.Add(v.name);
-					}
-				}
-			}
+            }
 
+            tankDefinitions.Clear();
             foreach (ConfigNode defNode in GameDatabase.Instance.GetConfigNodes("TANK_DEFINITION")) {
                 if (tankDefinitions.ContainsKey(defNode.GetValue("name"))) {
                     Debug.LogWarning ("[MFS] Ignored duplicate definition of tank type " + defNode.GetValue ("name"));
                 } else {
                     var def = new Tanks.TankDefinition(defNode);
                     tankDefinitions.Add(def.name, def);
-				}
+                }
             }
-            Initialized = true;
         }
     }
 }

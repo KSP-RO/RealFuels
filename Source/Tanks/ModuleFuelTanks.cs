@@ -112,8 +112,6 @@ namespace RealFuels.Tanks
         public UpdateTweakableButtonsDelegateType UpdateTweakableButtonsDelegate;
         public override void OnAwake()
         {
-            MFSSettings.TryInitialize();
-
             UpdateTweakableButtonsDelegate = (UpdateTweakableButtonsDelegateType)Delegate.CreateDelegate(typeof(UpdateTweakableButtonsDelegateType), this, "UpdateTweakableButtons", true);
 
             if (utilization == -1)
@@ -121,7 +119,7 @@ namespace RealFuels.Tanks
 
             if (HighLogic.LoadedScene == GameScenes.LOADING)
                 unmanagedResources = new Dictionary<string, UnmanagedResource>();
-            else
+            else if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
             {
                 var mft = part.partInfo.partPrefab.FindModuleImplementing<ModuleFuelTanks>();
                 unmanagedResources = mft.unmanagedResources;

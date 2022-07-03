@@ -72,19 +72,7 @@ namespace RealFuels
 
         public float EngineMassMultiplier => useRealisticMass ? 1f : engineMassMultiplier;
 
-        private static RFSettings _instance;
-        public static RFSettings Instance
-        {
-            get
-            {
-                if (_instance == null)
-                {
-                    _instance = new RFSettings();
-                    _instance.Init();
-                }
-                return _instance;
-            }
-        }
+        public static RFSettings Instance { get; private set; }
 
         private static string version;
         public static string GetVersion()
@@ -97,10 +85,15 @@ namespace RealFuels
             return version;
         }
 
+        public static void ModuleManagerPostLoad()
+        {
+            Instance = new RFSettings();
+            Instance.Init();
+        }
+
         private void Init()
         {
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("RFSETTINGS").Last();
-            
             Debug.Log("*RF* Loading RFSETTINGS global settings");
 
             if (node == null)
