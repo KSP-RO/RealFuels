@@ -250,9 +250,6 @@ namespace RealFuels.Tanks
                         double massLost = 0;
                         double hotTemp = part.temperature;
 
-                        if (RFSettings.Instance.ferociousBoilOff)
-                            hotTemp = Math.Max(((hotTemp * part.thermalMass) - (tank.temperature * part.resourceThermalMass)) / (part.thermalMass - part.resourceThermalMass), part.temperature);
-
                         // We might be in analytic mode, and have a target temperature = analyticInternalTemp/analyticSkinTemp, and "progress" towards it reprsented by the scalar params
                         if (analyticalMode)
                         {

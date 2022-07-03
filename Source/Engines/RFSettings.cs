@@ -32,7 +32,6 @@ namespace RealFuels
         [Persistent] public double throttlingRate = 10d;
         [Persistent] public double throttlingClamp = 1.1d;
 
-        [Persistent] public bool ferociousBoilOff = false;
         [Persistent] public bool globalConductionCompensation = false;
         [Persistent] public bool debugBoilOff = false;
         [Persistent] public bool debugBoilOffPAW = true;
