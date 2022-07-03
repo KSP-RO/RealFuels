@@ -364,16 +364,22 @@ namespace RealFuels.Tanks
             GUILayout.EndVertical();
         }
 
+        private readonly HashSet<string> displayedParts = new HashSet<string>();
         private void GUIEngines()
         {
             GUILayout.BeginVertical(Styles.styleEditorBox);
             if (tank_module.usedBy.Count > 0 && tank_module.AvailableVolume >= 0.001)
             {
+                displayedParts.Clear();
                 GUILayout.Label("Configure remaining volume for detected engines:");
 
                 foreach (FuelInfo info in tank_module.usedBy.Values)
-                    if (GUILayout.Button(info.title))
-                        tank_module.ConfigureFor(info);
+                    if (!displayedParts.Contains(info.title))
+                    {
+                        if (GUILayout.Button(info.title))
+                            tank_module.ConfigureFor(info);
+                        displayedParts.Add(info.title);
+                    }
             }
             GUILayout.EndVertical();
         }
