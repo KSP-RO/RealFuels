@@ -51,7 +51,7 @@ namespace RealFuels.Tanks
             foreach (ConfigNode tankNode in node.GetNodes("TANK"))
             {
                 string name = "";
-                if (node.TryGetValue("name", ref name) && !tankList.ContainsKey(name))
+                if (tankNode.TryGetValue("name", ref name) && !tankList.ContainsKey(name))
                     tankList.Add(name, new FuelTank(tankNode));
             }
             foreach (var t in tankList.Where(x => !x.Value.resourceAvailable).ToList())

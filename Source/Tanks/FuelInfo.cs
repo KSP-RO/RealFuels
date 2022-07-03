@@ -15,34 +15,30 @@ namespace RealFuels.Tanks
 		public readonly Dictionary<Propellant, double> propellantVolumeMults = new Dictionary<Propellant, double>();
 		public readonly double efficiency;
 		public readonly double ratioFactor;
+		public readonly bool valid;
 
 		// looks to see if we should ignore this fuel when creating an autofill for an engine
 		private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
 
+		private readonly List<string> labelString = new List<string>(10);
 		private string BuildLabel()
 		{
-			var text = StringBuilderCache.Acquire();
-			bool first = true;
+			labelString.Clear();
 			foreach (KeyValuePair<Propellant,double> kvp in propellantVolumeMults)
 			{
 				Propellant tfuel = kvp.Key;
-				double mult = kvp.Value;
 				if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE && !IgnoreFuel(tfuel.name))
-				{
-					if (!first)
-						text.Append(" / ");
-					first = false;
-					text.Append(Math.Round(100000 * tfuel.ratio * mult / efficiency, 0) * 0.001).Append("% ").Append(tfuel.name);
-				}
+					labelString.Add($"{Math.Round(100 * tfuel.ratio * kvp.Value / efficiency, 3)}% {tfuel.name}");
 			}
-			return text.ToStringAndRelease();
+			return string.Join(" / ", labelString);
 		}
 
 		public FuelInfo(List<Propellant> props, ModuleFuelTanks tank, PartModule source)
 		{
 			// tank math:
-			// efficiency = sum[utilization * ratio]
-			// then final volume per fuel = fuel_ratio / fuel_utilization / efficiency
+			// efficiency = sum[ratio * volumePerUnit] == volume per [TotalRatio] unit draw of resources, not normalized
+			// volume per unit of fuel = fuel_ratio * volumePerUnit / sum[fuel_ratio * volumePerUnit]
+
 			this.source = source;
 			string _title = source.part.partInfo.title;
 			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
@@ -51,26 +47,25 @@ namespace RealFuels.Tanks
 			ratioFactor = 0.0;
 			efficiency = 0.0;
 
+			// Error conditions: Resource not defined in library, or resource has no tank and is not in IgnoreFuel
+			var missingRes = props.FirstOrDefault(p => PartResourceLibrary.Instance.GetDefinition(p.name) == null);
+			var noTanks = props.Where(p => !tank.tankList.ContainsKey(p.name));
+			bool noTanksAndNotIgnored = noTanks.Any(p => !IgnoreFuel(p.name));
+			if (missingRes != null)
+				Debug.LogError($"[MFT/RF] FuelInfo: Unknown RESOURCE: {missingRes.name}");
+
+			valid = missingRes == null && !noTanksAndNotIgnored;
+			if (!valid)
+				return;
+
 			foreach (Propellant tfuel in props)
 			{
-				PartResourceDefinition def = PartResourceLibrary.Instance.GetDefinition(tfuel.name);
-				if (def == null) {
-					Debug.LogError($"Unknown RESOURCE: {tfuel.name}");
-					ratioFactor = 0.0;
-					break;
-				}
-				if (!IgnoreFuel(tfuel.name))
+				if (tank.tankList.TryGetValue(tfuel.name, out FuelTank t))
 				{
-					if (tank.tankList.TryGetValue(tfuel.name, out FuelTank t))
-					{
-						double volumeMultiplier = 1d / t.utilization;
-						efficiency += tfuel.ratio * volumeMultiplier;
-						ratioFactor += tfuel.ratio;
-						propellantVolumeMults.Add(tfuel, volumeMultiplier);
-					} else {
-						ratioFactor = 0.0;
-						break;
-					}
+					double volumePerUnit = 1d / t.utilization;
+					efficiency += tfuel.ratio * volumePerUnit;
+					ratioFactor += tfuel.ratio;
+					propellantVolumeMults.Add(tfuel, volumePerUnit);
 				}
 			}
 			Label = BuildLabel();

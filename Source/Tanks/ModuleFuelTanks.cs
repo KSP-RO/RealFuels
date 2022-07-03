@@ -429,9 +429,9 @@ namespace RealFuels.Tanks
 
             // Copy the tank list from the tank definitiion
             if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def)) {
-                string msg = $"[ModuleFuelTanks] Somehow tried to set tank type to {type} but it has no definition.";
-                type = MFSSettings.tankDefinitions.ContainsKey(oldType) ? oldType : typesAvailable.First();
-                def = MFSSettings.tankDefinitions[type];
+                string msg = $"[ModuleFuelTanks] Tried to set tank type to {type} but it has no definition.";
+                string replacementType = oldType ?? typesAvailable.First();
+                type = MFSSettings.tankDefinitions.ContainsKey(replacementType) ? replacementType : typesAvailable.First();
                 Debug.LogError($"{msg} Reset to {type}");
             }
 
@@ -827,9 +827,6 @@ namespace RealFuels.Tanks
                 utilization = value;
         }
 
-        // looks to see if we should ignore this fuel when creating an autofill for an engine
-        private static bool IgnoreFuel(string name) => MFSSettings.ignoreFuelsForFill.Contains(name);
-
         internal readonly Dictionary<PartModule, FuelInfo> usedBy = new Dictionary<PartModule, FuelInfo>();
         internal readonly HashSet<FuelTank> usedByTanks = new HashSet<FuelTank>();
 
@@ -865,7 +862,7 @@ namespace RealFuels.Tanks
                         f = new FuelInfo((m as ModuleEngines).propellants, this, m);
                     else if (m is ModuleRCS)
                         f = new FuelInfo((m as ModuleRCS).propellants, this, m);
-                    if (f?.ratioFactor > 0d)
+                    if (f?.valid == true)
                         UpdateFuelInfo(f, m);
                 }
             }
@@ -924,7 +921,7 @@ namespace RealFuels.Tanks
 
         internal void ConfigureFor(FuelInfo fi)
         {
-            if (fi.ratioFactor == 0.0 || fi.efficiency == 0) // can't configure for this engine
+            if (!fi.valid) // can't configure for this engine
                 return;
 
             double availableVolume = AvailableVolume;
