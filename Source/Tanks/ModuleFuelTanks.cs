@@ -258,7 +258,6 @@ namespace RealFuels.Tanks
 
         public override void OnStart(StartState state)
         {
-            //MFSSettings.previewAllLockedTypes = true;   // For testing only
             if (HighLogic.LoadedSceneIsEditor)
             {
                 GameEvents.onPartAttach.Add(OnPartAttach);

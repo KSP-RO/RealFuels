@@ -17,8 +17,7 @@ namespace RealFuels
         public static double radiatorMinTempMult = 0.99d;
 
         // Move all possible tank upgrades into the preview list in OnStart
-        // This is intentionally not configured via MFSSettings MM node.
-        // It requires an external mod to toggle, which will be responsible for calling the Validate() method.
+        // It requires an external mod to be responsible for calling the Validate() method.
         public static bool previewAllLockedTypes = false;
 
         public static readonly HashSet<string> ignoreFuelsForFill = new HashSet<string>();
@@ -100,6 +99,7 @@ namespace RealFuels
                 node.TryGetValue("unitLabel", ref unitLabel);
                 node.TryGetValue("basemassUseTotalVolume", ref basemassUseTotalVolume);
                 node.TryGetValue("radiatorMinTempMult", ref radiatorMinTempMult);
+                node.TryGetValue("previewAllLockedTypes", ref previewAllLockedTypes);
 
                 ConfigNode ignoreNode = node.GetNode("IgnoreFuelsForFill");
 				if (ignoreNode != null) {
