@@ -85,6 +85,8 @@ namespace RealFuels.Tanks
 		public Part part => module != null ? module.part : null;
 
 		public PartResource resource => part != null ? part.Resources[name] : null;
+		public double Volume => maxAmount / utilization;
+		public double FilledVolume => amount / utilization;
 
 		public void RaiseResourceInitialChanged(Part part, PartResource resource, double amount)
 		{
@@ -172,18 +174,7 @@ namespace RealFuels.Tanks
 		void UpdateTank(double value)
 		{
 			PartResource partResource = resource;
-			if (module.unmanagedResources.ContainsKey(partResource.resourceName))
-				return;
-
-			if (value > partResource.maxAmount)
-			{
-				// If expanding, modify it to be less than overfull
-				double maxQty = (module.AvailableVolume * utilization) + partResource.maxAmount;
-				value = Math.Min(maxQty, value);
-			}
-
-			// Do nothing if unchanged
-			if (value == partResource.maxAmount)
+			if (module.unmanagedResources.ContainsKey(partResource.resourceName) || value == partResource.maxAmount)
 				return;
 
 			double fillFrac = FillFraction; // fillFraction is a live value, gather it before changing a resource amount

@@ -613,9 +613,7 @@ namespace RealFuels.Tanks
 
             if (basemass >= 0)
             {
-                double tankDryMass = 0;
-                foreach (FuelTank tank in tankList.Values)
-                    tankDryMass += tank.maxAmount * tank.mass / tank.utilization;
+                double tankDryMass = tankList.Values.Sum(t => t.Volume * t.mass);
                 mass = (float) ((basemass + tankDryMass) * MassMult);
 
                 // compute massDelta based on prefab, if available.
@@ -636,9 +634,7 @@ namespace RealFuels.Tanks
             }
 
             if (HighLogic.LoadedSceneIsEditor) {
-                UsedVolume = tankList.Values
-                    .Where (fuel => fuel.maxAmount > 0 && fuel.utilization > 0)
-                    .Sum (fuel => fuel.maxAmount/fuel.utilization);
+                UsedVolume = tankList.Values.Sum(t => t.Volume);
 
                 double availRounded = AvailableVolume;
                 if (Math.Abs(availRounded) < 0.001d)
@@ -691,7 +687,7 @@ namespace RealFuels.Tanks
             if (baseCostPV >= 0f && baseCostConst >= 0f)
             {
                 cst += volume * Mathf.Max(baseCostPV, 0f);
-                cst += tankList.Values.Sum(t => t.maxAmount * t.cost / t.utilization);
+                cst += tankList.Values.Sum(t => t.Volume * t.cost);
             }
             GetModuleCostRF(ref cst);
             return (float)cst;
