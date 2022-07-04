@@ -197,6 +197,26 @@ namespace RealFuels
             }
         }
 
+        public static double GetNormal(System.Random rnd, double stdDevClamp)
+        {
+            double u, v, S, retVal;
+            do
+            {
+                do
+                {
+                    u = rnd.NextDouble() * 2d - 1d;
+                    v = rnd.NextDouble() * 2d - 1d;
+                    S = u * u + v * v;
+                }
+                while (S >= 1d);
+
+                double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
+                retVal = u * fac;
+            }
+            while (stdDevClamp > 0 && Math.Abs(retVal) > stdDevClamp);
+            return retVal;
+        }
+
         #region Finding resources
         public static List<PartResource> FindResources(Part part, Propellant p)
         {

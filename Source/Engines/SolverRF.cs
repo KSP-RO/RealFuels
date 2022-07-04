@@ -334,42 +334,19 @@ namespace RealFuels
             return (mach - machLimit) * machMult;
         }
 
-        protected double GetRandom(bool useSeed)
+        protected System.Random GetRandom(bool useSeed)
         {
-            if (useSeed)
-                return seededRandom.NextDouble() * 2d - 1d;
-            else
-                return staticRandom.NextDouble() * 2d - 1d;
+            return useSeed ? seededRandom : staticRandom;
         }
 
         protected void GetVariances(bool useSeed, out double varianceFlow, out double varianceMR, out double varianceIsp)
         {
-            varianceFlow = GetNormal(useSeed, 3d);
-            varianceMR = GetNormal(useSeed, 3d) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
+            varianceFlow = Utilities.GetNormal(GetRandom(useSeed), 3d);
+            varianceMR = Utilities.GetNormal(GetRandom(useSeed), 3d) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
             // MR probably has an effect on Isp but it's hard to say what. When running fuel-rich, increasing
             // oxidizer might raise Isp? And vice versa for ox-rich. So for now ignore MR.
-            varianceIsp = varianceFlow * 0.89442719099991587856366946749251d + GetNormal(useSeed, 3d) * 0.44721359549995793928183473374626d;
+            varianceIsp = varianceFlow * 0.89442719099991587856366946749251d + Utilities.GetNormal(GetRandom(useSeed), 3d) * 0.44721359549995793928183473374626d;
             // (these are sqrt(0.8) and sqrt(0.2) )
-        }
-
-        protected double GetNormal(bool useSeed, double stdDevClamp)
-        {
-            double u, v, S, retVal;
-            do
-            {
-                do
-                {
-                    u = GetRandom(useSeed);
-                    v = GetRandom(useSeed);
-                    S = u * u + v * v;
-                }
-                while (S >= 1d);
-
-                double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
-                retVal = u * fac;
-            }
-            while (stdDevClamp > 0 && Math.Abs(retVal)>stdDevClamp);
-            return retVal;
         }
     }
 }
