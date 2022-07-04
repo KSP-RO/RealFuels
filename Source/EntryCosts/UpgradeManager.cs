@@ -103,7 +103,7 @@ namespace RealFuels
             {
                 for (int i = ap.partPrefab.Modules.Count; i-- > 0;)
                 {
-                    if (ap.partPrefab.Modules[i] is ModuleEngineConfigs mec)
+                    if (ap.partPrefab.Modules[i] is ModuleEngineConfigsBase mec)
                     {
                         mec.CheckConfigs();
                         foreach (var cfg in mec.configs)
@@ -139,7 +139,7 @@ namespace RealFuels
             {
                 for(int i = part.Modules.Count - 1; i >= 0; --i)
                 {
-                    if (part.Modules[i] is ModuleEngineConfigs mec)
+                    if (part.Modules[i] is ModuleEngineConfigsBase mec)
                     {
                         mec.CheckConfigs();
                         foreach (var cfg in mec.configs)
