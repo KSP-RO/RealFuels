@@ -689,7 +689,7 @@ namespace RealFuels
                     {
                         double state = ullageSet.GetUllageStability();
                         double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
-                        if (UnityEngine.Random.value > testValue)
+                        if (staticRandom.NextDouble() > testValue)
                         {
                             ScreenMessages.PostScreenMessage(ullageFail);
                             FlightLogger.fetch.LogEvent($"[{FormatTime(vessel.missionTime)}] {ullageFail.message}");
@@ -966,7 +966,7 @@ namespace RealFuels
                             }
                             if (minResource < 1d)
                             {
-                                if (UnityEngine.Random.value > (float)minResource && !CheatOptions.InfinitePropellant && !externalIgnition)
+                                if (staticRandom.NextDouble() > minResource && !CheatOptions.InfinitePropellant && !externalIgnition)
                                 {
                                     EngineIgnited = false; // don't play shutdown FX, just fail.
                                     ScreenMessages.PostScreenMessage(igniteFailResources);
