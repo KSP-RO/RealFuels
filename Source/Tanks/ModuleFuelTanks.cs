@@ -31,6 +31,7 @@ namespace RealFuels.Tanks
 
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
         internal Dictionary<string, FuelTank> tanksDict = new Dictionary<string, FuelTank>();
+        internal FuelTankList tankList = new FuelTankList();
         public List<string> typesAvailable = new List<string>();
         internal List<string> lockedTypes = new List<string>();
         internal List<string> allPossibleTypes = new List<string>();    // typesAvailable if all upgrades were applied
@@ -179,6 +180,7 @@ namespace RealFuels.Tanks
             UpdateTankType (false);
             CleanResources ();
             tanksDict.Clear ();
+            tankList.Clear();
             foreach (var kvp in prefab.tanksDict)
             {
                 FuelTank src = kvp.Value;
@@ -186,6 +188,7 @@ namespace RealFuels.Tanks
                 tank.maxAmount = src.maxAmount;
                 tank.amount = src.amount;
                 tanksDict.Add(kvp.Key, tank);
+                tankList.Add(tank);
             }
         }
 
@@ -439,6 +442,7 @@ namespace RealFuels.Tanks
 
             // Build the new tank list.
             tanksDict.Clear();
+            tankList.Clear();
             foreach (FuelTank tank in def.tankList.Values) {
                 // Pull the override from the list of overrides
                 ConfigNode overNode = MFSSettings.GetOverrideList(part).FirstOrDefault(n => n.GetValue("name") == tank.name);
@@ -446,6 +450,7 @@ namespace RealFuels.Tanks
                 if (!newTank.canHave)
                     newTank.maxAmount = 0;
                 tanksDict.Add(newTank.name, newTank);
+                tankList.Add(newTank);
             }
 
             // Destroy any managed resources that are not in the new type.
