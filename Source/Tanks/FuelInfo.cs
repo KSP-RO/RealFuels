@@ -49,7 +49,7 @@ namespace RealFuels.Tanks
 
 			// Error conditions: Resource not defined in library, or resource has no tank and is not in IgnoreFuel
 			var missingRes = props.FirstOrDefault(p => PartResourceLibrary.Instance.GetDefinition(p.name) == null);
-			var noTanks = props.Where(p => !tank.tankList.ContainsKey(p.name));
+			var noTanks = props.Where(p => !tank.tanksDict.ContainsKey(p.name));
 			bool noTanksAndNotIgnored = noTanks.Any(p => !IgnoreFuel(p.name));
 			if (missingRes != null)
 				Debug.LogError($"[MFT/RF] FuelInfo: Unknown RESOURCE: {missingRes.name}");
@@ -60,7 +60,7 @@ namespace RealFuels.Tanks
 
 			foreach (Propellant tfuel in props)
 			{
-				if (tank.tankList.TryGetValue(tfuel.name, out FuelTank t))
+				if (tank.tanksDict.TryGetValue(tfuel.name, out FuelTank t))
 				{
 					double volumePerUnit = 1d / t.utilization;
 					efficiency += tfuel.ratio * volumePerUnit;

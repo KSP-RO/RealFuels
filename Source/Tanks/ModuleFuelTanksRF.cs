@@ -73,7 +73,7 @@ namespace RealFuels.Tanks
             if (HighLogic.LoadedSceneIsFlight)
                 _flightIntegrator = vessel.vesselModules.Find(x => x is FlightIntegrator) as FlightIntegrator;
 
-            foreach (var tank in tankList.Values)
+            foreach (var tank in tanksDict.Values)
             {
                 if (tank.maxAmount > 0 && (tank.vsp > 0 || tank.loss_rate > 0))
                     cryoTanks.Add(tank);
@@ -355,7 +355,7 @@ namespace RealFuels.Tanks
         private void UpdateEngineIgnitor(TankDefinition def)
         {
             pressurizedFuels.Clear();
-            foreach (var f in tankList.Values)
+            foreach (var f in tanksDict.Values)
                 pressurizedFuels[f.name] = def.highlyPressurized || f.note.ToLower().Contains("pressurized");
         }
 
@@ -568,7 +568,7 @@ namespace RealFuels.Tanks
 
         private void SetTankAreaInfo(double volume)
         {
-            foreach (var tank in tankList.Values)
+            foreach (var tank in tanksDict.Values)
             {
                 double amt = tank.maxAmount;
                 if (amt > 0 && tank.utilization > 0)
@@ -601,7 +601,7 @@ namespace RealFuels.Tanks
         private double CalculateTankAreaFromSphericalSubTanks()
         {
             double area = 0;
-            foreach (var tank in tankList.Values)
+            foreach (var tank in tanksDict.Values)
                 area += tank.totalArea;
             /*
             if (RFSettings.Instance.debugBoilOff)

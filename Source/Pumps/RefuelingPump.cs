@@ -74,7 +74,7 @@ namespace RealFuels
                 if (p.FindModuleImplementing<Tanks.ModuleFuelTanks>() is Tanks.ModuleFuelTanks m)
                 {
                     tanks.Add(m);
-                    foreach (var tank in m.tankList.Values)
+                    foreach (var tank in m.tanksDict.Values)
                     {
                         if (tank.maxAmount > 0 &&
                             tank.resource is PartResource r &&
