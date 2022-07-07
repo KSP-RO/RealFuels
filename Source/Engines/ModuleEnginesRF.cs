@@ -422,8 +422,9 @@ namespace RealFuels
             {
                 if (partSeed == -1)
                 {
-                    // yes, this is clamping off high deviation. That's ok here I think?
-                    calculatedResiduals = localResidualsThresholdBase + localVaryResiduals * (0.5d + 0.5d * UtilMath.Clamp(Utilities.GetNormal(staticRandom, 0d), -1d, 1d));
+                    // using egg's formula here that ensures a gradual climb from 0, 0.5 as median, and a very thin tail past 1.0
+                    // egg will comment further here
+                    calculatedResiduals = localResidualsThresholdBase + localVaryResiduals * UtilMath.Clamp01(Math.Exp(0.421404d * Utilities.GetNormal(staticRandom, 0d) - Math.Log(2d)));
                     partSeed = staticRandom.Next();
                 }
             }
