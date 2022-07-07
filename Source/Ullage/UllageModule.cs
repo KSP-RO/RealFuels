@@ -62,14 +62,6 @@ namespace RealFuels.Ullage
             {
                 set.Update(accel, angVel, TimeWarp.fixedDeltaTime, ventingAcceleration);
             }
-
-#if DEBUG
-            var str = StringBuilderCache.Acquire();
-            str.AppendLine("Ullage states:");
-            foreach (var set in ullageSets)
-                str.AppendLine($"{set.Engine()} is {set.GetUllageStability():N4}");
-            Debug.Log(str.ToStringAndRelease());
-#endif
         }
 
         public void Reset()

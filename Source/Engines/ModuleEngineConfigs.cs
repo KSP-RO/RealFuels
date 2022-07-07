@@ -800,10 +800,6 @@ namespace RealFuels
             newConfig.CopyTo(config);
             config.name = "MODULE";
 
-#if DEBUG
-            Debug.Log($"replacing {type} with:\n{newConfig}");
-#endif
-
             if ((pModule = GetSpecifiedModule(part, engineID, moduleIndex, type, useWeakType)) is null)
             {
                 Debug.LogError($"*RFMEC* Could not find appropriate module of type {type}, with ID={engineID} and index {moduleIndex}");
@@ -1376,7 +1372,6 @@ namespace RealFuels
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
         private string myToolTip = string.Empty;
         private int counterTT;
-        private bool styleSetup = false;
         private bool editorLocked = false;
 
         private int toolTipWidth => EditorLogic.fetch.editorScreen == EditorScreen.Parts ? 220 : 300;
@@ -1396,12 +1391,6 @@ namespace RealFuels
 
             if (inPartsEditor && part.symmetryCounterparts.FirstOrDefault(p => p.persistentId < part.persistentId) is Part)
                 return;
-
-            if (!styleSetup)
-            {
-                styleSetup = true;
-                Styles.InitStyles();
-            }
 
             if (guiWindowRect.width == 0)
             {

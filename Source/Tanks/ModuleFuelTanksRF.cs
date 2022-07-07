@@ -73,7 +73,7 @@ namespace RealFuels.Tanks
             if (HighLogic.LoadedSceneIsFlight)
                 _flightIntegrator = vessel.vesselModules.Find(x => x is FlightIntegrator) as FlightIntegrator;
 
-            foreach (var tank in tankList)
+            foreach (var tank in tanksDict.Values)
             {
                 if (tank.maxAmount > 0 && (tank.vsp > 0 || tank.loss_rate > 0))
                     cryoTanks.Add(tank);
@@ -250,9 +250,6 @@ namespace RealFuels.Tanks
                         double massLost = 0;
                         double hotTemp = part.temperature;
 
-                        if (RFSettings.Instance.ferociousBoilOff)
-                            hotTemp = Math.Max(((hotTemp * part.thermalMass) - (tank.temperature * part.resourceThermalMass)) / (part.thermalMass - part.resourceThermalMass), part.temperature);
-
                         // We might be in analytic mode, and have a target temperature = analyticInternalTemp/analyticSkinTemp, and "progress" towards it reprsented by the scalar params
                         if (analyticalMode)
                         {
@@ -351,25 +348,15 @@ namespace RealFuels.Tanks
 
             InitUtilization();
 
-            if (isDatabaseLoad)
+            if (HighLogic.LoadedScene == GameScenes.LOADING)
                 UpdateEngineIgnitor(def);
         }
 
         private void UpdateEngineIgnitor(TankDefinition def)
         {
-            // collect pressurized propellants for EngineIgnitor
-            // XXX Dirty hack until engine ignitor is fixed
-            fuelList.Clear();               //XXX
-            fuelList.AddRange(tankList);    //XXX
-
             pressurizedFuels.Clear();
-            foreach (var f in tankList)
+            foreach (var f in tanksDict.Values)
                 pressurizedFuels[f.name] = def.highlyPressurized || f.note.ToLower().Contains("pressurized");
-        }
-
-        partial void ParseInsulationFactor(ConfigNode node)
-        {
-            node.TryGetValue("numberOfMLILayers", ref numberOfMLILayers);
         }
 
         // Fired from ProcParts when updating the collider and drag cubes, after OnPartVolumeChanged
@@ -581,7 +568,7 @@ namespace RealFuels.Tanks
 
         private void SetTankAreaInfo(double volume)
         {
-            foreach (var tank in tankList)
+            foreach (var tank in tanksDict.Values)
             {
                 double amt = tank.maxAmount;
                 if (amt > 0 && tank.utilization > 0)
@@ -614,7 +601,7 @@ namespace RealFuels.Tanks
         private double CalculateTankAreaFromSphericalSubTanks()
         {
             double area = 0;
-            foreach (var tank in tankList)
+            foreach (var tank in tanksDict.Values)
                 area += tank.totalArea;
             /*
             if (RFSettings.Instance.debugBoilOff)
