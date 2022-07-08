@@ -341,11 +341,11 @@ namespace RealFuels
 
         protected void GetVariances(bool useSeed, out double varianceFlow, out double varianceMR, out double varianceIsp)
         {
-            varianceFlow = Utilities.GetNormal(GetRandom(useSeed), 3d);
-            varianceMR = Utilities.GetNormal(GetRandom(useSeed), 3d) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
+            varianceFlow = Utilities.GetNormal(GetRandom(useSeed), -1d, 1d);
+            varianceMR = Utilities.GetNormal(GetRandom(useSeed), -1d, 1d) * (0.5d + Math.Abs(varianceFlow) * 0.5d);
             // MR probably has an effect on Isp but it's hard to say what. When running fuel-rich, increasing
             // oxidizer might raise Isp? And vice versa for ox-rich. So for now ignore MR.
-            varianceIsp = varianceFlow * 0.89442719099991587856366946749251d + Utilities.GetNormal(GetRandom(useSeed), 3d) * 0.44721359549995793928183473374626d;
+            varianceIsp = varianceFlow * 0.89442719099991587856366946749251d + Utilities.GetNormal(GetRandom(useSeed), -1d, 1d) * 0.44721359549995793928183473374626d;
             // (these are sqrt(0.8) and sqrt(0.2) )
         }
     }

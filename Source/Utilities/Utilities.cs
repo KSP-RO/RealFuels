@@ -197,7 +197,7 @@ namespace RealFuels
             }
         }
 
-        public static double GetNormal(System.Random rnd, double stdDevClamp)
+        public static double GetNormal(System.Random rnd, double stdDevClampLow, double stdDevClampHigh)
         {
             double u, v, S, retVal;
             do
@@ -213,7 +213,7 @@ namespace RealFuels
                 double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
                 retVal = u * fac;
             }
-            while (stdDevClamp > 0 && Math.Abs(retVal) > stdDevClamp);
+            while (retVal < 0 ? stdDevClampLow < 0 && retVal < stdDevClampLow : stdDevClampHigh > 0 && retVal > stdDevClampHigh);
             return retVal;
         }
 
