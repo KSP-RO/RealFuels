@@ -81,6 +81,9 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         public float mass;
 
+        [KSPField(isPersistant = false)]
+        public bool massIsAdditive = false;
+
         [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
         public string massDisplay;
 
@@ -624,17 +627,30 @@ namespace RealFuels.Tanks
                 // compute massDelta based on prefab, if available.
                 if (part.partInfo == null || part.partInfo.partPrefab == null)
                 {
-                    part.mass = mass;
-                    massDelta = 0;
+                    if (massIsAdditive)
+                    {
+                        massDelta = mass;
+                    }
+                    else
+                    {
+                        part.mass = mass;
+                        massDelta = 0f;
+                    }
                 }
                 else
                 {
-                    massDelta = mass - part.partInfo.partPrefab.mass;
+                    massDelta = mass;
+                    if (!massIsAdditive) 
+                        massDelta -= part.partInfo.partPrefab.mass;
                 }
             }
             else
             {
-                mass = part.mass; // display dry mass even in this case.
+                if (massIsAdditive)
+                    mass = 0f;
+                else
+                    mass = part.mass; // display dry mass even in this case.
+
                 massDelta = 0f;
             }
 
