@@ -197,7 +197,14 @@ namespace RealFuels
             }
         }
 
-        public static double GetNormal(System.Random rnd, double stdDevClampLow, double stdDevClampHigh)
+        /// <summary>
+        /// Gets a Normal distribution value.
+        /// </summary>
+        /// <param name="rnd">The System.Random to use for random values</param>
+        /// <param name="negativeValueLimit">Values below this will result in a reroll. 0 means all values are acceptable.</param>
+        /// <param name="positiveValueLimit">Values above this will result in a reroll. 0 means all values are acceptable</param>
+        /// <returns></returns>
+        public static double GetNormal(System.Random rnd, double negativeValueLimit, double positiveValueLimit)
         {
             double u, v, S, retVal;
             do
@@ -213,7 +220,7 @@ namespace RealFuels
                 double fac = Math.Sqrt(-2.0 * Math.Log(S) / S);
                 retVal = u * fac;
             }
-            while (retVal < 0 ? stdDevClampLow < 0 && retVal < stdDevClampLow : stdDevClampHigh > 0 && retVal > stdDevClampHigh);
+            while (retVal < 0 ? negativeValueLimit < 0 && retVal < negativeValueLimit : positiveValueLimit > 0 && retVal > positiveValueLimit);
             return retVal;
         }
 
