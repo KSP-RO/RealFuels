@@ -422,9 +422,10 @@ namespace RealFuels
             {
                 if (partSeed == -1)
                 {
-                    // using egg's formula here that ensures a gradual climb from 0, 0.5 as median, and a very thin tail past 1.0
-                    // egg will comment further here
-                    calculatedResiduals = localResidualsThresholdBase + localVaryResiduals * UtilMath.Clamp01(Math.Exp(0.421404d * Utilities.GetNormal(staticRandom, 0d) - Math.Log(2d)));
+                    // using egg's formula here that ensures a gradual climb from 0, 0.5 as median (e^(0-ln(2)) == 0.5), and a very thin tail past 1.0
+                    // Due to the exponent, this will never go below 0 so we needn't chop off variance in that direction.
+                    // Chop in the + direction is where the result of the exp is <=1.0
+                    calculatedResiduals = localResidualsThresholdBase + localVaryResiduals * Math.Exp(0.421404d * Utilities.GetNormal(staticRandom, 0d, 1.644851d) - Math.Log(2d));
                     partSeed = staticRandom.Next();
                 }
             }
