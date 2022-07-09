@@ -125,7 +125,9 @@ namespace RealFuels.Tanks
                 unmanagedResources = new Dictionary<string, UnmanagedResource>();
             else if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
             {
-                var mft = part.partInfo.partPrefab.FindModuleImplementing<ModuleFuelTanks>();
+                int index = part.Modules.IndexOf(this);
+                Part prefab = part.partInfo.partPrefab;
+                ModuleFuelTanks mft = (prefab.Modules[index] is ModuleFuelTanks m) ? m : prefab.FindModuleImplementing<ModuleFuelTanks>();
                 unmanagedResources = mft.unmanagedResources;
                 typesAvailable = new List<string>(mft.typesAvailable);  // Copy so any changes don't impact the prefab
                 allPossibleTypes = mft.allPossibleTypes;
@@ -200,7 +202,10 @@ namespace RealFuels.Tanks
             // Make sure this isn't an upgrade node because if we got here during an upgrade application
             // then RaiseResourceListChanged will throw an error when it hits SendEvent()
             if (node.name == "CURRENTUPGRADE")
-                UpdateTypesAvailable(node);
+            {
+                if (part != part.partInfo.partPrefab)   // Don't update the prefab, which is active on Toolbox mouseover
+                    UpdateTypesAvailable(node);
+            }
             else if (HighLogic.LoadedScene == GameScenes.LOADING)
             {
                 typesAvailable.AddUnique(type);
@@ -623,12 +628,12 @@ namespace RealFuels.Tanks
             {
                 double tankDryMass = tanksDict.Values.Sum(t => t.Volume * t.mass);
                 mass = (float) ((basemass + tankDryMass) * MassMult);
-                    }
-                    else
-                    {
+            }
+            else
+            {
                 mass = 0;
                 massIsAdditive = true;
-                }
+            }
 
             if (HighLogic.LoadedSceneIsEditor) {
                 UsedVolume = tanksDict.Values.Sum(t => t.Volume);
