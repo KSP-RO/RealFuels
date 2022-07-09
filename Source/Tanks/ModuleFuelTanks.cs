@@ -81,7 +81,7 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         public float mass;
 
-        [KSPField(isPersistant = false)]
+        [KSPField]
         public bool massIsAdditive = false;
 
         [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
@@ -623,36 +623,12 @@ namespace RealFuels.Tanks
             {
                 double tankDryMass = tanksDict.Values.Sum(t => t.Volume * t.mass);
                 mass = (float) ((basemass + tankDryMass) * MassMult);
-
-                // compute massDelta based on prefab, if available.
-                if (part.partInfo == null || part.partInfo.partPrefab == null)
-                {
-                    if (massIsAdditive)
-                    {
-                        massDelta = mass;
                     }
                     else
                     {
-                        part.mass = mass;
-                        massDelta = 0f;
-                    }
+                mass = 0;
+                massIsAdditive = true;
                 }
-                else
-                {
-                    massDelta = mass;
-                    if (!massIsAdditive) 
-                        massDelta -= part.partInfo.partPrefab.mass;
-                }
-            }
-            else
-            {
-                if (massIsAdditive)
-                    mass = 0f;
-                else
-                    mass = part.mass; // display dry mass even in this case.
-
-                massDelta = 0f;
-            }
 
             if (HighLogic.LoadedSceneIsEditor) {
                 UsedVolume = tanksDict.Values.Sum(t => t.Volume);
@@ -674,9 +650,7 @@ namespace RealFuels.Tanks
         }
 
         // mass-change interface, so Engineer's Report / Pad limit checking is correct.
-        public float massDelta = 0f; // assigned whenever part.mass is changed.
-        
-        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit) => massDelta;
+        public float GetModuleMass(float defaultMass, ModifierStagingSituation sit) => massIsAdditive ? mass : mass - defaultMass;
 
         public ModifierChangeWhen GetModuleMassChangeWhen () => ModifierChangeWhen.FIXED;
 
