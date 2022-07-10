@@ -920,9 +920,8 @@ namespace RealFuels
                 if (!ignited && reignitable)
                 {
                     /* As long as you're on the pad, you can always ignite */
-                    bool externalIgnition = vessel.FindPartModulesImplementing<LaunchClamp>().Count > 0;
                     reignitable = false;
-                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant && !externalIgnition)
+                    if (ignitions == 0 && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant && vessel.FindPartModuleImplementing<LaunchClamp>() == null)
                     {
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
@@ -955,7 +954,7 @@ namespace RealFuels
                             }
                             if (minResource < 1d)
                             {
-                                if (staticRandom.NextDouble() > minResource && !CheatOptions.InfinitePropellant && !externalIgnition)
+                                if (staticRandom.NextDouble() > minResource && !CheatOptions.InfinitePropellant && vessel.FindPartModuleImplementing<LaunchClamp>() == null)
                                 {
                                     EngineIgnited = false; // don't play shutdown FX, just fail.
                                     ScreenMessages.PostScreenMessage(igniteFailResources);
@@ -975,7 +974,8 @@ namespace RealFuels
                 currentThrottle = 0f;
                 reignitable = true; // reset
                 ullageOK = true;
-                UnFlameout(false);
+                if (PropellantAvailable())
+                    UnFlameout(false);
                 ignited = false; // just in case
             }
         }
