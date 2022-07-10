@@ -318,6 +318,7 @@ namespace RealFuels
         protected static MethodInfo B9PS_SwitchSubtype;
         protected static FieldInfo B9PS_switchInFlight;
         public Dictionary<string, PartModule> B9PSModules;
+        protected Dictionary<string, string> RequestedB9PSVariants = new Dictionary<string, string>();
 
         private void InitializeB9PSReflection()
         {
@@ -374,11 +375,10 @@ namespace RealFuels
             module.Events["ShowSubtypesWindow"].guiActive = false;
         }
 
-        protected void ActivateB9PSVariantsOfConfig(ConfigNode node)
+        protected void RequestB9PSVariantsForConfig(ConfigNode node)
         {
             if (B9PSModules == null || B9PSModules.Count == 0) return;
-
-            var subtypeSpecifications = new Dictionary<string, string>(B9PSModules.Count);
+            RequestedB9PSVariants.Clear();
             if (node.GetNodes("LinkB9PSModule") is ConfigNode[] links)
             {
                 foreach (ConfigNode link in links)
@@ -389,9 +389,17 @@ namespace RealFuels
                     if (!link.TryGetValue("subtype", ref subtype))
                         Debug.LogError($"*RFMEC* Config `{configurationDisplay}` of {part} has a LinkB9PSModule specification without a subtype key!");
                     if (moduleID != null && subtype != null)
-                        subtypeSpecifications[moduleID] = subtype;
+                        RequestedB9PSVariants[moduleID] = subtype;
                 }
             }
+            StartCoroutine(ApplyRequestedB9PSVariants_Coroutine());
+        }
+
+        protected IEnumerator ApplyRequestedB9PSVariants_Coroutine()
+        {
+            yield return new WaitForEndOfFrame();
+
+            if (RequestedB9PSVariants.Count == 0) yield break;
 
             foreach (var entry in B9PSModules)
             {
@@ -402,7 +410,7 @@ namespace RealFuels
                     && B9PS_switchInFlight != null
                     && !(bool)B9PS_switchInFlight.GetValue(module)) continue;
 
-                if (!subtypeSpecifications.TryGetValue(moduleID, out string subtypeName))
+                if (!RequestedB9PSVariants.TryGetValue(moduleID, out string subtypeName))
                 {
                     Debug.LogError($"*RFMEC* Config {configurationDisplay} of {part} does not specify a subtype for linked B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
                     subtypeName = configuration;
@@ -411,9 +419,21 @@ namespace RealFuels
                 B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
                 if (HighLogic.LoadedSceneIsFlight) StartCoroutine(HideB9PSInFlightSelector_Coroutine(module));
             }
+
+            RequestedB9PSVariants.Clear();
+
+            // Clear symmetry counterparts' queues since B9PS already handles symmetry.
+            var pmIdx = part.Modules.IndexOf(this);
+            foreach (var symPart in part.symmetryCounterparts)
+            {
+                if (symPart.Modules[pmIdx] is ModuleEngineConfigsBase symPm)
+                {
+                    symPm.RequestedB9PSVariants.Clear();
+                }
+            }
         }
 
-        public void UpdateB9PSVariants() => ActivateB9PSVariantsOfConfig(config);
+        public void UpdateB9PSVariants() => RequestB9PSVariantsForConfig(config);
         #endregion
 
         #region Callbacks

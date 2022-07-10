@@ -301,7 +301,7 @@ namespace RealFuels
             bool b9psNeedsReset = false;
             if (B9PSModules != null && B9PSModules.Count != 0 && switchB9PSAtAnimationTime >= 0f)
             {
-                ActivateB9PSVariantsOfConfig(IsPrimaryMode ? SecondaryConfig(config) : GetConfigByName(configuration));
+                RequestB9PSVariantsForConfig(IsPrimaryMode ? SecondaryConfig(config) : GetConfigByName(configuration));
                 b9psNeedsReset = true;
             }
 
