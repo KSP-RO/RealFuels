@@ -49,6 +49,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v15.0.0
+* Many UI improvements, including a tank type selection UI, auto-fill buttons that reference the specific parts/engine configs that use them, tweaks and improvements to the tank window GUI.
+* Switched to using PARTUPGRADEs for unlocks of tanks rather than the home-grown tech-unlock checks that predated the Upgrade system. NOTE: Any existing tech-based unlocks will no longer function!
+* Support throttleCurve on ModuleEnginesRF for remapping an input throttle to an output throttle (i.e. for stairstep throttling like on XLR11).
+* Refactored backend code to simplify and ease maintainability, removed unused code.
+* Removed no-longer needed configs.
+
 v14.0.0
 * Apply the subconfig system directly to ModuleEngineConfigs.
 * Subconfigs support a special value, `costOffset`, which is an offset applied to the config's cost rather than overwriting the config's cost.
