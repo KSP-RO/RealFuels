@@ -41,6 +41,9 @@ namespace RealFuels
             UI_Toggle(disabledText = "No", enabledText = "Yes", affectSymCounterparts = UI_Scene.Editor)]
         public bool autoCutoff = true;
 
+        [KSPField(isPersistant = false)]
+        public FloatCurve throttleCurve;
+
         #region Thrust Curve
         [KSPField]
         public bool thrustCurveUseTime = false;
@@ -265,6 +268,8 @@ namespace RealFuels
                 thrustCurve = new FloatCurve();
             if (ignitionResources == null)
                 ignitionResources = new List<ModuleResource>();
+            if (throttleCurve == null)
+                throttleCurve = new FloatCurve();
         }
         public override void OnLoad(ConfigNode node)
         {
@@ -586,7 +591,11 @@ namespace RealFuels
             if (ignited)
             {
                 // thrustPercentage is already multiplied in by SolverEngines, don't include it here.
-                float requiredThrottle = Mathf.Lerp(MinThrottle, 1f, requestedThrottle);
+                float requiredThrottle;
+                if (throttleCurve.maxTime >= 0f)
+                    requiredThrottle = Mathf.Max(throttleCurve.Evaluate(requestedThrottle), MinThrottle);
+                else
+                    requiredThrottle = Mathf.Lerp(MinThrottle, 1f, requestedThrottle);
                 currentThrottle = instantThrottle ? requiredThrottle : CalcUpdatedThrottle(currentThrottle, requiredThrottle);
             }
             else
