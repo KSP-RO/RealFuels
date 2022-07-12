@@ -201,7 +201,7 @@ namespace RealFuels
         public string configuration = string.Empty;
 
         // For display purposes only.
-        [KSPField(guiName = "Configuration", isPersistant = true, guiActiveEditor = true,
+        [KSPField(guiName = "Configuration", isPersistant = true, guiActiveEditor = true, guiActive = true,
             groupName = groupName, groupDisplayName = groupDisplayName)]
         public string configurationDisplay = string.Empty;
 
