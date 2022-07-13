@@ -421,16 +421,8 @@ namespace RealFuels
             }
 
             RequestedB9PSVariants.Clear();
-
             // Clear symmetry counterparts' queues since B9PS already handles symmetry.
-            var pmIdx = part.Modules.IndexOf(this);
-            foreach (var symPart in part.symmetryCounterparts)
-            {
-                if (symPart.Modules[pmIdx] is ModuleEngineConfigsBase symPm)
-                {
-                    symPm.RequestedB9PSVariants.Clear();
-                }
-            }
+            DoForEachSymmetryCounterpart(mec => mec.RequestedB9PSVariants.Clear());
         }
 
         public void UpdateB9PSVariants() => RequestB9PSVariantsForConfig(config);
