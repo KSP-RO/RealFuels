@@ -293,22 +293,10 @@ namespace RealFuels
         #endregion
 
         #region TestFlight
-        protected static bool tfChecked = false;
-        protected static Type tfInterface = null;
-        protected const BindingFlags tfBindingFlags = BindingFlags.InvokeMethod | BindingFlags.Public | BindingFlags.Static;
 
         public void UpdateTFInterops()
         {
-            if (!tfChecked)
-            {
-                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
-                tfChecked = true;
-            }
-            try
-            {
-                tfInterface?.InvokeMember("AddInteropValue", tfBindingFlags, null, null, new object[] { part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels" });
-            }
-            catch { }
+            TestFlightWrapper.AddInteropValue(part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels");
         }
         #endregion
 
