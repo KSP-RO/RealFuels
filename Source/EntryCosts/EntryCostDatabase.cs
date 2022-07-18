@@ -165,6 +165,10 @@ namespace RealFuels
             ClearTracker();
             if (holders.TryGetValue(GetPartName(upgrade.name), out PartEntryCostHolder h))
                 upgrade.entryCost = h.GetCost();
+
+            // Work around a stock bug
+            if (upgrade.entryCost == 0)
+                upgrade.entryCost = 0.00001f;
         }
 
         public static void Save(ConfigNode node)
