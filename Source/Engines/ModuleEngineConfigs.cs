@@ -1843,15 +1843,17 @@ namespace RealFuels
             if (!CanConfig(node))
             {
                 validationError = $"unlock tech {ResearchAndDevelopment.GetTechnologyTitle(config.GetValue("techRequired"))}";
-                return false;
+                canBeResolved = false;
+            }
+            else
+            {
+                validationError = $"pay entry cost";
+                canBeResolved = true;
             }
 
             string nName = node.GetValue("name");
             double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
-            canBeResolved = true;
             costToResolve = (float)upgradeCost;
-            validationError = $"pay entry cost";
-
             return false;
         }
 
