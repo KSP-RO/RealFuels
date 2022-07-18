@@ -418,20 +418,75 @@ namespace RealFuels.Tanks
             typesAvailable.AddUniqueRange(types);
             InitializeTankType();
         }
+
+        private readonly Dictionary<string, PartUpgradeHandler.Upgrade> upgradeLookup = new Dictionary<string, PartUpgradeHandler.Upgrade>();
+
+        public static PartUpgradeHandler.Upgrade GetUpgradeForType(ModuleFuelTanks mft)
+        {
+            int index = mft.part.Modules.IndexOf(mft);
+            int mftIndex = 0;
+            foreach (ConfigNode mftNode in mft.part.partInfo.partConfig.GetNodes("MODULE"))
+            {
+                if (mftNode.GetValue("name") == "ModuleFuelTanks")
+                {
+                    if (mftIndex++ != index)
+                        continue;
+
+                    var node = mftNode.GetNode("UPGRADES");
+                    if (node != null)
+                    {
+                        foreach (var upNode in node.GetNodes("UPGRADE"))
+                        {
+                            foreach (ConfigNode.Value v in upNode.values)
+                            {
+                                if (v.value == mft.type)
+                                {
+                                    string upgradeName = upNode.GetValue("name__");
+                                    return PartUpgradeManager.Handler.GetUpgrade(upgradeName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
         public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve)
         {
             validationError = null;
             canBeResolved = false;
             costToResolve = 0;
+            bool defFound = true;
             if (!MFSSettings.tankDefinitions.ContainsKey(type))
+            {
+                defFound = false;
                 validationError = $"definition {type} has no global definition";
+            }
             else if (!typesAvailable.Contains(type))
+            {
                 validationError = $"definition {type} is not available";
+            }
             else if (lockedTypes.Contains(type))
             {
                 validationError = $"definition {type} is currently locked";
                 //canBeResolved = true;
             }
+
+            if (defFound)
+            {
+                if (!upgradeLookup.TryGetValue(type, out var upgrade))
+                {
+                    upgrade = GetUpgradeForType(this);
+                }
+                if (upgrade != null)
+                {
+                    canBeResolved = ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available;
+                    costToResolve = upgrade.entryCost;
+                }
+            }
+
             return validationError == null;
         }
 
