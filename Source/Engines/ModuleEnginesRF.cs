@@ -528,10 +528,19 @@ namespace RealFuels
 
             if (pressureFed && !ullageSet.PressureOK())
                 propellantStatus = "<color=red>Needs high pressure tanks</color>";
-            else if (HighLogic.LoadedSceneIsFlight && ullage && RFSettings.Instance.simulateUllage)
+            else if (HighLogic.LoadedSceneIsFlight)
             {
-                propellantStatus = ullageSet.GetUllageState(out Color ullageColor);
-                part.stackIcon.SetIconColor(ullageColor);
+                if (!ignited && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant && (
+                        !reignitable
+                        || ignitions == 0 && vessel.FindPartModuleImplementing<LaunchClamp>() == null))
+                {
+                    part.stackIcon.SetIconColor(XKCDColors.LightMauve);
+                }
+                else if (ullage && RFSettings.Instance.simulateUllage)
+                {
+                    propellantStatus = ullageSet.GetUllageState(out Color ullageColor);
+                    part.stackIcon.SetIconColor(ullageColor);
+                }
             }
             else
                 propellantStatus = pressureFed ? "Feed pressure OK" : "Nominal";
