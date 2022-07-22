@@ -423,11 +423,19 @@ namespace RealFuels.Tanks
 
         public static PartUpgradeHandler.Upgrade GetUpgradeForType(ModuleFuelTanks mft)
         {
-            int index = mft.part.Modules.IndexOf(mft);
+            int index = 0;
+            for (int i = 0; i < mft.part.Modules.Count; ++i)
+            {
+                if (mft.part.Modules[i] == mft)
+                    break;
+                else if (mft.part.Modules[i].name == nameof(ModuleFuelTanks))
+                    ++index;
+            }
+
             int mftIndex = 0;
             foreach (ConfigNode mftNode in mft.part.partInfo.partConfig.GetNodes("MODULE"))
             {
-                if (mftNode.GetValue("name") == "ModuleFuelTanks")
+                if (mftNode.GetValue("name") == nameof(ModuleFuelTanks))
                 {
                     if (mftIndex++ != index)
                         continue;
@@ -458,7 +466,7 @@ namespace RealFuels.Tanks
             validationError = null;
             canBeResolved = false;
             costToResolve = 0;
-            techToResolve = string.Empty;
+            techToResolve = null;
             bool defFound = true;
             if (!MFSSettings.tankDefinitions.ContainsKey(type))
             {
@@ -471,8 +479,7 @@ namespace RealFuels.Tanks
             }
             else if (lockedTypes.Contains(type))
             {
-                validationError = $"definition {type} is currently locked";
-                //canBeResolved = true;
+                validationError = $"definition {type}: is currently locked";
             }
 
             if (defFound)
@@ -486,13 +493,29 @@ namespace RealFuels.Tanks
                     canBeResolved = ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available;
                     costToResolve = upgrade.entryCost;
                     techToResolve = upgrade.techRequired;
+                    validationError = $"definition {type}: {(canBeResolved ? string.Empty : $"research {techToResolve} and")}purchase the upgrade";
                 }
             }
 
             return validationError == null;
         }
 
-        public virtual bool ResolveValidationError() => false;
+        public virtual bool ResolveValidationError()
+        {
+            PartUpgradeHandler.Upgrade upgrade = GetUpgradeForType(this);
+            if (upgrade == null)
+                return false;
+
+            CurrencyModifierQuery cmq = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -upgrade.entryCost, 0, 0);
+            if (!cmq.CanAfford())
+                return false;
+
+            PartUpgradeManager.Handler.SetUnlocked(upgrade.name, true);
+            GameEvents.Modifiers.OnCurrencyModified.Fire(cmq);
+            GameEvents.OnPartUpgradePurchased.Fire(upgrade);
+            ApplyUpgrades(StartState.Editor);
+            return true;
+        }
 
         // This is strictly a change handler!
         private void UpdateTankType (bool initializeAmounts = false)

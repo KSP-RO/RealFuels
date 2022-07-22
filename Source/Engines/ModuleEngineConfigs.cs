@@ -1835,7 +1835,7 @@ namespace RealFuels
             validationError = null;
             canBeResolved = false;
             costToResolve = 0;
-            techToResolve = string.Empty;
+            techToResolve = null;
 
             ConfigNode node = GetConfigByName(configuration);
 
