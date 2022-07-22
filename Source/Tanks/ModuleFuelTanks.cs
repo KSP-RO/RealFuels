@@ -453,11 +453,12 @@ namespace RealFuels.Tanks
             return null;
         }
 
-        public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve)
+        public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve, out string techToResolve)
         {
             validationError = null;
             canBeResolved = false;
             costToResolve = 0;
+            techToResolve = string.Empty;
             bool defFound = true;
             if (!MFSSettings.tankDefinitions.ContainsKey(type))
             {
@@ -484,6 +485,7 @@ namespace RealFuels.Tanks
                 {
                     canBeResolved = ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available;
                     costToResolve = upgrade.entryCost;
+                    techToResolve = upgrade.techRequired;
                 }
             }
 

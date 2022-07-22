@@ -1830,11 +1830,12 @@ namespace RealFuels
         /// <param name="canBeResolved"></param>
         /// <param name="costToResolve"></param>
         /// <returns></returns>
-        public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve)
+        public virtual bool Validate(out string validationError, out bool canBeResolved, out float costToResolve, out string techToResolve)
         {
             validationError = null;
             canBeResolved = false;
             costToResolve = 0;
+            techToResolve = string.Empty;
 
             ConfigNode node = GetConfigByName(configuration);
 
@@ -1842,7 +1843,8 @@ namespace RealFuels
 
             if (!CanConfig(node))
             {
-                validationError = $"unlock tech {ResearchAndDevelopment.GetTechnologyTitle(config.GetValue("techRequired"))}";
+                techToResolve = config.GetValue("techRequired");
+                validationError = $"unlock tech {ResearchAndDevelopment.GetTechnologyTitle(techToResolve)}";
                 canBeResolved = false;
             }
             else
