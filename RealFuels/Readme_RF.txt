@@ -49,6 +49,13 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v15.1.0
+* Display engine configuration name in flight.
+* Allow RF tanks to fix validation errors when trying to build in RP-1.
+* Fix a bug with ECMs where if you bought a part, upgrade entrycosts wouldn't update, and vice versa.
+* Color staging icons of engines with no remaining ignitions.
+* Change Validate() methods to new RP-1 standard.
+
 v15.0.0
 * Many UI improvements, including a tank type selection UI, auto-fill buttons that reference the specific parts/engine configs that use them, tweaks and improvements to the tank window GUI.
 * Switched to using PARTUPGRADEs for unlocks of tanks rather than the home-grown tech-unlock checks that predated the Upgrade system. NOTE: Any existing tech-based unlocks will no longer function!
