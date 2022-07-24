@@ -197,17 +197,14 @@ namespace RealFuels
             unlockPathTracker.Clear();
         }
 
-        public static void UpdatePartEntryCosts()
+        public static void UpdateEntryCosts()
         {
             foreach (var ap in PartLoader.LoadedPartsList)
             {
                 if (ap?.partPrefab is Part)
                     UpdateEntryCost(ap);
             }
-        }
 
-        public static void UpdateUpgradeEntryCosts()
-        {
             foreach (PartUpgradeHandler.Upgrade upgrade in PartUpgradeManager.Handler)
             {
                 UpdateEntryCost(upgrade);

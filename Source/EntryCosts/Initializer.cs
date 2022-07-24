@@ -17,7 +17,7 @@ namespace RealFuels
 
             EntryCostDatabase.Initialize();
 
-            EntryCostDatabase.UpdatePartEntryCosts();
+            EntryCostDatabase.UpdateEntryCosts();
 
             // KSP's Funding binds to the same event and is used for deducting funds for entry purchases.
             // RF will need to bind to the event before KSP itself does to process ECMs right after KSP has updated the funding.
