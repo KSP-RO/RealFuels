@@ -15,6 +15,11 @@ namespace RealFuels
         protected static HashSet<string> unlocks = null;
 
         protected static HashSet<string> unlockPathTracker = new HashSet<string>();
+
+        public delegate bool CanAffordDelegate(string techID, double cost);
+        public delegate double GetSubsidyDelegate(string techID, double cost);
+        public static CanAffordDelegate CanAfford = null;
+        public static GetSubsidyDelegate GetSubsidy = null;
         #endregion
 
         #region Setup

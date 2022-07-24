@@ -45,8 +45,7 @@ namespace RealFuels
             yield return null;
             yield return null;
 
-            EntryCostDatabase.UpdatePartEntryCosts();
-            EntryCostDatabase.UpdateUpgradeEntryCosts();
+            EntryCostDatabase.UpdateEntryCosts();
         }
 
         public override void OnLoad(ConfigNode node)
@@ -160,16 +159,14 @@ namespace RealFuels
                 }
             }
 
-            EntryCostDatabase.UpdatePartEntryCosts();
-            EntryCostDatabase.UpdateUpgradeEntryCosts();
+            EntryCostDatabase.UpdateEntryCosts();
         }
 
         public void OnPartUpgradePurchased(PartUpgradeHandler.Upgrade up)
         {
             EntryCostDatabase.SetUnlocked(up);
 
-            EntryCostDatabase.UpdateUpgradeEntryCosts();
-            EntryCostDatabase.UpdatePartEntryCosts();
+            EntryCostDatabase.UpdateEntryCosts();
         }
 
         public bool ConfigUnlocked(string cfgName)
@@ -209,23 +206,32 @@ namespace RealFuels
             return sum;
         }
 
-        public bool PurchaseConfig(string cfgName)
+        public bool PurchaseConfig(string cfgName, string techID = null)
         {
             if (ConfigUnlocked(cfgName))
                 return false;
 
             double cfgCost = ConfigEntryCost(cfgName);
+
             if (!HighLogic.CurrentGame.Parameters.Difficulty.BypassEntryPurchaseAfterResearch)
             {
-                if (Funding.Instance.Funds < cfgCost)
+                bool canAfford;
+                if (EntryCostDatabase.CanAfford != null && techID != null)
+                    canAfford = EntryCostDatabase.CanAfford(techID, cfgCost);
+                else canAfford = Funding.Instance.Funds >= cfgCost;
+
+                if(!canAfford)
                     return false;
+
+                if (EntryCostDatabase.GetSubsidy != null && techID != null)
+                    cfgCost -= EntryCostDatabase.GetSubsidy(techID, cfgCost);
 
                 Funding.Instance.AddFunds(-cfgCost, TransactionReasons.RnDPartPurchase);
             }
 
             EntryCostDatabase.SetUnlocked(cfgName);
 
-            EntryCostDatabase.UpdatePartEntryCosts();
+            EntryCostDatabase.UpdateEntryCosts();
 
             return true;
         }

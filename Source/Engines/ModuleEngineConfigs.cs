@@ -1499,7 +1499,7 @@ namespace RealFuels
                         GUI.enabled = isConfigAvailable;
                         if (GUILayout.Button(new GUIContent($"Purchase ({upgradeCost:N0}f)", tooltip), GUILayout.Width(145)))
                         {
-                            if (EntryCostManager.Instance.PurchaseConfig(nName))
+                            if (EntryCostManager.Instance.PurchaseConfig(nName, node.GetValue("techRequired")))
                                 apply(nName);
                         }
                         GUI.enabled = true;
@@ -1538,7 +1538,7 @@ namespace RealFuels
                         costString = $" ({upgradeCost:N0}f)";
                         if (GUILayout.Button(new GUIContent($"Purchase {dispName}{costString}", configInfo)))
                         {
-                            if (EntryCostManager.Instance.PurchaseConfig(nName))
+                            if (EntryCostManager.Instance.PurchaseConfig(nName, node.GetValue("techRequired")))
                                 apply(nName);
                         }
                     }
@@ -1841,9 +1841,9 @@ namespace RealFuels
 
             if (UnlockedConfig(node, part)) return true;
 
+            techToResolve = config.GetValue("techRequired");
             if (!CanConfig(node))
             {
-                techToResolve = config.GetValue("techRequired");
                 validationError = $"unlock tech {ResearchAndDevelopment.GetTechnologyTitle(techToResolve)}";
                 canBeResolved = false;
             }
@@ -1867,7 +1867,7 @@ namespace RealFuels
         {
             ConfigNode node = GetConfigByName(configuration);
             string nName = node.GetValue("name");
-            return EntryCostManager.Instance.PurchaseConfig(nName);
+            return EntryCostManager.Instance.PurchaseConfig(nName, node.GetValue("techRequired"));
         }
     }
 }
