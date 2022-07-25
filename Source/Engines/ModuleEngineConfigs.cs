@@ -1483,15 +1483,16 @@ namespace RealFuels
                     if (!UnlockedConfig(node, part))
                     {
                         double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
+                        string techRequired = node.GetValue("techRequired");
                         if (upgradeCost <= 0)
                         {
                             // Auto-buy.
-                            EntryCostManager.Instance.PurchaseConfig(nName);
+                            EntryCostManager.Instance.PurchaseConfig(nName, techRequired);
                         }
 
                         bool isConfigAvailable = CanConfig(node);
                         string tooltip = string.Empty;
-                        if (!isConfigAvailable && techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
+                        if (!isConfigAvailable && techNameToTitle.TryGetValue(techRequired, out string techStr))
                         {
                             tooltip = $"Lacks tech for {techStr}";
                         }
@@ -1533,19 +1534,20 @@ namespace RealFuels
 
                     // Purchase.
                     double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
+                    string techRequired = node.GetValue("techRequired");
                     if (upgradeCost > 0d)
                     {
                         costString = $" ({upgradeCost:N0}f)";
                         if (GUILayout.Button(new GUIContent($"Purchase {dispName}{costString}", configInfo)))
                         {
-                            if (EntryCostManager.Instance.PurchaseConfig(nName, node.GetValue("techRequired")))
+                            if (EntryCostManager.Instance.PurchaseConfig(nName, techRequired))
                                 apply(nName);
                         }
                     }
                     else
                     {
                         // Auto-buy.
-                        EntryCostManager.Instance.PurchaseConfig(nName);
+                        EntryCostManager.Instance.PurchaseConfig(nName, techRequired);
                         if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
                             apply(nName);
                     }

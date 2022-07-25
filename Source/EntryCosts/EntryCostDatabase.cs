@@ -16,9 +16,22 @@ namespace RealFuels
 
         protected static HashSet<string> unlockPathTracker = new HashSet<string>();
 
-        public delegate bool CanAffordDelegate(string techID, double cost);
-        public delegate double GetSubsidyDelegate(string techID, double cost);
+        public delegate bool CanAffordDelegate(string techID, string ecmName, double cost);
+        public delegate double GetSubsidyDelegate(string techID, string ecmName, double cost);
+
+        /// <summary>
+        /// This method should take the tech node (might be null if PurchaseConfig
+        /// is called without passing a tech node), the ECM name, and the ECM cost.
+        /// It returns whether the ECM can afford to be purchased.
+        /// </summary>
         public static CanAffordDelegate CanAfford = null;
+
+        /// <summary>
+        /// This method should take the tech node (might be null if PurchaseConfig
+        /// is called without passing a tech node), the ECM name, and the ECM cost.
+        /// It returns a subsidy to apply to the ECM cost, prior to the
+        /// fund transaction.
+        /// </summary>
         public static GetSubsidyDelegate GetSubsidy = null;
         #endregion
 

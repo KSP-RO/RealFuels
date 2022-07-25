@@ -216,15 +216,21 @@ namespace RealFuels
             if (!HighLogic.CurrentGame.Parameters.Difficulty.BypassEntryPurchaseAfterResearch)
             {
                 bool canAfford;
-                if (EntryCostDatabase.CanAfford != null && techID != null)
-                    canAfford = EntryCostDatabase.CanAfford(techID, cfgCost);
-                else canAfford = Funding.Instance.Funds >= cfgCost;
+                if (EntryCostDatabase.CanAfford != null)
+                {
+                    canAfford = EntryCostDatabase.CanAfford(techID, cfgName, cfgCost);
+                }
+                else
+                {
+                    var query = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -(float)cfgCost, 0f, 0f);
+                    canAfford = query.CanAfford();
+                }
 
                 if(!canAfford)
                     return false;
 
-                if (EntryCostDatabase.GetSubsidy != null && techID != null)
-                    cfgCost -= EntryCostDatabase.GetSubsidy(techID, cfgCost);
+                if (EntryCostDatabase.GetSubsidy != null)
+                    cfgCost -= EntryCostDatabase.GetSubsidy(techID, cfgName, cfgCost);
 
                 Funding.Instance.AddFunds(-cfgCost, TransactionReasons.RnDPartPurchase);
             }
@@ -277,7 +283,8 @@ namespace RealFuels
             double tuCost = TLEntryCost(tUName) * multiplier;
             if (!HighLogic.CurrentGame.Parameters.Difficulty.BypassEntryPurchaseAfterResearch)
             {
-                if (Funding.Instance.Funds < tuCost)
+                var cmq = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -(float)tuCost, 0f, 0f);
+                if(!cmq.CanAfford())
                     return false;
 
                 Funding.Instance.AddFunds(-tuCost, TransactionReasons.RnDPartPurchase);

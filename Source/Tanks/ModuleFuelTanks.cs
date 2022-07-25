@@ -511,7 +511,6 @@ namespace RealFuels.Tanks
                 return false;
 
             PartUpgradeManager.Handler.SetUnlocked(upgrade.name, true);
-            GameEvents.Modifiers.OnCurrencyModified.Fire(cmq);
             GameEvents.OnPartUpgradePurchased.Fire(upgrade);
             ApplyUpgrades(StartState.Editor);
             return true;
