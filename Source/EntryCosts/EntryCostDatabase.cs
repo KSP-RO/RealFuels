@@ -16,6 +16,9 @@ namespace RealFuels
 
         protected static HashSet<string> unlockPathTracker = new HashSet<string>();
 
+        public static Dictionary<string, AvailablePart>.ValueCollection PartsRegistered => nameToPart.Values;
+        public static Dictionary<string, PartUpgradeHandler.Upgrade>.ValueCollection UpgradesRegistered => nameToUpgrade.Values;
+
         public delegate bool CanAffordDelegate(string techID, string ecmName, double cost);
         public delegate double GetSubsidyDelegate(string techID, string ecmName, double cost);
 
@@ -77,7 +80,7 @@ namespace RealFuels
 
             foreach (PartUpgradeHandler.Upgrade upgrade in PartUpgradeManager.Handler)
             {
-                nameToUpgrade[GetPartName(upgrade.name)] = upgrade;
+                nameToUpgrade[Utilities.SanitizeName(upgrade.name)] = upgrade;
             }
         }
 
@@ -100,17 +103,12 @@ namespace RealFuels
         // from RF
         protected static string GetPartName(Part part)
         {
-            return part.partInfo != null ? GetPartName(part.partInfo) : GetPartName(part.name);
+            return part.partInfo != null ? GetPartName(part.partInfo) : Utilities.SanitizeName(part.name);
         }
 
         protected static string GetPartName(AvailablePart ap)
         {
-            return GetPartName(ap.name);
-        }
-
-        protected static string GetPartName(string partName)
-        {
-            return Utilities.SanitizeName(partName);
+            return Utilities.SanitizeName(ap.name);
         }
         #endregion
 
@@ -127,7 +125,7 @@ namespace RealFuels
 
         public static void SetUnlocked(PartUpgradeHandler.Upgrade up)
         {
-            SetUnlocked(GetPartName(up.name));
+            SetUnlocked(Utilities.SanitizeName(up.name));
         }
 
         public static void SetUnlocked(string name)
@@ -135,7 +133,7 @@ namespace RealFuels
             name = Utilities.SanitizeName(name);
             unlocks.Add(name);
 
-            if (holders.TryGetValue(name, out PartEntryCostHolder h))
+            if (GetHolder(name) is PartEntryCostHolder h)
                 foreach (string s in h.children)
                     SetUnlocked(s);
         }
@@ -162,7 +160,7 @@ namespace RealFuels
 
             unlockPathTracker.Add(name);
 
-            if (holders.TryGetValue(name, out PartEntryCostHolder h))
+            if (GetHolder(name) is PartEntryCostHolder h)
             {
                 cost = h.GetCost();
                 return true;
@@ -171,17 +169,23 @@ namespace RealFuels
             return false;
         }
 
+        public static PartEntryCostHolder GetHolder(string s)
+        {
+            holders.TryGetValue(Utilities.SanitizeName(s), out var h);
+            return h;
+        }
+
         public static void UpdateEntryCost(AvailablePart ap)
         {
             ClearTracker();
-            if (holders.TryGetValue(GetPartName(ap), out PartEntryCostHolder h))
+            if (GetHolder(GetPartName(ap)) is PartEntryCostHolder h)
                 ap.SetEntryCost(h.GetCost());
         }
 
         public static void UpdateEntryCost(PartUpgradeHandler.Upgrade upgrade)
         {
             ClearTracker();
-            if (holders.TryGetValue(GetPartName(upgrade.name), out PartEntryCostHolder h))
+            if (GetHolder(Utilities.SanitizeName(upgrade.name)) is PartEntryCostHolder h)
                 upgrade.entryCost = h.GetCost();
 
             // Work around a stock bug
