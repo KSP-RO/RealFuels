@@ -130,7 +130,7 @@ namespace RealFuels.Tanks
                 _flightIntegrator = vessel.vesselModules.Find(x => x is FlightIntegrator) as FlightIntegrator;
 
             cryoTanks.Clear();
-            cryoTanks.AddRange(tankDict.Values.Where(t => t.maxAmount > 0 && (t.vsp > 0 || t.loss_rate > 0)));
+            cryoTanks.AddRange(tanksDict.Values.Where(t => t.maxAmount > 0 && (t.vsp > 0 || t.loss_rate > 0)));
 
 
             CalculateTankArea();
@@ -166,7 +166,7 @@ namespace RealFuels.Tanks
         // FIXME: This is falling into the trap of trying to be a setup and a change handler.
         partial void BuildTanksRF()
         {
-            tankList.TryGetValue(sPressurant, out pressurant);
+            tanksDict.TryGetValue(sPressurant, out pressurant);
 
             // If no groups, reload from the stored config
             if (tankGroups.Count == 0)
@@ -179,12 +179,12 @@ namespace RealFuels.Tanks
                 var oldList = new List<FuelTank>(group.tanks);
                 group.tanks.Clear();
                 foreach (var oldTank in oldList)
-                    if (tankList.TryGetValue(oldTank.name, out FuelTank newTank))
+                    if (tanksDict.TryGetValue(oldTank.name, out FuelTank newTank))
                         group.tanks.Add(newTank);
             }
 
             // Find all tanks/resources not already part of a group, and add them to a new global group
-            var ungroupedTanks = new List<FuelTank>(tankList.Values.Where(t => t.maxAmount > 0));
+            var ungroupedTanks = new List<FuelTank>(tanksDict.Values.Where(t => t.maxAmount > 0));
             foreach (var group in tankGroups)
                 ungroupedTanks.RemoveAll(t => group.tanks.Contains(t));
             if (ungroupedTanks.Any())
@@ -589,7 +589,7 @@ namespace RealFuels.Tanks
                 // Extra sanity check, FuelInfo.propellantVolumeMults will have filtered this case out already:
                 if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE)
                 {
-                    if (tankList.TryGetValue(tfuel.name, out FuelTank tank))
+                    if (tanksDict.TryGetValue(tfuel.name, out FuelTank tank))
                     {
                         double amt = availableVolume * tfuel.ratio / fi.efficiency;
                         tank.maxAmount += amt;

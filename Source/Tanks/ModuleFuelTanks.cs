@@ -559,7 +559,8 @@ namespace RealFuels.Tanks
                 {
                     ConfigNode tankNode = node?.GetNode("TANK", "name", tank.name);
                     FuelTank newTank = tank.CreateCopy(this, tankNode, initializeAmounts);
-                    tankList.Add(newTank.name, newTank);
+                    tanksDict.Add(newTank.name, newTank);
+                    tankList.Add(newTank);
                 }
             }
             BuildTanksRF();
