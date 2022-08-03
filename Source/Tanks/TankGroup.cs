@@ -51,7 +51,7 @@ namespace RealFuels.Tanks
 
             group.tank_module = tank_module;
             string[] tankNames = node.GetValues("tank");
-            group.tanks.AddRange(tank_module.tankList.Where(t => tankNames.Contains(t.Key)).Select(x => x.Value));
+            group.tanks.AddRange(tank_module.tanksDict.Where(t => tankNames.Contains(t.Key)).Select(x => x.Value));
 
             return group;
         }
