@@ -271,10 +271,10 @@ namespace RealFuels
         {
             savedResourceSets.Clear();
             var pullList = PartSetPullListGetter(part.crossfeedPartSet);
-            foreach (var prop in propellants)
+            foreach (var kvp in propellantSetDict)
             {
-                savedResourceSets.Add(prop.id, part.crossfeedPartSet.GetResourceList(prop.id, true, false));
-                pullList[prop.id] = propellantSetDict[prop.id];
+                savedResourceSets.Add(kvp.Key, part.crossfeedPartSet.GetResourceList(kvp.Key, true, false));
+                pullList[kvp.Key] = kvp.Value;
             }
             var result = base.RequestPropellant(mass);
             foreach (var kvp in savedResourceSets)
@@ -288,7 +288,6 @@ namespace RealFuels
                 return;
             foreach (var propellant in propellants)
             {
-                //propellant.UpdateConnectedResources(part);
                 CustomUpdateConnectedResources(propellant, part);
                 if (propellant.drawStackGauge && doGauge)
                     UpdatePropellantGauge(propellant);
@@ -378,19 +377,16 @@ namespace RealFuels
                 while (--samePriorityIndex >= 0)
                 {
                     PartResource partResource = stockResourceList[samePriorityIndex];
-                    if (partResource.part.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks mft
+                    if ((partResource.part.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks mft
                         && mft.tankGroups.FirstOrDefault() is TankGroup group
-                        && group.pressurant is FuelTank pressurant)
+                        && group.pressurant is FuelTank pressurant
+                        && group.CurrentAvailablePressurantVolume > mft.tankGroups.Sum(g => g.CurrentRequiredPressurantVolume))
+                        || RFSettings.Instance.SolidFuelsIDs.Contains(id))
                     {
-                        // How much pressurant volume is needed to keep all tank groups at their target pressure
-                        var currentRequiredPressurantVolume = mft.tankGroups.Sum(g => g.CurrentRequiredPressurantVolume);
-                        if (group.CurrentAvailablePressurantVolume > currentRequiredPressurantVolume)
-                        {
-                            amount += pulling ? partResource.amount : partResource.maxAmount - partResource.amount;
-                            maxAmount += partResource.maxAmount;
-                            rfPrioritySet.set.Add(partResource);
-                            merfResourceList.Add(partResource);
-                        }
+                        amount += pulling ? partResource.amount : partResource.maxAmount - partResource.amount;
+                        maxAmount += partResource.maxAmount;
+                        rfPrioritySet.set.Add(partResource);
+                        merfResourceList.Add(partResource);
                     }
                 }
             }
