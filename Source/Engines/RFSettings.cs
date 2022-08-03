@@ -39,6 +39,8 @@ namespace RealFuels
         [Persistent] public double analyticInsulationMultiplier = 1;
 
         public List<string> Pressurants;
+        public List<string> SolidFuels;
+        public HashSet<int> SolidFuelsIDs;
 
         #region Ullage
         [Persistent] public bool simulateUllage = true;
@@ -106,6 +108,10 @@ namespace RealFuels
                 techLevels = node.GetNode("RF_TECHLEVELS");
             instantThrottleProps = node.HasNode("instantThrottleProps") ? node.GetNode("instantThrottleProps").GetValuesList("val") : new List<string>();
             Pressurants = node.HasNode("Pressurants") ? node.GetNode("Pressurants").GetValuesList("val") : new List<string>();
+            SolidFuels = node.HasNode("SolidFuels") ? node.GetNode("SolidFuels").GetValuesList("val") : new List<string>();
+            SolidFuelsIDs = new HashSet<int>(SolidFuels
+                                        .Where(x => PartResourceLibrary.Instance.GetDefinition(x) != null)
+                                        .Select(x => PartResourceLibrary.Instance.GetDefinition(x).id));
 
             if (node.HasNode("Ullage"))
                 ConfigNode.LoadObjectFromConfig(this, node.GetNode("Ullage"));
