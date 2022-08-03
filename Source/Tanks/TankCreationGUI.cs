@@ -29,10 +29,10 @@ namespace RealFuels.Tanks
         {
             tank_module = parent;
             windowTitle = $"{tank_module.part.partInfo.title} Fuel Tank Creation";
-            Pressurant = tank_module.tankList.Values.FirstOrDefault(x => x.name == RFSettings.Instance.Pressurants[0]);
+            Pressurant = tank_module.tanksDict.Values.FirstOrDefault(x => x.name == RFSettings.Instance.Pressurants[0]);
             if (Pressurant == null)
             {
-                Pressurant = tank_module.tankList.Values.First();
+                Pressurant = tank_module.tanksDict.Values.First();
                 CyclePressurant();
             }
             storagePressure = tank_module.pressurantStoragePressure.ToString();
@@ -348,10 +348,10 @@ namespace RealFuels.Tanks
             {
                 index = (index + 1) % max;
                 string p = RFSettings.Instance.Pressurants[index];
-                Pressurant = tank_module.tankList.Values.FirstOrDefault(x => x.name == p);
+                Pressurant = tank_module.tanksDict.Values.FirstOrDefault(x => x.name == p);
             } while (count-- > 0 && Pressurant == null);
             if (Pressurant == null)
-                Pressurant = tank_module.tankList.Values.First();
+                Pressurant = tank_module.tanksDict.Values.First();
         }
     }
 }
