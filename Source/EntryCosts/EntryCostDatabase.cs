@@ -108,7 +108,12 @@ namespace RealFuels
 
         protected static string GetPartName(AvailablePart ap)
         {
-            return Utilities.SanitizeName(ap.name);
+            return GetPartName(ap.name);
+        }
+
+        protected static string GetPartName(string partName)
+        {
+            return Utilities.SanitizeName(partName);
         }
         #endregion
 
