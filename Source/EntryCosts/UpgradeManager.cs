@@ -232,7 +232,8 @@ namespace RealFuels
                 if (EntryCostDatabase.GetSubsidy != null)
                     cfgCost -= EntryCostDatabase.GetSubsidy(techID, cfgName, cfgCost);
 
-                Funding.Instance.AddFunds(-cfgCost, TransactionReasons.RnDPartPurchase);
+                if (cfgCost > 0f)
+                    Funding.Instance.AddFunds(-cfgCost, TransactionReasons.RnDPartPurchase);
             }
 
             EntryCostDatabase.SetUnlocked(cfgName);
