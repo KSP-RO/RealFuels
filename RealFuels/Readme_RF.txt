@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v15.2.1
+* Fix for RP-1 compatibility
+
 v15.2.0
 * Support CurrencyModifierQueries (i.e. strategies) in the EntryCostModifier system
 * Add more modding support to ECM handling (pass tech ID a config uses, call delegates if set, etc.)
