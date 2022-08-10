@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v15.2.2
+* Fix more back-compatibility issues with RP-1
+
 v15.2.1
 * Fix for RP-1 compatibility
 
