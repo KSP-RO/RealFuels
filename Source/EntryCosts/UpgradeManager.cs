@@ -206,7 +206,9 @@ namespace RealFuels
             return sum;
         }
 
-        public bool PurchaseConfig(string cfgName, string techID = null)
+        public bool PurchaseConfig(string cfgName) => PurchaseConfig(cfgName, null);
+
+        public bool PurchaseConfig(string cfgName, string techID)
         {
             if (ConfigUnlocked(cfgName))
                 return false;
