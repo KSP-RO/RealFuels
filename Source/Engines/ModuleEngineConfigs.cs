@@ -191,6 +191,8 @@ namespace RealFuels
 
     public class ModuleEngineConfigsBase : PartModule, IPartCostModifier, IPartMassModifier
     {
+        private static FieldInfo MRCSConsumedResources = typeof(ModuleRCS).GetField("consumedResources", BindingFlags.NonPublic | BindingFlags.Instance);
+
         //protected const string groupName = "ModuleEngineConfigs";
         public const string groupName = ModuleEnginesRF.groupName;
         public const string groupDisplayName = "Engine Configs";
@@ -976,6 +978,10 @@ namespace RealFuels
                     if (cfg.HasNode("PROPELLANT"))
                         rcsModule.propellants.Clear();
                     rcsModule.Load(cfg);
+                    List<PartResourceDefinition> res = MRCSConsumedResources.GetValue(rcsModule) as List<PartResourceDefinition>;
+                    res.Clear();
+                    foreach (Propellant p in rcsModule.propellants)
+                        res.Add(p.resourceDef);
                 }
             }
         }
