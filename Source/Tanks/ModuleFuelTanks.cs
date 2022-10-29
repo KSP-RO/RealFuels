@@ -32,13 +32,16 @@ namespace RealFuels.Tanks
         // The active fuel tanks. This will be the list from the tank type, with any overrides from the part file.
         internal Dictionary<string, FuelTank> tanksDict = new Dictionary<string, FuelTank>();
         internal FuelTankList tankList = new FuelTankList();
-        public List<string> typesAvailable = new List<string>();
-        internal List<string> lockedTypes = new List<string>();
-        internal List<string> allPossibleTypes = new List<string>();    // typesAvailable if all upgrades were applied
+        public List<TankDefinition> typesAvailable = new List<TankDefinition>();
+        internal List<TankDefinition> lockedTypes = new List<TankDefinition>();
+        internal List<TankDefinition> allPossibleTypes = new List<TankDefinition>();    // typesAvailable if all upgrades were applied
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
+        [KSPField(isPersistant = true)]
         public string type = "Default";
         private string oldType;
+
+        [KSPField(guiActiveEditor = true, guiActive = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
+        public string typeDisp = "Default";
 
         [KSPEvent(active = true, guiActiveEditor = true, guiName = "Choose Tank Type", groupName = guiGroupName)]
         public void ChooseTankDefinition()
@@ -135,7 +138,7 @@ namespace RealFuels.Tanks
                 else
                     mft = prefab.FindModuleImplementing<ModuleFuelTanks>();
                 unmanagedResources = mft.unmanagedResources;
-                typesAvailable = new List<string>(mft.typesAvailable);  // Copy so any changes don't impact the prefab
+                typesAvailable = new List<TankDefinition>(mft.typesAvailable);  // Copy so any changes don't impact the prefab
                 allPossibleTypes = mft.allPossibleTypes;
                 managedResources = mft.managedResources;
             }
@@ -152,13 +155,12 @@ namespace RealFuels.Tanks
             SetUtilization(Mathf.Clamp(utilization, minUtilization, maxUtilization));
         }
 
-        private void RecordManagedResources(List<string> types)
+        private void RecordManagedResources(List<TankDefinition> defs)
         {
             managedResources.Clear();
-            foreach (string t in types)
-                if (MFSSettings.tankDefinitions.TryGetValue(t, out var def))
-                    foreach (var kvp in def.tankList)
-                        managedResources.Add(kvp.Key);
+            foreach (TankDefinition def in defs)
+                foreach (var kvp in def.tankList)
+                    managedResources.Add(kvp.Key);
         }
 
         private void CleanResources(bool leaveValid = false)
@@ -214,7 +216,7 @@ namespace RealFuels.Tanks
             }
             else if (HighLogic.LoadedScene == GameScenes.LOADING)
             {
-                typesAvailable.AddUnique(type);
+                typesAvailable.ResolveAndAddUnique(type);
                 GatherUnmanagedResources(node);
                 InitUtilization();
                 InitVolume(node);
@@ -287,6 +289,8 @@ namespace RealFuels.Tanks
                 InitUtilization();
                 Fields[nameof(utilization)].uiControlEditor.onFieldChanged += OnUtilizationChanged;
                 Fields[nameof(utilization)].uiControlEditor.onSymmetryFieldChanged += OnUtilizationChanged;
+                Fields[nameof(typeDisp)].uiControlEditor.onFieldChanged += OnTypeDispChanged;
+                Fields[nameof(typeDisp)].uiControlEditor.onSymmetryFieldChanged += OnTypeDispChanged;
                 UpdateUsedBy();
             }
 
@@ -322,6 +326,12 @@ namespace RealFuels.Tanks
         }
 
         private void OnUtilizationChanged(BaseField f, object obj) => ChangeTotalVolume(totalVolume);
+
+        private void OnTypeDispChanged(BaseField f, object obj)
+        {
+            TankDefinition def = typesAvailable.First(t => t.Title == typeDisp);
+            type = def.name;
+        }
 
         private void OnEditorShipModified(ShipConstruct _) => PartResourcesChanged();
 
@@ -391,31 +401,21 @@ namespace RealFuels.Tanks
 
         private void InitializeTankType()
         {
-            var invalidTypes = typesAvailable.Where(x => !MFSSettings.tankDefinitions.ContainsKey(x));
-            var validTypes = typesAvailable.Where(x => MFSSettings.tankDefinitions.ContainsKey(x));
-            if (invalidTypes.Any())
-            {
-                string res = string.Join(" ", invalidTypes);
-                Debug.LogError($"{part} declared these available types that have no definition: {res}");
-                typesAvailable = validTypes.ToList();
-                if (typesAvailable.Count == 0)
-                    typesAvailable = new List<string>() { MFSSettings.tankDefinitions.Keys.FirstOrDefault() };
-            }
-            Fields[nameof(type)].guiActiveEditor = typesAvailable.Count > 1;
-            (Fields[nameof(type)].uiControlEditor as UI_ChooseOption).options = typesAvailable.ToArray();
+            Fields[nameof(typeDisp)].guiActiveEditor = typesAvailable.Count > 1;
+            (Fields[nameof(typeDisp)].uiControlEditor as UI_ChooseOption).options = typesAvailable.Select(t => t.Title).ToArray();
         }
 
         public void AllowLockedTypes(List<string> lockedList)
         {
-            var validLockedTypes = lockedList.Where(x => MFSSettings.tankDefinitions.ContainsKey(x) && !typesAvailable.Contains(x));
-            typesAvailable.AddUniqueRange(validLockedTypes);
-            lockedTypes.AddUniqueRange(validLockedTypes);
+            IEnumerable<string> actuallyLockedTypes = lockedList.Where(x => !typesAvailable.Any(t => t.name == x));
+            typesAvailable.ResolveAndAddUnique(actuallyLockedTypes);
+            lockedTypes.ResolveAndAddUnique(actuallyLockedTypes);
         }
 
         private void UpdateTypesAvailable(ConfigNode node) => UpdateTypesAvailable(node.GetValuesList("typeAvailable"));
         private void UpdateTypesAvailable(List<string> types)
         {
-            typesAvailable.AddUniqueRange(types);
+            typesAvailable.ResolveAndAddUnique(types);
             InitializeTankType();
         }
 
@@ -467,22 +467,20 @@ namespace RealFuels.Tanks
             canBeResolved = false;
             costToResolve = 0;
             techToResolve = null;
-            bool defFound = true;
-            if (!MFSSettings.tankDefinitions.ContainsKey(type))
+            if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
             {
-                defFound = false;
                 validationError = $"definition {type} has no global definition";
             }
-            else if (!typesAvailable.Contains(type))
+            else if (!typesAvailable.Contains(def))
             {
-                validationError = $"definition {type} is not available";
+                validationError = $"definition {def.Title} is not available";
             }
-            else if (lockedTypes.Contains(type))
+            else if (lockedTypes.Contains(def))
             {
-                validationError = $"definition {type}: is currently locked";
+                validationError = $"definition {def.Title}: is currently locked";
             }
 
-            if (defFound)
+            if (def != null)
             {
                 if (!upgradeLookup.TryGetValue(type, out var upgrade))
                 {
@@ -493,7 +491,7 @@ namespace RealFuels.Tanks
                     canBeResolved = ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available;
                     costToResolve = upgrade.entryCost;
                     techToResolve = upgrade.techRequired;
-                    validationError = $"definition {type}: {(canBeResolved ? string.Empty : $"research {techToResolve} and")}purchase the upgrade";
+                    validationError = $"definition {def.Title}: {(canBeResolved ? string.Empty : $"research {techToResolve} and")}purchase the upgrade";
                 }
             }
 
@@ -524,14 +522,19 @@ namespace RealFuels.Tanks
             }
 
             // Copy the tank list from the tank definitiion
-            if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def)) {
+            if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
+            {
                 string msg = $"[ModuleFuelTanks] Tried to set tank type to {type} but it has no definition.";
-                string replacementType = oldType ?? typesAvailable.First();
-                type = MFSSettings.tankDefinitions.ContainsKey(replacementType) ? replacementType : typesAvailable.First();
+                if (!MFSSettings.tankDefinitions.TryGetValue(oldType, out def))
+                {
+                    def = typesAvailable.First();
+                }
+                type = def.name;
                 Debug.LogError($"{msg} Reset to {type}");
             }
 
             oldType = type;
+            typeDisp = def.Title;
 
             // Build the new tank list.
             tanksDict.Clear();
@@ -882,18 +885,18 @@ namespace RealFuels.Tanks
         private void GatherAllPossibleTypes(ConfigNode node)
         {
             allPossibleTypes.Clear();
-            allPossibleTypes.Add(type);
-            allPossibleTypes.AddUniqueRange(node.GetValuesList("typeAvailable"));
+            allPossibleTypes.ResolveAndAddUnique(type);
+            allPossibleTypes.ResolveAndAddUnique(node.GetValuesList("typeAvailable"));
             if (node.GetNode("UPGRADES") is ConfigNode upgradeNodeContainer)
                 foreach (var upgradeNode in upgradeNodeContainer.GetNodes("UPGRADE"))
-                    allPossibleTypes.AddUniqueRange(upgradeNode.GetValuesList("typeAvailable"));
+                    allPossibleTypes.ResolveAndAddUnique(upgradeNode.GetValuesList("typeAvailable"));
         }
 
         private void GatherLockedTypesFromAllPossible()
         {
-            var validLockedTypes = allPossibleTypes.Where(x => MFSSettings.tankDefinitions.ContainsKey(x) && !typesAvailable.Contains(x));
-            lockedTypes.AddUniqueRange(validLockedTypes);
-            typesAvailable.AddUniqueRange(lockedTypes);
+            var lockedTypes = allPossibleTypes.Where(x => !typesAvailable.Contains(x));
+            this.lockedTypes.AddUniqueRange(lockedTypes);
+            typesAvailable.AddUniqueRange(this.lockedTypes);
         }
 
         private void SetUtilization(float value)

@@ -38,7 +38,7 @@ namespace RealFuels.Tanks
             filterList.Add(new Filter("Highly Pressurized", false, (x) => x.highlyPressurized));
             filterList.Add(new Filter("Not Highly Pressurized", false, (x) => !x.highlyPressurized));
             if (MFSSettings.previewAllLockedTypes)
-                filterList.Add(new Filter("Unlocked types", true, (x) => !parentModule.lockedTypes.Contains(x.name)));
+                filterList.Add(new Filter("Unlocked types", true, (x) => !parentModule.lockedTypes.Contains(x)));
         }
         public void OnGUI()
         {
@@ -71,13 +71,13 @@ namespace RealFuels.Tanks
             GUILayout.EndVertical();
         }
 
-        private List<string> available = new List<string>();
+        private List<TankDefinition> available = new List<TankDefinition>();
         public void GUIWindow(int windowID)
         {
             GUILayout.BeginVertical(expandWidth, expandHeight);
             GUILayout.Space(15);
             GUILayout.Label($"{part.partInfo.title}");
-            GUILayout.Label($"Current type: {parentModule.type}", expandWidth);
+            GUILayout.Label($"Current type: {parentModule.typeDisp}", expandWidth);
 
             available.Clear();
             available.AddRange(parentModule.typesAvailable);
@@ -89,20 +89,19 @@ namespace RealFuels.Tanks
                 GUILayout.BeginHorizontal();
                 filter.enabled = GUILayout.Toggle(filter.enabled, filter.name, expandWidth);
                 if (filter.enabled)
-                    available = available.Where(x => filter.filter(MFSSettings.tankDefinitions[x])).ToList();
+                    available = available.Where(x => filter.filter(x)).ToList();
                 GUILayout.EndHorizontal();
             }
             GUILayout.EndVertical();
 
             GUILayout.BeginVertical(Styles.styleEditorBox, expandWidth, expandHeight);
-            foreach (string s in available)
+            foreach (TankDefinition def in available)
             {
                 // Tooltip Demonstrator.  Goal: Show dry mass of a new tank with current resources if this def was chosen
-                var def = MFSSettings.tankDefinitions[s];
-                GUIContent content = new GUIContent(s, $"{def.name}: {def.description} Max Utilization: {def.maxUtilization}");
-                if (GUILayout.Button(content, expandWidth) && parentModule.type != s)
+                GUIContent content = new GUIContent(def.Title, $"{def.Title}: {def.description} Max Utilization: {def.maxUtilization}");
+                if (GUILayout.Button(content, expandWidth) && parentModule.type != def.name)
                 {
-                    parentModule.Fields[nameof(parentModule.type)].SetValue(s, parentModule);
+                    parentModule.Fields[nameof(parentModule.type)].SetValue(def.name, parentModule);
                     MonoUtilities.RefreshPartContextWindow(parentModule.part);
                 }
             }
