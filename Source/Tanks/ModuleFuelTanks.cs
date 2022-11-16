@@ -402,7 +402,26 @@ namespace RealFuels.Tanks
         private void InitializeTankType()
         {
             Fields[nameof(typeDisp)].guiActiveEditor = typesAvailable.Count > 1;
-            (Fields[nameof(typeDisp)].uiControlEditor as UI_ChooseOption).options = typesAvailable.Select(t => t.Title).ToArray();
+            var c = (Fields[nameof(typeDisp)].uiControlEditor as UI_ChooseOption);
+            c.options = typesAvailable.Select(t => t.Title).ToArray();
+            c.display = typesAvailable.Select(t => ConstructColoredTypeTitle(t)).ToArray();
+        }
+
+        private string ConstructColoredTypeTitle(TankDefinition def)
+        {
+            if (!MFSSettings.previewAllLockedTypes || HighLogic.LoadedScene == GameScenes.LOADING)
+                return def.Title;
+
+            string partTech = part.partInfo.TechRequired;
+            if (string.IsNullOrEmpty(partTech) || ResearchAndDevelopment.GetTechnologyState(partTech) != RDTech.State.Available)
+                return $"<color=orange>{def.Title}</color>";
+
+            if (!upgradeLookup.TryGetValue(def.name, out PartUpgradeHandler.Upgrade upgrade))
+            {
+                upgrade = GetUpgradeForType(this, def.name);
+            }
+            bool isTechAvailable = upgrade == null || ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available;
+            return isTechAvailable ? def.Title : $"<color=orange>{def.Title}</color>";
         }
 
         public void AllowLockedTypes(List<string> lockedList)
@@ -421,7 +440,9 @@ namespace RealFuels.Tanks
 
         private readonly Dictionary<string, PartUpgradeHandler.Upgrade> upgradeLookup = new Dictionary<string, PartUpgradeHandler.Upgrade>();
 
-        public static PartUpgradeHandler.Upgrade GetUpgradeForType(ModuleFuelTanks mft)
+        public static PartUpgradeHandler.Upgrade GetUpgradeForType(ModuleFuelTanks mft) => GetUpgradeForType(mft, mft.type);
+
+        public static PartUpgradeHandler.Upgrade GetUpgradeForType(ModuleFuelTanks mft, string typeName)
         {
             int index = 0;
             for (int i = 0; i < mft.part.Modules.Count; ++i)
@@ -447,7 +468,7 @@ namespace RealFuels.Tanks
                         {
                             foreach (ConfigNode.Value v in upNode.values)
                             {
-                                if (v.value == mft.type)
+                                if (v.value == typeName)
                                 {
                                     string upgradeName = upNode.GetValue("name__");
                                     return PartUpgradeManager.Handler.GetUpgrade(upgradeName);
@@ -484,7 +505,7 @@ namespace RealFuels.Tanks
             {
                 if (!upgradeLookup.TryGetValue(type, out var upgrade))
                 {
-                    upgrade = GetUpgradeForType(this);
+                    upgrade = GetUpgradeForType(this, type);
                 }
                 if (upgrade != null)
                 {
@@ -500,7 +521,7 @@ namespace RealFuels.Tanks
 
         public virtual bool ResolveValidationError()
         {
-            PartUpgradeHandler.Upgrade upgrade = GetUpgradeForType(this);
+            PartUpgradeHandler.Upgrade upgrade = GetUpgradeForType(this, type);
             if (upgrade == null)
                 return false;
 
