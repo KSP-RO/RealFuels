@@ -38,7 +38,9 @@ namespace RealFuels.Tanks
             filterList.Add(new Filter("Highly Pressurized", false, (x) => x.highlyPressurized));
             filterList.Add(new Filter("Not Highly Pressurized", false, (x) => !x.highlyPressurized));
             if (MFSSettings.previewAllLockedTypes)
-                filterList.Add(new Filter("Unlocked types", true, (x) => !parentModule.lockedTypes.Contains(x)));
+                filterList.Add(new Filter("Unlocked types", true, (x) => !string.IsNullOrEmpty(part.partInfo.TechRequired) &&
+                                                                         ResearchAndDevelopment.GetTechnologyState(part.partInfo.TechRequired) == RDTech.State.Available &&
+                                                                         !parentModule.lockedTypes.Contains(x)));
         }
         public void OnGUI()
         {
