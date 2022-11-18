@@ -235,6 +235,12 @@ namespace RealFuels
             foreach (PartUpgradeHandler.Upgrade upgrade in PartUpgradeManager.Handler)
             {
                 UpdateEntryCost(upgrade);
+                if (upgrade.entryCost < 1.1 && HighLogic.LoadedSceneIsGame && 
+                    !string.IsNullOrEmpty(upgrade.techRequired) && ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available)
+                {
+                    // Unlock the upgrade but do not charge the player
+                    PartUpgradeManager.Handler.SetUnlocked(upgrade.name, true);
+                }
             }
         }
         #endregion
