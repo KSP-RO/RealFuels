@@ -49,6 +49,12 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v15.3.0
+* Fix stock bug where ModuleRCS doesn't reset its consumedResources in OnLoad
+* Add title support for tank definitions
+* Color tank definition titles based on whether they are unlockable
+* Auto-unlock all researched PartUpgrades that cost 1 fund or less
+
 v15.2.2
 * Fix more back-compatibility issues with RP-1
 
