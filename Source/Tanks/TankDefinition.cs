@@ -9,6 +9,9 @@ namespace RealFuels.Tanks
         public string name;
 
         [Persistent]
+        public string title;
+
+        [Persistent]
         public string description;
 
         [Persistent]
@@ -34,6 +37,7 @@ namespace RealFuels.Tanks
 
         public Dictionary<string, FuelTank> tankList = new Dictionary<string, FuelTank>();
 
+        public string Title => title ?? name;
 
         public TankDefinition() { }
 

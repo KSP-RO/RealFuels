@@ -4,10 +4,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using RealFuels.Tanks;
 
 namespace RealFuels
 {
-    public class Utilities
+    public static class Utilities
     {
         private static bool? _kerbalismFound = null;
 
@@ -104,7 +105,9 @@ namespace RealFuels
                 Debug.Log("key = " + fc.Curve.keys[i].time + " " + fc.Curve.keys[i].value + " " + fc.Curve.keys[i].inTangent + " " + fc.Curve.keys[i].outTangent);
         }
 
-        public string GetNodeNames(List<ConfigNode> list)
+
+
+        public static string GetNodeNames(List<ConfigNode> list)
         {
             string output = "";
             foreach (ConfigNode n in list)
@@ -263,5 +266,20 @@ namespace RealFuels
             return list;
         }
         #endregion
+
+        public static void ResolveAndAddUnique(this IList<TankDefinition> defs, string defName)
+        {
+            if (!MFSSettings.tankDefinitions.TryGetValue(defName, out TankDefinition def)) return;
+
+            defs.AddUnique(def);
+        }
+
+        public static void ResolveAndAddUnique(this IList<TankDefinition> defs, IEnumerable<string> defNames)
+        {
+            foreach (string name in defNames)
+            {
+                ResolveAndAddUnique(defs, name);
+            }
+        }
     }
 }
