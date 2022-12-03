@@ -530,7 +530,7 @@ namespace RealFuels.Tanks
                 return false;
 
             PartUpgradeManager.Handler.SetUnlocked(upgrade.name, true);
-            GameEvents.OnPartUpgradePurchased.Fire(upgrade);
+            GameEvents.OnPartUpgradePurchased.Fire(upgrade);    // This deducts the funds
             ApplyUpgrades(StartState.Editor);
             return true;
         }
