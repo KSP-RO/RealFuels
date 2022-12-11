@@ -259,7 +259,7 @@ namespace RealFuels.Tanks
                     //Debug.LogWarning ("[MFT] Removing tank as empty input " + tank.name + " amount: " + tank.maxAmountExpression ?? "null");
                 } else if (double.TryParse(trimmed, out double tmp))
                 {
-                    tank.maxAmount = tmp;
+                    tank.SetMaxAmount(tmp, clampToVolume: true);
 
                     if (tmp != 0)
                     {
