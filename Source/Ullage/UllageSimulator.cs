@@ -62,12 +62,12 @@ namespace RealFuels.Ullage
                 node.TryGetValue("ullageRadialMin", ref ullageRadialMin);
                 node.TryGetValue("ullageRadialMax", ref ullageRadialMax);
                 node.TryGetValue("UT", ref UT);
-#if DEBUG
-                string str = "*U* Sim for " + name + " loaded from node. H,R: " + ullageHeightMin + "/" + ullageHeightMax + ", " + ullageRadialMin + "/" + ullageRadialMax + ". UT: " + UT;
-                if (Planetarium.fetch)
-                    str += " with current UT " + Planetarium.GetUniversalTime();
-                MonoBehaviour.print("*U* UllageSim load: " + str);
-#endif
+//#if DEBUG
+//                string str = "*U* Sim for " + name + " loaded from node. H,R: " + ullageHeightMin + "/" + ullageHeightMax + ", " + ullageRadialMin + "/" + ullageRadialMax + ". UT: " + UT;
+//                if (Planetarium.fetch)
+//                    str += " with current UT " + Planetarium.GetUniversalTime();
+//                MonoBehaviour.print("*U* UllageSim load: " + str);
+//#endif
             }
         }
         public void Save(ConfigNode node)
@@ -181,13 +181,13 @@ namespace RealFuels.Ullage
             if (propellantStability >= veryStable)
                 propellantStability = 1d;
 
-#if DEBUG
-            if (propellantStability < 0.5d)
-                MonoBehaviour.print("*US* for part " + name + ", low stability of " + propellantStability
-                    + "\npV/H = " + pVertical + "/" + pHorizontal + ", blevel " + bLevel
-                    + "\nUllage Height Min/Max " + ullageHeightMin + "/" + ullageHeightMax + ", Radial Min/Max " + ullageRadialMin + "/" + ullageRadialMax
-                    + "\nInputs: Time = " + deltaTime + ", UT delta = " + utTimeDelta + ", Acc " + localAcceleration + ", Rot " + rotation + ", FR " + fuelRatio);
-#endif
+//#if DEBUG
+//            if (propellantStability < 0.5d)
+//                MonoBehaviour.print("*US* for part " + name + ", low stability of " + propellantStability
+//                    + "\npV/H = " + pVertical + "/" + pHorizontal + ", blevel " + bLevel
+//                    + "\nUllage Height Min/Max " + ullageHeightMin + "/" + ullageHeightMax + ", Radial Min/Max " + ullageRadialMin + "/" + ullageRadialMax
+//                    + "\nInputs: Time = " + deltaTime + ", UT delta = " + utTimeDelta + ", Acc " + localAcceleration + ", Rot " + rotation + ", FR " + fuelRatio);
+//#endif
         }
         private void SetStateString()
         {
