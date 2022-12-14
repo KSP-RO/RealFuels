@@ -49,6 +49,9 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v15.3.1
+* Clamp fuel amount to stay within the max volume
+
 v15.3.0
 * Fix stock bug where ModuleRCS doesn't reset its consumedResources in OnLoad
 * Add title support for tank definitions
