@@ -171,18 +171,24 @@ namespace RealFuels.Tanks
 			}
 		}
 
-		void UpdateTank(double value)
+		void UpdateTank(double value, bool clampToVolume = false)
 		{
-			PartResource partResource = resource;
-			if (module.unmanagedResources.ContainsKey(partResource.resourceName) || value == partResource.maxAmount)
+			if (clampToVolume && value > resource.maxAmount)
+			{
+				// If expanding, modify it to be less than overfull
+				double maxQty = (module.AvailableVolume * utilization) + resource.maxAmount;
+				value = Math.Min(maxQty, value);
+			}
+
+			if (module.unmanagedResources.ContainsKey(resource.resourceName) || value == resource.maxAmount)
 				return;
 
 			double fillFrac = FillFraction; // fillFraction is a live value, gather it before changing a resource amount
 			double newAmount = value * fillFrac;    // Keep the same fill fraction
 			maxAmountExpression = null;
 
-			UpdateMaxAmount(partResource, value);
-			UpdateAmount(partResource, newAmount);
+			UpdateMaxAmount(resource, value);
+			UpdateAmount(resource, newAmount);
 
 			// Update symmetry counterparts.
 			if (HighLogic.LoadedSceneIsEditor && propagate)
@@ -256,21 +262,22 @@ namespace RealFuels.Tanks
 				PartResource res = resource;
 				return (res == null || module.unmanagedResources.ContainsKey(res.resourceName)) ? 0 : res.maxAmount;
 			}
+			set => SetMaxAmount(value);
+		}
 
-			set
-			{
-				if (module == null)
-					throw new InvalidOperationException("Maxamount is not defined until instantiated in a tank");
+		public void SetMaxAmount(double value, bool clampToVolume = false)
+		{
 
-				PartResource partResource = resource;
-				if (partResource != null && value <= 0.0)
-					DeleteTank();
-				else if (partResource != null)
-					UpdateTank(value);
-				else if (value > 0.0)
-					AddTank(value);
-				module.massDirty = true;
-			}
+			if (module == null)
+				throw new InvalidOperationException("Maxamount is not defined until instantiated in a tank");
+
+			if (resource != null && value <= 0.0)
+				DeleteTank();
+			else if (resource != null)
+				UpdateTank(value, clampToVolume);
+			else if (value > 0.0)
+				AddTank(value);
+			module.massDirty = true;
 		}
 
 		public double FillFraction
