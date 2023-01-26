@@ -607,6 +607,54 @@ namespace RealFuels.Tanks
             }
         }
 
+        [KSPEvent (guiActiveEditor = true)]
+        void LoadMFTModuleFromConfigNode(BaseEventDetails data)
+        {
+            // Things that are supported:
+            // setting type/Tank_Definition
+            // setting volume
+            // setting basemass
+            // setting basecost
+            // setting TANKs (Clears the current tanks)
+
+            ConfigNode MFTConfigNode = data.Get<ConfigNode>("MFTNode");
+
+            // 'type = x' provided
+            MFTConfigNode.TryGetValue("type", ref type);
+
+            // 'volume = x' provided
+            float newVolume = 0;
+            if (MFTConfigNode.TryGetValue("volume", ref newVolume))
+            {
+                ChangeTotalVolume(newVolume * tankVolumeConversion); // TODO: Is the factor needed? What about the 0.86 factor?
+            }
+
+            // 'basemass = x' provided
+            ParseBaseMass(MFTConfigNode);
+
+            // 'basecost = x' provided
+            ParseBaseCost(MFTConfigNode);
+
+            // 'TANK {}' provided
+            ConfigNode[] tankNodes = MFTConfigNode.GetNodes("TANK");
+            if (tankNodes.Length > 0)
+            {
+                // Clear the current tank before adding the new ones
+                Empty();
+                foreach (var tankNode in tankNodes)
+                {
+                    var tankName = tankNode.GetValue("name");
+                    var maxAmount = double.Parse(tankNode.GetValue("maxAmount"));
+                    var amount = double.Parse(tankNode.GetValue("amount"));
+                    if (tanksDict.TryGetValue(tankName, out FuelTank internalTank))
+                    {
+                        internalTank.amount = amount;
+                        internalTank.maxAmount = maxAmount;
+                    }
+                }
+            }
+        }
+
         // ChangeVolume() called by StretchyTanks has been converted to use OnPartVolumeChanged
 
         protected void ChangeResources (double volumeRatio, bool propagate = false)
