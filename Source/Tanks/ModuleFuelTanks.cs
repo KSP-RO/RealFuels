@@ -607,11 +607,12 @@ namespace RealFuels.Tanks
             }
         }
 
-        [KSPEvent (guiActiveEditor = true)]
+        [KSPEvent]
         void LoadMFTModuleFromConfigNode(BaseEventDetails data)
         {
             // Things that are supported:
             // setting type/Tank_Definition
+            // Adding typeAvailable
             // setting volume
             // setting basemass
             // setting basecost
@@ -619,15 +620,23 @@ namespace RealFuels.Tanks
 
             ConfigNode MFTConfigNode = data.Get<ConfigNode>("MFTNode");
 
+            // 'typeAvailable = x' lines provided
+            List<string> types = MFTConfigNode.GetValuesList("typeAvailable");
+
             // 'type = x' provided
-            MFTConfigNode.TryGetValue("type", ref type);
+            if (MFTConfigNode.TryGetValue("type", ref type))
+            {
+                types.Add(type);
+            }
+
+            if (types.Count > 0)
+            {
+                typesAvailable.Clear();
+            }
+            UpdateTypesAvailable(types);
 
             // 'volume = x' provided
-            float newVolume = 0;
-            if (MFTConfigNode.TryGetValue("volume", ref newVolume))
-            {
-                ChangeTotalVolume(newVolume * tankVolumeConversion); // TODO: Is the factor needed? What about the 0.86 factor?
-            }
+            MFTConfigNode.TryGetValue("volume", ref volume);
 
             // 'basemass = x' provided
             ParseBaseMass(MFTConfigNode);
