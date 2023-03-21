@@ -36,8 +36,7 @@ namespace RealFuels
 
         public void OnDestroy()
         {
-            if (HighLogic.LoadedSceneIsFlight)
-                GameEvents.onVesselWasModified.Remove(VesselModified);
+            GameEvents.onVesselWasModified.Remove(VesselModified);
         }
 
         private void VesselModified(Vessel v)
