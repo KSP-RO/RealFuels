@@ -1374,6 +1374,11 @@ namespace RealFuels
                 GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
         }
 
+        public void OnDestroy()
+        {
+            GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
+        }
+
         private static Vector3 mousePos = Vector3.zero;
         private Rect guiWindowRect = new Rect(0, 0, 0, 0);
         private string myToolTip = string.Empty;
