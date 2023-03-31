@@ -1,36 +1,23 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace RealFuels.Ullage
 {
     public class UllageModule : VesselModule
     {
-        List<UllageSet> ullageSets;
-        List<Tanks.ModuleFuelTanks> tanks;
+        private readonly List<UllageSet> ullageSets = new List<UllageSet>();
+        private readonly List<Tanks.ModuleFuelTanks> tanks = new List<Tanks.ModuleFuelTanks>();
 
         bool packed = true;
         int partCount = -1;
 
-        protected override void OnStart()
-        {
-            base.OnStart();
-
-            ullageSets = new List<UllageSet>();
-            tanks = new List<Tanks.ModuleFuelTanks>();
-            // will reset on first update
-        }
-
         public void FixedUpdate()
         {
-            if (vessel == null || !FlightGlobals.ready)
+            if (vessel == null || !vessel.loaded || !FlightGlobals.ready)
             {
                 partCount = -1;
                 return;
             }
-
             int newPartCount = vessel.Parts.Count;
             if (packed != vessel.packed || newPartCount != partCount)
             {
@@ -49,7 +36,7 @@ namespace RealFuels.Ullage
             }
             else
             {
-                accel = (Vector3)(vessel.perturbation);
+                accel = vessel.perturbation;
                 angVel = vessel.angularVelocity;
             }
             // are we stopped but the fuel is under gravity?
@@ -59,8 +46,8 @@ namespace RealFuels.Ullage
             // get boiloff accel
             double massRate = 0d;
             double ventingAcceleration = 0d;
-            for (int i = tanks.Count - 1; i >= 0; --i)
-                massRate += tanks[i].BoiloffMassRate;
+            foreach (var tank in tanks)
+                massRate += tank.BoiloffMassRate;
 
             // technically we should vent in the correct direction per engine's tanks
             // Instead, this will just give magical "correct direction" acceleration from total
@@ -71,24 +58,10 @@ namespace RealFuels.Ullage
             }
 
             // Update ullage sims
-            UllageSet set;
-#if DEBUG
-            StringBuilder str = new StringBuilder("Ullage states: ");
-#endif
-            for (int i = ullageSets.Count - 1; i >= 0; --i)
+            foreach (var set in ullageSets)
             {
-                set = ullageSets[i];
                 set.Update(accel, angVel, TimeWarp.fixedDeltaTime, ventingAcceleration);
-#if DEBUG
-                str.Append(set.Engine());
-                str.Append(" is ");
-                str.Append(set.GetUllageStability().ToString("N4"));
-                str.Append("\n");
-#endif
             }
-#if DEBUG
-            print(str);
-#endif
         }
 
         public void Reset()
@@ -96,22 +69,17 @@ namespace RealFuels.Ullage
             ullageSets.Clear();
             tanks.Clear();
 
-            for (int i = partCount - 1; i >= 0; --i)
+            foreach (Part p in vessel.Parts)
             {
-                Part part = vessel.Parts[i];
-                for (int j = part.Modules.Count - 1; j >= 0; --j)
+                for (int j = p.Modules.Count - 1; j >= 0; --j)
                 {
-                    PartModule m = part.Modules[j];
-                    if (m is Tanks.ModuleFuelTanks)
+                    if (p.Modules[j] is Tanks.ModuleFuelTanks tank)
                     {
-                        Tanks.ModuleFuelTanks tank = (Tanks.ModuleFuelTanks)m;
                         if (!tanks.Contains(tank))
                             tanks.Add(tank);
                     }
-                    else if (m is ModuleEnginesRF)
+                    else if (p.Modules[j] is ModuleEnginesRF engine)
                     {
-                        ModuleEnginesRF engine = m as ModuleEnginesRF;
-
                         if (engine.ullageSet == null) // just in case
                         {
                             engine.ullageSet = new UllageSet(engine);

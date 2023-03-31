@@ -1,7 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Collections;
-using System.Collections.ObjectModel;
-using System.Reflection;
 using System.Linq;
 using UnityEngine;
 
@@ -15,18 +13,8 @@ namespace RealFuels
         protected static Dictionary<string, EngineConfigUpgrade> configUpgrades;
         protected static Dictionary<string, TLUpgrade> techLevelUpgrades;
 
-        #region Instance
-
         private static EntryCostManager _instance = null;
-        public static EntryCostManager Instance
-        {
-            get
-            {
-                return _instance;
-            }
-        }
-
-        #endregion
+        public static EntryCostManager Instance { get => _instance; }
 
         #endregion
 
@@ -34,66 +22,66 @@ namespace RealFuels
 
         public override void OnAwake()
         {
-            base.OnAwake();
-
             if (_instance != null)
             {
-                Object.Destroy(this);
-                return;
+                Object.Destroy(_instance);
             }
             _instance = this;
 
-            if (configUpgrades == null) // just in case
+            if (configUpgrades == null)
                 FillUpgrades();
 
             EntryCostDatabase.Initialize(); // should not be needed though.
+        }
 
-            GameEvents.OnPartPurchased.Add(new EventData<AvailablePart>.OnEvent(onPartPurchased));
+        public void OnDestroy()
+        {
+            if (_instance == this)
+                _instance = null;
+        }
+
+        protected IEnumerator UpdateEntryCosts_Coroutine()
+        {
+            yield return null;
+            yield return null;
+
+            EntryCostDatabase.UpdateEntryCosts();
         }
 
         public override void OnLoad(ConfigNode node)
         {
-            base.OnLoad(node);
 
             EntryCostDatabase.Load(node.GetNode("Unlocks"));
 
-            EntryCostDatabase.UpdatePartEntryCosts();
-
+            string tlName = string.Empty;
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
             {
                 foreach (ConfigNode n in node.GetNodes("TLUpgrade"))
                 {
-                    TLUpgrade tU = null;
-                    if (n.HasValue("name"))
+                    if (n.TryGetValue("name", ref tlName))
                     {
-                        string tlName = n.GetValue("name");
-                        if (techLevelUpgrades.TryGetValue(tlName, out tU))
+                        if (techLevelUpgrades.TryGetValue(tlName, out TLUpgrade tU))
                             tU.Load(n);
                         else
-                        {
-                            tU = new TLUpgrade(n);
-                            techLevelUpgrades[tlName] = tU;
-                        }
+                            techLevelUpgrades[tlName] = new TLUpgrade(n);
                     }
                 }
             }
+
+            // Do this in a coroutine so we run after the PartUpgradeManager loads.
+            StartCoroutine(UpdateEntryCosts_Coroutine());
         }
         public override void OnSave(ConfigNode node)
         {
-            base.OnSave(node);
             if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER)
             {
                 foreach (TLUpgrade tU in techLevelUpgrades.Values)
                 {
                     tU.Save(node.AddNode("TLUpgrade"));
                 }
-
-                EntryCostDatabase.Save(node.AddNode("Unlocks"));
             }
-        }
-        public void OnDestroy()
-        {
-            GameEvents.OnPartPurchased.Remove(new EventData<AvailablePart>.OnEvent(onPartPurchased));
+
+            EntryCostDatabase.Save(node.AddNode("Unlocks"));
         }
         #endregion
 
@@ -110,27 +98,15 @@ namespace RealFuels
             configUpgrades = new Dictionary<string, EngineConfigUpgrade>();
             techLevelUpgrades = new Dictionary<string, TLUpgrade>();
 
-            for (int a = PartLoader.LoadedPartsList.Count; a-- > 0;)
+            foreach (AvailablePart ap in PartLoader.LoadedPartsList.Where(x => x.partPrefab is Part p && p.Modules != null))
             {
-                AvailablePart ap = PartLoader.LoadedPartsList[a];
-
-                if (ap == null || ap.partPrefab == null)
-                    continue;
-
-                Part part = ap.partPrefab;
-                if (part.Modules == null)
-                    continue;
-
-                for (int i = part.Modules.Count; i-- > 0;)
+                for (int i = ap.partPrefab.Modules.Count; i-- > 0;)
                 {
-                    PartModule m = part.Modules[i];
-                    if (m is ModuleEngineConfigs)
+                    if (ap.partPrefab.Modules[i] is ModuleEngineConfigsBase mec)
                     {
-                        ModuleEngineConfigs mec = m as ModuleEngineConfigs;
                         mec.CheckConfigs();
-                        for (int j = mec.configs.Count; j-- > 0;)
+                        foreach (var cfg in mec.configs)
                         {
-                            ConfigNode cfg = mec.configs[j];
                             string cfgName = cfg.GetValue("name");
                             if (!string.IsNullOrEmpty(cfgName))
                             {
@@ -139,10 +115,7 @@ namespace RealFuels
 
                                 // config upgrades
                                 if (!configUpgrades.ContainsKey(cfgName))
-                                {
-                                    EngineConfigUpgrade eConfig = new EngineConfigUpgrade(cfg, cfgName);
-                                    configUpgrades[cfgName] = eConfig;
-                                }
+                                    configUpgrades[cfgName] = new EngineConfigUpgrade(cfg, cfgName);
 
                                 // TL upgrades
                                 if (mec.techLevel >= 0)
@@ -157,36 +130,23 @@ namespace RealFuels
             }
         }
 
-        protected IEnumerator updatePartEntryCosts()
-        {
-            yield return new WaitForEndOfFrame();
-
-            EntryCostDatabase.UpdatePartEntryCosts();
-        }
-
-        public void onPartPurchased(AvailablePart ap)
+        public void OnPartPurchased(AvailablePart ap)
         {
             EntryCostDatabase.SetUnlocked(ap);
 
-            StartCoroutine(updatePartEntryCosts());
-
-            Part part = ap.partPrefab;
-            if(part != null)
+            if (ap.partPrefab is Part part)
             {
                 for(int i = part.Modules.Count - 1; i >= 0; --i)
                 {
-                    PartModule m = part.Modules[i];
-                    if(m is ModuleEngineConfigs)
+                    if (part.Modules[i] is ModuleEngineConfigsBase mec)
                     {
-                        ModuleEngineConfigs mec = m as ModuleEngineConfigs;
                         mec.CheckConfigs();
-                        for(int j = mec.configs.Count - 1; j >= 0; --j)
+                        foreach (var cfg in mec.configs)
                         {
-                            ConfigNode cfg = mec.configs[j];
-                            if(cfg.HasValue("name"))
+                            if (cfg.HasValue("name"))
                             {
                                 string cfgName = cfg.GetValue("name");
-                                
+
                                 // TL upgrades
                                 if (mec.techLevel >= 0)
                                 {
@@ -198,8 +158,17 @@ namespace RealFuels
                     }
                 }
             }
+
+            EntryCostDatabase.UpdateEntryCosts();
         }
-        
+
+        public void OnPartUpgradePurchased(PartUpgradeHandler.Upgrade up)
+        {
+            EntryCostDatabase.SetUnlocked(up);
+
+            EntryCostDatabase.UpdateEntryCosts();
+        }
+
         public bool ConfigUnlocked(string cfgName)
         {
             return EntryCostDatabase.IsUnlocked(cfgName);
@@ -211,31 +180,74 @@ namespace RealFuels
             return EntryCostDatabase.GetCost(cfgName);
         }
 
-        public bool PurchaseConfig(string cfgName)
+        public double ConfigEntryCost(IEnumerable<string> cfgNames)
+        {
+            EntryCostDatabase.ClearTracker();
+            double sum = 0;
+            foreach (string cfgName in cfgNames)
+            {
+                sum += EntryCostDatabase.GetCost(cfgName);
+            }
+
+            return sum;
+        }
+
+        public double EntryCostForParts(IEnumerable<AvailablePart> parts)
+        {
+            EntryCostDatabase.ClearTracker();
+            double sum = 0;
+            foreach (AvailablePart ap in parts)
+            {
+                if (!EntryCostDatabase.TryGetCost(ap.name, out int cost))
+                    cost = ap.entryCost;
+                sum += cost;
+            }
+
+            return sum;
+        }
+
+        public bool PurchaseConfig(string cfgName) => PurchaseConfig(cfgName, null);
+
+        public bool PurchaseConfig(string cfgName, string techID)
         {
             if (ConfigUnlocked(cfgName))
                 return false;
 
             double cfgCost = ConfigEntryCost(cfgName);
+
             if (!HighLogic.CurrentGame.Parameters.Difficulty.BypassEntryPurchaseAfterResearch)
             {
-                if (Funding.Instance.Funds < cfgCost)
+                bool canAfford;
+                if (EntryCostDatabase.CanAfford != null)
+                {
+                    canAfford = EntryCostDatabase.CanAfford(techID, cfgName, cfgCost);
+                }
+                else
+                {
+                    var query = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -(float)cfgCost, 0f, 0f);
+                    canAfford = query.CanAfford();
+                }
+
+                if(!canAfford)
                     return false;
 
-                Funding.Instance.AddFunds(-cfgCost, TransactionReasons.RnDPartPurchase);
+                if (EntryCostDatabase.GetSubsidy != null)
+                    cfgCost -= EntryCostDatabase.GetSubsidy(techID, cfgName, cfgCost);
+
+                if (cfgCost > 0f)
+                    Funding.Instance.AddFunds(-cfgCost, TransactionReasons.RnDPartPurchase);
             }
 
             EntryCostDatabase.SetUnlocked(cfgName);
 
-            EntryCostDatabase.UpdatePartEntryCosts();
+            EntryCostDatabase.UpdateEntryCosts();
 
             return true;
         }
 
         public int TLUnlocked(string tUName)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
                 return tU.currentTL;
             Debug.LogError("*RFUM: ERROR: TL " + tUName + " does not exist!");
             return -1;
@@ -243,8 +255,7 @@ namespace RealFuels
 
         public void SetTLUnlocked(string tUName, int newVal)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
             {
                 if (newVal > tU.currentTL)
                     tU.currentTL = newVal;
@@ -254,8 +265,7 @@ namespace RealFuels
         }
         public double TLEntryCost(string tUName)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
                 return tU.techLevelEntryCost;
 
             Debug.LogError("*RFUM: ERROR: TL " + tUName + " does not exist!");
@@ -263,8 +273,7 @@ namespace RealFuels
         }
         public double TLSciEntryCost(string tUName)
         {
-            TLUpgrade tU = null;
-            if (techLevelUpgrades.TryGetValue(tUName, out tU))
+            if (techLevelUpgrades.TryGetValue(tUName, out TLUpgrade tU))
                 return tU.techLevelSciEntryCost;
             Debug.LogError("*RFUM: ERROR: TL " + tUName + " does not exist!");
             return 0d;
@@ -277,7 +286,8 @@ namespace RealFuels
             double tuCost = TLEntryCost(tUName) * multiplier;
             if (!HighLogic.CurrentGame.Parameters.Difficulty.BypassEntryPurchaseAfterResearch)
             {
-                if (Funding.Instance.Funds < tuCost)
+                var cmq = CurrencyModifierQuery.RunQuery(TransactionReasons.RnDPartPurchase, -(float)tuCost, 0f, 0f);
+                if(!cmq.CanAfford())
                     return false;
 
                 Funding.Instance.AddFunds(-tuCost, TransactionReasons.RnDPartPurchase);

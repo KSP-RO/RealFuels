@@ -182,6 +182,9 @@ then
 
     # Change the first '-' to a '.', so version-comparing tools work properly.
     # Remove the "g" in git describe's output string, to save a byte.
+	# This needs to be able to catch commit value when there are more than three - (Starwaster)
+	# 's/-[1-9]-g/./'
+	
     v=$(echo "$v" | sed 's/-/./;s/\(.*\)-g/\1-/');
     v_from_git=1
 else

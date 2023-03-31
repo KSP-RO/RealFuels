@@ -11,9 +11,31 @@ namespace RealFuels
         #region Fields
         protected static Dictionary<string, PartEntryCostHolder> holders = null;
         protected static Dictionary<string, AvailablePart> nameToPart = null;
+        protected static Dictionary<string, PartUpgradeHandler.Upgrade> nameToUpgrade = null;
         protected static HashSet<string> unlocks = null;
 
         protected static HashSet<string> unlockPathTracker = new HashSet<string>();
+
+        public static Dictionary<string, AvailablePart>.ValueCollection PartsRegistered => nameToPart.Values;
+        public static Dictionary<string, PartUpgradeHandler.Upgrade>.ValueCollection UpgradesRegistered => nameToUpgrade.Values;
+
+        public delegate bool CanAffordDelegate(string techID, string ecmName, double cost);
+        public delegate double GetSubsidyDelegate(string techID, string ecmName, double cost);
+
+        /// <summary>
+        /// This method should take the tech node (might be null if PurchaseConfig
+        /// is called without passing a tech node), the ECM name, and the ECM cost.
+        /// It returns whether the ECM can afford to be purchased.
+        /// </summary>
+        public static CanAffordDelegate CanAfford = null;
+
+        /// <summary>
+        /// This method should take the tech node (might be null if PurchaseConfig
+        /// is called without passing a tech node), the ECM name, and the ECM cost.
+        /// It returns a subsidy to apply to the ECM cost, prior to the
+        /// fund transaction.
+        /// </summary>
+        public static GetSubsidyDelegate GetSubsidy = null;
         #endregion
 
         #region Setup
@@ -25,6 +47,9 @@ namespace RealFuels
         {
             if (nameToPart == null)
                 FillPartList();
+
+            if (nameToUpgrade == null)
+                FillUpgradeList();
 
             if (holders == null)
                 FillHolders();
@@ -42,19 +67,20 @@ namespace RealFuels
                 Debug.LogError("*RP-0 EC: ERROR: Partloader instance null or list null!");
                 return;
             }
-            for (int a = PartLoader.LoadedPartsList.Count; a-- > 0;)
+            foreach (AvailablePart ap in PartLoader.LoadedPartsList)
             {
-                AvailablePart ap = PartLoader.LoadedPartsList[a];
-                if (ap == null)
-                {
-                    continue;
-                }
-                Part part = ap.partPrefab;
-                if (part != null)
-                {
-                    string name = GetPartName(ap);
-                    nameToPart[name] = ap;
-                }
+                if (ap?.partPrefab is Part)
+                    nameToPart[GetPartName(ap)] = ap;
+            }
+        }
+
+        protected static void FillUpgradeList()
+        {
+            nameToUpgrade = new Dictionary<string, PartUpgradeHandler.Upgrade>();
+
+            foreach (PartUpgradeHandler.Upgrade upgrade in PartUpgradeManager.Handler)
+            {
+                nameToUpgrade[Utilities.SanitizeName(upgrade.name)] = upgrade;
             }
         }
 
@@ -77,9 +103,7 @@ namespace RealFuels
         // from RF
         protected static string GetPartName(Part part)
         {
-            if (part.partInfo != null)
-                return GetPartName(part.partInfo);
-            return GetPartName(part.name);
+            return part.partInfo != null ? GetPartName(part.partInfo) : Utilities.SanitizeName(part.name);
         }
 
         protected static string GetPartName(AvailablePart ap)
@@ -89,15 +113,14 @@ namespace RealFuels
 
         protected static string GetPartName(string partName)
         {
-            partName = partName.Replace(".", "-");
-            return partName.Replace("_", "-");
+            return Utilities.SanitizeName(partName);
         }
         #endregion
 
         #region Interface
         public static bool IsUnlocked(string name)
         {
-            return unlocks.Contains(name);
+            return unlocks.Contains(Utilities.SanitizeName(name));
         }
 
         public static void SetUnlocked(AvailablePart ap)
@@ -105,20 +128,31 @@ namespace RealFuels
             SetUnlocked(GetPartName(ap));
         }
 
+        public static void SetUnlocked(PartUpgradeHandler.Upgrade up)
+        {
+            SetUnlocked(Utilities.SanitizeName(up.name));
+        }
+
         public static void SetUnlocked(string name)
         {
+            name = Utilities.SanitizeName(name);
             unlocks.Add(name);
 
-            PartEntryCostHolder h;
-            if (holders.TryGetValue(name, out h))
-            {
+            if (GetHolder(name) is PartEntryCostHolder h)
                 foreach (string s in h.children)
                     SetUnlocked(s);
-            }
         }
 
         public static int GetCost(string name)
         {
+            TryGetCost(name, out int cost);
+            return cost;
+        }
+
+        public static bool TryGetCost(string name, out int cost)
+        {
+            cost = 0;
+            name = Utilities.SanitizeName(name);
             if (unlockPathTracker.Contains(name))
             {
                 /*string msg = "[EntryCostDatabase]: Circular reference on " + name;
@@ -126,27 +160,42 @@ namespace RealFuels
                     msg += "\n" + s;
 
                 Debug.LogError(msg);*/
-                return 0;
+                return true;
             }
 
             unlockPathTracker.Add(name);
 
-            PartEntryCostHolder h;
-            if (holders.TryGetValue(name, out h))
-                return h.GetCost();
+            if (GetHolder(name) is PartEntryCostHolder h)
+            {
+                cost = h.GetCost();
+                return true;
+            }
 
-            return 0;
+            return false;
+        }
+
+        public static PartEntryCostHolder GetHolder(string s)
+        {
+            holders.TryGetValue(Utilities.SanitizeName(s), out var h);
+            return h;
         }
 
         public static void UpdateEntryCost(AvailablePart ap)
         {
-            string name = GetPartName(ap);
-
-            EntryCostDatabase.ClearTracker();
-
-            PartEntryCostHolder h;
-            if (holders.TryGetValue(name, out h))
+            ClearTracker();
+            if (GetHolder(GetPartName(ap)) is PartEntryCostHolder h)
                 ap.SetEntryCost(h.GetCost());
+        }
+
+        public static void UpdateEntryCost(PartUpgradeHandler.Upgrade upgrade)
+        {
+            ClearTracker();
+            if (GetHolder(Utilities.SanitizeName(upgrade.name)) is PartEntryCostHolder h)
+                upgrade.entryCost = h.GetCost();
+
+            // Work around a stock bug
+            if (upgrade.entryCost == 0)
+                upgrade.entryCost = 0.00001f;
         }
 
         public static void Save(ConfigNode node)
@@ -175,16 +224,23 @@ namespace RealFuels
             unlockPathTracker.Clear();
         }
 
-        public static void UpdatePartEntryCosts()
+        public static void UpdateEntryCosts()
         {
-            for (int a = PartLoader.LoadedPartsList.Count - 1; a >= 0; --a)
+            foreach (var ap in PartLoader.LoadedPartsList)
             {
-                AvailablePart ap = PartLoader.LoadedPartsList[a];
+                if (ap?.partPrefab is Part)
+                    UpdateEntryCost(ap);
+            }
 
-                if (ap == null || ap.partPrefab == null)
-                    continue;
-
-                UpdateEntryCost(ap);
+            foreach (PartUpgradeHandler.Upgrade upgrade in PartUpgradeManager.Handler)
+            {
+                UpdateEntryCost(upgrade);
+                if (upgrade.entryCost < 1.1 && HighLogic.LoadedSceneIsGame && 
+                    !string.IsNullOrEmpty(upgrade.techRequired) && ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available)
+                {
+                    // Unlock the upgrade but do not charge the player
+                    PartUpgradeManager.Handler.SetUnlocked(upgrade.name, true);
+                }
             }
         }
         #endregion

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 
 namespace RealFuels
@@ -6,15 +7,15 @@ namespace RealFuels
     public static class TestFlightWrapper
     {
         private const BindingFlags tfBindingFlags = BindingFlags.Public | BindingFlags.Static;
-        
+
         private static Type tfInterface = null;
         private static MethodInfo addInteropValue = null;
 
         static TestFlightWrapper()
         {
-            tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
-            if (tfInterface != null)
+            if (AssemblyLoader.loadedAssemblies.FirstOrDefault(a => a.assembly.GetName().Name == "TestFlightCore")?.assembly is Assembly)
             {
+                tfInterface = Type.GetType("TestFlightCore.TestFlightInterface, TestFlightCore", false);
                 Type[] argumentTypes = new[] { typeof(Part), typeof(string), typeof(string), typeof(string) };
                 addInteropValue = tfInterface.GetMethod("AddInteropValue", tfBindingFlags, null, argumentTypes, null);
             }

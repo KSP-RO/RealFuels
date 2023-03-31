@@ -21,6 +21,8 @@ namespace RealFuels
             Load(node);
             if(Name != string.Empty)
                 name = Name;
+
+            name = Utilities.GetPartName(Name);
         }
 
         #endregion

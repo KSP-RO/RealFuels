@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using UnityEngine;
 
 namespace RealFuels.Ullage
@@ -9,17 +7,15 @@ namespace RealFuels.Ullage
     public class UllageSet : IConfigNode
     {
         #region Fields
-        ModuleEnginesRF engine;
-        List<Part> tanks;
-        Dictionary<Part, Tanks.ModuleFuelTanks> rfTanks;
-
-        UllageSimulator ullageSim;
-        UllageModule module;
+        private readonly ModuleEnginesRF engine;
+        private readonly List<Part> tanks = new List<Part>();
+        private readonly Dictionary<Part, Tanks.ModuleFuelTanks> rfTanks = new Dictionary<Part, Tanks.ModuleFuelTanks>();
+        private readonly UllageSimulator ullageSim;
+        private UllageModule module;
 
         Vector3d acceleration, angularVelocity;
         double fuelRatio;
 
-        bool pressureFed = false;
         bool tanksHighlyPressurized = false;
         bool ullageEnabled = true;
         Quaternion rotationFromPart = Quaternion.identity;
@@ -31,18 +27,11 @@ namespace RealFuels.Ullage
             MonoBehaviour.print("*U* Ullage constructor called on " + eng.part.name);
             engine = eng;
             ullageSim = new UllageSimulator(engine.part.name);
-            if (engine.vessel != null)
-                module = engine.vessel.GetComponent<UllageModule>();
-            else
-                module = null;
-
-            tanks = new List<Part>();
-            rfTanks = new Dictionary<Part, Tanks.ModuleFuelTanks>();
+            module = engine.vessel?.GetComponent<UllageModule>();
 
             // set engine fields
-            pressureFed = engine.pressureFed;
             ullageEnabled = engine.ullage;
-            
+
             // create orientaiton
             SetThrustAxis(engine.thrustAxis);
             if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
@@ -58,42 +47,33 @@ namespace RealFuels.Ullage
             fuelRatio = 1d;
 
             // iterate through all propellants.
-            for (int i = engine.propellants.Count - 1; i >= 0; --i)
+            foreach (Propellant p in engine.propellants)
             {
-                Propellant p = engine.propellants[i];
                 List<PartResource> resources = Utilities.FindResources(engine.part, p);
                 double propAmt = 0d, propMax = 0d;
                 bool presTank = false;
-                for (int j = resources.Count - 1; j >= 0; --j)
+                foreach (PartResource r in resources)
                 {
-                    PartResource r = resources[j];
                     propAmt += r.amount;
                     propMax += r.maxAmount;
 
                     Part part = r.part;
-                    Tanks.ModuleFuelTanks tank = null;
-                    if (!tanks.Contains(part))
+                    if (!rfTanks.TryGetValue(part, out Tanks.ModuleFuelTanks tank))
                     {
                         tanks.Add(part);
                         for (int k = part.Modules.Count - 1; k >= 0; --k)
                         {
-                            PartModule m = part.Modules[k];
-                            if (m is Tanks.ModuleFuelTanks)
+                            if (part.Modules[k] is Tanks.ModuleFuelTanks)
                             {
-                                tank = m as Tanks.ModuleFuelTanks;
+                                tank = part.Modules[k] as Tanks.ModuleFuelTanks;
                                 rfTanks[part] = tank;
                             }
                         }
                     }
-                    else
-                    {
-                        rfTanks.TryGetValue(part, out tank);
-                    }
                     if (tank != null)
                     {
                         // noPresTank will stay true only if no pressurized tank found.
-                        bool resourcePres;
-                        tank.pressurizedFuels.TryGetValue(r.resourceName, out resourcePres);
+                        tank.pressurizedFuels.TryGetValue(r.resourceName, out bool resourcePres);
                         presTank |= resourcePres || tank.highlyPressurized;
                     }
                 }
@@ -116,12 +96,7 @@ namespace RealFuels.Ullage
         public void Load(ConfigNode node)
         {
             if (!HighLogic.LoadedSceneIsEditor && node.HasNode("UllageSim"))
-            {
-#if DEBUG
-                MonoBehaviour.print("*U* Ullage load called on " + engine.part.name);
-#endif
                 ullageSim.Load(node.GetNode("UllageSim"));
-            }
         }
         public void Save(ConfigNode node)
         {
@@ -148,10 +123,8 @@ namespace RealFuels.Ullage
             fuelRatio = 1d;
             if(HighLogic.LoadedSceneIsFlight && engine.EngineIgnited)
             {
-                int pCount = engine.propellants.Count;
-                for(int i = pCount - 1; i >= 0; --i)
+                foreach (var p in engine.propellants)
                 {
-                    Propellant p = engine.propellants[i];
                     double tmp = p.totalResourceAvailable / p.totalResourceCapacity;
                     if(!double.IsNaN(tmp)) // Ordinarily we'd set to 0 if capacity = 0, but if so engine will flame out, so we just toss the result.
                         fuelRatio = Math.Min(fuelRatio, tmp);
@@ -161,42 +134,18 @@ namespace RealFuels.Ullage
             if(ullageEnabled && RFSettings.Instance.simulateUllage)
                 ullageSim.Update(acceleration, angularVelocity, timeDelta, ventingAcc, fuelRatio);
         }
-        public string Engine()
-        {
-            if (engine != null)
-                return engine.part.partInfo.title;
-            return "No valid engine";
-        }
-        public void SetUllageEnabled(bool enabled)
-        {
-            ullageEnabled = enabled;
-        }
-        public void SetUllageStability(double newStability)
-        {
-            ullageSim.SetPropellantStability(newStability);
-        }
-        public string GetUllageState(out Color col)
-        {
-            return ullageSim.GetPropellantStatus(out col);
-        }
-        public double GetUllageStability()
-        {
-            return ullageSim.GetPropellantStability();
-        }
-        public bool PressureOK()
-        {
-            return engine.pressureFed ? tanksHighlyPressurized : true;
-        }
+        public string Engine() => engine?.part?.partInfo?.title ?? "No valid engine";
+        public void SetUllageEnabled(bool enabled) => ullageEnabled = enabled;
+        public void SetUllageStability(double newStability) => ullageSim.SetPropellantStability(newStability);
+        public string GetUllageState(out Color col) => ullageSim.GetPropellantStatus(out col);
+        public double GetUllageStability() => ullageSim.GetPropellantStability();
+        public bool PressureOK() => !engine.pressureFed || tanksHighlyPressurized;
         public bool EditorPressurized()
         {
             SetTanks();
-
             return tanksHighlyPressurized;
         }
-        public void SetModule(UllageModule newModule)
-        {
-            module = newModule;
-        }
+        public void SetModule(UllageModule newModule) => module = newModule;
         #endregion
     }
 }

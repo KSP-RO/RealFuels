@@ -1,21 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-using System.IO;
-
-using KSP;
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace RealFuels
 {
-    internal class Styles
+    [KSPAddon(KSPAddon.Startup.EditorAny, false)]
+    internal class Styles : MonoBehaviour
     {
         // Base styles
         public static GUIStyle styleEditorTooltip;
         public static GUIStyle styleEditorPanel;
+        public static GUIStyle styleEditorBox;
+        public static GUIStyle labelGreen;
+        public static GUIStyle labelYellow;
+        public static GUIStyle labelOrange;
 
+        private void Start()
+        {
+            InitStyles();
+        }
 
         /// <summary>
         /// This one sets up the styles we use
@@ -39,6 +40,24 @@ namespace RealFuels
             styleEditorPanel.padding = new RectOffset(10, 10, 10, 10);
             styleEditorPanel.normal.textColor = new Color32(147,161,161,255);
             styleEditorPanel.fontSize = 12;
+
+            styleEditorBox = new GUIStyle(HighLogic.Skin.box);
+            styleEditorBox.normal.textColor = new Color32(147, 161, 161, 255);
+            styleEditorBox.wordWrap = false;
+            styleEditorBox.fontSize = 12;
+            styleEditorBox.alignment = TextAnchor.UpperCenter;
+
+            labelGreen = new GUIStyle(HighLogic.Skin.label);
+            labelGreen.normal.textColor = XKCDColors.Green;
+            labelGreen.stretchWidth = false;
+
+            labelYellow = new GUIStyle(HighLogic.Skin.label);
+            labelYellow.normal.textColor = XKCDColors.Yellow;
+            labelYellow.stretchWidth = false;
+
+            labelOrange = new GUIStyle(HighLogic.Skin.label);
+            labelOrange.normal.textColor = XKCDColors.Orange;
+            labelOrange.stretchWidth = false;
         }
 
 

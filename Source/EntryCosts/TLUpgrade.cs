@@ -26,7 +26,7 @@ namespace RealFuels
         {
             Load(node);
         }
-        public TLUpgrade(ConfigNode node, ModuleEngineConfigs mec)
+        public TLUpgrade(ConfigNode node, ModuleEngineConfigsBase mec)
         {
             techLevelEntryCost = 0d;
             techLevelSciEntryCost = 0d;

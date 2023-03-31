@@ -20,7 +20,10 @@
         { "name" : "ModuleManager" },
         { "name" : "RealFuels-Engine-Configs" },
         { "name" : "CommunityResourcePack" },
-        { "name" : "SolverEngines" }
+        { 
+            "name" : "SolverEngines",
+            "min_version": "v3.11.0"
+        }
     ],
     "conflicts" : [
         { "name" : "ModularFuelSystem" },

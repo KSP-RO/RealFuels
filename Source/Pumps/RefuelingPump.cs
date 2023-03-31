@@ -1,11 +1,6 @@
-//#define DEBUG
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using UnityEngine;
-using KSP;
 
 namespace RealFuels
 {
@@ -19,26 +14,35 @@ namespace RealFuels
         double pump_rate = 100.0; // 100L/sec per resource
 
         private FlightIntegrator flightIntegrator;
+        private readonly List<Tanks.ModuleFuelTanks> tanks = new List<Tanks.ModuleFuelTanks>();
+        private readonly List<Tanks.FuelTank> tankDefs = new List<Tanks.FuelTank>();
+        private readonly List<PartResource> batteries = new List<PartResource>();
 
-        public override string GetInfo ()
-        {
-            return "\nPump rate: " + pump_rate + "/s";
-        }
+        public override string GetInfo () => $"Pump rate: {pump_rate:F1}/s";
 
-		public override void OnStart(PartModule.StartState state)
-		{
-			if (HighLogic.LoadedSceneIsFlight)
-            {
-                FindFlightIntegrator();
-            }
-        }
-
-        public override void OnStartFinished(PartModule.StartState state)
+        public override void OnStart(PartModule.StartState state)
         {
             if (HighLogic.LoadedSceneIsFlight)
             {
-                SetupGUI();
+                flightIntegrator = vessel.vesselModules.Find(x => x is FlightIntegrator) as FlightIntegrator;
+                if (flightIntegrator == null)
+                    Debug.LogError("[RefuelingPump] could not find flight integrator!");
+                Fields[nameof(enablePump)].guiActive = vessel?.situation == Vessel.Situations.PRELAUNCH;
+                enablePump &= vessel?.situation == Vessel.Situations.PRELAUNCH;
+                FindTanks();
+                GameEvents.onVesselWasModified.Add(VesselModified);
             }
+        }
+
+        public void OnDestroy()
+        {
+            GameEvents.onVesselWasModified.Remove(VesselModified);
+        }
+
+        private void VesselModified(Vessel v)
+        {
+            if (vessel == v)
+                FindTanks();
         }
 
         public void FixedUpdate ()
@@ -59,34 +63,32 @@ namespace RealFuels
 
         #endregion
 
-        private void FindFlightIntegrator()
+        private void FindTanks()
         {
-            flightIntegrator = null;
-
-            foreach (VesselModule module in vessel.vesselModules)
+            tanks.Clear();
+            tankDefs.Clear();
+            batteries.Clear();
+            foreach (Part p in vessel.parts)
             {
-                if (module is FlightIntegrator)
+                if (p.FindModuleImplementing<Tanks.ModuleFuelTanks>() is Tanks.ModuleFuelTanks m)
                 {
-                    flightIntegrator = module as FlightIntegrator;
-                    break;
+                    tanks.Add(m);
+                    foreach (var tank in m.tanksDict.Values)
+                    {
+                        if (tank.maxAmount > 0 &&
+                            tank.resource is PartResource r &&
+                            PartResourceLibrary.Instance.GetDefinition(r.resourceName) is PartResourceDefinition d &&
+                            tank.fillable &&
+                            r.flowMode != PartResource.FlowMode.None && r.flowState &&
+                            d.resourceTransferMode == ResourceTransferMode.PUMP)
+                        {
+                            tankDefs.Add(tank);
+                        }
+                    }
                 }
-            }
-
-            if (flightIntegrator == null)
-                Debug.LogError("[RefuelingPump] could not find flight integrator!");
-        }
-
-        private void SetupGUI()
-        {
-            BaseField field = Fields[nameof(enablePump)];
-            if (vessel != null && vessel.LandedInKSC)
-            {
-                field.guiActive = true;
-            }
-            else
-            {
-                field.guiActive = false;
-                enablePump = false;
+                foreach (var partResource in p.Resources)
+                    if (partResource.info.name == "ElectricCharge")
+                        batteries.Add(partResource);
             }
         }
 
@@ -96,63 +98,43 @@ namespace RealFuels
             if(deltaTime <= 0)
                 return;
 
-            // now, let's look at what we're connected to.
-            foreach (Part p in vessel.parts ) // look through all parts
+            foreach (var m in tanks)
+                m.fueledByLaunchClamp = true;
+
+            foreach (var tank in tankDefs)
             {
-                Tanks.ModuleFuelTanks m = p.FindModuleImplementing<Tanks.ModuleFuelTanks>();
-                if (m != null)
+                if (tank.maxAmount > 0 &&
+                    tank.resource is PartResource r &&
+                    PartResourceLibrary.Instance.GetDefinition(r.resourceName) is PartResourceDefinition d &&
+                    tank.amount < tank.maxAmount &&
+                    tank.fillable &&
+                    r.flowMode != PartResource.FlowMode.None && r.flowState &&
+                    d.resourceTransferMode == ResourceTransferMode.PUMP)
                 {
-                    m.fueledByLaunchClamp = true;
-                    // look through all tanks inside this part
-                    for (int j = m.tankList.Count - 1; j >= 0; --j)
+                    double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
+
+                    if (d.unitCost > 0 && HighLogic.CurrentGame.Mode == Game.Modes.CAREER && Funding.Instance?.Funds is double funds && funds > 0)
                     {
-                        Tanks.FuelTank tank = m.tankList[j];
-                        // if a tank isn't full, start filling it.
-
-                        if (tank.maxAmount <= 0) continue;
-
-                        PartResource r = tank.resource;
-                        if (r == null) continue;
-
-                        PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(r.resourceName);
-                        if (d == null) continue;
-                        
-                        if (tank.amount < tank.maxAmount && tank.fillable && r.flowMode != PartResource.FlowMode.None && d.resourceTransferMode == ResourceTransferMode.PUMP && r.flowState)
+                        double cost = amount * d.unitCost;
+                        if (cost > funds)
                         {
-                            double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
-                            var game = HighLogic.CurrentGame;
-
-                            if (d.unitCost > 0 && game.Mode == Game.Modes.CAREER && Funding.Instance != null)
-                            {
-                                double funds = Funding.Instance.Funds;
-                                double cost = amount * d.unitCost;
-                                if (cost > funds)
-                                {
-                                    amount = funds / d.unitCost;
-                                    cost = funds;
-                                }
-                                Funding.Instance.AddFunds(-cost, TransactionReasons.VesselRollout);
-                            }
-                            //tank.amount = tank.amount + amount;
-                            p.TransferResource(r, amount, this.part);
+                            amount = funds / d.unitCost;
+                            cost = funds;
                         }
+                        Funding.Instance.AddFunds(-cost, TransactionReasons.VesselRollout);
                     }
+                    tank.part.TransferResource(r, amount, part);
                 }
-                else
+            }
+            foreach (var partResource in batteries)
+            {
+                if (partResource.flowMode != PartResource.FlowMode.None && 
+                    partResource.flowState &&
+                    partResource.info.resourceTransferMode == ResourceTransferMode.PUMP &&
+                    partResource.amount < partResource.maxAmount)
                 {
-                    for (int j = p.Resources.Count - 1; j >= 0; --j)
-                    {
-                        PartResource partResource = p.Resources[j];
-                        if (partResource.info.name == "ElectricCharge")
-                        {
-                            if (partResource.flowMode != PartResource.FlowMode.None && partResource.info.resourceTransferMode == ResourceTransferMode.PUMP && partResource.flowState)
-                            {
-                                double amount = deltaTime * pump_rate;
-                                amount = Math.Min(amount, partResource.maxAmount - partResource.amount);
-                                p.TransferResource(partResource, amount, this.part);
-                            }
-                        }
-                    }
+                    double amount = Math.Min(deltaTime * pump_rate, partResource.maxAmount - partResource.amount);
+                    partResource.part.TransferResource(partResource, amount, part);
                 }
             }
         }

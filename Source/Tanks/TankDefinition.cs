@@ -1,31 +1,27 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Reflection;
 using System.Linq;
-using UnityEngine;
 
 namespace RealFuels.Tanks
 {
-	public class TankDefinition : IConfigNode
-	{
-		[Persistent]
-		public string name;
-
-		[Persistent]
-		public string basemass;
-
-		[Persistent]
-		public string baseCost;
+    public class TankDefinition : IConfigNode
+    {
+        [Persistent]
+        public string name;
 
         [Persistent]
-        public string techRequired = "";
+        public string title;
+
+        [Persistent]
+        public string description;
+
+        [Persistent]
+        public string basemass;
+
+        [Persistent]
+        public string baseCost;
 
         [Persistent]
         public bool highlyPressurized = false;
-
-        // TODO Replace with new MLI system and then deprecate
-        [Persistent]
-        public string outerInsulationFactor = "1.0";
 
         [Persistent]
         public int numberOfMLILayers = 0;
@@ -39,48 +35,45 @@ namespace RealFuels.Tanks
         [Persistent]
         public float maxUtilization = 0;
 
-        public Tanks.FuelTankList tankList = new Tanks.FuelTankList ();
+        public Dictionary<string, FuelTank> tankList = new Dictionary<string, FuelTank>();
 
+        public string Title => title ?? name;
 
-		public TankDefinition () { }
+        public TankDefinition() { }
 
-		public TankDefinition (ConfigNode node)
-		{
-			Load (node);
-		}
-
-		public void Load (ConfigNode node)
-		{
-			if (! (node.name.Equals ("TANK_DEFINITION") && node.HasValue ("name"))) {
-				return;
-			}
-
-			ConfigNode.LoadObjectFromConfig (this, node);
-			tankList.Load (node);
-
-			for (int i = tankList.Count - 1; i >= 0; --i) {
-				var tank = tankList[i];
-				if (!tank.resourceAvailable) {
-					//Debug.LogWarning ("[MFT] Unable to initialize tank definition for resource \"" + tank.name + "\" in tank definition \"" + name + "\" as this resource is not defined.");
-					tankList.RemoveAt (i);
-				}
-			}
-		}
-
-		public void Save (ConfigNode node)
-		{
-			ConfigNode.CreateConfigFromObject (this, node);
-			tankList.Save (node);
-		}
-
-        public bool canHave
+        public TankDefinition(ConfigNode node)
         {
-            get
+            Load(node);
+        }
+
+        public void Load(ConfigNode node)
+        {
+            if (! (node.name.Equals ("TANK_DEFINITION") && node.HasValue ("name")))
+                return;
+
+            ConfigNode.LoadObjectFromConfig(this, node);
+            foreach (ConfigNode tankNode in node.GetNodes("TANK"))
             {
-                if (techRequired.Equals("") || HighLogic.CurrentGame == null || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX)
-                    return true;
-                return ResearchAndDevelopment.GetTechnologyState(techRequired) == RDTech.State.Available;
+                string name = "";
+                if (tankNode.TryGetValue("name", ref name) && !tankList.ContainsKey(name))
+                    tankList.Add(name, new FuelTank(tankNode));
+            }
+            foreach (var t in tankList.Where(x => !x.Value.resourceAvailable).ToList())
+                tankList.Remove(t.Key);
+        }
+
+        public void Save(ConfigNode node) => Save(node, true);
+
+        public void Save(ConfigNode node, bool includeEmpty)
+        {
+            ConfigNode.CreateConfigFromObject(this, node);
+            // Don't spam save files with empty tank nodes, only save the relevant stuff
+            foreach (FuelTank tank in tankList.Values.Where(t => includeEmpty || t.amount > 0 || t.maxAmount > 0))
+            {
+                ConfigNode tankNode = new ConfigNode("TANK");
+                tank.Save(tankNode);
+                node.AddNode(tankNode);
             }
         }
-	}
+    }
 }
