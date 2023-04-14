@@ -512,7 +512,7 @@ namespace RealFuels.Tanks
                     canBeResolved = ResearchAndDevelopment.GetTechnologyState(upgrade.techRequired) == RDTech.State.Available;
                     costToResolve = upgrade.entryCost;
                     techToResolve = upgrade.techRequired;
-                    validationError = $"definition {def.Title}: {(canBeResolved ? string.Empty : $"research {techToResolve} and")}purchase the upgrade";
+                    validationError = $"definition {def.Title}: {(canBeResolved ? string.Empty : $"research {techToResolve} and ")}purchase the upgrade";
                 }
             }
 
