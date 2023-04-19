@@ -754,12 +754,12 @@ namespace RealFuels.Tanks
                     availRounded = 0d;
                 string availVolStr = KSPUtil.PrintSI (availRounded, MFSSettings.unitLabel);
                 string volStr = KSPUtil.PrintSI (volume, MFSSettings.unitLabel);
-                volumeDisplay = "Avail: " + availVolStr + " / Tot: " + volStr;
+                volumeDisplay = Localizer.Format("#RF_FuelTank_volumeDisplayinfo1", availVolStr, volStr); // "Avail: " + availVolStr + " / Tot: " + volStr
 
                 double resourceMass = part.Resources.Cast<PartResource> ().Sum (partResource => partResource.maxAmount* partResource.info.density);
 
                 double wetMass = mass + resourceMass;
-                massDisplay = "Dry: " + FormatMass (mass) + " / Wet: " + FormatMass ((float)wetMass);
+                massDisplay = Localizer.Format("#RF_FuelTank_volumeDisplayinfo2", FormatMass(mass), FormatMass((float)wetMass)); // "Dry: " + FormatMass (mass) + " / Wet: " + FormatMass ((float)wetMass)
 
                 UpdateTweakableMenu ();
             }
@@ -836,7 +836,7 @@ namespace RealFuels.Tanks
             massDirty = true;
         }
 
-        [KSPEvent(guiName = "Remove All Tanks", guiActiveEditor = true, name = "Empty", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        [KSPEvent(guiName = "#RF_TankWindow_RemoveAllTanks", guiActiveEditor = true, name = "Empty", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // 
         public void Empty()
         {
             foreach (FuelTank tank in tanksDict.Values)
@@ -1000,7 +1000,7 @@ namespace RealFuels.Tanks
                             name = "MFT" + idx++,
                             guiActive = false,
                             guiActiveEditor = activeEditor,
-                            guiName = $"Fill: {info.title}",
+                            guiName = Localizer.Format("#RF_FuelTank_FillTank", info.title), // $"Fill: {info.title}"
                             groupName = guiGroupName,
                             groupDisplayName = guiGroupDisplayName
                         };
