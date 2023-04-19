@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using KSP.Localization;
 
 /* Sim code largely based on that of EngineIgnitor by HoneyFox (MIT license), just tweaked for
  * speed and persistence and the new use case. */
@@ -32,7 +33,7 @@ namespace RealFuels.Ullage
         double ullageRadialMin, ullageRadialMax;
 
         double propellantStability = 1d;
-        string propellantStatus = "Very Stable";
+        string propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryStable"); // "Very Stable"
         double UT = double.MinValue;
 
         private const double veryStable = 0.996d; // will be clamped above this.
@@ -192,17 +193,17 @@ namespace RealFuels.Ullage
         private void SetStateString()
         {
             if (propellantStability >= veryStable)
-                propellantStatus = "Very Stable";
+                propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryStable"); // "Very Stable"
             else if (propellantStability >= stable)
-                propellantStatus = "Stable";
+                propellantStatus = Localizer.GetStringByTag("#RF_UllageState_Stable"); // "Stable"
             else if (propellantStability >= risky)
-                propellantStatus = "Risky";
+                propellantStatus = Localizer.GetStringByTag("#RF_UllageState_Risky"); // "Risky"
             else if (propellantStability >= veryRisky)
-                propellantStatus = "Very Risky";
+                propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryRisky"); // "Very Risky"
             else if (propellantStability >= unstable)
-                propellantStatus = "Unstable";
+                propellantStatus = Localizer.GetStringByTag("#RF_UllageState_Unstable"); // "Unstable"
             else
-                propellantStatus = "Very Unstable";
+                propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryUnstable"); // "Very Unstable"
             propellantStatus += $" ({propellantStability:P2})";
         }
         public double GetPropellantStability() => propellantStability;

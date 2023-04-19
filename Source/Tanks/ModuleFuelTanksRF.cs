@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KSP.Localization;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,7 +9,7 @@ namespace RealFuels.Tanks
     public partial class ModuleFuelTanks : IAnalyticTemperatureModifier, IAnalyticPreview
     {
         public const string BoiloffGroupName = "RFBoiloffDebug";
-        public const string BoiloffGroupDisplayName = "RF Boiloff";
+        public const string BoiloffGroupDisplayName = "#RF_FuelTankRF_Boiloff"; // "RF Boiloff"
         protected double totalTankArea;
         private double analyticSkinTemp;
         private double analyticInternalTemp;
@@ -17,7 +18,7 @@ namespace RealFuels.Tanks
 
         public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "MLI Layers", guiUnits = "#", guiFormat = "F0"),
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "#RF_FuelTankRF_MLILayers", guiUnits = "#", guiFormat = "F0"), // MLI Layers
         UI_FloatRange(minValue = 0, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
         public float _numberOfAddedMLILayers = 0; // This is the number of layers added by the player.
         public int numberOfAddedMLILayers { get => (int)_numberOfAddedMLILayers; }
@@ -28,19 +29,19 @@ namespace RealFuels.Tanks
         [NonSerialized]
         public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool>();
 
-        [KSPField(guiActiveEditor = true, guiName = "Highly Pressurized?")]
+        [KSPField(guiActiveEditor = true, guiName = "#RF_FuelTankRF_HighlyPressurized")] // Highly Pressurized?
         public bool highlyPressurized = false;
 
-        [KSPField(guiName = "Wall Temp", groupName = BoiloffGroupName, groupDisplayName = BoiloffGroupDisplayName, groupStartCollapsed = true)]
+        [KSPField(guiName = "#RF_FuelTankRF_WallTemp", groupName = BoiloffGroupName, groupDisplayName = BoiloffGroupDisplayName, groupStartCollapsed = true)] // Wall Temp
         public string sWallTemp;
 
-        [KSPField(guiName = "Heat Penetration", groupName = BoiloffGroupName)]
+        [KSPField(guiName = "#RF_FuelTankRF_HeatPenetration", groupName = BoiloffGroupName)] // Heat Penetration
         public string sHeatPenetration;
 
-        [KSPField(guiName = "Boil-off Loss", groupName = BoiloffGroupName)]
+        [KSPField(guiName = "#RF_FuelTankRF_BoiloffLoss", groupName = BoiloffGroupName)] // Boil-off Loss
         public string sBoiloffLoss;
 
-        [KSPField(guiName = "Analytic Cooling", groupName = BoiloffGroupName)]
+        [KSPField(guiName = "#RF_FuelTankRF_AnalyticCooling", groupName = BoiloffGroupName)] // Analytic Cooling
         public string sAnalyticCooling;
 
         private double cooling = 0;
@@ -142,14 +143,14 @@ namespace RealFuels.Tanks
             if (HighLogic.LoadedSceneIsFlight && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW) && SupportsBoiloff &&
                 UIPartActionController.Instance.GetItem(part) != null)
             {
-                string MLIText = totalMLILayers > 0 ? $"{GetMLITransferRate(part.skinTemperature, part.temperature):F4}" : "No MLI";
-                sWallTemp = $"{part.temperature:F4} ({MLIText} * {part.radiativeArea:F2} m2)";
+                string MLIText = totalMLILayers > 0 ? $"{GetMLITransferRate(part.skinTemperature, part.temperature):F4}" : Localizer.GetStringByTag("#RF_FuelTankRF_NoMLI"); // "No MLI"
+                sWallTemp = $"{part.temperature:F4} ({MLIText} * {part.radiativeArea:F2} m2)"; // 
                 sAnalyticCooling = Utilities.FormatFlux(cooling);
 
                 sHeatPenetration = "";
                 sBoiloffLoss = "";
                 foreach (var m in lossInfo)
-                    sBoiloffLoss += $"{m:F4} kg/hr | ";
+                    sBoiloffLoss += $"{m:F4} {Localizer.GetStringByTag("#RF_FuelTankRF_Boiloffunit")} | "; // kg/hr
                 foreach (var Q in fluxInfo)
                     sHeatPenetration += Utilities.FormatFlux(Q) + " | ";
 
@@ -560,7 +561,7 @@ namespace RealFuels.Tanks
             }
             boiloffProducts.Clear();
 
-            return "boiloff product";
+            return Localizer.GetStringByTag("#RF_FuelTankRF_kerbalismtips"); // "boiloff product"
         }
         #endregion
 

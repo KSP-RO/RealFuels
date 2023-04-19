@@ -4,6 +4,7 @@ using System.Reflection;
 using UnityEngine;
 using KSP;
 using SolverEngines;
+using KSP.Localization;
 
 namespace RealFuels
 {
@@ -167,13 +168,13 @@ namespace RealFuels
 
             // if we're not combusting, don't combust and start cooling off
             combusting = running;
-            statusString = "Nominal";
+            statusString = Localizer.GetStringByTag("#RF_EngineRF_Nominal"); // "Nominal"
 
             // ullage check first, overwrite if bad pressure or no propellants
             if (!ullage)
             {
                 combusting = false;
-                statusString = "Vapor in feed line";
+                statusString = Localizer.GetStringByTag("#RF_EngineRF_Vaporinfeedline"); // "Vapor in feed line"
             }
 
             // check fuel flow fraction
@@ -181,19 +182,19 @@ namespace RealFuels
             {
                 combusting = false;
                 // MechJeb's Delta-V analyzer parses this string as a public API to determine SRBs that have run out of fuel vs. flamed out jet-engines
-                statusString = "No propellants";
+                statusString = Localizer.GetStringByTag("#RF_EngineRF_Nopropellants"); // "No propellants"
             }
             // check pressure
             if (!pressure)
             {
                 combusting = false;
-                statusString = "Lack of pressure";
+                statusString = Localizer.GetStringByTag("#RF_EngineRF_Lackofpressure"); // "Lack of pressure"
             }
 
             if (disableUnderwater && underwater)
             {
                 combusting = false;
-                statusString = "Underwater";
+                statusString = Localizer.GetStringByTag("#RF_EngineRF_Underwater"); // "Underwater"
             }
 
             // check flow mult
@@ -201,7 +202,7 @@ namespace RealFuels
             if (fuelFlowMult < flowMultMin)
             {
                 combusting = false;
-                statusString = "Airflow outside specs";
+                statusString = Localizer.GetStringByTag("#RF_EngineRF_Airflowoutsidespecs"); // "Airflow outside specs"
             }
 
             // FIXME handle engine spinning down, non-instant shutoff.

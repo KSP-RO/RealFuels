@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using SolverEngines;
 using System.Linq;
+using KSP.Localization;
 
 namespace RealFuels
 {
     public class ModuleEnginesRF : ModuleEnginesSolver
     {
         public const string groupName = "ModuleEnginesRF";
-        public const string groupDisplayName = "Engine";
+        public const string groupDisplayName = "#RF_Engine_ButtonName"; // Engine
         #region Fields
         [KSPField]
         public double chamberNominalTemp = 0d;
@@ -37,8 +38,8 @@ namespace RealFuels
         [KSPField]
         public double ratedContinuousBurnTime = -1d;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Symmetric Auto-cutoff", groupName = groupName, groupDisplayName = groupDisplayName),
-            UI_Toggle(disabledText = "No", enabledText = "Yes", affectSymCounterparts = UI_Scene.Editor)]
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "#RF_EngineRF_SymmetricAutocutoff", groupName = groupName, groupDisplayName = groupDisplayName), // Symmetric Auto-cutoff
+            UI_Toggle(disabledText = "#RF_disabletext", enabledText = "#RF_enabletext", affectSymCounterparts = UI_Scene.Editor)] // NoYes
         public bool autoCutoff = true;
 
         [KSPField(isPersistant = false)]
@@ -52,7 +53,7 @@ namespace RealFuels
 
         protected Propellant curveProp;
 
-        [KSPField(guiName = "Ignited for ", guiUnits = "s", guiFormat = "F3", groupName = groupName)]
+        [KSPField(guiName = "#RF_EngineRF_IgnitedFor", guiUnits = "s", guiFormat = "F3", groupName = groupName)] // Ignited for 
         public float curveTime = 0f;
         #endregion
 
@@ -78,39 +79,39 @@ namespace RealFuels
         [KSPField(isPersistant = true)]
         protected bool ignited = false;
 
-        [KSPField(guiName = "Tags", guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(guiName = "#RF_EngineRF_Tags", guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)] // Tags
         public string tags;
 
-        [KSPField(guiName = "Propellant", groupName = groupName, groupDisplayName = groupDisplayName)]
-        public string propellantStatus = "Stable";
+        [KSPField(guiName = "#RF_EngineRF_Propellant", groupName = groupName, groupDisplayName = groupDisplayName)] // Propellant
+        public string propellantStatus = Localizer.GetStringByTag("#RF_EngineRF_Stable"); // "Stable"
 
-        [KSPField(guiName = "Mass", guiActiveEditor = true, guiFormat = "F3", guiUnits = "t", groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(guiName = "#RF_EngineRF_Mass", guiActiveEditor = true, guiFormat = "F3", guiUnits = "t", groupName = groupName, groupDisplayName = groupDisplayName)] // Mass
         public float dispMass = 0;
 
-        [KSPField(guiName = "Max Thrust", guiActiveEditor = true, groupName = groupName)]
+        [KSPField(guiName = "#RF_EngineRF_MaxThrust", guiActiveEditor = true, groupName = groupName)] // Max Thrust
         public string sThrust;
 
-        [KSPField(guiName = "Isp", guiActiveEditor = true, groupName = groupName)]
+        [KSPField(guiName = "#RF_Engine_Isp", guiActiveEditor = true, groupName = groupName)] // Isp
         public string sISP;
 
-        [KSPField(guiActive = true, guiActiveEditor = true, guiName = "Predicted Residuals", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(guiActive = true, guiActiveEditor = true, guiName = "#RF_EngineRF_PredictedResiduals", guiFormat = "P2", groupName = groupName, groupDisplayName = groupDisplayName)] // Predicted Residuals
         public double predictedMaximumResidualsGUI = 0d;
 
         public double predictedMaximumResiduals = 0d;
 
-        [KSPField(guiActive = true, guiName = "Mixture Ratio", guiFormat = "F3", groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(guiActive = true, guiName = "#RF_EngineRF_MixtureRatio", guiFormat = "F3", groupName = groupName, groupDisplayName = groupDisplayName)] // Mixture Ratio
         public double currentMixtureRatio = 0d;
 
-        [KSPField(guiName = "Ignitions Remaining", isPersistant = true, groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(guiName = "#RF_EngineRF_IgnitionsRemaining", isPersistant = true, groupName = groupName, groupDisplayName = groupDisplayName)] // Ignitions Remaining
         public int ignitions = -1;
 
-        [KSPField(guiName = "Ignitions Remaining", groupName = groupName)]
+        [KSPField(guiName = "#RF_EngineRF_IgnitionsRemaining", groupName = groupName)] // Ignitions Remaining
         public string sIgnitions = string.Empty;
 
-        [KSPField(guiName = "Min Throttle", guiActiveEditor = true, groupName = groupName, guiFormat = "P0")]
+        [KSPField(guiName = "#RF_EngineRF_MinThrottle", guiActiveEditor = true, groupName = groupName, guiFormat = "P0")] // Min Throttle
         protected float _minThrottle;
 
-        [KSPField(guiName = "Effective Spool-Up Time", groupName = groupName, groupDisplayName = groupDisplayName, guiFormat = "F2", guiUnits = "s")]
+        [KSPField(guiName = "#RF_EngineRF_EffectiveSpoolUpTime", groupName = groupName, groupDisplayName = groupDisplayName, guiFormat = "F2", guiUnits = "s")] // Effective Spool-Up Time
         public float effectiveSpoolUpTime;
 
         [KSPField]
@@ -468,9 +469,9 @@ namespace RealFuels
             Fields[nameof(propellantStatus)].guiActive = Fields[nameof(propellantStatus)].guiActiveEditor = ShowPropStatus;
             Fields[nameof(sIgnitions)].guiActiveEditor = RFSettings.Instance.limitedIgnitions;
 
-            igniteFailIgnitions = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: no ignitions remaining!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
-            igniteFailResources = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: insufficient resources to ignite!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
-            ullageFail = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: vapor in feedlines, shut down!</color>", 5f, ScreenMessageStyle.UPPER_CENTER);
+            igniteFailIgnitions = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: {Localizer.GetStringByTag("#RF_EngineRF_IgnitionsFailmsgs1")}</color>", 5f, ScreenMessageStyle.UPPER_CENTER); // no ignitions remaining!
+            igniteFailResources = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: {Localizer.GetStringByTag("#RF_EngineRF_IgnitionsFailmsgs2")}</color>", 5f, ScreenMessageStyle.UPPER_CENTER); // insufficient resources to ignite!
+            ullageFail = new ScreenMessage($"<color=orange>[{part.partInfo.title}]: {Localizer.GetStringByTag("#RF_EngineRF_IgnitionsFailmsgs3")}</color>", 5f, ScreenMessageStyle.UPPER_CENTER); // vapor in feedlines, shut down!
 
             Fields[nameof(thrustPercentage)].guiActive = Fields[nameof(thrustPercentage)].guiActiveEditor = minFuelFlow != maxFuelFlow;
             Fields[nameof(thrustCurveDisplay)].guiActive = useThrustCurve;
@@ -499,21 +500,21 @@ namespace RealFuels
         private void SetFields()
         {
             _minThrottle = MinThrottle;
-            tags = pressureFed ? "<color=orange>Pressure-Fed</color>" : string.Empty;
+            tags = pressureFed ? $"<color=orange>{Localizer.GetStringByTag("#RF_EngineRF_PressureFed")}</color>" : string.Empty; // Pressure-Fed
             if (ullage)
             {
                 tags += pressureFed ? ", " : string.Empty;
-                tags += "<color=yellow>Ullage</color>";
+                tags += $"<color=yellow>{Localizer.GetStringByTag("#RF_EngineRF_Ullage")}</color>"; // Ullage
             }
-            sISP = $"{atmosphereCurve.Evaluate(1):N0} (ASL) - {atmosphereCurve.Evaluate(0):N0} (Vac)";
+            sISP = $"{atmosphereCurve.Evaluate(1):N0} (ASL) - {atmosphereCurve.Evaluate(0):N0} (Vac)"; // 
             GetThrustData(out double thrustVac, out double thrustASL);
-            sThrust = $"{Utilities.FormatThrust(thrustASL)} (ASL) - {Utilities.FormatThrust(thrustVac)} (Vac)";
+            sThrust = $"{Utilities.FormatThrust(thrustASL)} (ASL) - {Utilities.FormatThrust(thrustVac)} (Vac)"; // 
             if (ignitions > 0)
                 sIgnitions = $"{ignitions:N0}";
             else if (ignitions == -1)
-                sIgnitions = "Unlimited";
+                sIgnitions = Localizer.GetStringByTag("#RF_EngineRF_IgnitionUnlimited"); // "Unlimited"
             else
-                sIgnitions = "<color=yellow>Ground Support Clamps</color>";
+                sIgnitions = $"<color=yellow>{Localizer.GetStringByTag("#RF_EngineRF_GroundSupportClamps")}</color>"; // Ground Support Clamps
 
             dispMass = part.mass;
         }
@@ -527,7 +528,7 @@ namespace RealFuels
                 ullageSet.EditorPressurized();
 
             if (pressureFed && !ullageSet.PressureOK())
-                propellantStatus = "<color=red>Needs high pressure tanks</color>";
+                propellantStatus = $"<color=red>{Localizer.GetStringByTag("#RF_EngineRF_Needshighpressuretanks")}</color>"; // Needs high pressure tanks
             else if (HighLogic.LoadedSceneIsFlight)
             {
                 if (!ignited && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant && (
@@ -543,7 +544,7 @@ namespace RealFuels
                 }
             }
             else
-                propellantStatus = pressureFed ? "Feed pressure OK" : "Nominal";
+                propellantStatus = pressureFed ? Localizer.GetStringByTag("#RF_EngineRF_FeedPressureOK") : Localizer.GetStringByTag("#RF_EngineRF_Nominal"); // "Feed pressure OK""Nominal"
         }
 
         public virtual void CalcThrottleResponseRate(ref float responseRate, ref bool instant)
@@ -656,7 +657,7 @@ namespace RealFuels
             }
             if (!shieldedCanActivate && part.ShieldedFromAirstream)
             {
-                ScreenMessages.PostScreenMessage($"<color=orange>[{part.partInfo.title}]: Cannot activate while stowed!</color>", 6f, ScreenMessageStyle.UPPER_LEFT);
+                ScreenMessages.PostScreenMessage($"<color=orange>[{part.partInfo.title}]: {Localizer.GetStringByTag("#RF_EngineRF_ShieldFailmsg")}</color>", 6f, ScreenMessageStyle.UPPER_LEFT); // Cannot activate while stowed!
                 return;
             }
 
@@ -703,13 +704,13 @@ namespace RealFuels
                             reignitable = false;
                             ullageOK = false;
                             ignited = false;
-                            Flameout("Vapor in feed line");
+                            Flameout(Localizer.GetStringByTag("#RF_EngineRF_Vaporinfeedline")); // "Vapor in feed line"
                         }
                     }
                 }
                 if (!ullageSet.PressureOK())
                 {
-                    Flameout("Lack of pressure", false, ignited);
+                    Flameout(Localizer.GetStringByTag("#RF_EngineRF_Lackofpressure"), false, ignited); // "Lack of pressure"
                     ignited = false;
                     reignitable = false;
                 }
@@ -749,7 +750,7 @@ namespace RealFuels
                         ModuleEnginesRF otherMERF = p.Modules[idx] as ModuleEnginesRF;
                         if (otherMERF != null && otherMERF.ignited)
                         {
-                            otherMERF.Flameout("No propellants", false, otherMERF.ignited);
+                            otherMERF.Flameout(Localizer.GetStringByTag("#RF_EngineRF_Nopropellants"), false, otherMERF.ignited); // "No propellants"
                             otherMERF.ignited = false;
                             otherMERF.reignitable = false;
                         }
@@ -771,10 +772,10 @@ namespace RealFuels
         #region Info
         protected string ThrottleString()
         {
-            if (throttleLocked) { return ", throttle locked"; }
-            if (MinThrottle == 1f) { return ", unthrottleable"; }
+            if (throttleLocked) { return ", throttle locked"; } // 
+            if (MinThrottle == 1f) { return ", unthrottleable"; } // 
             if (MinThrottle < 0f || MinThrottle > 1f) { return string.Empty; }
-            return $", {MinThrottle:P0} min throttle";
+            return $", {MinThrottle:P0} min throttle"; // 
         }
 
         protected void GetThrustData(out double thrustVac, out double thrustASL)
@@ -824,50 +825,50 @@ namespace RealFuels
             {
                 if (throttleLocked || MinThrottle == 1f)
                 {
-                    output += $"<b>Static Thrust: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##}), {(throttleLocked ? "throttle locked" : "unthrottleable")}\n";
+                    output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_StaticThrust")}: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##}), {(throttleLocked ? Localizer.GetStringByTag("#RF_EngineRF_throttlelocked") : Localizer.GetStringByTag("#RF_EngineRF_unthrottleable"))}\n"; // Static Thrust / "throttle locked""unthrottleable"
                 }
                 else
                 {
-                    output += $"{MinThrottle:P0} min throttle\n";
-                    output += $"<b>Max. Static Thrust: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##})\n";
-                    output += $"<b>Min. Static Thrust: </b>{Utilities.FormatThrust(thrustASL * MinThrottle)} (TWR {thrustASL * MinThrottle / weight:0.0##})\n";
+                    output += $"{MinThrottle:P0} {Localizer.GetStringByTag("#RF_EngineRF_MinThrottle")}\n"; // min throttle
+                    output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MaxStaticThrust")}: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##})\n"; // Max. Static Thrust
+                    output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MinStaticThrust")}: </b>{Utilities.FormatThrust(thrustASL * MinThrottle)} (TWR {thrustASL * MinThrottle / weight:0.0##})\n"; // Min. Static Thrust
                 }
 
                 if (useVelCurve) // if thrust changes with mach
                 {
                     velCurve.FindMinMaxValue(out float vMin, out float vMax, out float tMin, out float tMax); // get the max mult, and thus report maximum thrust possible.
-                    output += $"<b>Max. Thrust: </b>{Utilities.FormatThrust(thrustASL * vMax)} at Mach {tMax:0.#} (TWR {thrustASL * vMax / weight:0.0##})\n";
+                    output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MaxThrust_velcurve")}: {Localizer.Format("#RF_EngineRF_MaxThrust_atMach", Utilities.FormatThrust(thrustASL * vMax), $"{tMax:0.#}")}</b> (TWR {thrustASL * vMax / weight:0.0##})\n"; // Max. Thrust | {Utilities.FormatThrust(thrustASL * vMax)} at Mach {tMax:0.#}
                 }
             }
             else
             {
                 if (throttleLocked || MinThrottle == 1f)
                 {
-                    var suffix = throttleLocked ? "throttle locked" : "unthrottleable";
+                    var suffix = throttleLocked ? Localizer.GetStringByTag("#RF_EngineRF_throttlelocked") : Localizer.GetStringByTag("#RF_EngineRF_unthrottleable"); // "throttle locked""unthrottleable"
                     if (thrustASL != thrustVac)
                     {
-                        output += $"<b>Thrust (Vac): </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##}), {suffix}\n";
-                        output += $"<b>Thrust (ASL): </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##}), {suffix}\n";
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_ThrustInVac")}: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##}), {suffix}\n"; // Thrust (Vac)
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_ThrustInASL")}: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##}), {suffix}\n"; // Thrust (ASL)
                     }
                     else
                     {
-                        output += $"<b>Thrust: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##}), {suffix}\n";
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_Thrust")}: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##}), {suffix}\n"; // Thrust
                     }
                 }
                 else
                 {
-                    output += $"{MinThrottle:P0} min throttle\n";
+                    output += $"{MinThrottle:P0} {Localizer.GetStringByTag("#RF_EngineRF_MinThrottle")}\n"; // min throttle
                     if (thrustASL != thrustVac)
                     {
-                        output += $"<b>Max. Thrust (Vac): </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##})\n";
-                        output += $"<b>Max. Thrust (ASL): </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##})\n";
-                        output += $"<b>Min. Thrust (Vac): </b>{Utilities.FormatThrust(thrustVac * MinThrottle)} (TWR {thrustVac * MinThrottle / weight:0.0##})\n";
-                        output += $"<b>Min. Thrust (ASL): </b>{Utilities.FormatThrust(thrustASL * MinThrottle)} (TWR {thrustASL * MinThrottle / weight:0.0##})\n";
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MAXThrustInVac")}: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##})\n"; //Max. Thrust (Vac) 
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MAXThrustInASL")}: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##})\n"; //Max. Thrust (ASL) 
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MINThrustInVac")}: </b>{Utilities.FormatThrust(thrustVac * MinThrottle)} (TWR {thrustVac * MinThrottle / weight:0.0##})\n"; // Min. Thrust (Vac)
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MINThrustInASL")}: </b>{Utilities.FormatThrust(thrustASL * MinThrottle)} (TWR {thrustASL * MinThrottle / weight:0.0##})\n"; // Min. Thrust (ASL)
                     }
                     else
                     {
-                        output += $"<b>Max. Thrust: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##})\n";
-                        output += $"<b>Min. Thrust: </b>{Utilities.FormatThrust(thrustVac * MinThrottle)} (TWR {thrustVac * MinThrottle / weight:0.0##})\n";
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MaxThrust_velcurve")}: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##})\n"; // Max. Thrust
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MinThrust_velcurve")}: </b>{Utilities.FormatThrust(thrustVac * MinThrottle)} (TWR {thrustVac * MinThrottle / weight:0.0##})\n"; // Min. Thrust
                     }
                 }
             }
@@ -876,7 +877,7 @@ namespace RealFuels
 
         public override string GetModuleTitle()
         {
-            return "Engine (RealFuels)";
+            return Localizer.GetStringByTag("#RF_EngineRF_EngineRealFuels"); // "Engine (RealFuels)"
         }
         public override string GetPrimaryField()
         {
@@ -884,9 +885,9 @@ namespace RealFuels
         }
         public string GetUllageIgnition()
         {
-            string output = pressureFed ? "Pressure-fed" : string.Empty;
-            output += (output != string.Empty ? ", " : string.Empty) + "Ignitions: " + ((!RFSettings.Instance.limitedIgnitions || ignitions < 0) ? "Unlimited" : (ignitions > 0 ? ignitions.ToString() : "Ground Support Clamps"));
-            output += (output != string.Empty ? ", " : string.Empty) + (ullage ? "Subject" : "Not subject") + " to ullage";
+            string output = pressureFed ? Localizer.GetStringByTag("#RF_EngineRF_PressureFed") : string.Empty; // "Pressure-fed"
+            output += (output != string.Empty ? ", " : string.Empty) + $"{Localizer.GetStringByTag("#RF_EngineRF_Ignitions")}: " + ((!RFSettings.Instance.limitedIgnitions || ignitions < 0) ? Localizer.GetStringByTag("#RF_EngineRF_IgnitionUnlimited") : (ignitions > 0 ? ignitions.ToString() : Localizer.GetStringByTag("#RF_EngineRF_GroundSupportClamps"))); // Ignitions"Unlimited""Ground Support Clamps"
+            output += (output != string.Empty ? ", " : string.Empty) + (ullage ? Localizer.GetStringByTag("#RF_EngineRF_ullage_Subject") : Localizer.GetStringByTag("#RF_EngineRF_ullage_NotSubject")); // "Subject""Not subject" + " to ullage"
             output += "\n";
 
             return output;
@@ -895,17 +896,17 @@ namespace RealFuels
         public override string GetInfo()
         {
             string output = $"{GetThrustInfo()}" +
-                $"<b>Engine Isp: </b>{atmosphereCurve.Evaluate(1):0.###} (ASL) - {atmosphereCurve.Evaluate(0):0.###} (Vac.)\n";
+                $"<b>{Localizer.GetStringByTag("#RF_EngineRF_GetInfo1")}: </b>{atmosphereCurve.Evaluate(1):0.###} (ASL) - {atmosphereCurve.Evaluate(0):0.###} (Vac.)\n"; // Engine Isp
             output += $"{GetUllageIgnition()}\n";
             if (ratedBurnTime > 0d)
             {
-                output += "<b>Rated Burn Time: </b>";
+                output += $"<b>{Localizer.GetStringByTag("#RF_Engine_RatedBurnTime")}: </b>"; // Rated Burn Time
                 if (ratedContinuousBurnTime > 0d)
                     output += $"{ratedContinuousBurnTime.ToString("F0")}/{ratedBurnTime.ToString("F0")}s\n";
                 else
                     output += $"{ratedBurnTime.ToString("F0")}s\n";
             }
-            output += $"<b><color=#99ff00ff>Propellants:</color></b>\n";
+            output += $"<b><color=#99ff00ff>{Localizer.GetStringByTag("#RF_EngineRF_GetInfo2")}:</color></b>\n"; // Propellants
 
             foreach (Propellant p in propellants)
             {
@@ -915,14 +916,14 @@ namespace RealFuels
                 string sUse = $"{unitsSec:G4}{units}{rate}";
                 if (PartResourceLibrary.Instance?.GetDefinition(p.name) is PartResourceDefinition def && def.density > 0)
                     sUse += $" ({unitsSec * def.density * 1000f:G4} kg{rate})";
-                output += $"- <b>{KSPUtil.PrintModuleName(p.name)}</b>: {sUse} maximum.\n";
+                output += $"- <b>{KSPUtil.PrintModuleName(p.name)}</b>: {Localizer.Format("#RF_EngineRF_maximumUses", sUse)}.\n"; // {sUse} maximum
                 output += $"{p.GetFlowModeDescription()}";
             }
-            output += $"<b>Variance: </b>{localVaryIsp:P2} Isp, {localVaryFlow:P1} flow, {localVaryMixture:P2} MR (stddev).\n";
-            output += $"<b>Residuals: min </b>{localResidualsThresholdBase:P1} of propellant.\n";
+            output += Localizer.Format("#RF_EngineRF_GetInfo3", $"{localVaryIsp:P2}", $"{localVaryFlow:P1}", $"{localVaryMixture:P2}"); // $"<b>Variance: </b>{localVaryIsp:P2} Isp, {localVaryFlow:P1} flow, {localVaryMixture:P2} MR (stddev).\n"
+            output += Localizer.Format("#RF_EngineRF_GetInfo4", $"{localResidualsThresholdBase:P1}"); // $"<b>Residuals: min </b>{localResidualsThresholdBase:P1} of propellant.\n"
 
-            if (!allowShutdown) output += "\n<b><color=orange>Engine cannot be shut down!</color></b>";
-            if (!allowRestart) output += "\n<b><color=orange>If shutdown, engine cannot restart.</color></b>";
+            if (!allowShutdown) output += $"\n<b><color=orange>{Localizer.GetStringByTag("#RF_EngineRF_GetInfo5")}</color></b>"; // Engine cannot be shut down!
+            if (!allowRestart) output += $"\n<b><color=orange>{Localizer.GetStringByTag("#RF_EngineRF_GetInfo6")}</color></b>"; // If shutdown, engine cannot restart.
 
             currentThrottle = 0f;
 
@@ -944,7 +945,7 @@ namespace RealFuels
                         EngineIgnited = false; // don't play shutdown FX, just fail.
                         ScreenMessages.PostScreenMessage(igniteFailIgnitions);
                         FlightLogger.fetch.LogEvent($"[{FormatTime(vessel.missionTime)}] {igniteFailIgnitions.message}");
-                        Flameout("Ignition failed");
+                        Flameout(Localizer.GetStringByTag("#RF_EngineRF_Ignitionfailed")); // "Ignition failed"
                         return;
                     }
                     else
@@ -977,7 +978,7 @@ namespace RealFuels
                                     EngineIgnited = false; // don't play shutdown FX, just fail.
                                     ScreenMessages.PostScreenMessage(igniteFailResources);
                                     FlightLogger.fetch.LogEvent($"[{FormatTime(vessel.missionTime)}] {igniteFailResources.message}");
-                                    Flameout("Ignition failed"); // yes play FX
+                                    Flameout(Localizer.GetStringByTag("#RF_EngineRF_Ignitionfailed")); // "Ignition failed"  // yes play FX
                                     return;
                                 }
                             }

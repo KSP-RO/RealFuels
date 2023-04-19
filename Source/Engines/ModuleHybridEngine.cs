@@ -1,9 +1,10 @@
+using KSP.Localization;
 namespace RealFuels
 {
     public class ModuleHybridEngine : ModuleEngineConfigsBase
     {
-        public override string GUIButtonName => "Multi-Mode Engine";
-        public override string EditorDescription => "Select a default configuration. You can cycle through all other configurations in flight.";
+        public override string GUIButtonName => Localizer.GetStringByTag("#RF_HybridEngine_ButtonName"); // "Multi-Mode Engine"
+        public override string EditorDescription => Localizer.GetStringByTag("#RF_HybridEngine_ButtonName_desc"); // "Select a default configuration. You can cycle through all other configurations in flight."
         ModuleEngines ActiveEngine = null;
 
         public override void OnLoad(ConfigNode node)
@@ -18,10 +19,10 @@ namespace RealFuels
             }
         }
 
-        [KSPAction("Switch Engine Mode")]
+        [KSPAction("#RF_HybridEngine_SwitchEngineMode")] // Switch Engine Mode
         public void SwitchAction(KSPActionParam _) => SwitchEngine();
 
-        [KSPEvent(guiActive = true, guiName = "Switch Engine Mode")]
+        [KSPEvent(guiActive = true, guiName = "#RF_HybridEngine_SwitchEngineMode")] // Switch Engine Mode
         public void SwitchEngine()
         {
             ConfigNode currentConfig = GetConfigByName(configuration);
