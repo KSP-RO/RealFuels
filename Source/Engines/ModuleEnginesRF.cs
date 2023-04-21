@@ -877,7 +877,11 @@ namespace RealFuels
 
         public override string GetModuleTitle()
         {
-            return Localizer.GetStringByTag("#RF_EngineRF_EngineRealFuels"); // "Engine (RealFuels)"
+            return "Engine (RealFuels)";
+        }
+        public override string GetModuleDisplayName()
+        {
+            return Localizer.GetStringByTag("#RF_EngineRF_EngineRealFuels");
         }
         public override string GetPrimaryField()
         {

@@ -273,7 +273,8 @@ namespace RealFuels.Tanks
 
         public Callback<Rect> GetDrawModulePanelCallback() => null;
 
-        public string GetModuleTitle() => Localizer.GetStringByTag("#RF_FuelTank_ModularFuelTank"); // "Modular Fuel Tank"
+        public string GetModuleTitle() => "Modular Fuel Tank";
+        public override string GetModuleDisplayName() => Localizer.GetStringByTag("#RF_FuelTank_ModularFuelTank");
 
         public override void OnStart(StartState state)
         {
