@@ -949,6 +949,8 @@ namespace RealFuels.Tanks
 
         public void UpdateUsedBy()
         {
+            if (!HighLogic.LoadedSceneIsEditor) return;
+
             usedBy.Clear();
             usedByTanks.Clear();
 
