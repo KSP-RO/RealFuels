@@ -371,12 +371,15 @@ namespace RealFuels
                         localVaryResiduals = 0d;
                 }
 
-                if (ignitions == -1 || ignitions > 4)
-                    localResidualsThresholdBase *= 2d;
-                else if (ignitions == 0)
-                    localResidualsThresholdBase *= 0.8d;
-                else
-                    localResidualsThresholdBase *= (1d + (ignitions - 1) * 0.25d);
+                if (residualsThresholdBase < 0d)
+                {
+                    if (ignitions == -1 || ignitions > 4)
+                        localResidualsThresholdBase *= 2d;
+                    else if (ignitions == 0)
+                        localResidualsThresholdBase *= 0.8d;
+                    else
+                        localResidualsThresholdBase *= (1d + (ignitions - 1) * 0.25d);
+                }
             }
             // Double-check mixture variance makes sense
             if (numRealPropellants != 2)
