@@ -7,6 +7,7 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 using RealFuels.TechLevels;
 using KSP.UI.Screens;
+using KSP.Localization;
 
 namespace RealFuels
 {
@@ -30,18 +31,18 @@ namespace RealFuels
         public string Info()
         {
             if (new[] { gimbalRange, gimbalRangeXP, gimbalRangeXN, gimbalRangeYP, gimbalRangeYN }.Distinct().Count() == 1)
-                return $"{gimbalRange:N1}d";
+                return $"{gimbalRange:N1}d"; // 
             if (new[] { gimbalRangeXP, gimbalRangeXN, gimbalRangeYP, gimbalRangeYN }.Distinct().Count() == 1)
-                return $"{gimbalRangeXP:N1}d";
+                return $"{gimbalRangeXP:N1}d"; // 
             var ret = string.Empty;
             if (gimbalRangeXP == gimbalRangeXN)
-                ret += $"{gimbalRangeXP:N1}d pitch, ";
+                ret += $"{gimbalRangeXP:N1}d pitch, "; // 
             else
-                ret += $"+{gimbalRangeXP:N1}d/-{gimbalRangeXN:N1}d pitch, ";
+                ret += $"+{gimbalRangeXP:N1}d/-{gimbalRangeXN:N1}d pitch, "; // 
             if (gimbalRangeYP == gimbalRangeYN)
-                ret += $"{gimbalRangeYP:N1}d yaw";
+                ret += $"{gimbalRangeYP:N1}d yaw"; // 
             else
-                ret += $"+{gimbalRangeYP:N1}d/-{gimbalRangeYN:N1}d yaw";
+                ret += $"+{gimbalRangeYP:N1}d/-{gimbalRangeYN:N1}d yaw"; // 
             return ret;
         }
     }
@@ -152,7 +153,7 @@ namespace RealFuels
                 return node.GetValue("displayName");
             var name = node.GetValue("name");
             if (!node.HasValue(PatchNameKey))
-                return name;
+                 return name;
             return $"{name} [Subconfig {node.GetValue(PatchNameKey)}]";
         }
 
@@ -195,7 +196,7 @@ namespace RealFuels
 
         //protected const string groupName = "ModuleEngineConfigs";
         public const string groupName = ModuleEnginesRF.groupName;
-        public const string groupDisplayName = "Engine Configs";
+        public const string groupDisplayName = "#RF_Engine_EngineConfigs"; // "Engine Configs"
         #region Fields
         protected bool compatible = true;
 
@@ -203,7 +204,7 @@ namespace RealFuels
         public string configuration = string.Empty;
 
         // For display purposes only.
-        [KSPField(guiName = "Configuration", isPersistant = true, guiActiveEditor = true, guiActive = true,
+        [KSPField(guiName = "#RF_Engine_Configuration", isPersistant = true, guiActiveEditor = true, guiActive = true, // Configuration
             groupName = groupName, groupDisplayName = groupDisplayName)]
         public string configurationDisplay = string.Empty;
 
@@ -465,7 +466,7 @@ namespace RealFuels
             var field = module.Fields["thrusterPower"];
             field.guiActive = true;
             field.guiActiveEditor = true;
-            field.guiName = "Thruster Power";
+            field.guiName = Localizer.GetStringByTag("#RF_Engine_ThrusterPower"); // Thruster Power
             field.guiUnits = "kN";
             field.group = new BasePAWGroup(groupName, groupDisplayName, false);
         }
@@ -564,9 +565,9 @@ namespace RealFuels
         {
             string retStr = string.Empty;
             if (engineID != string.Empty)
-                retStr += $"(Bound to {engineID})\n";
+                retStr += $"{Localizer.Format("#RF_Engine_BoundToEngineID", engineID)}\n"; // (Bound to {engineID})
             if (moduleIndex >= 0)
-                retStr += $"(Bound to engine {moduleIndex} in part)\n";
+                retStr += $"{Localizer.Format("#RF_Engine_BoundToModuleIndex", moduleIndex)}\n"; // (Bound to engine {moduleIndex} in part)
             if (techLevel != -1)
             {
                 TechLevel cTL = new TechLevel();
@@ -576,11 +577,11 @@ namespace RealFuels
                 if (!string.IsNullOrEmpty(configDescription))
                     retStr += configDescription + "\n";
 
-                retStr += $"Type: {engineType}. Tech Level: {techLevel} ({origTechLevel}-{maxTechLevel})";
+                retStr += $"{Localizer.GetStringByTag("#RF_Engine_TLTInfo_Type")}: {engineType}. {Localizer.GetStringByTag("#RF_Engine_TLTInfo_TechLevel")}: {techLevel} ({origTechLevel}-{maxTechLevel})"; // TypeTech Level
                 if (origMass > 0)
-                    retStr += $", Mass: {part.mass:N3} (was {origMass * RFSettings.Instance.EngineMassMultiplier:N3})";
+                    retStr += $", {Localizer.Format("#RF_Engine_TLTInfo_OrigMass", $"{part.mass:N3}", $"{origMass * RFSettings.Instance.EngineMassMultiplier:N3}")}"; // Mass: {part.mass:N3} (was {origMass * RFSettings.Instance.EngineMassMultiplier:N3})
                 if (configThrottle >= 0)
-                    retStr += $", MinThr {configThrottle:P0}";
+                    retStr += $", {Localizer.GetStringByTag("#RF_Engine_TLTInfo_MinThrust")} {configThrottle:P0}"; // MinThr
 
                 float gimbalR = -1f;
                 if (config.HasValue("gimbalRange"))
@@ -591,13 +592,12 @@ namespace RealFuels
                         gimbalR = cTL.GimbalRange;
                 }
                 if (gimbalR != -1f)
-                    retStr += $", Gimbal {gimbalR:N1}";
+                    retStr += $", {Localizer.GetStringByTag("#RF_Engine_TLTInfo_Gimbal")} {gimbalR:N1}"; // Gimbal
             }
             return retStr;
         }
 
         virtual public string GetConfigDisplayName(ConfigNode node) => node.GetValue("name");
-
         public override string GetInfo()
         {
             if (!compatible)
@@ -606,7 +606,7 @@ namespace RealFuels
             if (configsToDisplay.Count < 2)
                 return TLTInfo();
 
-            string info = TLTInfo() + "\nAlternate configurations:\n";
+            string info = TLTInfo() + $"\n{Localizer.GetStringByTag("#RF_Engine_AlternateConfigurations")}:\n"; // Alternate configurations
 
             foreach (ConfigNode config in configsToDisplay)
                 if (!config.GetValue("name").Equals(configuration))
@@ -634,12 +634,12 @@ namespace RealFuels
                 info.Append($"  {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}");
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
-                    info.Append($", min {float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)):P0}");
+                    info.Append($", {Localizer.GetStringByTag("#RF_Engine_minThrustInfo")} {float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)):P0}"); //min
                 else if (config.HasValue("throttle"))
-                    info.Append($", min {float.Parse(config.GetValue("throttle")):P0}");
+                    info.Append($", {Localizer.GetStringByTag("#RF_Engine_minThrustInfo")} {float.Parse(config.GetValue("throttle")):P0}"); // min
             }
             else
-                info.Append("  Unknown Thrust");
+                info.Append($"  {Localizer.GetStringByTag("#RF_Engine_UnknownThrust")}"); // Unknown Thrust
 
             if (origMass > 0f)
             {
@@ -655,7 +655,7 @@ namespace RealFuels
             {
                 FloatCurve isp = new FloatCurve();
                 isp.Load(config.GetNode("atmosphereCurve"));
-                info.Append($"  Isp: {isp.Evaluate(isp.maxTime)} - {isp.Evaluate(isp.minTime)}s\n");
+                info.Append($"  {Localizer.GetStringByTag("#RF_Engine_Isp")}: {isp.Evaluate(isp.maxTime)} - {isp.Evaluate(isp.minTime)}s\n"); // Isp
             }
             else if (config.HasValue("IspSL") && config.HasValue("IspV") && cTL != null)
             {
@@ -663,15 +663,15 @@ namespace RealFuels
                 float.TryParse(config.GetValue("IspV"), out float ispV);
                 ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
                 ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                info.Append($"  Isp: {ispSL:N0} - {ispV:N0}s\n");
+                info.Append($"  {Localizer.GetStringByTag("#RF_Engine_Isp")}: {ispSL:N0} - {ispV:N0}s\n"); // Isp
             }
 
             if (config.HasValue("ratedBurnTime"))
             {
                 if (config.HasValue("ratedContinuousBurnTime"))
-                    info.Append($"  Rated burn time: {config.GetValue("ratedContinuousBurnTime")}/{config.GetValue("ratedBurnTime")}s\n");
+                    info.Append($"  {Localizer.GetStringByTag("#RF_Engine_RatedBurnTime")}: {config.GetValue("ratedContinuousBurnTime")}/{config.GetValue("ratedBurnTime")}s\n"); // Rated burn time
                 else
-                    info.Append($"  Rated burn time: {config.GetValue("ratedBurnTime")}s\n");
+                    info.Append($"  {Localizer.GetStringByTag("#RF_Engine_RatedBurnTime")}: {config.GetValue("ratedBurnTime")}s\n"); // Rated burn time
             }
 
             if (part.HasModuleImplementing<ModuleGimbal>())
@@ -680,7 +680,7 @@ namespace RealFuels
                 {
                     foreach (KeyValuePair<string, Gimbal> kv in ExtractGimbals(config))
                     {
-                        info.Append($"  Gimbal ({kv.Key}): {kv.Value.Info()}\n");
+                        info.Append($"  {Localizer.GetStringByTag("#RF_Engine_TLTInfo_Gimbal")} ({kv.Key}): {kv.Value.Info()}\n"); // Gimbal
                     }
                 }
                 else if (config.HasValue("gimbalRange"))
@@ -689,7 +689,7 @@ namespace RealFuels
                     // transform or all the gimbal transforms on the part. Either way, the values
                     // are all the same, so just take the first one.
                     var gimbal = ExtractGimbals(config).Values.First();
-                    info.Append($"  Gimbal {gimbal.Info()}\n");
+                    info.Append($"  Gimbal {gimbal.Info()}\n"); // 
                 }
             }
 
@@ -699,14 +699,14 @@ namespace RealFuels
                 bool comma = false;
                 if (config.HasValue("ullage"))
                 {
-                    info.Append(config.GetValue("ullage").ToLower() == "true" ? "ullage" : "no ullage");
+                    info.Append(config.GetValue("ullage").ToLower() == "true" ? Localizer.GetStringByTag("#RF_Engine_ullage") : Localizer.GetStringByTag("#RF_Engine_NoUllage")); // "ullage""no ullage"
                     comma = true;
                 }
                 if (config.HasValue("pressureFed") && config.GetValue("pressureFed").ToLower() == "true")
                 {
                     if (comma)
                         info.Append(", ");
-                    info.Append("pfed");
+                    info.Append(Localizer.GetStringByTag("#RF_Engine_pressureFed")); // "pfed"
                     comma = true;
                 }
 
@@ -717,17 +717,17 @@ namespace RealFuels
                         if (comma)
                             info.Append(", ");
                         if (ignitions > 0)
-                            info.Append($"{ignitions} ignition{(ignitions > 1 ? "s" : string.Empty)}");
+                            info.Append(Localizer.Format("#RF_Engine_ignitionsleft", ignitions)); // $"{ignitions} ignition{(ignitions > 1 ? "s" : string.Empty)}"
                         else if (literalZeroIgnitions && ignitions == 0)
-                            info.Append("ground ignition only");
+                            info.Append(Localizer.GetStringByTag("#RF_Engine_GroundIgnitionOnly")); // "ground ignition only"
                         else
-                            info.Append("unl. ignitions");
+                            info.Append(Localizer.GetStringByTag("#RF_Engine_unlignitions")); // "unl. ignitions"
                     }
                 }
                 info.Append("\n");
             }
             if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out float cst))
-                info.Append($"  ({scale * cst:N0} extra cost)\n"); // FIXME should get cost from TL, but this should be safe
+                info.Append($"  ({scale * cst:N0} {Localizer.GetStringByTag("#RF_Engine_extraCost")} )\n"); // extra cost// FIXME should get cost from TL, but this should be safe
 
             if (addDescription && config.HasValue("description"))
                 info.Append($"\n  {config.GetValue("description")}\n");
@@ -1350,10 +1350,10 @@ namespace RealFuels
         #endregion
 
         #region GUI
-        public virtual string GUIButtonName => "Engine";
-        public virtual string EditorDescription => "Select a configuration for this engine.";
-        [KSPField(guiActiveEditor = true, guiName = "Engine", groupName = groupName),
-         UI_Toggle(enabledText = "Hide GUI", disabledText = "Show GUI")]
+        public virtual string GUIButtonName => Localizer.GetStringByTag("#RF_Engine_ButtonName"); // "Engine"
+        public virtual string EditorDescription => Localizer.GetStringByTag("#RF_Engine_ButtonName_desc"); // "Select a configuration for this engine."
+        [KSPField(guiActiveEditor = true, guiName = "#RF_Engine_ButtonName", groupName = groupName), // Engine
+         UI_Toggle(enabledText = "#RF_Engine_GUIHide", disabledText = "#RF_Engine_GUIShow")] // Hide GUIShow GUI
         [NonSerialized]
         public bool showRFGUI;
 
@@ -1421,7 +1421,7 @@ namespace RealFuels
                 GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, toolTipWidth, toolTipHeight), myToolTip, Styles.styleEditorTooltip);
             }
 
-            guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, EngineManagerGUI, "Configure " + part.partInfo.title, Styles.styleEditorPanel);
+            guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, EngineManagerGUI, Localizer.Format("#RF_Engine_WindowTitle", part.partInfo.title), Styles.styleEditorPanel); // "Configure " + part.partInfo.title
         }
 
         private void EditorLock()
@@ -1483,9 +1483,9 @@ namespace RealFuels
                     // Currently selected.
                     if (isSelected)
                     {
-                        GUILayout.Label(new GUIContent($"Current config: {dispName}{costString}", configInfo));
+                        GUILayout.Label(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_CurrentConfig")}: {dispName}{costString}", configInfo)); // Current config
                     }
-                    else if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                    else if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_ConfigSwitch")} {dispName}{costString}", configInfo))) // Switch to
                         apply(nName);
 
                     if (!UnlockedConfig(node, part))
@@ -1502,11 +1502,11 @@ namespace RealFuels
                         string tooltip = string.Empty;
                         if (!isConfigAvailable && techNameToTitle.TryGetValue(techRequired, out string techStr))
                         {
-                            tooltip = $"Lacks tech for {techStr}";
+                            tooltip = Localizer.Format("#RF_Engine_LacksTech", techStr); // $"Lacks tech for {techStr}"
                         }
 
                         GUI.enabled = isConfigAvailable;
-                        if (GUILayout.Button(new GUIContent($"Purchase ({upgradeCost:N0}f)", tooltip), GUILayout.Width(145)))
+                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_Purchase")} ({upgradeCost:N0}f)", tooltip), GUILayout.Width(145))) // Purchase
                         {
                             if (EntryCostManager.Instance.PurchaseConfig(nName, node.GetValue("techRequired")))
                                 apply(nName);
@@ -1519,7 +1519,7 @@ namespace RealFuels
                     // Currently selected.
                     if (isSelected)
                     {
-                        GUILayout.Label(new GUIContent($"Current config: {dispName}{costString}", configInfo));
+                        GUILayout.Label(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_CurrentConfig")}: {dispName}{costString}", configInfo)); // Current config
                         return;
                     }
 
@@ -1527,15 +1527,15 @@ namespace RealFuels
                     if (!CanConfig(node))
                     {
                         if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
-                            techStr = "\nRequires: " + techStr;
-                        GUILayout.Label(new GUIContent($"Lacks tech for {dispName}", configInfo + techStr));
+                            techStr = $"\n{Localizer.GetStringByTag("#RF_Engine_Requires")}: " + techStr; // Requires
+                        GUILayout.Label(new GUIContent(Localizer.Format("#RF_Engine_LacksTech", dispName), configInfo + techStr)); // $"Lacks tech for {dispName}"
                         return;
                     }
 
                     // Available.
                     if (UnlockedConfig(node, part))
                     {
-                        if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_ConfigSwitch")} {dispName}{costString}", configInfo))) // Switch to
                             apply(nName);
                         return;
                     }
@@ -1546,7 +1546,7 @@ namespace RealFuels
                     if (upgradeCost > 0d)
                     {
                         costString = $" ({upgradeCost:N0}f)";
-                        if (GUILayout.Button(new GUIContent($"Purchase {dispName}{costString}", configInfo)))
+                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_Purchase")}  {dispName}{costString}", configInfo))) // Purchase
                         {
                             if (EntryCostManager.Instance.PurchaseConfig(nName, techRequired))
                                 apply(nName);
@@ -1556,7 +1556,7 @@ namespace RealFuels
                     {
                         // Auto-buy.
                         EntryCostManager.Instance.PurchaseConfig(nName, techRequired);
-                        if (GUILayout.Button(new GUIContent($"Switch to {dispName}{costString}", configInfo)))
+                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_ConfigSwitch")}  {dispName}{costString}", configInfo))) // Switch to
                             apply(nName);
                     }
                 }
@@ -1579,15 +1579,15 @@ namespace RealFuels
                 if (config.HasValue("ratedBurnTime"))
                 {
                     if (config.HasValue("ratedContinuousBurnTime"))
-                        ratedBurnTime = $"Rated burn time: {config.GetValue("ratedContinuousBurnTime")}/{config.GetValue("ratedBurnTime")}s\n";
+                        ratedBurnTime = $"{Localizer.GetStringByTag("#RF_Engine_RatedBurnTime")}: {config.GetValue("ratedContinuousBurnTime")}/{config.GetValue("ratedBurnTime")}s\n"; // Rated burn time
                     else
-                        ratedBurnTime = $"Rated burn time: {config.GetValue("ratedBurnTime")}s\n";
+                        ratedBurnTime = $"{Localizer.GetStringByTag("#RF_Engine_RatedBurnTime")}: {config.GetValue("ratedBurnTime")}s\n"; // Rated burn time
                 }
-                string label = $"<b>Engine mass:</b> {part.mass:N3}t\n" +
+                string label = $"<b>{Localizer.GetStringByTag("#RF_Engine_Enginemass")}:</b> {part.mass:N3}t\n" + // Engine mass
                                $"{ratedBurnTime}" +
                                $"{pModule.GetInfo()}\n" +
                                $"{TLTInfo()}\n" +
-                               $"Total cost: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}";
+                               $"{Localizer.GetStringByTag("#RF_Engine_TotalCost")}: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}"; // Total cost
                 GUILayout.Label(label);
                 GUILayout.EndHorizontal();
             }
@@ -1600,7 +1600,7 @@ namespace RealFuels
             {
                 GUILayout.BeginHorizontal();
 
-                GUILayout.Label("Tech Level: ");
+                GUILayout.Label($"{Localizer.GetStringByTag("#RF_Engine_TechLevel")}: "); // Tech Level
                 string minusStr = "X";
                 bool canMinus = false;
                 if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel)
@@ -1854,12 +1854,12 @@ namespace RealFuels
             techToResolve = config.GetValue("techRequired");
             if (!CanConfig(node))
             {
-                validationError = $"unlock tech {ResearchAndDevelopment.GetTechnologyTitle(techToResolve)}";
+                validationError = $"{Localizer.GetStringByTag("#RF_Engine_unlocktech")} {ResearchAndDevelopment.GetTechnologyTitle(techToResolve)}"; // unlock tech
                 canBeResolved = false;
             }
             else
             {
-                validationError = $"pay entry cost";
+                validationError = Localizer.GetStringByTag("#RF_Engine_PayEntryCost"); // $"pay entry cost"
                 canBeResolved = true;
             }
 

@@ -6,6 +6,7 @@ using UnityEngine;
 
 using KSP.UI.Screens;
 using System.Reflection;
+using KSP.Localization;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -37,13 +38,13 @@ namespace RealFuels.Tanks
         internal List<TankDefinition> allPossibleTypes = new List<TankDefinition>();    // typesAvailable if all upgrades were applied
 
         [KSPField(isPersistant = true)]
-        public string type = "Default";
+        public string type = Localizer.GetStringByTag("#RF_FuelTank_Default"); // "Default"
         private string oldType;
 
-        [KSPField(guiActiveEditor = true, guiActive = true, guiName = "Tank Type", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)]
-        public string typeDisp = "Default";
+        [KSPField(guiActiveEditor = true, guiActive = true, guiName = "#RF_FuelTank_TankType", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)] //Tank Type
+        public string typeDisp = Localizer.GetStringByTag("#RF_FuelTank_Default"); // "Default"
 
-        [KSPEvent(active = true, guiActiveEditor = true, guiName = "Choose Tank Type", groupName = guiGroupName)]
+        [KSPEvent(active = true, guiActiveEditor = true, guiName = "#RF_FuelTank_ChooseTankType", groupName = guiGroupName)] // Choose Tank Type
         public void ChooseTankDefinition()
         {
             if (tankDefinitionSelectionGUI == null)
@@ -57,7 +58,7 @@ namespace RealFuels.Tanks
         // The total tank volume. This is prior to utilization
         public double totalVolume;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "Utilization", guiUnits = "%", guiFormat = "F0", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName),
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "#RF_FuelTank_Utilization", guiUnits = "%", guiFormat = "F0", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), // Utilization
          UI_FloatRange(minValue = 1, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
         public float utilization = -1;
 
@@ -73,7 +74,7 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         public double volume;
 
-        [KSPField(guiActiveEditor = true, guiName = "Volume", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        [KSPField(guiActiveEditor = true, guiName = "#RF_FuelTank_Volume", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // Volume
         public string volumeDisplay;
 
         // Conversion between tank volume in kL, and whatever units this tank uses.
@@ -87,11 +88,11 @@ namespace RealFuels.Tanks
         [KSPField]
         public bool massIsAdditive = false;
 
-        [KSPField(guiActiveEditor = true, guiName = "Mass", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        [KSPField(guiActiveEditor = true, guiName = "#RF_FuelTank_Mass", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // Mass
         public string massDisplay;
 
-        [KSPField(guiActiveEditor = true, guiName = "Tank UI", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
-        [UI_Toggle(enabledText = "Hide", disabledText = "Show", suppressEditorShipModified = true)]
+        [KSPField(guiActiveEditor = true, guiName = "#RF_FuelTank_TankUI", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // Tank UI 
+        [UI_Toggle(enabledText = "#RF_FuelTank_Hide", disabledText = "#RF_FuelTank_Show", suppressEditorShipModified = true)] // HideShow
         [NonSerialized]
         public bool showUI;
 
@@ -105,7 +106,7 @@ namespace RealFuels.Tanks
         public bool fueledByLaunchClamp = false;
 
         private const string guiGroupName = "RealFuels";
-        private const string guiGroupDisplayName = "Real Fuels";
+        private const string guiGroupDisplayName = "#RF_FuelTank_GroupDisplayName"; // "Real Fuels"
 
         public double UsedVolume { get; private set; }
 
@@ -259,19 +260,21 @@ namespace RealFuels.Tanks
         public override string GetInfo()
         {
             var info = StringBuilderCache.Acquire();
-            info.AppendLine ("Modular Fuel Tank:");
-            info.Append ("  Max Volume: ").AppendLine (KSPUtil.PrintSI (volume, MFSSettings.unitLabel));
-            info.AppendLine ("  Tank can hold:");
+            info.AppendLine ($"{Localizer.GetStringByTag("#RF_FuelTank_ModularFuelTank")}:"); // Modular Fuel Tank
+            info.Append ($"  {Localizer.GetStringByTag("#RF_FuelTank_MaxVolume")}: ").AppendLine (KSPUtil.PrintSI (volume, MFSSettings.unitLabel)); // Max Volume
+            info.AppendLine ($"  {Localizer.GetStringByTag("#RF_FuelTank_TankCanHold")}:"); // Tank can hold
             foreach (FuelTank tank in tanksDict.Values)
-                info.Append("      ").Append(tank).Append(" ").AppendLine(tank.note);
+                //info.Append("      ").Append(tank).Append(" ").AppendLine(tank.note);
+                info.Append("      ").Append(PartResourceLibrary.Instance.GetDefinition(tank.name).displayName).Append(" ").AppendLine(tank.note);
             return info.ToStringAndRelease();
         }
 
-        public string GetPrimaryField () => $"Max Volume: {KSPUtil.PrintSI(volume, MFSSettings.unitLabel)}, {type}{(typesAvailable.Count() > 1 ? "*" : "")}";
+        public string GetPrimaryField () => $"{Localizer.GetStringByTag("#RF_FuelTank_MaxVolume")}: {KSPUtil.PrintSI(volume, MFSSettings.unitLabel)}, {type}{(typesAvailable.Count() > 1 ? "*" : "")}"; // Max Volume
 
         public Callback<Rect> GetDrawModulePanelCallback() => null;
 
         public string GetModuleTitle() => "Modular Fuel Tank";
+        public override string GetModuleDisplayName() => Localizer.GetStringByTag("#RF_FuelTank_ModularFuelTank");
 
         public override void OnStart(StartState state)
         {
@@ -809,12 +812,12 @@ namespace RealFuels.Tanks
                     availRounded = 0d;
                 string availVolStr = KSPUtil.PrintSI (availRounded, MFSSettings.unitLabel);
                 string volStr = KSPUtil.PrintSI (volume, MFSSettings.unitLabel);
-                volumeDisplay = "Avail: " + availVolStr + " / Tot: " + volStr;
+                volumeDisplay = Localizer.Format("#RF_FuelTank_volumeDisplayinfo1", availVolStr, volStr); // "Avail: " + availVolStr + " / Tot: " + volStr
 
                 double resourceMass = part.Resources.Cast<PartResource> ().Sum (partResource => partResource.maxAmount* partResource.info.density);
 
                 double wetMass = mass + resourceMass;
-                massDisplay = "Dry: " + FormatMass (mass) + " / Wet: " + FormatMass ((float)wetMass);
+                massDisplay = Localizer.Format("#RF_FuelTank_volumeDisplayinfo2", FormatMass(mass), FormatMass((float)wetMass)); // "Dry: " + FormatMass (mass) + " / Wet: " + FormatMass ((float)wetMass)
 
                 UpdateTweakableMenu ();
             }
@@ -891,7 +894,7 @@ namespace RealFuels.Tanks
             massDirty = true;
         }
 
-        [KSPEvent(guiName = "Remove All Tanks", guiActiveEditor = true, name = "Empty", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)]
+        [KSPEvent(guiName = "#RF_TankWindow_RemoveAllTanks", guiActiveEditor = true, name = "Empty", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // 
         public void Empty()
         {
             foreach (FuelTank tank in tanksDict.Values)
@@ -1057,7 +1060,7 @@ namespace RealFuels.Tanks
                             name = "MFT" + idx++,
                             guiActive = false,
                             guiActiveEditor = activeEditor,
-                            guiName = $"Fill: {info.title}",
+                            guiName = Localizer.Format("#RF_FuelTank_FillTank", info.title), // $"Fill: {info.title}"
                             groupName = guiGroupName,
                             groupDisplayName = guiGroupDisplayName
                         };
