@@ -607,6 +607,63 @@ namespace RealFuels.Tanks
             }
         }
 
+        [KSPEvent]
+        void LoadMFTModuleFromConfigNode(BaseEventDetails data)
+        {
+            // Things that are supported:
+            // setting type/Tank_Definition
+            // Adding typeAvailable
+            // setting volume
+            // setting basemass
+            // setting basecost
+            // setting TANKs (Clears the current tanks)
+
+            ConfigNode MFTConfigNode = data.Get<ConfigNode>("MFTNode");
+
+            // 'typeAvailable = x' lines provided
+            List<string> types = MFTConfigNode.GetValuesList("typeAvailable");
+
+            // 'type = x' provided
+            if (MFTConfigNode.TryGetValue("type", ref type))
+            {
+                types.Add(type);
+            }
+
+            if (types.Count > 0)
+            {
+                typesAvailable.Clear();
+            }
+            UpdateTypesAvailable(types);
+
+            // 'volume = x' provided
+            MFTConfigNode.TryGetValue("volume", ref volume);
+
+            // 'basemass = x' provided
+            ParseBaseMass(MFTConfigNode);
+
+            // 'basecost = x' provided
+            ParseBaseCost(MFTConfigNode);
+
+            // 'TANK {}' provided
+            ConfigNode[] tankNodes = MFTConfigNode.GetNodes("TANK");
+            if (tankNodes.Length > 0)
+            {
+                // Clear the current tank before adding the new ones
+                Empty();
+                foreach (var tankNode in tankNodes)
+                {
+                    var tankName = tankNode.GetValue("name");
+                    var maxAmount = double.Parse(tankNode.GetValue("maxAmount"));
+                    var amount = double.Parse(tankNode.GetValue("amount"));
+                    if (tanksDict.TryGetValue(tankName, out FuelTank internalTank))
+                    {
+                        internalTank.amount = amount;
+                        internalTank.maxAmount = maxAmount;
+                    }
+                }
+            }
+        }
+
         // ChangeVolume() called by StretchyTanks has been converted to use OnPartVolumeChanged
 
         protected void ChangeResources (double volumeRatio, bool propagate = false)
