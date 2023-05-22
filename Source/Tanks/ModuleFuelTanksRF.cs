@@ -389,8 +389,6 @@ namespace RealFuels.Tanks
             // Also should try to determine if tank has a common bulkhead - and adjust heat flux into individual tanks accordingly
             SetTankAreaInfo(volume);
 
-            double areaCubes = CalculateTankAreaCubes();
-
             // This allows a rough guess as to individual tank surface area based on ratio of tank volume to total volume but it breaks down at very small fractions
             // So use greater of spherical calculation and tank ratio of total area.
             // if for any reason our totalTankArea is still 0 (no drag cubes available yet or analytic temp routines executed first)
@@ -402,6 +400,7 @@ namespace RealFuels.Tanks
             totalTankArea = Math.Max(totalTankArea, 0.1);
             if (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW)
             {
+                double areaCubes = CalculateTankAreaCubes();
                 Debug.Log($"[RealFuels.ModuleFuelTankRF] {part.name} Area Calcs: DragCube: {areaCubes:F2} | TotalSpherical: {areaSpherical:F2} | SubTankSpherical: {areaPartsSpherical:F2}");
                 Debug.Log($"[RealFuels.ModuleFuelTankRF] {part.name}.totalTankArea = {totalTankArea:F2}");
             }
