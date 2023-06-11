@@ -1,6 +1,6 @@
 **** RealFuels ****
 by NathanKell
-Contributors: Butcher, DRVeyl, Al2Me6, siimav, Standecco, Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!), blowfish
+Contributors: tinygrox, Stonesmile, CaptKirk123, Butcher, DRVeyl, Al2Me6, siimav, Standecco, Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!), blowfish
 ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the RealFuels branch.
 
 License remains CC-BY-SA as modified by ialdabaoth.
@@ -48,6 +48,15 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 
 ==========
 Changelog:
+
+v15.4.0
+* Exclude Ablator and Uranium from autofill, allowing autofill of NTRs
+* Fix GameEvents leak
+* Do not run UpdateUsedBy logic outside of the Editor, increasing in-flight performance
+* Don't scale base residuals threshold by ignitions when it is specified in a config rather than auto-calculated
+* Improve fluid properties (hsp, etc) for various resources
+* Add support for changing tank properties based on B9PS part switching (requires upcoming B9PS release)
+* Localization framework and localization for Chinese as well as English. PRs gratefully accepted for other languages.
 
 v15.3.1
 * Clamp fuel amount to stay within the max volume

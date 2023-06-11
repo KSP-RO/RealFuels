@@ -1,3 +1,4 @@
+using KSP.Localization;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,8 +7,8 @@ namespace RealFuels
 {
     public class RefuelingPump : PartModule, IAnalyticPreview
     {
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Fuel Pump")]
-        [UI_Toggle(affectSymCounterparts = UI_Scene.Editor, disabledText = "Disabled", enabledText = "Enabled")]
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#RF_FuelPump_FuelPump")] // Fuel Pump
+        [UI_Toggle(affectSymCounterparts = UI_Scene.Editor, disabledText = "#RF_disabletext2", enabledText = "#RF_enabletext2")] // DisabledEnabled
         bool enablePump = true;
 
         [KSPField(isPersistant = true)]
@@ -18,7 +19,7 @@ namespace RealFuels
         private readonly List<Tanks.FuelTank> tankDefs = new List<Tanks.FuelTank>();
         private readonly List<PartResource> batteries = new List<PartResource>();
 
-        public override string GetInfo () => $"Pump rate: {pump_rate:F1}/s";
+        public override string GetInfo () => $"{Localizer.GetStringByTag("#RF_FuelPump_PumpRate")}: {pump_rate:F1}/s"; // Pump rate
 
         public override void OnStart(PartModule.StartState state)
         {

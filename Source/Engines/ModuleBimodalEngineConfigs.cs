@@ -3,19 +3,20 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using KSP.Localization;
 
 namespace RealFuels
 {
     public class ModuleBimodalEngineConfigs : ModuleEngineConfigs
     {
         [KSPField]
-        public string primaryDescription = "Retracted";
+        public string primaryDescription = Localizer.GetStringByTag("#RF_BimodalEngine_primaryDescription"); // "Retracted"
         [KSPField]
-        public string secondaryDescription = "Extended";
+        public string secondaryDescription = Localizer.GetStringByTag("#RF_BimodalEngine_secondaryDescription"); // "Extended"
         [KSPField]
-        public string toPrimaryText = "Retract Nozzle";
+        public string toPrimaryText = Localizer.GetStringByTag("#RF_BimodalEngine_RetractNozzle"); // "Retract Nozzle"
         [KSPField]
-        public string toSecondaryText = "Extend Nozzle";
+        public string toSecondaryText = Localizer.GetStringByTag("#RF_BimodalEngine_ExtendNozzle"); // "Extend Nozzle"
         [KSPField]
         public string toggleButtonHoverInfo = string.Empty;
 
@@ -28,7 +29,7 @@ namespace RealFuels
         [KSPField]
         public float thrustLerpTime = -1f;  // -1 is auto-compute from animation length.
 
-        [KSPField(guiName = "Mode", isPersistant = true, guiActive = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]
+        [KSPField(guiName = "#RF_BimodalEngine_ModeDisplay", isPersistant = true, guiActive = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)] // Mode
         public string modeDisplay;
 
         protected ModuleEngines activeEngine;
@@ -82,8 +83,8 @@ namespace RealFuels
         }
 
 
-        public override string GUIButtonName => "Bimodal Engine";
-        public override string EditorDescription => "This engine can operate in two different modes. Select a configuration and an initial mode; you can change between modes (even in-flight) using the PAW or the button below.";
+        public override string GUIButtonName => Localizer.GetStringByTag("#RF_BimodalEngine_GUIButtonName"); // "Bimodal Engine"
+        public override string EditorDescription => Localizer.GetStringByTag("#RF_BimodalEngine_GUIButtonName_desc"); // "This engine can operate in two different modes. Select a configuration and an initial mode; you can change between modes (even in-flight) using the PAW or the button below."
 
         public override string GetConfigDisplayName(ConfigNode node)
         {
@@ -114,8 +115,8 @@ namespace RealFuels
             if (addDescription) info += "\n";
             var counterpartHeader = isSecondary ? primaryDescription : secondaryDescription;
             counterpartHeader = colorName
-                ? $" <color=yellow>{counterpartHeader} mode:</color>"
-                : $" {counterpartHeader} mode:";
+                ? $" <color=yellow>{counterpartHeader} {Localizer.GetStringByTag("#RF_BimodalEngine_modeinfo")}:</color>" // mode
+                : $" {counterpartHeader} {Localizer.GetStringByTag("#RF_BimodalEngine_modeinfo")}:"; // mode
             info += counterpartInfo.Replace(GetConfigDisplayName(config), counterpartHeader);
             return info;
         }
@@ -143,13 +144,13 @@ namespace RealFuels
         {
             using (new GUILayout.HorizontalScope())
             {
-                GUILayout.Label($"<b>Current mode:</b> {ActiveModeDescription}");
+                GUILayout.Label($"<b>{Localizer.GetStringByTag("#RF_BimodalEngine_Currentmode")}:</b> {ActiveModeDescription}"); // Current mode
             }
             base.DrawPartInfo();
         }
 
 
-        [KSPAction("Toggle Engine Mode")]
+        [KSPAction("#RF_BimodalEngine_ToggleEngineMode")] // Toggle Engine Mode
         public void ToggleAction(KSPActionParam _) => ToggleMode();
 
         [KSPEvent(guiActive = true, guiActiveEditor = true, groupName = groupName, groupDisplayName = groupDisplayName)]

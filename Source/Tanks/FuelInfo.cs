@@ -28,7 +28,8 @@ namespace RealFuels.Tanks
 			{
 				Propellant tfuel = kvp.Key;
 				if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE && !IgnoreFuel(tfuel.name))
-					labelString.Add($"{Math.Round(100 * tfuel.ratio * kvp.Value / efficiency, 3)}% {tfuel.name}");
+					//labelString.Add($"{Math.Round(100 * tfuel.ratio * kvp.Value / efficiency, 3)}% {tfuel.name}");
+					labelString.Add($"{Math.Round(100 * tfuel.ratio * kvp.Value / efficiency, 3)}% {tfuel.displayName}");
 			}
 			return string.Join(" / ", labelString);
 		}
