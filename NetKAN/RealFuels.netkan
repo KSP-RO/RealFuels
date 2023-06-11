@@ -3,7 +3,7 @@
     "name"         : "Real Fuels",
     "abstract"     : "Real fuels and tanks for KSP",
     "identifier"   : "RealFuels",
-    "$kref"        : "#/ckan/github/NathanKell/ModularFuelSystem",
+    "$kref"        : "#/ckan/github/KSP-RO/RealFuels",
     "$vref"        : "#/ckan/ksp-avc",
     "license"      : "CC-BY-SA",
     "author"       : [ "ialdabaoth", "NathanKell", "taniwha", "Starwaster", "blowfish" ],

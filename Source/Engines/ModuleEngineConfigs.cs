@@ -863,14 +863,11 @@ namespace RealFuels
             // Prior comments suggest firing GameEvents.onEditorShipModified causes problems?
             part.SendMessage("OnEngineConfigurationChanged", SendMessageOptions.DontRequireReceiver);
 
-            List<Part> parts;
             if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
-                parts = EditorLogic.fetch.ship.parts;
-            else if (HighLogic.LoadedSceneIsFlight && vessel != null)
-                parts = vessel.parts;
-            else parts = new List<Part>();
-            foreach (Part p in parts)
-                p.SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
+            {
+                foreach (Part p in EditorLogic.fetch.ship.parts)
+                    p.SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
+            }
 
             SetupFX();
 
