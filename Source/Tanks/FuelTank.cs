@@ -247,7 +247,9 @@ namespace RealFuels.Tanks
 			{
 				foreach (Part sym in part.symmetryCounterparts)
 				{
-					sym.Resources.dict.Add(resDef.id, new PartResource(res));
+					var symRes = new PartResource(res);
+					symRes.part = sym;
+                    sym.Resources.dict.Add(resDef.id, symRes);
 					RaiseResourceListChanged(sym);
 				}
 			}
