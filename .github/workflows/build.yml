@@ -63,7 +63,7 @@ jobs:
           RELEASE_DIR="${RUNNER_TEMP}/release"
           echo "Release dir: ${RELEASE_DIR}"
           mkdir -v "${RELEASE_DIR}"
-          echo "release-dir=${RELEASE_DIR}" >> $GITHUB_ENV
+          echo "::set-output name=release-dir::${RELEASE_DIR}"
           cp -v -R "${GITHUB_WORKSPACE}/RealFuels" "${RELEASE_DIR}"
 
       - name: Upload artifacts
