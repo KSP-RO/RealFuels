@@ -33,4 +33,4 @@ using System.Runtime.CompilerServices;
 //[assembly: AssemblyKeyFile("")]
 
 [assembly: KSPAssembly("RealFuels", 1, 0, 0)]
-[assembly: KSPAssemblyDependency("SolverEngines", 3, 3)]
+[assembly: KSPAssemblyDependency("SolverEngines", 3, 13)]
