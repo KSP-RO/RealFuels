@@ -59,12 +59,12 @@ jobs:
         run: |
           RELEASE_DIR="${RUNNER_TEMP}/release"
           echo "Release dir: ${RELEASE_DIR}"
-          echo "Release zip: ${RELEASE_DIR}/RealFuels-${{ github.event.release.tag_name }}.zip"
+          echo "Release zip: ${RELEASE_DIR}/RealFuels_${{ github.event.release.tag_name }}.zip"
           mkdir -v "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"
-          cp -v -R "${GITHUB_WORKSPACE}/RealFuels" "${RELEASE_DIR}"
+          cp -v -R "${GITHUB_WORKSPACE}/GameData/RealFuels" "${RELEASE_DIR}"
           cd ${RELEASE_DIR}
-          zip -r RP-1-${{ github.event.release.tag_name }}.zip GameData
+          zip -r RealFuels_${{ github.event.release.tag_name }}.zip GameData
         
       - name: Upload package to release
         uses: actions/upload-release-asset@v1
@@ -72,8 +72,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ${{ steps.assemble-release.outputs.release-dir }}/RealFuels-${{ github.event.release.tag_name }}.zip
-          asset_name: RealFuels-${{ github.event.release.tag_name }}.zip
+          asset_path: ${{ steps.assemble-release.outputs.release-dir }}/RealFuels_${{ github.event.release.tag_name }}.zip
+          asset_name: RealFuels_${{ github.event.release.tag_name }}.zip
           asset_content_type: application/zip
           
       - name: Setup git config
