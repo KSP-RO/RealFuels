@@ -62,7 +62,7 @@ jobs:
         run: |
           RELEASE_DIR="${RUNNER_TEMP}/release"
           echo "Release dir: ${RELEASE_DIR}"
-          mkdir -v "${RELEASE_DIR}"
+          mkdir -v "${RELEASE_DIR}"/GameData
           echo "::set-output name=release-dir::${RELEASE_DIR}"
           cp -v -R "${GITHUB_WORKSPACE}/RealFuels" "${RELEASE_DIR}"/GameData/RealFuels
 
