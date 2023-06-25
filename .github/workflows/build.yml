@@ -64,7 +64,7 @@ jobs:
           echo "Release dir: ${RELEASE_DIR}"
           mkdir -v "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"
-          cp -v -R "${GITHUB_WORKSPACE}/GameData/RealFuels" "${RELEASE_DIR}"
+          cp -v -R "${GITHUB_WORKSPACE}/RealFuels" "${RELEASE_DIR}"/GameData
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v1

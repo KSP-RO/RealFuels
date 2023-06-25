@@ -62,7 +62,7 @@ jobs:
           echo "Release zip: ${RELEASE_DIR}/RealFuels_${{ github.event.release.tag_name }}.zip"
           mkdir -v "${RELEASE_DIR}"
           echo "::set-output name=release-dir::${RELEASE_DIR}"
-          cp -v -R "${GITHUB_WORKSPACE}/GameData/RealFuels" "${RELEASE_DIR}"
+          cp -v -R "${GITHUB_WORKSPACE}/RealFuels" "${RELEASE_DIR}"/GameData
           cd ${RELEASE_DIR}
           zip -r RealFuels_${{ github.event.release.tag_name }}.zip GameData
         
