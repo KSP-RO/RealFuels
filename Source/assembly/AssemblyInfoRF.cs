@@ -1,3 +1,4 @@
+#define CIBUILD_disabled
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
@@ -17,15 +18,19 @@ using System.Runtime.CompilerServices;
 // The form "{Major}.{Minor}.*" will automatically update the build and revision,
 // and "{Major}.{Minor}.{Build}.*" will update just the revision.
 
-[assembly: AssemblyVersion("@FILE_VERSION@")]
-[assembly: AssemblyInformationalVersionAttribute("@FULL_VERSION@")]
-[assembly: AssemblyFileVersion("@FILE_VERSION@")]
+[assembly: AssemblyVersion("1.0.0.0")]
+// [assembly: AssemblyInformationalVersionAttribute("@FULL_VERSION@")]
+#if CIBUILD
+[assembly: AssemblyFileVersion("@MAJOR@.@MINOR@.@PATCH@.@BUILD@")]
+[assembly: KSPAssembly("RealFuels", @MAJOR@, @MINOR@, @PATCH@)]
+#else
+[assembly: AssemblyFileVersion("14.6.0.0")]
+[assembly: KSPAssembly("RealFuels", 1, 0, 0)]
+#endif
 
 // The following attributes are used to specify the signing key for the assembly,
 // if desired. See the Mono documentation for more information about signing.
 
 //[assembly: AssemblyDelaySign(false)]
 //[assembly: AssemblyKeyFile("")]
-
-[assembly: KSPAssembly("RealFuels", @MAJOR_VERSION@, @MINOR_VERSION@, @PATCH_VERSION@)]
 [assembly: KSPAssemblyDependency("SolverEngines", 3, 13)]
