@@ -49,6 +49,8 @@ AN OVERVIEW OF FUEL TYPES AND TANK TYPES AND TECH LEVELS/ENGINE TYPES AND UPGRAD
 ==========
 Changelog:
 
+v15.5+ -- see changelog.cfg
+
 v15.4.0
 * Exclude Ablator and Uranium from autofill, allowing autofill of NTRs
 * Fix GameEvents leak
