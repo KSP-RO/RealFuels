@@ -183,21 +183,15 @@ namespace RealFuels
         public static string FormatThrust(double thrust)
         {
             if (thrust < 1e-6)
-            {
                 return $"{thrust * 1e9:0.#} μN";
-            }
+
             if (thrust < 1e-3)
-            {
                 return $"{thrust * 1e6:0.#} mN";
-            }
-            else if (thrust < 1.0)
-            {
+
+            if (thrust < 1.0)
                 return $"{thrust * 1e3:0.#} N";
-            }
-            else
-            {
-                return $"{thrust:0.#} kN";
-            }
+
+            return $"{thrust:0.#} kN";
         }
 
         /// <summary>
