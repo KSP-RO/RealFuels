@@ -186,7 +186,7 @@ namespace RealFuels
             {
                 return $"{thrust * 1e9:0.#} μN";
             }
-            if (thrust < 1e-3)
+            else if (thrust < 1e-3)
             {
                 return $"{thrust * 1e6:0.#} mN";
             }
