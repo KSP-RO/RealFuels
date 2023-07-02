@@ -557,6 +557,7 @@ namespace RealFuels.Tanks
                 Debug.LogError($"{msg} Reset to {type}");
             }
 
+            string oldTypeForEvent = oldType;
             oldType = type;
             typeDisp = def.Title;
 
@@ -597,6 +598,7 @@ namespace RealFuels.Tanks
 
             UpdateTankTypeRF(def);
             UpdateTestFlight();
+            RaiseTankDefinitionChanged(oldTypeForEvent, def);
         }
 
 
@@ -886,6 +888,15 @@ namespace RealFuels.Tanks
             part.ResetSimulationResources();
             part.SendEvent("OnResourceListChanged", null, 0);
             MarkWindowDirty();
+        }
+
+        public void RaiseTankDefinitionChanged(string oldType, TankDefinition newDef)
+        {
+            var data = new BaseEventDetails(BaseEventDetails.Sender.USER);
+            data.Set<string>("oldTypeName", oldType);
+            data.Set<string>("newTypeName", newDef.name);
+            data.Set("newDef", newDef);
+            part.SendEvent("OnTankDefinitionChanged", data, 0);
         }
 
         public void PartResourcesChanged()
