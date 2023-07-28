@@ -251,13 +251,7 @@ namespace RealFuels
             }
             if (ignited && predictedMaximumResiduals > 0d)
             {
-                predictedMaximumResidualsGUI = predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
-                if (localVaryMixture > 0d)
-                {
-                    double massExtra = CalculateMaxExtraMassFromMRVariation();
-                    predictedMaximumResiduals += massExtra * MinPropellantFraction();
-                    predictedMaximumResidualsGUI += massExtra;
-                }
+                UpdateResiduals();
             }
         }
 
@@ -454,15 +448,7 @@ namespace RealFuels
             else
                 fuelPropellant = oxidizerPropellant = null;
 
-            predictedMaximumResidualsGUI = localResidualsThresholdBase + localVaryResiduals;
-            double minPF = HighLogic.LoadedSceneIsFlight ? MinPropellantFraction() : 1d;
-            predictedMaximumResiduals = UtilMath.Lerp(calculatedResiduals, predictedMaximumResidualsGUI, minPF);
-            if (localVaryMixture > 0d)
-            {
-                double massExtra = CalculateMaxExtraMassFromMRVariation();
-                predictedMaximumResidualsGUI += massExtra;
-                predictedMaximumResiduals += massExtra * minPF;
-            }
+            UpdateResiduals();
 
             ullageSet = new Ullage.UllageSet(this);
             ullageSet.Load(ullageNode);
@@ -1057,6 +1043,19 @@ namespace RealFuels
             double newMRFuel = mTotal - newMROx;
             double oxRemaining = 1d - 1d / newMRFuel;
             return Math.Max(massExtra, oxRemaining * mixtureRatio / mTotal);
+        }
+
+        protected void UpdateResiduals()
+        {
+            predictedMaximumResidualsGUI = localResidualsThresholdBase + localVaryResiduals;
+            double minPF = HighLogic.LoadedSceneIsFlight ? MinPropellantFraction() : 1d;
+            predictedMaximumResiduals = UtilMath.Lerp(calculatedResiduals, predictedMaximumResidualsGUI, minPF);
+            if (localVaryMixture > 0d)
+            {
+                double massExtra = CalculateMaxExtraMassFromMRVariation();
+                predictedMaximumResidualsGUI += massExtra;
+                predictedMaximumResiduals += massExtra * minPF;
+            }
         }
         #endregion
     }
