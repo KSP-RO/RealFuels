@@ -454,14 +454,14 @@ namespace RealFuels
             else
                 fuelPropellant = oxidizerPropellant = null;
 
-            predictedMaximumResidualsGUI = predictedMaximumResiduals = localResidualsThresholdBase + localVaryResiduals;
+            predictedMaximumResidualsGUI = localResidualsThresholdBase + localVaryResiduals;
+            double minPF = HighLogic.LoadedSceneIsFlight ? MinPropellantFraction() : 1d;
+            predictedMaximumResiduals = UtilMath.Lerp(calculatedResiduals, predictedMaximumResidualsGUI, minPF);
             if (localVaryMixture > 0d)
             {
                 double massExtra = CalculateMaxExtraMassFromMRVariation();
                 predictedMaximumResidualsGUI += massExtra;
-                if (HighLogic.LoadedSceneIsFlight)
-                    massExtra *= MinPropellantFraction();
-                predictedMaximumResiduals += massExtra;
+                predictedMaximumResiduals += massExtra * minPF;
             }
 
             ullageSet = new Ullage.UllageSet(this);
