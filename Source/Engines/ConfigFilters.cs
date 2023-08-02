@@ -5,35 +5,38 @@ using UnityEngine;
 namespace RealFuels
 {
     [KSPAddon(KSPAddon.Startup.AllGameScenes, false)]
-    public class ModuleShowInfoUpdater : MonoBehaviour
+    public class ModuleInfoUpdater : MonoBehaviour
     {
-        protected bool run = true;
+        private bool hasRun = false;
+        
         private void Update()
         {
-            if (run)
+            if(hasRun)
             {
-                Debug.Log("[RealFuelsFilters] Updated info boxes");
-                foreach (AvailablePart ap in PartLoader.LoadedPartsList)
+                GameObject.Destroy(this);
+                return;
+            }
+
+            hasRun = true;
+            
+            Debug.Log("[RealFuelsFilters] Updating info boxes");
+            foreach (AvailablePart ap in PartLoader.LoadedPartsList)
+            {
+                // workaround for FindModulesImplementing nullrefs when called on the strange kerbalEVA_RD_Exp prefab
+                // due to the (private) cachedModuleLists being null on it
+                if (ap.partPrefab.Modules.Count == 0)
+                    continue;
+                if (ap.partPrefab.FindModulesImplementing<ModuleEngineConfigsBase>() is List<ModuleEngineConfigsBase> mecs)
                 {
-                    // workaround for FindModulesImplementing nullrefs when called on the strange kerbalEVA_RD_Exp prefab
-                    // due to the (private) cachedModuleLists being null on it
-                    if (ap.partPrefab.Modules.Count == 0)
-                        continue;
-                    if (ap.partPrefab.FindModulesImplementing<ModuleEngineConfigsBase>() is List<ModuleEngineConfigsBase> mecs)
+                    int i = 0;
+                    foreach (AvailablePart.ModuleInfo x in ap.moduleInfos)
                     {
-                        int i = 0;
-                        foreach (AvailablePart.ModuleInfo x in ap.moduleInfos)
+                        if (x.moduleName.Equals("Engine Configs"))
                         {
-                            if (x.moduleName.Equals("Engine Configs"))
-                            {
-                                x.info = mecs[i++].GetInfo();
-                            }
+                            x.info = mecs[i++].GetInfo();
                         }
                     }
                 }
-
-                run = false;
-                GameObject.Destroy(this);
             }
         }
     }
