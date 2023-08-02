@@ -11,7 +11,7 @@ namespace RealFuels
         
         private void Update()
         {
-            if(hasRun)
+            if (hasRun)
             {
                 GameObject.Destroy(this);
                 return;
@@ -22,18 +22,27 @@ namespace RealFuels
             Debug.Log("[RealFuelsFilters] Updating info boxes");
             foreach (AvailablePart ap in PartLoader.LoadedPartsList)
             {
-                // workaround for FindModulesImplementing nullrefs when called on the strange kerbalEVA_RD_Exp prefab
-                // due to the (private) cachedModuleLists being null on it
-                if (ap.partPrefab.Modules.Count == 0)
-                    continue;
-                if (ap.partPrefab.FindModulesImplementing<ModuleEngineConfigsBase>() is List<ModuleEngineConfigsBase> mecs)
+                // We need to keep the modules and the moduleInfos in sync
+                // so we store the last info outside the loop
+                int i = 0;
+
+                // Loop has two termination conditions, in case there aren't enough infos for the modules.
+                for (int m = 0; m < ap.partPrefab.Modules.Count && i < ap.moduleInfos.Count; ++m)
                 {
-                    int i = 0;
-                    foreach (AvailablePart.ModuleInfo x in ap.moduleInfos)
+                    if (ap.partPrefab.Modules[m] is ModuleEngineConfigsBase mec)
                     {
-                        if (x.moduleName.Equals("Engine Configs"))
+                        for(; i < ap.moduleInfos.Count; ++i)
                         {
-                            x.info = mecs[i++].GetInfo();
+                            var mInfo = ap.moduleInfos[i];
+                            if (mInfo == null)
+                                continue;
+                                
+                            if (mInfo.moduleName.Equals("Engine Configs"))
+                            {
+                                mInfo.info = mec.GetInfo();
+                                ++i; // advance to next info box
+                                break;
+                            }
                         }
                     }
                 }
