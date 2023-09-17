@@ -37,6 +37,8 @@ namespace RealFuels.Tanks
 
         public Dictionary<string, FuelTank> tankList = new Dictionary<string, FuelTank>();
 
+        public List<string> tags = new List<string>();
+
         public string Title => title ?? name;
 
         public TankDefinition() { }
@@ -60,6 +62,13 @@ namespace RealFuels.Tanks
             }
             foreach (var t in tankList.Where(x => !x.Value.resourceAvailable).ToList())
                 tankList.Remove(t.Key);
+
+            ConfigNode tNode = node.GetNode("tags");
+            if (tNode != null)
+            {
+                foreach (ConfigNode.Value v in tNode.values)
+                    tags.Add(v.value);
+            }
         }
 
         public void Save(ConfigNode node) => Save(node, true);
