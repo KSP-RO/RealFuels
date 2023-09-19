@@ -1,35 +1,35 @@
-{
-    "spec_version" : "v1.4",
-    "name"         : "Real Fuels",
-    "abstract"     : "Real fuels and tanks for KSP",
-    "identifier"   : "RealFuels",
-    "$kref"        : "#/ckan/github/KSP-RO/RealFuels",
-    "$vref"        : "#/ckan/ksp-avc",
-    "license"      : "CC-BY-SA",
-    "author"       : [ "ialdabaoth", "NathanKell", "taniwha", "Starwaster", "blowfish" ],
-    "release_status" : "stable",
-    "resources" : { "homepage" : "https://forum.kerbalspaceprogram.com/index.php?showtopic=58236" },
-    "install" : [
-        {
-            "find"       : "RealFuels",
-            "install_to" : "GameData",
-            "filter"     : ".DS_Store"
-        }
-    ],
-    "depends" : [
-        { "name" : "ModuleManager" },
-        { "name" : "RealFuels-Engine-Configs" },
-        { "name" : "CommunityResourcePack" },
-        { 
-            "name" : "SolverEngines",
-            "min_version": "v3.11.0"
-        }
-    ],
-    "conflicts" : [
-        { "name" : "ModularFuelSystem" },
-        { "name" : "ModularFuelTanks"  },
-        { "name" : "Fuelswitchtoeverytank" },
-        { "name" : "StockFuelSwitch" },
-        { "name" : "EngineIgnitor" }
-    ]
-}
+spec_version: v1.26
+name: Real Fuels
+abstract: Real fuels and tanks for KSP
+identifier: RealFuels
+$kref: '#/ckan/github/KSP-RO/RealFuels'
+$vref: '#/ckan/ksp-avc'
+license: CC-BY-SA
+author:
+  - ialdabaoth
+  - NathanKell
+  - taniwha
+  - Starwaster
+  - blowfish
+release_status: stable
+resources:
+  homepage: https://forum.kerbalspaceprogram.com/index.php?showtopic=58236
+install:
+  - find: RealFuels
+    install_to: GameData
+    filter: .DS_Store
+depends:
+  - name: ModuleManager
+  - name: RealFuels-Engine-Configs
+    suppress_recommendations: true
+  - name: CommunityResourcePack
+    suppress_recommendations: true
+  - name: SolverEngines
+    min_version: v3.11.0
+    suppress_recommendations: true
+conflicts:
+  - name: ModularFuelSystem
+  - name: ModularFuelTanks
+  - name: Fuelswitchtoeverytank
+  - name: StockFuelSwitch
+  - name: EngineIgnitor
