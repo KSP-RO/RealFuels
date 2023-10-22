@@ -113,16 +113,21 @@ namespace RealFuels.Tanks
             if (totalMLILayers > 0 && totalVolume > 0 && !(double.IsNaN(part.temperature) || double.IsNaN(part.skinTemperature)))
             {
                 double normalizationFactor = 1 / (PhysicsGlobals.SkinInternalConductionFactor * PhysicsGlobals.ConductionFactor * PhysicsGlobals.ThermalConvergenceFactor * 10 * 0.5);
-                double insulationFactor = Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / (part.skinTemperature - part.temperature)) * 0.001;
-                part.heatConductivity = normalizationFactor * 1 / ((1 / insulationFactor) + (1 / part.partInfo.partPrefab.skinInternalConductionMult));
+                double tDelta = part.skinTemperature - part.temperature;
+                if (tDelta == 0d)
+                    tDelta = 0.00000000001d;
+                double insulationFactor = Math.Abs(GetMLITransferRate(part.skinTemperature, part.temperature) / tDelta) * 0.001;
+                double condRecip = part.partInfo.partPrefab.skinInternalConductionMult == 0d ? double.MaxValue : (1d / part.partInfo.partPrefab.skinInternalConductionMult);
+                part.heatConductivity = normalizationFactor * 1 / ((1 / insulationFactor) + condRecip);
                 CalculateAnalyticInsulationFactor(insulationFactor);
             }
         }
 
         private void CalculateAnalyticInsulationFactor(double insulationFactor)
         {
+            double tMassRecip = part.thermalMass == 0d ? 1d : 1d / part.thermalMass;
             part.analyticInternalInsulationFactor = _flightIntegrator is FlightIntegrator
-                ? (1d / PhysicsGlobals.AnalyticLerpRateInternal) * (insulationFactor * totalTankArea / part.thermalMass) * RFSettings.Instance.analyticInsulationMultiplier * part.partInfo.partPrefab.analyticInternalInsulationFactor
+                ? (1d / PhysicsGlobals.AnalyticLerpRateInternal) * (insulationFactor * totalTankArea * tMassRecip) * RFSettings.Instance.analyticInsulationMultiplier * part.partInfo.partPrefab.analyticInternalInsulationFactor
                 : 0;
         }
 
@@ -188,7 +193,8 @@ namespace RealFuels.Tanks
                 {
                     // in analytic mode, MFTRF interprets this as an attempt to cool the tanks
                     // Questionable since the thermalInternalFlux is already tracking it??
-                    analyticInternalTemp += cooling * part.thermalMassReciprocal * deltaTime;
+                    if (part.thermalMassReciprocal > 0d)
+                        analyticInternalTemp += cooling * part.thermalMassReciprocal * deltaTime;
                 }
             }
         }
@@ -419,7 +425,8 @@ namespace RealFuels.Tanks
         {
             lowestTankTemperature = 300;
             foreach (var tank in cryoTanks)
-                lowestTankTemperature = Math.Min(lowestTankTemperature, tank.temperature);
+                if (tank.temperature < lowestTankTemperature)
+                    lowestTankTemperature = tank.temperature;
             return cryoTanks.Count > 0;
         }
 
