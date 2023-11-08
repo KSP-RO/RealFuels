@@ -24,8 +24,8 @@ using System.Runtime.CompilerServices;
 [assembly: AssemblyFileVersion("@MAJOR@.@MINOR@.@PATCH@.@BUILD@")]
 [assembly: KSPAssembly("RealFuels", @MAJOR@, @MINOR@, @PATCH@)]
 #else
-[assembly: AssemblyFileVersion("15.7.0.0")]
-[assembly: KSPAssembly("RealFuels", 15, 7, 0)]
+[assembly: AssemblyFileVersion("15.8.1.0")]
+[assembly: KSPAssembly("RealFuels", 15, 8, 1)]
 #endif
 
 // The following attributes are used to specify the signing key for the assembly,
@@ -34,3 +34,4 @@ using System.Runtime.CompilerServices;
 //[assembly: AssemblyDelaySign(false)]
 //[assembly: AssemblyKeyFile("")]
 [assembly: KSPAssemblyDependency("SolverEngines", 3, 13)]
+[assembly: KSPAssemblyDependency("ROUtils", 1, 0, 1)]

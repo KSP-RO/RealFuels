@@ -4,6 +4,7 @@ using UnityEngine;
 using SolverEngines;
 using System.Linq;
 using KSP.Localization;
+using ROUtils;
 
 namespace RealFuels
 {
@@ -886,23 +887,7 @@ namespace RealFuels
             return output;
         }
 
-        protected static bool _needCheckRO = true;
-        protected static System.Reflection.MethodInfo _roPrintRate = null;
-        protected static System.Reflection.MethodInfo _ROPrintRate
-        {
-            get
-            {
-                if (_needCheckRO)
-                {
-                    _needCheckRO = false;
-                    Type ruiType = AssemblyLoader.loadedAssemblies.FirstOrDefault(a => a.name == "RealismOverhaul")?.assembly.GetType("RealismOverhaul.ResourceUnits");
-                    if (ruiType != null)
-                        _roPrintRate = ruiType.GetMethod("PrintRate");
-                }
-                return _roPrintRate;
-            }
-        }
-
+        
         public override string GetInfo()
         {
             string output = $"{GetThrustInfo()}" +
@@ -922,37 +907,12 @@ namespace RealFuels
             foreach (Propellant p in propellants)
             {
                 float unitsSec = getMaxFuelFlow(p);
-                if (_ROPrintRate == null)
-                {
-                    string units = (p.name == "ElectricCharge") ? "kW" : "L";
-                    string rate = (p.name == "ElectricCharge") ? string.Empty : "/s";
-                    string sUse = $"{unitsSec:G4}{units}{rate}";
-                    if (PartResourceLibrary.Instance?.GetDefinition(p.id) is PartResourceDefinition def && def.density > 0)
-                    {
-                        double tons = unitsSec * def.density;
-                        massFlow += tons;
-                        sUse += $" ({tons * 1000d:G4} kg{rate})";
-                    }
-                    output += $"- <b>{KSPUtil.PrintModuleName(p.name)}</b>: {Localizer.Format("#RF_EngineRF_maximumUses", sUse)}.\n"; // {sUse} maximum
-                }
-                else
-                {
-                    // we manually add flow mode later
-                    string rate = (string)_ROPrintRate.Invoke(null, new object[] { (double)unitsSec, p.id, true, null, p, true, 3, false });
-                    if (PartResourceLibrary.Instance?.GetDefinition(p.id) is PartResourceDefinition def && def.density > 0)
-                    {
-                        double tons = unitsSec * def.density;
-                        massFlow += tons;
-                    }
-                    output += rate;
-                }
-                output += p.GetFlowModeDescription();
+                massFlow += unitsSec * p.resourceDef.density;
+                output += ResourceUnits.PrintRate(unitsSec, p.id, true, null, p, true);
             }
             if (massFlow > 0d)
-            {
-                string totalMassRate = massFlow < 1d ? KSPUtil.PrintSI(massFlow * 1000d * 1000d, "g") : KSPUtil.PrintSI(massFlow, "t");
-                output += Localizer.Format("#autoLOC_900654") + " " + Localizer.Format("#autoLOC_6001048", totalMassRate) + "\n";
-            }
+                output += Localizer.Format("#autoLOC_900654") + " " + Localizer.Format(ResourceUnits.PerSecLocString, ResourceUnits.PrintMass(massFlow)) + "\n";
+
             output += Localizer.Format("#RF_EngineRF_GetInfo3", $"{localVaryIsp:P2}", $"{localVaryFlow:P1}", $"{localVaryMixture:P2}"); // $"<b>Variance: </b>{localVaryIsp:P2} Isp, {localVaryFlow:P1} flow, {localVaryMixture:P2} MR (stddev).\n"
             output += Localizer.Format("#RF_EngineRF_GetInfo4", $"{localResidualsThresholdBase:P1}"); // $"<b>Residuals: min </b>{localResidualsThresholdBase:P1} of propellant.\n"
 

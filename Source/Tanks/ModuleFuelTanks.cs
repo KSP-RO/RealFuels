@@ -7,6 +7,7 @@ using UnityEngine;
 using KSP.UI.Screens;
 using System.Reflection;
 using KSP.Localization;
+using ROUtils;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -731,9 +732,7 @@ namespace RealFuels.Tanks
         public float baseCostPV;
         public float basemassConst;
         public float baseCostConst;
-
-        public static string FormatMass(float mass) => mass < 1.0f ? KSPUtil.PrintSI(mass * 1e6, "g", 4) : KSPUtil.PrintSI(mass, "t", 4);
-
+                
         private void ParseBaseMass (ConfigNode node)
         {
             string baseMass = "";
@@ -819,7 +818,7 @@ namespace RealFuels.Tanks
                 double resourceMass = part.Resources.Cast<PartResource> ().Sum (partResource => partResource.maxAmount* partResource.info.density);
 
                 double wetMass = mass + resourceMass;
-                massDisplay = Localizer.Format("#RF_FuelTank_volumeDisplayinfo2", FormatMass(mass), FormatMass((float)wetMass)); // "Dry: " + FormatMass (mass) + " / Wet: " + FormatMass ((float)wetMass)
+                massDisplay = Localizer.Format("#RF_FuelTank_volumeDisplayinfo2", ResourceUnits.PrintMass(mass), ResourceUnits.PrintMass(wetMass)); // "Dry: " + FormatMass (mass) + " / Wet: " + FormatMass ((float)wetMass)
 
                 UpdateTweakableMenu ();
             }

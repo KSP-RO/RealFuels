@@ -41,6 +41,10 @@
     <Reference Include="Assembly-CSharp">
       <Private>False</Private>
     </Reference>
+    <Reference Include="ROUtils">
+      <HintPath>..\..\..\..\..\..\Games\R112\GameData\ROUtils\Plugins\ROUtils.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="SolverEngines">
       <Private>False</Private>
       <HintPath>..\..\SolverEngines\SolverEngines\obj\Release\SolverEngines.dll</HintPath>

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using ROUtils;
 
 using KSP.UI.Screens;
 using System.Linq;
@@ -73,8 +74,8 @@ namespace RealFuels.Tanks
             if (tank_module.AvailableVolume != oldAvailableVolume || tank_module.type != oldTankType){
                 foreach (FuelTank tank in tank_module.tanksDict.Values) {
                     double maxVol = tank_module.AvailableVolume * tank.utilization;
-                    string maxVolStr = KSPUtil.PrintSI(maxVol, "L");
-                    string label = $"{Localizer.GetStringByTag("#RF_TankWindow_Max")}: " + maxVolStr + " (+" + ModuleFuelTanks.FormatMass((float)(tank_module.AvailableVolume * tank.mass)) + " )"; // Max
+                    string maxVolStr = ResourceUnits.PrintAmount(maxVol, tank.resource.info.id);
+                    string label = $"{Localizer.GetStringByTag("#RF_TankWindow_Max")}: " + maxVolStr + " (+" + ResourceUnits.PrintMass(tank_module.AvailableVolume * tank.mass) + " )"; // Max
                     addLabelCache[tank.name] = label;
                 }
                 oldAvailableVolume = tank_module.AvailableVolume;
