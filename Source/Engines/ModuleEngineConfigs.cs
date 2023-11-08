@@ -1200,10 +1200,12 @@ namespace RealFuels
 
             // Now update the cfg from what we did.
             // thrust updates
+            // These previously used the format "0.0000" but that sets thrust to 0 for engines with < that in kN
+            // so we'll just use default.
             if (configMaxThrust >= 0f)
-                cfg.SetValue(thrustRating, configMaxThrust.ToString("0.0000"), true);
+                cfg.SetValue(thrustRating, configMaxThrust, true);
             if (configMinThrust >= 0f)
-                cfg.SetValue("minThrust", configMinThrust.ToString("0.0000"), true); // will be ignored by RCS, so what.
+                cfg.SetValue("minThrust", configMinThrust, true); // will be ignored by RCS, so what.
 
             // heat update
             if (configHeat >= 0f)
