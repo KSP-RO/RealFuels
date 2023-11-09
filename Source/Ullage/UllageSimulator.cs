@@ -207,7 +207,9 @@ namespace RealFuels.Ullage
         public double GetPropellantStability() => propellantStability;
         public double GetPropellantProbability()
         {
-            return propellantStability >= veryStable ? 1.0d : propellantStability;
+            // round up veryStable (>= 0.996) to 100% stable
+            double stability = propellantStability >= veryStable ? 1.0d : propellantStability;
+            return Math.Pow(stability, RFSettings.Instance.stabilityPower);
         }
         public void SetPropellantStability(double newStab) => propellantStability = newStab;
         public string GetPropellantStatus(out Color col)

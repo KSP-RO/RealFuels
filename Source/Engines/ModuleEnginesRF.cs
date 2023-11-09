@@ -685,9 +685,8 @@ namespace RealFuels
                 {
                     if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
                     {
-                        double state = ullageSet.GetUllageProbability();
-                        double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
-                        if (staticRandom.NextDouble() > testValue)
+                        double ullageProbability = ullageSet.GetUllageProbability();
+                        if (staticRandom.NextDouble() > ullageProbability)
                         {
                             ScreenMessages.PostScreenMessage(ullageFail);
                             FlightLogger.fetch.LogEvent($"[{FormatTime(vessel.missionTime)}] {ullageFail.message}");
