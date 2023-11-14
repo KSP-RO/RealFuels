@@ -41,7 +41,7 @@ namespace RealFuels.Tanks
 
         [KSPField(isPersistant = true)]
         private string oldType;
-        public string type = "Default"
+        public string type = "Default";
 
         [KSPField(guiActiveEditor = true, guiActive = true, guiName = "#RF_FuelTank_TankType", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName), UI_ChooseOption(scene = UI_Scene.Editor)] //Tank Type
         public string typeDisp = Localizer.GetStringByTag("#RF_FuelTank_Default"); // "Default"
@@ -585,14 +585,16 @@ namespace RealFuels.Tanks
             UpdateUsedBy();
             UpdateTankTypeRF(def);
             UpdateTestFlight();
+            string oldTypeForEvent = null;
             if (oldType != type)
             {
-                string oldTypeForEvent = oldType;
+                oldTypeForEvent = oldType;
                 oldType = type;
             }
             massDirty = true;
             CalculateMass();
-            RaiseTankDefinitionChanged(oldTypeForEvent, def);
+            if (oldTypeForEvent != null && oldTypeForEvent != type)
+                RaiseTankDefinitionChanged(oldTypeForEvent, def);
         }
 
 
