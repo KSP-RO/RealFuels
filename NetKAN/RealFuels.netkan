@@ -27,6 +27,8 @@ depends:
   - name: SolverEngines
     min_version: v3.11.0
     suppress_recommendations: true
+  - name: ROUtils
+    suppress_recommendations: true
 conflicts:
   - name: ModularFuelSystem
   - name: ModularFuelTanks
