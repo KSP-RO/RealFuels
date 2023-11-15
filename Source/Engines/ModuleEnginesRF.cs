@@ -54,7 +54,7 @@ namespace RealFuels
 
         protected Propellant curveProp;
 
-        [KSPField(guiName = "#RF_EngineRF_IgnitedFor", guiUnits = "s", guiFormat = "F3", groupName = groupName)] // Ignited for 
+        [KSPField(guiName = "#RF_EngineRF_IgnitedFor", guiUnits = "s", guiFormat = "F3", groupName = groupName)] // Ignited for
         public float curveTime = 0f;
         #endregion
 
@@ -496,9 +496,9 @@ namespace RealFuels
                 tags += pressureFed ? ", " : string.Empty;
                 tags += $"<color=yellow>{Localizer.GetStringByTag("#RF_EngineRF_Ullage")}</color>"; // Ullage
             }
-            sISP = $"{atmosphereCurve.Evaluate(1):N0} (ASL) - {atmosphereCurve.Evaluate(0):N0} (Vac)"; // 
+            sISP = $"{atmosphereCurve.Evaluate(1):N0} (ASL) - {atmosphereCurve.Evaluate(0):N0} (Vac)"; //
             GetThrustData(out double thrustVac, out double thrustASL);
-            sThrust = $"{Utilities.FormatThrust(thrustASL)} (ASL) - {Utilities.FormatThrust(thrustVac)} (Vac)"; // 
+            sThrust = $"{Utilities.FormatThrust(thrustASL)} (ASL) - {Utilities.FormatThrust(thrustVac)} (Vac)"; //
             if (ignitions > 0)
                 sIgnitions = $"{ignitions:N0}";
             else if (ignitions == -1)
@@ -685,9 +685,8 @@ namespace RealFuels
                 {
                     if (EngineIgnited && ignited && throttledUp && rfSolver.GetRunning())
                     {
-                        double state = ullageSet.GetUllageStability();
-                        double testValue = Math.Pow(state, RFSettings.Instance.stabilityPower);
-                        if (staticRandom.NextDouble() > testValue)
+                        double ullageProbability = ullageSet.GetUllageProbability();
+                        if (staticRandom.NextDouble() > ullageProbability)
                         {
                             ScreenMessages.PostScreenMessage(ullageFail);
                             FlightLogger.fetch.LogEvent($"[{FormatTime(vessel.missionTime)}] {ullageFail.message}");
@@ -762,10 +761,10 @@ namespace RealFuels
         #region Info
         protected string ThrottleString()
         {
-            if (throttleLocked) { return ", throttle locked"; } // 
-            if (MinThrottle == 1f) { return ", unthrottleable"; } // 
+            if (throttleLocked) { return ", throttle locked"; } //
+            if (MinThrottle == 1f) { return ", unthrottleable"; } //
             if (MinThrottle < 0f || MinThrottle > 1f) { return string.Empty; }
-            return $", {MinThrottle:P0} min throttle"; // 
+            return $", {MinThrottle:P0} min throttle"; //
         }
 
         protected void GetThrustData(out double thrustVac, out double thrustASL)
@@ -850,8 +849,8 @@ namespace RealFuels
                     output += $"{MinThrottle:P0} {Localizer.GetStringByTag("#RF_EngineRF_MinThrottle")}\n"; // min throttle
                     if (thrustASL != thrustVac)
                     {
-                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MAXThrustInVac")}: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##})\n"; //Max. Thrust (Vac) 
-                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MAXThrustInASL")}: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##})\n"; //Max. Thrust (ASL) 
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MAXThrustInVac")}: </b>{Utilities.FormatThrust(thrustVac)} (TWR {thrustVac / weight:0.0##})\n"; //Max. Thrust (Vac)
+                        output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MAXThrustInASL")}: </b>{Utilities.FormatThrust(thrustASL)} (TWR {thrustASL / weight:0.0##})\n"; //Max. Thrust (ASL)
                         output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MINThrustInVac")}: </b>{Utilities.FormatThrust(thrustVac * MinThrottle)} (TWR {thrustVac * MinThrottle / weight:0.0##})\n"; // Min. Thrust (Vac)
                         output += $"<b>{Localizer.GetStringByTag("#RF_EngineRF_MINThrustInASL")}: </b>{Utilities.FormatThrust(thrustASL * MinThrottle)} (TWR {thrustASL * MinThrottle / weight:0.0##})\n"; // Min. Thrust (ASL)
                     }
@@ -887,7 +886,7 @@ namespace RealFuels
             return output;
         }
 
-        
+
         public override string GetInfo()
         {
             string output = $"{GetThrustInfo()}" +

@@ -105,7 +105,7 @@ namespace RealFuels.Ullage
 
             //if (ventingAcc != 0.0f) Debug.Log("BoilOffAcc: " + ventingAcc.ToString("F8"));
             //else Debug.Log("BoilOffAcc: No boiloff.");
-            
+
             Vector3d localAccelerationAmount = localAcceleration * deltaTime;
             Vector3d rotationAmount = rotation * deltaTime;
 
@@ -179,8 +179,6 @@ namespace RealFuels.Ullage
             //Debug.Log("Ullage: pHorizontal: " + pHorizontal.ToString("F3"));
 
             propellantStability = Math.Max(0.0d, 1.0d - (pVertical * pHorizontal * (0.75d + Math.Sqrt(bLevel))));
-            if (propellantStability >= veryStable)
-                propellantStability = 1d;
 
 //#if DEBUG
 //            if (propellantStability < 0.5d)
@@ -204,9 +202,15 @@ namespace RealFuels.Ullage
                 propellantStatus = Localizer.GetStringByTag("#RF_UllageState_Unstable"); // "Unstable"
             else
                 propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryUnstable"); // "Very Unstable"
-            propellantStatus += $" ({propellantStability:P2})";
+            propellantStatus += $" ({GetPropellantProbability():P2})";
         }
         public double GetPropellantStability() => propellantStability;
+        public double GetPropellantProbability()
+        {
+            // round up veryStable (>= 0.996) to 100% stable
+            double stability = propellantStability >= veryStable ? 1.0d : propellantStability;
+            return Math.Pow(stability, RFSettings.Instance.stabilityPower);
+        }
         public void SetPropellantStability(double newStab) => propellantStability = newStab;
         public string GetPropellantStatus(out Color col)
         {

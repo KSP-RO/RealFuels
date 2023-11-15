@@ -119,7 +119,7 @@ namespace RealFuels.Ullage
                 angularVelocity = engine.transform.InverseTransformDirection(engine.part.rb.angularVelocity);
             else
                 angularVelocity = engine.transform.InverseTransformDirection(angVel);
-            
+
             fuelRatio = 1d;
             if(HighLogic.LoadedSceneIsFlight && engine.EngineIgnited)
             {
@@ -139,6 +139,7 @@ namespace RealFuels.Ullage
         public void SetUllageStability(double newStability) => ullageSim.SetPropellantStability(newStability);
         public string GetUllageState(out Color col) => ullageSim.GetPropellantStatus(out col);
         public double GetUllageStability() => ullageSim.GetPropellantStability();
+        public double GetUllageProbability() => ullageSim.GetPropellantProbability();
         public bool PressureOK() => !engine.pressureFed || tanksHighlyPressurized;
         public bool EditorPressurized()
         {
