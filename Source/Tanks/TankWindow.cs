@@ -74,7 +74,7 @@ namespace RealFuels.Tanks
             if (tank_module.AvailableVolume != oldAvailableVolume || tank_module.type != oldTankType){
                 foreach (FuelTank tank in tank_module.tanksDict.Values) {
                     double maxVol = tank_module.AvailableVolume * tank.utilization;
-                    string maxVolStr = ResourceUnits.PrintAmount(maxVol, tank.resource.info.id);
+                    string maxVolStr = tank.resource == null ? ResourceUnits.PrintSIAmount(maxVol, "L") : ResourceUnits.PrintAmount(maxVol, tank.resource.info.id);
                     string label = $"{Localizer.GetStringByTag("#RF_TankWindow_Max")}: " + maxVolStr + " (+" + ResourceUnits.PrintMass(tank_module.AvailableVolume * tank.mass) + " )"; // Max
                     addLabelCache[tank.name] = label;
                 }
