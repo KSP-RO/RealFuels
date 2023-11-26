@@ -27,9 +27,9 @@ namespace RealFuels
         private List<double> _ratiosAmount = new List<double>();
         private List<double> _ratiosFree = new List<double>();
 
-        public ResourceSet(ResourceSetHolder set, int pri)
+        public ResourceSet(ResourceSetHolder holder, int pri)
         {
-            _holder = set;
+            _holder = holder;
             priority = pri;
         }
 
@@ -80,9 +80,6 @@ namespace RealFuels
             if (recalc)
                 RecalcRatios();
         }
-
-        public bool MakeActive(ResourceWrapper rw) => _holder.MakeActive(rw);
-        public bool MakeInactive(ResourceWrapper rw) => _holder.MakeInactive(rw);
 
         public bool Contains(ResourceWrapper rw)
         {

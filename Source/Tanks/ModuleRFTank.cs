@@ -14,6 +14,7 @@ namespace RealFuels
         public bool IsMain => _rootModule == null;
         private HashSet<ModuleRFTank> _tanks = null;
         private HashSet<Part> _parts = null;
+        public IReadOnlyCollection<Part> parts => _parts;
         private bool _eventsEditor = false;
         private bool _eventsFlight = false;
         private static bool _InEvent = false;
@@ -77,6 +78,14 @@ namespace RealFuels
             if (_eventsFlight)
             {
             }
+        }
+
+        public bool IsResourceManaged(int resID)
+        {
+            var ts = tankSet;
+            if (ts == null)
+                return false;
+            return ts.tankDefinition.tankInfos.ContainsKey(resID);
         }
 
         private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> data)

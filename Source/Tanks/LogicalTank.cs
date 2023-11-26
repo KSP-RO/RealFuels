@@ -48,7 +48,7 @@ namespace RealFuels
         /// </summary>
         private List<ResourceSet> _sets = new List<ResourceSet>();
 
-        private List<ResourceSetHolder> _holders = new List<ResourceSetHolder>();
+        protected ShipResourceMap.ResourceData _resourceCache;
 
         /// <summary>
         /// Must either call SetAmount or call PushAmountDelta itself
@@ -64,66 +64,63 @@ namespace RealFuels
         /// Must either call SetAmount or call PushAmountDelta itself
         /// </summary>
         public virtual double free { get; set; }
+
+        public abstract int Priority { get; }
+        public virtual float Pressure => 0f;
+        public abstract int resID { get; }
+
         /// <summary>
         /// Must call PushAmountDelta with the amount delta
         /// </summary>
         /// <param name="amount"></param>
         /// <param name="simulate"></param>
         public abstract void SetAmount(double amount, bool simulate);
-        public abstract bool Flowing(bool pulling);
-        public abstract int Priority { get; }
-        public virtual float Pressure => 0f;
+        public abstract bool Flowing();
         public abstract void ResetSim();
         public abstract double Transfer(double amt, bool simulate);
+
+        public ResourceWrapper(ShipResourceMap.ResourceData rc) { _resourceCache = rc; }
         
         public void LinkSet(ResourceSet set) { _sets.Add(set); }
         public void UnlinkSet(ResourceSet set) { _sets.Remove(set); }
-        public void LinkHolder(ResourceSetHolder holder) { _holders.Add(holder); }
-        public void UnlinkHolder(ResourceSetHolder holder) { _holders.Remove(holder); }
 
         public void OnFlowStateChange(bool from)
         {
             if (from)
             {
-                for (int i = _holders.Count; i-- > 0;)
-                    _holders[i].MakeInactive(this);
+                // Checks to be sure we were already inactive
+                // (so if we weren't actually flowing before,
+                // this is safe)
+                _resourceCache.MakeInactive(this);
             }
             else
             {
-                for (int i = _holders.Count; i-- > 0;)
-                {
-                    var h = _holders[i];
-                    if (Flowing(h.pulling))
-                        h.MakeActive(this);
-                }
+                if (Flowing())
+                    _resourceCache.MakeActive(this);
             }
         }
 
         public void OnFlowModeChange(PartResource.FlowMode from, PartResource.FlowMode to)
         {
-            for (int i = _holders.Count; i-- > 0;)
+            if ((from & PartResource.FlowMode.Both) != 0)
             {
-                var h = _holders[i];
-                PartResource.FlowMode test = h.pulling ? PartResource.FlowMode.Out : PartResource.FlowMode.In;
-                if ((from & test) != 0)
+                if (to == PartResource.FlowMode.None)
                 {
-                    // Note: we may already be inactive due to
-                    // flow state. But this is a safe operation.
-                    if ((to & test) == 0)
-                        h.MakeInactive(this);
+                    // Checks to be sure we were already inactive
+                    // (so if we weren't actually flowing before,
+                    // this is safe)
+                    _resourceCache.MakeInactive(this);
                 }
-                else
-                {
-                    if (Flowing(h.pulling))
-                        h.MakeActive(this);
-                }
+            }
+            else if (from == PartResource.FlowMode.None && Flowing())
+            {
+                _resourceCache.MakeActive(this);
             }
         }
 
         public void OnPriorityChange(int oldPri)
         {
-            for (int i = _holders.Count; i-- > 0;)
-                _holders[i].ChangePriority(this, oldPri);
+            _resourceCache.ChangePriority(this, oldPri);
         }
 
         protected void PushAmountDelta(double delta)
@@ -188,8 +185,9 @@ namespace RealFuels
     public class PartResourceWrapper : ResourceWrapper
     {
         private PartResource _res;
-        public PartResourceWrapper(PartResource r) { _res = r; }
+        public PartResourceWrapper(PartResource r, ShipResourceMap.ResourceData rc) : base(rc) { _res = r; }
         public override int Priority => _res.part.GetResourcePriority();
+        public override int resID => _res.info.id;
 
         public override double amount
         {
@@ -244,9 +242,9 @@ namespace RealFuels
             return _res.part.TransferResource(_res, amt, _res.part, simulate);
         }
 
-        public override bool Flowing(bool pulling)
+        public override bool Flowing()
         {
-            return _res.Flowing(pulling);
+            return _res.flowState && _res.flowMode != PartResource.FlowMode.None;
         }
 
         public override void ResetSim()
@@ -273,8 +271,10 @@ namespace RealFuels
         public PartResourceDefinition def => _resDef;
         [Persistent]
         private string _resName;
+        public override int resID => _resDef.id;
 
-        public LogicalTank(LogicalTankGroup group) { _group = group; }
+        public LogicalTank(LogicalTankGroup group) : base(null) { _group = group; }
+        public void LinkCache(ShipResourceMap.ResourceData rc) { _resourceCache = rc; }
 
         public void Load(ConfigNode node)
         {
@@ -328,9 +328,9 @@ namespace RealFuels
             }
         }
 
-        public LogicalTank() { }
+        public LogicalTank() : base(null) { }
 
-        public LogicalTank(List<Tank> tanks)
+        public LogicalTank(List<Tank> tanks) : base(null)
         {
             foreach (var t in tanks)
             {
@@ -362,11 +362,13 @@ namespace RealFuels
             SetAmount(_amount, true); // don't raise events
         }
 
-        public override bool Flowing(bool pulling)
+        public override bool Flowing()
         {
             if (_tanks.Count == 0)
                 return false;
-            return _tanks[0].tank.res.Flowing(pulling);
+
+            var res = _tanks[0].tank.res;
+            return res.flowState && res.flowMode != PartResource.FlowMode.None;
         }
 
         public override void ResetSim()

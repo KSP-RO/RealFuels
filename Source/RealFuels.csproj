@@ -103,6 +103,8 @@
     <Compile Include="EntryCosts\PartEntryCostHolder.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
     <Compile Include="Tanks\EditorCrossfeedSetMaintainer.cs" />
+    <Compile Include="Tanks\ResourceSetHolder.cs" />
+    <Compile Include="Tanks\ShipResourceMap.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
     <Compile Include="Tanks\FuelTank.cs" />
     <Compile Include="Tanks\FuelTankList.cs" />
@@ -110,9 +112,9 @@
     <Compile Include="Tanks\MFSSettings.cs" />
     <Compile Include="Tanks\ModuleFuelTanks.cs" />
     <Compile Include="Tanks\LogicalTank.cs" />
-    <Compile Include="Tanks\ResourcePrioritySetRF.cs" />
+    <Compile Include="Tanks\FastFlowGraph.cs" />
+    <Compile Include="Tanks\PressureSet.cs" />
     <Compile Include="Tanks\ResourceSet.cs" />
-    <Compile Include="Tanks\PartSetRF.cs" />
     <Compile Include="Tanks\ModuleRFTank.cs" />
     <Compile Include="Tanks\ModuleFuelTanksRF.cs" />
     <Compile Include="Tanks\ModuleFuelTanksTestFlight.cs" />

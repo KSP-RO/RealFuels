@@ -18,7 +18,31 @@ namespace RealFuels
         public int priority;
     }
 
-    public class TankDef
+    public class TankInfo : ConfigNodePersistenceBase
+    {
+        [Persistent]
+        private string _resourceName;
+        public string resourceName
+        {
+            get { return _resourceName; }
+            set
+            {
+                _resourceName = value;
+                _resID = value.GetHashCode();
+            }
+        }
+
+        private int _resID;
+        public int resID => _resID;
+
+        public override void Load(ConfigNode node)
+        {
+            base.Load(node);
+            _resID = _resourceName.GetHashCode();
+        }
+    }
+
+    public class TankDef : ConfigNodePersistenceBase
     {
         private static readonly Dictionary<string, TankDef> _Definitions = new Dictionary<string, TankDef>();
         public static TankDef GetDefinition(string name) => _Definitions.ValueOrDefault(name);
@@ -26,6 +50,10 @@ namespace RealFuels
         [Persistent]
         private string _name;
         public string name => _name;
+
+        [Persistent]
+        private PersistentDictionaryNodeStringHashKeyed<TankInfo> _tankInfos = new PersistentDictionaryNodeStringHashKeyed<TankInfo>();
+        public IReadOnlyDictionary<int, TankInfo> tankInfos => _tankInfos;
     }
 
     public class LogicalTankSet : ConfigNodePersistenceBase
@@ -34,8 +62,9 @@ namespace RealFuels
         private PersistentList<LogicalTankGroup> _groups = new PersistentList<LogicalTankGroup>();
         public IReadOnlyList<LogicalTankGroup> groups => _groups;
 
-        private Dictionary<int, List<LogicalTank>> _resourceToTank = new Dictionary<int, List<LogicalTank>>();
-        public IReadOnlyDictionary<int, List<LogicalTank>> resourceToTank => _resourceToTank;
+        private CollectionDictionary<int, LogicalTank, List<LogicalTank>> _resourceToTank = new CollectionDictionary<int, LogicalTank, List<LogicalTank>>();
+        // This can maybe be IReadOnlyDictionary
+        public CollectionDictionary<int, LogicalTank, List<LogicalTank>> resourceToTank => _resourceToTank;
 
         [Persistent]
         private double _volume;
@@ -55,8 +84,13 @@ namespace RealFuels
             _tankDefinition = TankDef.GetDefinition(_tankDefName);
             _volumeUsed = 0d;
             foreach (var tg in _groups)
+            {
                 foreach (var kvp in tg.tanks)
+                {
                     _volumeUsed += kvp.Value.maxAmount;
+                    _resourceToTank.Add(kvp.Key, kvp.Value);
+                }
+            }
         }
 
         public override void Save(ConfigNode node)
