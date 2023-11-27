@@ -8,63 +8,7 @@ using ROUtils.DataTypes;
 
 namespace RealFuels
 {
-    public class PressureSet
-    {
-        private bool _isLocal;
-        private SetHolderByPressure<PrioritySet> _prioritySets;
-        private SetHolderByPressure<FlatSet> _flatSet;
-
-        public PressureSet()
-        {
-            _prioritySets = new SetHolderByPressure<PrioritySet>();
-            _flatSet = new SetHolderByPressure<FlatSet>();
-        }
-
-        public void Add(ResourceWrapper rw, bool recalc)
-        {
-            _prioritySets.Add(rw, recalc);
-            _flatSet.Add(rw, recalc);
-        }
-
-        public bool Remove(ResourceWrapper rw, bool recalc)
-        {
-            bool priRem = _prioritySets.Remove(rw, recalc);
-            bool flatRem = _flatSet.Remove(rw, recalc);
-            return priRem && flatRem;
-        }
-
-        public void Clear()
-        {
-            _prioritySets.Clear();
-            _flatSet.Clear();
-        }
-
-        public void Recalc()
-        {
-            _prioritySets.Recalc();
-            _flatSet.Recalc();
-        }
-
-        public void ChangePriority(ResourceWrapper rw, int oldPri)
-        {
-            _prioritySets.ChangePriority(rw, oldPri);
-        }
-
-        public double Request(double demand, float pressure, bool usePri, bool simulate)
-        {
-            if (usePri)
-                return _prioritySets.Request(demand, pressure, simulate);
-
-            return _flatSet.Request(demand, pressure, simulate);
-        }
-
-        public void GetTotals(out double amount, out double maxAmount, float pressure)
-        {
-            _flatSet.GetTotals(out amount, out maxAmount, pressure);
-        }
-    }
-
-    public class SetHolderByPressure<T> : List<T> 
+    public class PressureSet<T> : List<T> 
         where T : ResourceSetHolder, new()
     {
         public void Add(ResourceWrapper rw, bool recalc)

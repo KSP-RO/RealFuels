@@ -23,24 +23,26 @@ namespace RealFuels
     {
         public class ResourceData
         {
-            private Dictionary<Part, PressureSet> _partToSet = new Dictionary<Part, PressureSet>();
-            private Dictionary<ResourceWrapper, PressureSet> _rwToSet = new Dictionary<ResourceWrapper, PressureSet>();
-            private PressureSet _shipWide;
+            private Dictionary<Part, PressureSet<PrioritySet>> _partToSet = new Dictionary<Part, PressureSet<PrioritySet>>();
+            private Dictionary<ResourceWrapper, PressureSet<PrioritySet>> _rwToSet = new Dictionary<ResourceWrapper, PressureSet<PrioritySet>>();
+            private PressureSet<PrioritySet> _shipWidePri;
+            private PressureSet<FlatSet> _shipWide;
             private List<ResourceWrapper> _inactives = new List<ResourceWrapper>();
 
             public ResourceData()
             {
-                _shipWide = new PressureSet();
+                _shipWide = new PressureSet<FlatSet>();
+                _shipWidePri = new PressureSet<PrioritySet>();
             }
 
-            public PressureSet GetOrCreateSet(Part part, HashSet<Part> crossfeedSet)
+            public PressureSet<PrioritySet> GetOrCreateSet(Part part, HashSet<Part> crossfeedSet)
             {
                 if (_partToSet.TryGetValue(part, out var ps))
                     return ps;
 
                 // If we're making a new PressureSet, link *all*
                 // parts in this crossfeed set to it
-                ps = new PressureSet();
+                ps = new PressureSet<PrioritySet>();
                 foreach (var p in crossfeedSet)
                     _partToSet.Add(p, ps);
 
@@ -63,6 +65,7 @@ namespace RealFuels
                 if (rw.Flowing())
                 {
                     _shipWide.Add(rw, false);
+                    _shipWidePri.Add(rw, false);
                     ps.Add(rw, false);
                 }
                 else
@@ -86,6 +89,7 @@ namespace RealFuels
                 if (rw.Flowing())
                 {
                     _shipWide.Add(rw, true);
+                    _shipWidePri.Add(rw, true);
                     set.Add(rw, true);
                 }
                 else
@@ -106,8 +110,9 @@ namespace RealFuels
                     return true;
 
                 bool sw = _shipWide.Remove(rw, true);
+                bool sw2 = _shipWidePri.Remove(rw, true);
                 bool ps = set.Remove(rw, true);
-                return sw && ps;
+                return sw && sw2 && ps;
             }
 
             public void Recalc()
@@ -116,6 +121,7 @@ namespace RealFuels
                     ps.Recalc();
 
                 _shipWide.Recalc();
+                _shipWidePri.Recalc();
             }
 
             public bool MakeActive(ResourceWrapper rw)
@@ -126,6 +132,7 @@ namespace RealFuels
 
                 _inactives.RemoveAt(idx);
                 _shipWide.Add(rw, true);
+                _shipWidePri.Add(rw, true);
                 _rwToSet[rw].Add(rw, true);
                 return true;
             }
@@ -135,7 +142,7 @@ namespace RealFuels
                 if (_inactives.Contains(rw))
                     return false;
 
-                if (!_shipWide.Remove(rw, true))
+                if (!_shipWide.Remove(rw, true) || !_shipWidePri.Remove(rw, true))
                     return false;
 
                 _rwToSet[rw].Remove(rw, true);
@@ -146,7 +153,8 @@ namespace RealFuels
 
             public void ChangePriority(ResourceWrapper rw, int oldPri)
             {
-                _shipWide.ChangePriority(rw, oldPri);
+                _shipWidePri.ChangePriority(rw, oldPri);
+                _rwToSet[rw].ChangePriority(rw, oldPri);
             }
 
             public void GetTotals(Part part, out double amount, out double maxAmount, float pressure, bool pulling, ResourceFlowMode mode)
@@ -157,17 +165,27 @@ namespace RealFuels
                     case ResourceFlowMode.ALL_VESSEL_BALANCE:
                     case ResourceFlowMode.STAGE_PRIORITY_FLOW:
                     case ResourceFlowMode.STAGE_PRIORITY_FLOW_BALANCE:
-                        _shipWide.GetTotals(out amount, out maxAmount, pressure);
-                        if (!pulling)
-                            amount = maxAmount - amount;
+                        GetTotals(out amount, out maxAmount, pressure, pulling);
                         return;
 
                     default:
-                        _partToSet[part].GetTotals(out amount, out maxAmount, pressure);
-                        if (!pulling)
-                            amount = maxAmount - amount;
+                        GetTotals(part, out amount, out maxAmount, pressure, pulling);
                         return;
                 }
+            }
+
+            public void GetTotals(out double amount, out double maxAmount, float pressure, bool pulling)
+            {
+                _shipWide.GetTotals(out amount, out maxAmount, pressure);
+                if (!pulling)
+                    amount = maxAmount - amount;
+            }
+
+            public void GetTotals(Part part, out double amount, out double maxAmount, float pressure, bool pulling)
+            {
+                _partToSet[part].GetTotals(out amount, out maxAmount, pressure);
+                if (!pulling)
+                    amount = maxAmount - amount;
             }
 
             public double Request(double demand, Part part, float pressure, ResourceFlowMode mode, bool simulate)
@@ -176,15 +194,28 @@ namespace RealFuels
                 {
                     case ResourceFlowMode.ALL_VESSEL:
                     case ResourceFlowMode.ALL_VESSEL_BALANCE:
-                        return _shipWide.Request(demand, pressure, false, simulate);
+                        return Request(demand, pressure, false, simulate);
 
                     case ResourceFlowMode.STAGE_PRIORITY_FLOW:
                     case ResourceFlowMode.STAGE_PRIORITY_FLOW_BALANCE:
-                        return _shipWide.Request(demand, pressure, true, simulate);
+                        return Request(demand, pressure, true, simulate);
 
                     default:
-                        return _partToSet[part].Request(demand, pressure, true, simulate);
+                        return Request(demand, part, pressure, simulate);
                 }
+            }
+
+            public double Request(double demand, float pressure, bool usePri, bool simulate)
+            {
+                if (usePri)
+                    return _shipWidePri.Request(demand, pressure, simulate);
+
+                return _shipWide.Request(demand, pressure, simulate);
+            }
+
+            public double Request(double demand, Part part, float pressure, bool simulate)
+            {
+                return _partToSet[part].Request(demand, pressure, simulate);
             }
         }
 

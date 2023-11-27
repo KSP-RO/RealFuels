@@ -47,7 +47,7 @@ namespace RealFuels
             _holder.BothDeltaApplied(amt, max);
 
             if (recalc)
-                RecalcRatios();
+                Recalc();
         }
 
         public bool Remove(ResourceWrapper rw, bool recalc = true)
@@ -78,7 +78,7 @@ namespace RealFuels
             _ratiosAmount.RemoveAt(i);
             _ratiosFree.RemoveAt(i);
             if (recalc)
-                RecalcRatios();
+                Recalc();
         }
 
         public bool Contains(ResourceWrapper rw)
@@ -130,7 +130,7 @@ namespace RealFuels
             _holder.BothDeltaApplied(amountDelta, maxDelta);
         }
 
-        public void RecalcRatios()
+        public void Recalc()
         {
             for (int i = _resources.Count; i-- > 0;)
             {
@@ -142,25 +142,11 @@ namespace RealFuels
             _dirtyRatios = false;
         }
 
-        public void RecalcAll()
-        {
-            amount = 0;
-            maxAmount = 0;
-            for (int i = _resources.Count; i-- > 0;)
-            {
-                var rw = _resources[i];
-                amount += rw.amount;
-                maxAmount = rw.maxAmount;
-            }
-            free = maxAmount - free;
-            RecalcRatios();
-        }
-
         public double Request(double demand, bool simulate)
         {
             _isRequesting = true;
             if (_dirtyRatios)
-                RecalcRatios();
+                Recalc();
 
             if (demand > 0d)
             {

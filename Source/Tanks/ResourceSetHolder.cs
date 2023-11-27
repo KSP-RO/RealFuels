@@ -10,8 +10,8 @@ namespace RealFuels
 {
     public abstract class ResourceSetHolder
     {
-        public abstract double amount { get; set; }
-        public abstract double maxAmount { get; set; }
+        public abstract double amount { get; }
+        public abstract double maxAmount { get; }
         public abstract double free { get; }
         public float pressure;
         public abstract int Count { get; }
@@ -41,18 +41,8 @@ namespace RealFuels
     {
         protected ResourceSet _set;
 
-        public override double amount
-        { 
-            get => _set.amount;
-            set => _set.amount = value;
-        }
-
-        public override double maxAmount
-        {
-            get => _set.maxAmount;
-            set => _set.maxAmount = value;
-        }
-
+        public override double amount => _set.amount;
+        public override double maxAmount => _set.maxAmount;
         public override double free => _set.free;
 
         public override int Count => _set.Count;
@@ -84,25 +74,17 @@ namespace RealFuels
 
         public override void Recalc()
         {
-            _set.RecalcRatios();
+            _set.Recalc();
         }
     }
 
     public class PrioritySet : ResourceSetHolder
     {
         private double _amount;
-        public override double amount
-        {
-            get { return _amount; }
-            set { _amount = value; }
-        }
+        public override double amount => _amount;
 
         private double _maxAmount;
-        public override double maxAmount
-        {
-            get { return _maxAmount; }
-            set { _maxAmount = value; }
-        }
+        public override double maxAmount => _maxAmount;
 
         public override double free => _maxAmount - _amount;
 
@@ -207,7 +189,7 @@ namespace RealFuels
         public override void Recalc()
         {
             for (int i = _sets.Count; i-- > 0;)
-                _sets[i].RecalcRatios();
+                _sets[i].Recalc();
         }
     }
 }
