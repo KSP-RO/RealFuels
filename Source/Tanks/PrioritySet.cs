@@ -8,87 +8,9 @@ using ROUtils.DataTypes;
 
 namespace RealFuels
 {
-    public abstract class ResourceSetHolder
+    public class PrioritySet : ResourceSetBase
     {
-        public abstract double amount { get; }
-        public abstract double maxAmount { get; }
-        public abstract double free { get; }
-        public float pressure;
-        public abstract int Count { get; }
-
-        // In the default case (The flat set) amount/maxamount link
-        // directly to the ResourceSet underneath, so there's nothing
-        // to update at our level. We override these for the PrioritySet
-        // case.
-        public virtual void AmountDeltaApplied(double delta) { }
-        public virtual void MaxAmountDeltaApplied(double delta) { }
-        public virtual void BothDeltaApplied(double amountDelta, double maxDelta) { }
-
-        public abstract void Add(ResourceWrapper rw, bool recalc);
-
-        public abstract bool Remove(ResourceWrapper rw, bool recalc);
-
-        public virtual void ChangePriority(ResourceWrapper rw, int oldPri) { }
-
-        public abstract void Clear();
-
-        public abstract double Request(double demand, bool simulate);
-
-        public abstract void Recalc();
-    }
-
-    public class FlatSet : ResourceSetHolder
-    {
-        protected ResourceSet _set;
-
-        public override double amount => _set.amount;
-        public override double maxAmount => _set.maxAmount;
-        public override double free => _set.free;
-
-        public override int Count => _set.Count;
-
-        public FlatSet()
-        {
-            _set = new ResourceSet(this, 0);
-        }
-
-        public override double Request(double demand, bool simulate)
-        {
-            return _set.Request(demand, simulate);
-        }
-
-        public override void Add(ResourceWrapper rw, bool recalc)
-        {
-            _set.Add(rw, recalc);
-        }
-
-        public override bool Remove(ResourceWrapper rw, bool recalc)
-        {
-            return _set.Remove(rw, recalc);
-        }
-
-        public override void Clear()
-        {
-            _set.Clear();
-        }
-
-        public override void Recalc()
-        {
-            _set.Recalc();
-        }
-    }
-
-    public class PrioritySet : ResourceSetHolder
-    {
-        private double _amount;
-        public override double amount => _amount;
-
-        private double _maxAmount;
-        public override double maxAmount => _maxAmount;
-
-        public override double free => _maxAmount - _amount;
-
-        private List<ResourceSet> _sets = new List<ResourceSet>();
+        private List<ResourceSetWithPri> _sets = new List<ResourceSetWithPri>();
         public override int Count => _sets.Count;
 
         public override void AmountDeltaApplied(double delta) => _amount += delta;
@@ -143,7 +65,7 @@ namespace RealFuels
                 else
                     high = mid - 1;
             }
-            var newSet = new ResourceSet(this, pri);
+            var newSet = new ResourceSetWithPri(this, pri);
             _sets.Insert(low, newSet);
             newSet.Add(rw, recalc);
         }
@@ -175,6 +97,15 @@ namespace RealFuels
                 else
                     high = mid - 1;
             }
+            return false;
+        }
+
+        public override bool Contains(ResourceWrapper rw)
+        {
+            foreach (var rs in _sets)
+                if (rs.Contains(rw))
+                    return true;
+
             return false;
         }
 

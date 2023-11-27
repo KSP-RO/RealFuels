@@ -103,7 +103,7 @@
     <Compile Include="EntryCosts\PartEntryCostHolder.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
     <Compile Include="Tanks\EditorCrossfeedSetMaintainer.cs" />
-    <Compile Include="Tanks\ResourceSetHolder.cs" />
+    <Compile Include="Tanks\PrioritySet.cs" />
     <Compile Include="Tanks\ShipResourceMap.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
     <Compile Include="Tanks\FuelTank.cs" />

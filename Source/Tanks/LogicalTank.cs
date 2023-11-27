@@ -41,7 +41,31 @@ namespace RealFuels
         public double ratio;
     }
 
-    public abstract class ResourceWrapper
+    public abstract class ResourceBase
+    {
+        /// <summary>
+        /// When used on a ResourceWrapper:
+        /// Must either call SetAmount or call PushAmountDelta itself
+        /// </summary>
+        public abstract double amount { get; set; }
+
+        /// <summary>
+        /// When used on a ResourceWrapper:
+        /// Must call PushMaxAmount
+        /// </summary>
+        public abstract double maxAmount { get; set; }
+
+        /// <summary>
+        /// When used on a ResourceWrapper:
+        /// Must either call SetAmount or call PushAmountDelta itself
+        /// </summary>
+        public abstract double free { get; set; }
+
+        public virtual float Pressure => 0f;
+        public virtual double Request(double demand, bool simulate) { return demand; }
+    }
+
+    public abstract class ResourceWrapper : ResourceBase
     {
         /// <summary>
         /// For small numbers of sets, this is probably faster than a hashset
@@ -50,23 +74,7 @@ namespace RealFuels
 
         protected ShipResourceMap.ResourceData _resourceCache;
 
-        /// <summary>
-        /// Must either call SetAmount or call PushAmountDelta itself
-        /// </summary>
-        public virtual double amount { get; set; }
-
-        /// <summary>
-        /// Must call PushMaxAmount
-        /// </summary>
-        public virtual double maxAmount { get; set; }
-
-        /// <summary>
-        /// Must either call SetAmount or call PushAmountDelta itself
-        /// </summary>
-        public virtual double free { get; set; }
-
         public abstract int Priority { get; }
-        public virtual float Pressure => 0f;
         public abstract int resID { get; }
 
         /// <summary>
@@ -75,6 +83,13 @@ namespace RealFuels
         /// <param name="amount"></param>
         /// <param name="simulate"></param>
         public abstract void SetAmount(double amount, bool simulate);
+        public override double Request(double demand, bool simulate)
+        {
+            demand = -demand;
+            double oldAmt = amount;
+            SetAmount(oldAmt + demand, simulate);
+            return oldAmt - amount;
+        }
         public abstract bool Flowing();
         public abstract void ResetSim();
         public abstract double Transfer(double amt, bool simulate);
