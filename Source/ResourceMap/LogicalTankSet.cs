@@ -48,8 +48,8 @@ namespace RealFuels
         public static TankDef GetDefinition(string name) => _Definitions.ValueOrDefault(name);
 
         [Persistent]
-        private string _name;
-        public string name => _name;
+        private string name;
+        public string Name => name;
 
         [Persistent]
         private PersistentDictionaryNodeStringHashKeyed<TankInfo> _tankInfos = new PersistentDictionaryNodeStringHashKeyed<TankInfo>();
@@ -95,7 +95,7 @@ namespace RealFuels
 
         public override void Save(ConfigNode node)
         {
-            _tankDefName = _tankDefinition.name;
+            _tankDefName = _tankDefinition.Name;
             base.Save(node);
         }
     }

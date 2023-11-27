@@ -10,9 +10,9 @@ namespace RealFuels
 {
     public class ModuleRFTank : PartModule
     {
-        private ModuleRFTank _rootModule = null;
-        public bool IsMain => _rootModule == null;
-        private HashSet<ModuleRFTank> _tanks = null;
+        private ModuleRFTank _mainModule = null;
+        public bool IsMain => _mainModule == null;
+        private HashSet<ModuleRFTank> _modules = null;
         private HashSet<Part> _parts = null;
         public IReadOnlyCollection<Part> parts => _parts;
         private bool _eventsEditor = false;
@@ -22,8 +22,8 @@ namespace RealFuels
         public LogicalTankSet _tankSet = new LogicalTankSet();
         // TODO: handle sim reset/setup (clone)
         private LogicalTankSet _tankSetSim = new LogicalTankSet();
-        public LogicalTankSet tankSet => _rootModule == null ? _tankSet : _rootModule._tankSet;
-        public LogicalTankSet tankSetsSim => _rootModule == null ? _tankSetSim : _rootModule._tankSetSim;
+        public LogicalTankSet tankSet => _mainModule == null ? _tankSet : _mainModule._tankSet;
+        public LogicalTankSet tankSetsSim => _mainModule == null ? _tankSetSim : _mainModule._tankSetSim;
 
         private void HookEventsEditor()
         {
@@ -42,7 +42,7 @@ namespace RealFuels
 
         public override void OnStartFinished(StartState state)
         {
-            _rootModule = null;
+            _mainModule = null;
             _eventsEditor = false;
             _eventsFlight = false;
             
@@ -121,19 +121,19 @@ namespace RealFuels
 
         private void FindTanks()
         {
-            _tanks.Clear();
+            _modules.Clear();
             // Just us? Add and return
             if (!part.fuelCrossFeed)
             {
-                _tanks.Add(this);
+                _modules.Add(this);
                 return;
             }
 
-            _rootModule = this;
-            while (_rootModule.part.parent != null && FindValidMRFT(_rootModule.part.parent) is ModuleRFTank mrftP)
-                _rootModule = mrftP;
+            _mainModule = this;
+            while (_mainModule.part.parent != null && FindValidMRFT(_mainModule.part.parent) is ModuleRFTank mrftP)
+                _mainModule = mrftP;
 
-            _rootModule.FillTanks(_tanks);
+            _mainModule.FillTanks(_modules);
         }
 
         private void FillTanks(HashSet<ModuleRFTank> tanks)
@@ -161,7 +161,7 @@ namespace RealFuels
             PartResource res = data.host;
             int id = res.info.id;
             Part resPart = res.part;
-            var module = _rootModule == null ? this : _rootModule;
+            var module = _mainModule == null ? this : _mainModule;
             if (module.Manages(id) && module._parts.Contains(resPart))
             {
                 foreach (var p in module._parts)
@@ -180,7 +180,7 @@ namespace RealFuels
             int id = res.info.id;
             Part resPart = res.part;
             _InEvent = true;
-            var module = _rootModule == null ? this : _rootModule;
+            var module = _mainModule == null ? this : _mainModule;
             if (module.Manages(id) && module._parts.Contains(resPart))
             {
                 foreach (var p in module._parts)
