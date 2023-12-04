@@ -282,6 +282,9 @@ namespace RealFuels
         [Persistent]
         private double _maxAmount = 0d;
 
+        [Persistent]
+        private bool _flowing = true;
+
         private PartResourceDefinition _resDef;
         public PartResourceDefinition def => _resDef;
         [Persistent]
@@ -379,11 +382,25 @@ namespace RealFuels
 
         public override bool Flowing()
         {
-            if (_tanks.Count == 0)
-                return false;
+            return _flowing;
+        }
 
-            var res = _tanks[0].tank.res;
-            return res.flowState && res.flowMode != PartResource.FlowMode.None;
+        public bool SetFlowing(bool newVal)
+        {
+            if (newVal == _flowing)
+                return _flowing;
+
+            bool oldVal = _flowing;
+            _flowing = newVal;
+            var _newMode = newVal ? PartResource.FlowMode.Both : PartResource.FlowMode.None;
+            foreach (var t in _tanks)
+            {
+                var res = t.tank.res;
+                res._flowState = newVal;
+                res._flowMode = _newMode;
+            }
+            OnFlowStateChange(oldVal);
+            return oldVal;
         }
 
         public override void ResetSim()

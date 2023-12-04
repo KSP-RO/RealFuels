@@ -12,23 +12,33 @@ namespace RealFuels
     {
         private ModuleRFTank _mainModule = null;
         public bool IsMain => _mainModule == null;
-        private HashSet<ModuleRFTank> _modules = null;
-        private HashSet<Part> _parts = null;
-        public IReadOnlyCollection<Part> parts => _parts;
+        private List<ModuleRFTank> _modules = null;
+        public IReadOnlyCollection<ModuleRFTank> modules => _mainModule == null ? _modules : _mainModule._modules;
+
         private bool _eventsEditor = false;
         private bool _eventsFlight = false;
         private static bool _InEvent = false;
+
+        private bool _needFindTanks;
+
+        [KSPField]
+        private bool _isCombinable;
+
         [KSPField(isPersistant = true)]
-        public LogicalTankSet _tankSet = new LogicalTankSet();
+        private double _volume;
+        public double volume => _volume;
+
+        [KSPField(isPersistant = true)]
+        private LogicalTankSetList _tankSets = new LogicalTankSetList();
+        public IReadOnlyList<LogicalTankSet> tankSets => _mainModule == null ? _tankSets : _mainModule._tankSets;
+
         // TODO: handle sim reset/setup (clone)
-        private LogicalTankSet _tankSetSim = new LogicalTankSet();
-        public LogicalTankSet tankSet => _mainModule == null ? _tankSet : _mainModule._tankSet;
-        public LogicalTankSet tankSetsSim => _mainModule == null ? _tankSetSim : _mainModule._tankSetSim;
+        private LogicalTankSetList _tankSetsSim;
+        public IReadOnlyList<LogicalTankSet> tankSetsSim => _mainModule == null ? _tankSetsSim : _mainModule._tankSetsSim;
 
         private void HookEventsEditor()
         {
             _eventsEditor = true;
-            GameEvents.onPartAttach.Add(OnPartAttach);
             GameEvents.onPartRemove.Add(OnPartRemove);
             GameEvents.onPartResourceFlowStateChange.Add(OnFlowStateChange);
             GameEvents.onPartResourceFlowModeChange.Add(OnFlowModeChange);
@@ -40,13 +50,32 @@ namespace RealFuels
             GameEvents.onPartResourceFlowModeChange.Add(OnFlowModeChange);
         }
 
+        public override void OnAwake()
+        {
+            _needFindTanks = true;
+        }
+
+        public override void OnLoad(ConfigNode node)
+        {
+            _tankSets.Link(this);
+            if (HighLogic.LoadedScene == GameScenes.LOADING)
+            {
+                _tankSets
+            }
+        }
+
+        public override void OnStart(StartState state)
+        {
+            _tankSets.Link(this);
+        }
+
         public override void OnStartFinished(StartState state)
         {
             _mainModule = null;
             _eventsEditor = false;
             _eventsFlight = false;
             
-            // Just in case.
+            // Just in case -- loading doesn't run Start, but if it did that'd be bad.
             if (HighLogic.LoadedScene == GameScenes.LOADING)
                 return;
 
@@ -55,6 +84,8 @@ namespace RealFuels
             if ((state & StartState.Editor) != 0)
             {
                 HookEventsEditor();
+                if (part.attached || part.children.Count > 0)
+                    FindTanks();
             }
             else // in flight, find tanks already
             {
@@ -82,13 +113,17 @@ namespace RealFuels
 
         public bool IsResourceManaged(int resID)
         {
-            var ts = tankSet;
+            var ts = tankSets;
             if (ts == null)
                 return false;
-            return ts.tankDefinition.tankInfos.ContainsKey(resID);
+            for (int i = ts.Count; i-- > 0;)
+                if (ts[i].tankDefinition.tankInfos.ContainsKey(resID))
+                    return true;
+
+            return false;
         }
 
-        private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> data)
+        public void OnChildAdd(Part child)
         {
             
         }
@@ -116,15 +151,24 @@ namespace RealFuels
                         && nodeP.id.Contains(p.NoCrossFeedNodeKey))))
                 return null;
 
-            return p.FindModuleImplementing<ModuleRFTank>();
+            if (p.FindModuleImplementing<ModuleRFTank>() is ModuleRFTank mrft && mrft._isCombinable)
+                return mrft;
+
+            return null;
         }
 
         private void FindTanks()
         {
-            _modules.Clear();
+            if (!_needFindTanks)
+                return;
+
+            _needFindTanks = false;
+
             // Just us? Add and return
-            if (!part.fuelCrossFeed)
+            if (!part.fuelCrossFeed || !_isCombinable)
             {
+                if (_modules == null)
+                    _modules = new List<ModuleRFTank>(1);
                 _modules.Add(this);
                 return;
             }
@@ -133,28 +177,53 @@ namespace RealFuels
             while (_mainModule.part.parent != null && FindValidMRFT(_mainModule.part.parent) is ModuleRFTank mrftP)
                 _mainModule = mrftP;
 
-            _mainModule.FillTanks(_modules);
+            if (_mainModule._modules == null)
+                _mainModule._modules = new List<ModuleRFTank>();
+
+            _mainModule.DFSTanks(_mainModule._modules);
+            int maxCount = _mainModule._tankSets.Count;
+            ModuleRFTank bestTankSetModule = _mainModule;
+            foreach (var m in modules)
+            {
+                if (m == _mainModule)
+                    continue;
+
+                m._mainModule = _mainModule;
+                m._modules = null;
+
+                int c = m._tankSets.Count;
+                if (c > maxCount)
+                {
+                    maxCount = c;
+                    bestTankSetModule = m;
+                }
+            }
+            if (bestTankSetModule != _mainModule)
+            {
+                Utilities.Swap(ref _mainModule._tankSets, ref bestTankSetModule._tankSets);
+                Utilities.Swap(ref _mainModule._tankSetsSim, ref bestTankSetModule._tankSetsSim);
+                _mainModule._tankSets.Link(_mainModule);
+                _mainModule._tankSetsSim.Link(_mainModule);
+                bestTankSetModule._tankSets.Link(bestTankSetModule);
+                bestTankSetModule._tankSetsSim.Link(bestTankSetModule);
+            }
         }
 
-        private void FillTanks(HashSet<ModuleRFTank> tanks)
+        private void DFSTanks(List<ModuleRFTank> tanks)
         {
             tanks.Add(this);
+            _needFindTanks = false;
             foreach (var p in part.children)
             {
                 var mrft = FindValidMRFT(p);
                 if (mrft != null)
-                    mrft.FillTanks(tanks);
+                    mrft.DFSTanks(tanks);
             }
-        }
-
-        private bool Manages(int resID)
-        {
-            return true;
         }
 
         private void OnFlowStateChange(GameEvents.HostedFromToAction<PartResource, bool> data)
         {
-            if (_InEvent)
+            if (_InEvent || !IsMain)
                 return;
 
             _InEvent = true;
@@ -162,11 +231,10 @@ namespace RealFuels
             int id = res.info.id;
             Part resPart = res.part;
             var module = _mainModule == null ? this : _mainModule;
-            if (module.Manages(id) && module._parts.Contains(resPart))
+            if (module._tankSets.resourceToTank.TryGetValue(id, out var tankList) && module._parts.Contains(resPart))
             {
-                foreach (var p in module._parts)
-                    if (p != resPart && p.Resources.dict.TryGetValue(id, out var other))
-                        other.flowState = data.to;
+                foreach (var lt in tankList)
+                    lt.SetFlowing(data.to);
             }
             _InEvent = false;
         }
@@ -181,11 +249,11 @@ namespace RealFuels
             Part resPart = res.part;
             _InEvent = true;
             var module = _mainModule == null ? this : _mainModule;
-            if (module.Manages(id) && module._parts.Contains(resPart))
+            if (module._tankSets.resourceToTank.TryGetValue(id, out var tankList) && module._parts.Contains(resPart))
             {
-                foreach (var p in module._parts)
-                    if (p != resPart && p.Resources.dict.TryGetValue(id, out var other))
-                        other.flowMode = data.to;
+                var shouldFlow = data.to != PartResource.FlowMode.None;
+                foreach (var lt in tankList)
+                    lt.SetFlowing(shouldFlow);
             }
             _InEvent = false;
         }

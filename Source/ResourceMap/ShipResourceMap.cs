@@ -373,29 +373,32 @@ namespace RealFuels
 
         private void Build()
         {
-            var seenTankSets = new HashSet<LogicalTankSet>();
+            var seenTankSets = new HashSet<IReadOnlyList<LogicalTankSet>>();
 
-            foreach (var set in _graph.sets)
+            foreach (var crossfeedParts in _graph.sets)
             {
-                foreach (var part in set)
+                foreach (var part in crossfeedParts)
                 {
                     ModuleRFTank mrft = null;
                     if (part.FindModuleImplementing<ModuleRFTank>() is var mrft_)
                     {
                         mrft = mrft_;
                         // this will get the main module's tankset.
-                        var tSet = _isSim ? mrft.tankSetsSim : mrft.tankSet;
+                        var tSets = _isSim ? mrft.tankSetsSim : mrft.tankSets;
                         // If we haven't seen this tankset yet, process it.
-                        if (!seenTankSets.Contains(tSet))
+                        if (!seenTankSets.Contains(tSets))
                         {
-                            seenTankSets.Add(tSet);
-                            foreach (var group in tSet.groups)
+                            seenTankSets.Add(tSets);
+                            foreach (var ts in tSets)
                             {
-                                foreach (var tank in group.tanks.Values)
+                                foreach (var group in ts.groups)
                                 {
-                                    var cache = Resource(tank.resID);
-                                    tank.LinkCache(cache);
-                                    cache.Add(tank, part, set);
+                                    foreach (var tank in group.tanks.Values)
+                                    {
+                                        var cache = Resource(tank.resID);
+                                        tank.LinkCache(cache);
+                                        cache.Add(tank, part, crossfeedParts);
+                                    }
                                 }
                             }
                         }
@@ -411,7 +414,7 @@ namespace RealFuels
                         var cache = Resource(res.info.id);
                         var rw = new PartResourceWrapper(res, cache);
                         _resToWrapper[res] = rw;
-                        cache.Add(rw, part, set);
+                        cache.Add(rw, part, crossfeedParts);
                     }
                 }
 
