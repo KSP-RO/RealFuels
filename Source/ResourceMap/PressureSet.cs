@@ -14,7 +14,7 @@ namespace RealFuels
         protected int GetIndex(float pressure)
         {
             if (pressure == 0f)
-                return 0;
+                return Count > 0 && this[0].Pressure == 0f ? 0 : ~0;
 
             int low = 0;
             int high = Count - 1;
@@ -155,7 +155,10 @@ namespace RealFuels
     }
 
     // This is some level of copy-pasta. Oh well.
-
+    // (Note: There is one of these per resource ID, so there
+    // can only be one RW at each pressure--if all of a resource
+    // on a part share the same pressure, then this object will
+    // have only one element!)
     public class PartPressureSet : PressureSetBase<ResourceWrapper>
     {
         public new bool Add(ResourceWrapper rw)

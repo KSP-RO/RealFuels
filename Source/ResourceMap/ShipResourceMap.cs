@@ -72,7 +72,7 @@ namespace RealFuels
                 if (idx < 0)
                     return false;
 
-                _inactives.RemoveAt(idx);
+                _inactives.FastRemoveAt(idx);
 
                 _shipWide.Add(rw, true);
                 _shipWidePri.Add(rw, true);
@@ -125,7 +125,7 @@ namespace RealFuels
                 Request(demand, pressure, mode != ResourceFlowMode.ALL_VESSEL && mode != ResourceFlowMode.ALL_VESSEL_BALANCE, simulate);
 
             public virtual double Request(double demand, object part, float pressure, bool simulate) =>
-                            Request(demand, pressure, true, simulate);
+                Request(demand, pressure, true, simulate);
 
             public virtual double RequestNoFlow(double demand, object part, float pressure, bool simulate) =>
                 Request(demand, pressure, true, simulate);

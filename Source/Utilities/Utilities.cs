@@ -275,42 +275,5 @@ namespace RealFuels
                 ResolveAndAddUnique(defs, name);
             }
         }
-
-        public static List<T> FixedFindModulesImplementing<T>(this Part part) where T : class
-        {
-            var listPM = FixedFindModulesImplementingConst<T>(part);
-            int c = listPM.Count;
-            var newList = new List<T>(c);
-            for (int i = 0; i < c; ++i)
-                newList.Add(listPM[i] as T);
-
-            return newList;
-        }
-
-        public static List<PartModule> FixedFindModulesImplementingConst<T>(this Part part) where T : class
-        {
-            Type typeFromHandle = typeof(T);
-            if (part.cachedModuleLists.TryGetValue(typeFromHandle, out var list))
-                return list;
-
-            list = new List<PartModule>();
-            for (int i = 0, ic = part.modules.Count; i < ic; ++i)
-            {
-                PartModule partModule = part.modules[i];
-                if (partModule is T)
-                {
-                    list.Add(partModule);
-                }
-            }
-            part.cachedModuleLists[typeFromHandle] = list;
-            return list;
-        }
-
-        public static void Swap<T>(ref T a, ref T b)
-        {
-            T c = a;
-            a = b;
-            b = c;
-        }
     }
 }

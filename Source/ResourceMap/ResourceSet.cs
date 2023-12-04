@@ -82,9 +82,9 @@ namespace RealFuels
             _free = _maxAmount - _amount;
             rw.UnlinkSet(this);
 
-            _resources.RemoveAt(i);
-            _ratiosAmount.RemoveAt(i);
-            _ratiosFree.RemoveAt(i);
+            _resources.FastRemoveAt(i);
+            _ratiosAmount.FastRemoveAt(i);
+            _ratiosFree.FastRemoveAt(i);
             if (recalc)
                 Recalc();
         }

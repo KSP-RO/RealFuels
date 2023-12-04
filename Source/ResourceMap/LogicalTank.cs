@@ -221,7 +221,7 @@ namespace RealFuels
             if (i < 0)
                 return false;
 
-            _tanks.RemoveAt(i);
+            _tanks.FastRemoveAt(i);
             _maxAmount -= t.maxAmount;
             _amount -= t.amount;
             RecalcRatios();
