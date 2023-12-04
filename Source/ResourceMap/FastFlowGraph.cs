@@ -8,46 +8,44 @@ using ROUtils.DataTypes;
 
 namespace RealFuels
 {
-    public class FastFlowGraph
+    public abstract class FastFlowGraph
     {
-        public class Vertex
+        public virtual void Create(List<ProtoPartSnapshot> parts) { }
+        public virtual void Create(List<Part> parts) { }
+    }
+
+    public abstract class FastFlowGraph<T> : FastFlowGraph where T : class
+    {
+        public abstract class Vertex
         {
-            public Part part;
+            protected FastFlowGraph<T> _graph;
+
             public int index = 0;
+            public T part;
             public List<Vertex> edges = new List<Vertex>();
 
-            public Vertex(Part p) { part = p; }
+            public Vertex(T t, FastFlowGraph<T> g) { part = t; _graph = g; }
+            public abstract void FindEdges();
         }
 
-        private List<Part> _parts;
-        private List<Vertex> _graph = new List<Vertex>();
-        private Dictionary<Part, Vertex> _lookup = new Dictionary<Part, Vertex>();
+        protected List<Vertex> _graph = new List<Vertex>();
 
-        private CollectionDictionary<int, Part, HashSet<Part>> _sets = new CollectionDictionary<int, Part, HashSet<Part>>();
-        public ICollection<HashSet<Part>> sets => _sets.Values;
+        // These have to be public for the derived classes.
+        // I mean, we could have IReadOnly* accessors, but bleh.
+        public List<T> _parts;
+        public Dictionary<T, Vertex> _lookup = new Dictionary<T, Vertex>();
 
-        private int curIdx = 1;
-
-        public FastFlowGraph(List<Part> parts)
-        {
-            _parts = parts;
-            CreateGraph();
-        }
+        protected CollectionDictionary<int, T, HashSet<T>> _sets = new CollectionDictionary<int, T, HashSet<T>>();
+        public ICollection<HashSet<T>> sets => _sets.Values;
 
         public void CreateGraph()
         {
-            foreach (var p in _parts)
-            {
-                var v = new Vertex(p);
-                _lookup.Add(p, v);
-                _graph.Add(v);
-            }
-
             foreach (var v in _graph)
             {
-                FindEdges(v);
+                v.FindEdges();
             }
 
+            int curIdx = 1;
             Stack<Vertex> stack = new Stack<Vertex>();
             foreach (var v in _graph)
             {
@@ -66,63 +64,167 @@ namespace RealFuels
                             stack.Push(other);
                 }
                 while (stack.Count > 0);
-                
+
                 ++curIdx;
             }
         }
+    }
 
-        private void FindEdges(Vertex vertex)
+    public class FastFlowGraphP : FastFlowGraph<Part>
+    {
+        public class VertexP : Vertex
         {
-            var part = vertex.part;
-            Vertex other;
-            for (int i = 0, count = part.fuelLookupTargets.Count; i < count; ++i)
+            public VertexP(Part p, FastFlowGraph<Part> g) : base(p, g) { }
+
+            public override void FindEdges()
             {
-                if ((!(part.fuelLookupTargets[i] == part.parent) || !part.isAttached) && (!(part.fuelLookupTargets[i] != part.parent) || !part.fuelLookupTargets[i].isAttached))
+                Vertex other;
+                for (int i = 0, count = part.fuelLookupTargets.Count; i < count; ++i)
                 {
-                    continue;
-                }
-                if (part.fuelLookupTargets[i] is CompoundPart)
-                {
-                    if (part.fuelLookupTargets[i].parent != null && _lookup.TryGetValue((part.fuelLookupTargets[i] is CompoundPart) ? part.fuelLookupTargets[i].parent : part.fuelLookupTargets[i], out other))
+                    if ((!(part.fuelLookupTargets[i] == part.parent) || !part.isAttached) && (!(part.fuelLookupTargets[i] != part.parent) || !part.fuelLookupTargets[i].isAttached))
                     {
-                        vertex.edges.AddUnique(other);
-                        other.edges.AddUnique(vertex);
+                        continue;
+                    }
+                    if (part.fuelLookupTargets[i] is CompoundPart)
+                    {
+                        if (part.fuelLookupTargets[i].parent != null && _graph._lookup.TryGetValue((part.fuelLookupTargets[i] is CompoundPart) ? part.fuelLookupTargets[i].parent : part.fuelLookupTargets[i], out other))
+                        {
+                            edges.AddUnique(other);
+                            other.edges.AddUnique(this);
+                        }
+                    }
+                    else if (_graph._lookup.TryGetValue(part.fuelLookupTargets[i], out other))
+                    {
+                        edges.AddUnique(other);
+                        other.edges.AddUnique(this);
                     }
                 }
-                else if (_lookup.TryGetValue(part.fuelLookupTargets[i], out other))
+                if (!part.fuelCrossFeed)
                 {
-                    vertex.edges.AddUnique(other);
-                    other.edges.AddUnique(vertex);
+                    return;
+                }
+                for (int i = 0, count2 = part.attachNodes.Count; i < count2; ++i)
+                {
+                    AttachNode attachNode = part.attachNodes[i];
+                    if (attachNode.attachedPart == null || !attachNode.ResourceXFeed)
+                    {
+                        continue;
+                    }
+                    bool noFeed = false;
+                    AttachNode attachNode2 = attachNode.FindOpposingNode();
+                    if (attachNode2 != null)
+                    {
+                        noFeed = !attachNode2.ResourceXFeed && !attachNode2.AllowOneWayXFeed;
+                    }
+                    if (!noFeed && (string.IsNullOrEmpty(part.NoCrossFeedNodeKey) || !attachNode.id.Contains(part.NoCrossFeedNodeKey)) && _graph._lookup.TryGetValue(attachNode.attachedPart, out other))
+                    {
+                        edges.AddUnique(other);
+                        other.edges.AddUnique(this);
+                    }
+                }
+                if (part.srfAttachNode != null && part.srfAttachNode.attachedPart != null && part.srfAttachNode.attachedPart.fuelCrossFeed && _graph._lookup.TryGetValue(part.srfAttachNode.attachedPart, out other))
+                {
+                    edges.AddUnique(other);
+                    other.edges.AddUnique(this);
                 }
             }
-            if (!part.fuelCrossFeed)
+        }
+
+        public override void Create(List<Part> parts)
+        {
+            foreach (var p in parts)
             {
-                return;
+                var v = new VertexP(p, this);
+                _lookup.Add(p, v);
+                _graph.Add(v);
             }
-            for (int i = 0, count2 = part.attachNodes.Count; i < count2; ++i)
+            CreateGraph();
+        }
+    }
+
+    public class FastFlowGraphS : FastFlowGraph<ProtoPartSnapshot>
+    {
+        public class VertexS : Vertex
+        {
+            protected int _idx;
+
+            public VertexS(ProtoPartSnapshot p, int idx, FastFlowGraph<ProtoPartSnapshot> g) : base(p, g) { _idx = idx; }
+
+            public override void FindEdges()
             {
-                AttachNode attachNode = part.attachNodes[i];
-                if (attachNode.attachedPart == null || !attachNode.ResourceXFeed)
+                Vertex other;
+                var prefab = part.partInfo.partPrefab;
+
+                // TODO: Support fuel lines and things that toggle crossfeed.
+                // For now, just use the partInfo.
+                if (!prefab.fuelCrossFeed)
                 {
-                    continue;
+                    return;
                 }
-                bool noFeed = false;
-                AttachNode attachNode2 = attachNode.FindOpposingNode();
-                if (attachNode2 != null)
+                for (int i = 0, count2 = part.attachNodes.Count; i < count2; ++i)
                 {
-                    noFeed = !attachNode2.ResourceXFeed && !attachNode2.AllowOneWayXFeed;
+                    var attachNode = part.attachNodes[i];
+                    if (attachNode.partIdx < 0 || attachNode.partIdx >= _graph._parts.Count || !prefab.attachNodes[i].ResourceXFeed)
+                        continue;
+
+                    var otherPart = _graph._parts[attachNode.partIdx];
+
+                    bool noFeed = false;
+                    AttachNode attachNode2 = null;
+                    AttachNodeSnapshot anSnap = null;
+                    for (int j = otherPart.attachNodes.Count; j-- > 0;)
+                    {
+                        var an = otherPart.attachNodes[j];
+                        if (an.partIdx == _idx)
+                        {
+                            anSnap = an;
+                            attachNode2 = otherPart.partPrefab.attachNodes[j];
+                            break;
+                        }
+                    }
+                    if (anSnap == null)
+                    {
+                        if (otherPart.srfAttachNode.partIdx == _idx)
+                        {
+                            anSnap = otherPart.srfAttachNode;
+                            attachNode2 = otherPart.partPrefab.srfAttachNode;
+                        }
+                    }
+
+                    if (attachNode2 != null)
+                    {
+                        noFeed = !attachNode2.ResourceXFeed && !attachNode2.AllowOneWayXFeed;
+                    }
+                    if (!noFeed && (string.IsNullOrEmpty(prefab.NoCrossFeedNodeKey) || !attachNode.id.Contains(prefab.NoCrossFeedNodeKey)) && _graph._lookup.TryGetValue(otherPart, out other))
+                    {
+                        edges.AddUnique(other);
+                        other.edges.AddUnique(this);
+                    }
                 }
-                if (!noFeed && (string.IsNullOrEmpty(part.NoCrossFeedNodeKey) || !attachNode.id.Contains(part.NoCrossFeedNodeKey)) && _lookup.TryGetValue(attachNode.attachedPart, out other))
+                if (part.srfAttachNode != null && part.srfAttachNode.partIdx >= 0 && part.srfAttachNode.partIdx < _graph._parts.Count)
                 {
-                    vertex.edges.AddUnique(other);
-                    other.edges.AddUnique(vertex);
+                    var otherPart = _graph._parts[part.srfAttachNode.partIdx];
+                    if (otherPart.partPrefab.fuelCrossFeed && _graph._lookup.TryGetValue(otherPart, out other))
+                    {
+                        edges.AddUnique(other);
+                        other.edges.AddUnique(this);
+                    }
                 }
             }
-            if (part.srfAttachNode != null && part.srfAttachNode.attachedPart != null && part.srfAttachNode.attachedPart.fuelCrossFeed && _lookup.TryGetValue(part.srfAttachNode.attachedPart, out other))
+        }
+
+        public override void Create(List<ProtoPartSnapshot> parts)
+        {
+            _parts = parts;
+
+            for(int i = parts.Count; i-- > 0;)
             {
-                vertex.edges.AddUnique(other);
-                other.edges.AddUnique(vertex);
+                var p = parts[i];
+                var v = new VertexS(p, i, this);
+                _lookup.Add(p, v);
+                _graph.Add(v);
             }
+            CreateGraph();
         }
     }
 }

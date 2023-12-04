@@ -60,7 +60,7 @@ namespace RealFuels
             _tankSets.Link(this);
             if (HighLogic.LoadedScene == GameScenes.LOADING)
             {
-                _tankSets
+                //_tankSets
             }
         }
 
@@ -103,7 +103,6 @@ namespace RealFuels
 
             if (_eventsEditor)
             {
-                GameEvents.onPartAttach.Remove(OnPartAttach);
                 GameEvents.onPartRemove.Remove(OnPartRemove);
             }
             if (_eventsFlight)
@@ -221,6 +220,15 @@ namespace RealFuels
             }
         }
 
+        private bool HasPart(Part p)
+        {
+            for (int i = _modules.Count; i-- > 0;)
+                if (_modules[i].part == p)
+                    return true;
+
+            return false;
+        }
+
         private void OnFlowStateChange(GameEvents.HostedFromToAction<PartResource, bool> data)
         {
             if (_InEvent || !IsMain)
@@ -231,7 +239,7 @@ namespace RealFuels
             int id = res.info.id;
             Part resPart = res.part;
             var module = _mainModule == null ? this : _mainModule;
-            if (module._tankSets.resourceToTank.TryGetValue(id, out var tankList) && module._parts.Contains(resPart))
+            if (module._tankSets.resourceToTank.TryGetValue(id, out var tankList) && module.HasPart(resPart))
             {
                 foreach (var lt in tankList)
                     lt.SetFlowing(data.to);
@@ -249,7 +257,7 @@ namespace RealFuels
             Part resPart = res.part;
             _InEvent = true;
             var module = _mainModule == null ? this : _mainModule;
-            if (module._tankSets.resourceToTank.TryGetValue(id, out var tankList) && module._parts.Contains(resPart))
+            if (module._tankSets.resourceToTank.TryGetValue(id, out var tankList) && module.HasPart(resPart))
             {
                 var shouldFlow = data.to != PartResource.FlowMode.None;
                 foreach (var lt in tankList)

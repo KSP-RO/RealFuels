@@ -120,6 +120,7 @@
     <Compile Include="EntryCosts\PartEntryCostHolder.cs" />
     <Compile Include="HarmonyPatcher.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
+    <Compile Include="ResourceMap\ResourceWrapper.cs" />
     <Compile Include="Tanks\EditorCrossfeedSetMaintainer.cs" />
     <Compile Include="ResourceMap\PrioritySet.cs" />
     <Compile Include="ResourceMap\ShipResourceMap.cs" />

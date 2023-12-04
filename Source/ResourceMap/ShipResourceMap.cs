@@ -13,6 +13,7 @@ namespace RealFuels
     // - also prefix to clear vessel's crossfeed and sim crossfeed partsets
     // internal static HashSet<PartSet> BuildPartSimulationSets(List<Part> parts, SCCFlowGraph sccGraph)
     // Vessel.UpdateResourceSets
+    // Also load/unload (swap between part and proto
     // KSP.UI.Screens.ResourceDisplay.CreateResourceList - uses RebuildInPlace as well as creating set.
     // ShipConstruct.UpdateResourceSets
 
@@ -23,25 +24,127 @@ namespace RealFuels
     {
         public class ResourceData
         {
-            // Crossfeed set lookups (also stores actual pressuresets)
-            private Dictionary<Part, PressureSet<PrioritySet>> _partToSet = new Dictionary<Part, PressureSet<PrioritySet>>();
-            private Dictionary<ResourceWrapper, PressureSet<PrioritySet>> _rwToPS = new Dictionary<ResourceWrapper, PressureSet<PrioritySet>>();
-            private List<PressureSet<PrioritySet>> _crossfeedSets = new List<PressureSet<PrioritySet>>();
-
             // ship-wide pressuresets
-            private PressureSet<PrioritySet> _shipWidePri = new PressureSet<PrioritySet>();
-            private PressureSet<ResourceSet> _shipWide = new PressureSet<ResourceSet>();
+            protected PressureSet<PrioritySet> _shipWidePri = new PressureSet<PrioritySet>();
+            protected PressureSet<ResourceSet> _shipWide = new PressureSet<ResourceSet>();
 
             // inactive RWs
-            private List<ResourceWrapper> _inactives = new List<ResourceWrapper>();
+            protected List<ResourceWrapper> _inactives = new List<ResourceWrapper>();
+
+            /// <summary>
+            /// For use when constructing the ShipResourceMap
+            /// </summary>
+            /// <param name="rw"></param>
+            /// <param name="part"></param>
+            /// <param name="crossfeedSet"></param>
+            public void Add(ResourceWrapper rw)
+            {
+                if (rw.Flowing())
+                {
+                    _shipWide.Add(rw, false);
+                    _shipWidePri.Add(rw, false);
+                }
+                else
+                {
+                    _inactives.Add(rw);
+                }
+            }
+
+            public virtual bool Remove(ResourceWrapper rw)
+            {
+                if (_inactives.Remove(rw))
+                    return true;
+
+                bool foundSW = _shipWide.Remove(rw, true);
+                bool foundSWP = _shipWidePri.Remove(rw, true);
+                return foundSW && foundSWP;
+            }
+
+            public virtual void Recalc()
+            {
+                _shipWide.Recalc();
+                _shipWidePri.Recalc();
+            }
+
+            public virtual bool MakeActive(ResourceWrapper rw)
+            {
+                int idx = _inactives.IndexOf(rw);
+                if (idx < 0)
+                    return false;
+
+                _inactives.RemoveAt(idx);
+
+                _shipWide.Add(rw, true);
+                _shipWidePri.Add(rw, true);
+                return true;
+            }
+
+            public virtual bool MakeInactive(ResourceWrapper rw)
+            {
+                if (_inactives.Contains(rw))
+                    return false;
+
+                if (!_shipWide.Remove(rw, true) || !_shipWidePri.Remove(rw, true))
+                    return false;
+
+                _inactives.Add(rw);
+
+                return true;
+            }
+
+            public virtual void ChangePriority(ResourceWrapper rw, int oldPri)
+            {
+                _shipWidePri.ChangePriority(rw, oldPri);
+            }
+
+            public void GetTotals(out double amount, out double maxAmount, float pressure, bool pulling)
+            {
+                _shipWide.GetTotals(out amount, out maxAmount, pressure);
+                if (!pulling)
+                    amount = maxAmount - amount;
+            }
+
+            public virtual void GetTotals(object part, out double amount, out double maxAmount, float pressure, bool pulling, ResourceFlowMode mode) =>
+                GetTotals(out amount, out maxAmount, pressure, pulling);
+
+            public virtual void GetTotals(object part, out double amount, out double maxAmount, float pressure, bool pulling) =>
+                GetTotals(out amount, out maxAmount, pressure, pulling);
+
+            public virtual void GetTotalsNoFlow(object part, out double amount, out double maxAmount, float pressure, bool pulling) =>
+                GetTotals(out amount, out maxAmount, pressure, pulling);
+
+            public double Request(double demand, float pressure, bool usePri, bool simulate)
+            {
+                if (usePri)
+                    return demand - _shipWidePri.Request(demand, pressure, simulate);
+
+                return demand - _shipWide.Request(demand, pressure, simulate);
+            }
+
+            public virtual double Request(double demand, object part, float pressure, ResourceFlowMode mode, bool simulate) =>
+                Request(demand, pressure, mode != ResourceFlowMode.ALL_VESSEL && mode != ResourceFlowMode.ALL_VESSEL_BALANCE, simulate);
+
+            public virtual double Request(double demand, object part, float pressure, bool simulate) =>
+                            Request(demand, pressure, true, simulate);
+
+            public virtual double RequestNoFlow(double demand, object part, float pressure, bool simulate) =>
+                Request(demand, pressure, true, simulate);
+        }
+
+        public class CrossfeedResourceData : ResourceData
+        {
+            // Crossfeed set lookups (also stores actual pressuresets)
+            protected Dictionary<object, PressureSet<PrioritySet>> _partToSet = new Dictionary<object, PressureSet<PrioritySet>>();
+            protected Dictionary<ResourceWrapper, PressureSet<PrioritySet>> _rwToPS = new Dictionary<ResourceWrapper, PressureSet<PrioritySet>>();
+            protected List<PressureSet<PrioritySet>> _crossfeedSets = new List<PressureSet<PrioritySet>>();
 
             // No-Flow resources
             // Note that there doesn't need to be a separate List to store these sets
             // because the part<->PartPressureSet relationship is one-to-one
-            private Dictionary<Part, PartPressureSet> _partToPartPS = new Dictionary<Part, PartPressureSet>();
-            private Dictionary<ResourceWrapper, PartPressureSet> _rwToPartPS = new Dictionary<ResourceWrapper, PartPressureSet>();
+            protected Dictionary<object, PartPressureSet> _partToPartPS = new Dictionary<object, PartPressureSet>();
+            protected Dictionary<ResourceWrapper, PartPressureSet> _rwToPartPS = new Dictionary<ResourceWrapper, PartPressureSet>();
 
-            public PressureSet<PrioritySet> GetOrCreateCrossfeedSet(Part part, HashSet<Part> crossfeedSet)
+            public PressureSet<PrioritySet> GetOrCreateCrossfeedSet(object part, HashSet<object> crossfeedSet)
             {
                 if (_partToSet.TryGetValue(part, out var ps))
                     return ps;
@@ -56,12 +159,13 @@ namespace RealFuels
                 return ps;
             }
 
-            public PartPressureSet GetOrCreatePartSet(Part part)
+            public PartPressureSet GetOrCreatePartSet(object part)
             {
                 if (_partToPartPS.TryGetValue(part, out var ps))
                     return ps;
 
                 ps = new PartPressureSet();
+                _partToPartPS.Add(part, ps);
 
                 return ps;
             }
@@ -72,7 +176,7 @@ namespace RealFuels
             /// <param name="rw"></param>
             /// <param name="part"></param>
             /// <param name="crossfeedSet"></param>
-            public void Add(ResourceWrapper rw, Part part, HashSet<Part> crossfeedSet)
+            public void Add(ResourceWrapper rw, object part, HashSet<object> crossfeedSet)
             {
                 // Get or create the PS (links part plus all crossfeed parts)
                 // but *also* add the rw to a lookup to this new set.
@@ -83,16 +187,10 @@ namespace RealFuels
                 var pps = GetOrCreatePartSet(part);
                 _rwToPartPS[rw] = pps;
 
-                if (rw.Flowing())
+                if(rw.Flowing())
                 {
-                    _shipWide.Add(rw, false);
-                    _shipWidePri.Add(rw, false);
                     ps.Add(rw, false);
                     pps.Add(rw);
-                }
-                else
-                {
-                    _inactives.Add(rw);
                 }
             }
 
@@ -102,29 +200,26 @@ namespace RealFuels
             /// <param name="rw"></param>
             /// <param name="part"></param>
             /// <returns></returns>
-            public bool Add(ResourceWrapper rw, Part part)
+            public bool Add(ResourceWrapper rw, object part)
             {
                 if (!_partToSet.TryGetValue(part, out var ps) || !_partToPartPS.TryGetValue(part, out var pps))
                     return false;
 
                 _rwToPS[rw] = ps;
                 _rwToPartPS[rw] = pps;
+
+                Add(rw);
                 if (rw.Flowing())
                 {
-                    _shipWide.Add(rw, true);
-                    _shipWidePri.Add(rw, true);
                     ps.Add(rw, true);
                     pps.Add(rw);
-                }
-                else
-                {
-                    _inactives.Add(rw);
                 }
                 return true;
             }
 
-            public bool Remove(ResourceWrapper rw)
+            public override bool Remove(ResourceWrapper rw)
             {
+                // We don't call base, because we need to check presence in _inactives ourselves
                 if (!_rwToPS.TryGetValue(rw, out var ps) || !_rwToPartPS.TryGetValue(rw, out var pps))
                     return false;
 
@@ -141,36 +236,28 @@ namespace RealFuels
                 return foundSW && foundSWP && foundPS && foundPPS;
             }
 
-            public void Recalc()
+            public override void Recalc()
             {
+                base.Recalc();
+
                 foreach (var ps in _crossfeedSets)
                     ps.Recalc();
-
-                _shipWide.Recalc();
-                _shipWidePri.Recalc();
             }
 
-            public bool MakeActive(ResourceWrapper rw)
+            public override bool MakeActive(ResourceWrapper rw)
             {
-                int idx = _inactives.IndexOf(rw);
-                if (idx < 0)
+                if (!base.MakeActive(rw))
                     return false;
 
-                _inactives.RemoveAt(idx);
-                _shipWide.Add(rw, true);
-                _shipWidePri.Add(rw, true);
                 // safe to not trygetvalue (I hope) because we know it was added to inactives
                 _rwToPS[rw].Add(rw, true);
                 _rwToPartPS[rw].Add(rw);
                 return true;
             }
 
-            public bool MakeInactive(ResourceWrapper rw)
+            public override bool MakeInactive(ResourceWrapper rw)
             {
-                if (_inactives.Contains(rw))
-                    return false;
-
-                if (!_shipWide.Remove(rw, true) || !_shipWidePri.Remove(rw, true))
+                if (!base.MakeInactive(rw))
                     return false;
 
                 // safe to not trygetvalue (I hope) because we know it was added to shipwide.
@@ -180,14 +267,15 @@ namespace RealFuels
                 return true;
             }
 
-            public void ChangePriority(ResourceWrapper rw, int oldPri)
+            public override void ChangePriority(ResourceWrapper rw, int oldPri)
             {
-                _shipWidePri.ChangePriority(rw, oldPri);
+                base.ChangePriority(rw, oldPri);
+
                 if (_rwToPS.TryGetValue(rw, out var ps))
                     ps.ChangePriority(rw, oldPri);
             }
 
-            public void GetTotals(Part part, out double amount, out double maxAmount, float pressure, bool pulling, ResourceFlowMode mode)
+            public override void GetTotals(object part, out double amount, out double maxAmount, float pressure, bool pulling, ResourceFlowMode mode)
             {
                 switch (mode)
                 {
@@ -208,14 +296,7 @@ namespace RealFuels
                 }
             }
 
-            public void GetTotals(out double amount, out double maxAmount, float pressure, bool pulling)
-            {
-                _shipWide.GetTotals(out amount, out maxAmount, pressure);
-                if (!pulling)
-                    amount = maxAmount - amount;
-            }
-
-            public void GetTotals(Part part, out double amount, out double maxAmount, float pressure, bool pulling)
+            public override void GetTotals(object part, out double amount, out double maxAmount, float pressure, bool pulling)
             {
                 amount = 0d;
                 maxAmount = 0d;
@@ -227,7 +308,7 @@ namespace RealFuels
                     amount = maxAmount - amount;
             }
 
-            public void GetTotalsNoFlow(Part part, out double amount, out double maxAmount, float pressure, bool pulling)
+            public override void GetTotalsNoFlow(object part, out double amount, out double maxAmount, float pressure, bool pulling)
             {
                 amount = 0d;
                 maxAmount = 0d;
@@ -239,7 +320,7 @@ namespace RealFuels
                     amount = maxAmount - amount;
             }
 
-            public double Request(double demand, Part part, float pressure, ResourceFlowMode mode, bool simulate)
+            public override double Request(double demand, object part, float pressure, ResourceFlowMode mode, bool simulate)
             {
                 switch (mode)
                 {
@@ -259,15 +340,7 @@ namespace RealFuels
                 }
             }
 
-            public double Request(double demand, float pressure, bool usePri, bool simulate)
-            {
-                if (usePri)
-                    return demand - _shipWidePri.Request(demand, pressure, simulate);
-
-                return demand - _shipWide.Request(demand, pressure, simulate);
-            }
-
-            public double Request(double demand, Part part, float pressure, bool simulate)
+            public override double Request(double demand, object part, float pressure, bool simulate)
             {
                 if (!_partToSet.TryGetValue(part, out var ps))
                     return demand;
@@ -275,7 +348,7 @@ namespace RealFuels
                 return demand - ps.Request(demand, pressure, simulate);
             }
 
-            public double RequestNoFlow(double demand, Part part, float pressure, bool simulate)
+            public override double RequestNoFlow(double demand, object part, float pressure, bool simulate)
             {
                 if (!_partToPartPS.TryGetValue(part, out var pps))
                     return demand;
@@ -286,22 +359,30 @@ namespace RealFuels
 
         private bool _isSim;
         public bool isSim => _isSim;
+
+        private bool _isLive = true;
+        public bool isLive => _isLive;
+
+
         private List<Part> _parts;
-        private FastFlowGraph _graph;
+        private List<ProtoPartSnapshot> _protos;
+        private FastFlowGraphP _graph;
+        // TODO: Support crossfeed snapshot maps
 
         private Dictionary<int, ResourceData> _resources = new Dictionary<int, ResourceData>();
         public ResourceData Resource(int id)
         {
-            if (!_resources.TryGetValue(id, out var cache))
+            if (!_resources.TryGetValue(id, out var data))
             {
-                cache = new ResourceData();
-                _resources.Add(id, cache);
+                // TODO: this can eventually just always be CrossfeedResourceData?
+                data = _isLive ? new CrossfeedResourceData() : new ResourceData();
+                _resources.Add(id, data);
             }
 
-            return cache;
+            return data;
         }
+        public CrossfeedResourceData CrossfeedResource(int id) => Resource(id) as CrossfeedResourceData;
 
-        private Dictionary<PartResource, ResourceWrapper> _resToWrapper = new Dictionary<PartResource, ResourceWrapper>();
         private Vessel _vessel;
         private ShipConstruct _ship;
 
@@ -309,33 +390,110 @@ namespace RealFuels
         {
             _isSim = isSim;
             _parts = parts;
-
-            _graph = new FastFlowGraph(parts);
+            Init(parts);
+            BuildFromParts();
         }
 
-        public ShipResourceMap(Vessel v) : this(v.parts, false)
+        public ShipResourceMap(List<ProtoPartSnapshot> parts, bool isSim)
         {
+            _isSim = isSim;
+            _protos = parts;
+            Init(parts);
+            BuildFromSnapshots();
+        }
+
+        public ShipResourceMap(Vessel v)
+        {
+            _isSim = false;
             _vessel = v;
             v.crossfeedSets.Clear();
             v.simulationCrossfeedSets.Clear();
 
             var vs = new PartSetRF(v);
-            vs.SetResCache(this);
+            vs.SetResMap(this);
             v.resourcePartSet = vs;
 
-            var simCache = new ShipResourceMap(v.parts, true);
-            vs = new PartSetRF(v);
-            vs.SetResCache(simCache);
-            v.simulationResourcePartSet = vs;
+            if (!v.loaded)
+            {
+                Init(v.protoVessel.protoPartSnapshots);
+                BuildFromSnapshots();
+                return;
+            }
+
+            InitVessel();
+            BuildFromParts();
+        }
+
+        public ShipResourceMap(ShipConstruct ship)
+        {
+            _ship = ship;
+            _isSim = true;
+
+            var vs = new PartSetRF(ship);
+            vs.SetResMap(this);
+            ship.resourcePartSet = vs;
+
+            InitShip();
+            BuildFromParts();
+        }
+
+        public void Rebuild()
+        {
+            _resources.Clear();
+            if (_parts.Count > 0)
+            {
+                if (_vessel != null && !_vessel.loaded)
+                {
+                    _parts = null;
+                    _vessel.simulationResourcePartSet = _vessel.resourcePartSet; // or maybe null?
+                    _vessel.crossfeedSets.Clear();
+                    _vessel.simulationCrossfeedSets.Clear();
+                    Init(_vessel.protoVessel.protoPartSnapshots);
+                    BuildFromSnapshots();
+                }
+                else
+                {
+                    BuildFromParts();
+                }
+            }
+            else
+            {
+                if (_vessel != null && _vessel.loaded)
+                {
+                    _protos = null;
+                    _vessel.crossfeedSets.Clear();
+                    InitVessel();
+                    BuildFromParts();
+                }
+                else
+                {
+                    BuildFromSnapshots();
+                }
+            }
+        }
+
+        private void Init(List<Part> parts)
+        {
+            _graph = new FastFlowGraphP();
+            _graph.Create(parts);
+        }
+
+        private void InitVessel()
+        {
+            Init(_vessel.parts);
+            var simMap = new ShipResourceMap(_vessel.parts, true);
+            var vs = new PartSetRF(_vessel);
+            vs.SetResMap(simMap);
+            _vessel.simulationResourcePartSet = vs;
 
             foreach (var hs in _graph.sets)
             {
                 var ps = new PartSetRF(hs);
-                ps.SetResCache(this);
+                ps.SetResMap(this);
                 var simPS = new PartSetRF(hs);
-                simPS.SetResCache(simCache);
-                v.crossfeedSets.Add(ps);
-                v.simulationCrossfeedSets.Add(simPS);
+                simPS.SetResMap(simMap);
+                _vessel.crossfeedSets.Add(ps);
+                _vessel.simulationCrossfeedSets.Add(simPS);
                 foreach (var p in hs)
                 {
                     p.crossfeedPartSet = ps;
@@ -344,18 +502,14 @@ namespace RealFuels
             }
         }
 
-        public ShipResourceMap(ShipConstruct ship) : this(ship.parts, true)
+        private void InitShip()
         {
-            _ship = ship;
-
-            var vs = new PartSetRF(ship);
-            vs.SetResCache(this);
-            ship.resourcePartSet = vs;
+            Init(_ship.parts);
 
             foreach (var hs in _graph.sets)
             {
                 var ps = new PartSetRF(hs);
-                ps.SetResCache(this);
+                ps.SetResMap(this);
                 foreach (var p in hs)
                 {
                     p.simulationCrossfeedPartSet = ps;
@@ -363,20 +517,24 @@ namespace RealFuels
             }
         }
 
-        public void Rebuild()
-        {
-            _resources.Clear();
-            _resToWrapper.Clear();
-            Build();
 
+        private void Init(List<ProtoPartSnapshot> parts)
+        {
+            // TODO: for now, don't bother -- we're only going to use shipwide pressuresets
+            //_graph = new FastFlowGraphS();
+            //_graph.Create(parts);
         }
 
-        private void Build()
+        private static readonly HashSet<object> _ObjectSet = new HashSet<object>();
+        private void BuildFromParts()
         {
             var seenTankSets = new HashSet<IReadOnlyList<LogicalTankSet>>();
 
             foreach (var crossfeedParts in _graph.sets)
             {
+                foreach (var part in crossfeedParts)
+                    _ObjectSet.Add(part);
+
                 foreach (var part in crossfeedParts)
                 {
                     ModuleRFTank mrft = null;
@@ -395,9 +553,9 @@ namespace RealFuels
                                 {
                                     foreach (var tank in group.tanks.Values)
                                     {
-                                        var cache = Resource(tank.resID);
-                                        tank.LinkCache(cache);
-                                        cache.Add(tank, part, crossfeedParts);
+                                        var data = CrossfeedResource(tank.resID);
+                                        tank.LinkCache(data);
+                                        data.Add(tank, part, _ObjectSet);
                                     }
                                 }
                             }
@@ -411,23 +569,37 @@ namespace RealFuels
                         if (mrft != null && mrft.IsResourceManaged(res.info.id))
                             continue;
 
-                        var cache = Resource(res.info.id);
-                        var rw = new PartResourceWrapper(res, cache);
-                        _resToWrapper[res] = rw;
-                        cache.Add(rw, part, crossfeedParts);
+                        var data = CrossfeedResource(res.info.id);
+                        var rw = new PartResourceWrapper(res, data);
+                        data.Add(rw, part, _ObjectSet);
                     }
                 }
+                _ObjectSet.Clear();
 
                 foreach (var rc in _resources.Values)
                     rc.Recalc();
+            }
+        }
+
+        private void BuildFromSnapshots()
+        {
+            foreach (var p in _protos)
+            {
+                int partPri = (p.partInfo.partPrefab.resourcePriorityUseParentInverseStage ? p.parent.inverseStageIndex : p.inverseStageIndex) * 10 + p.resourcePriorityOffset;
+                foreach (var res in p.resources)
+                {
+                    var data = Resource(res.definition.id);
+                    var rw = new ResourceSnapshotWrapper(res, partPri, data);
+                    data.Add(rw);
+                }
             }
         }
     }
 
     public class PartSetRF : PartSet
     {
-        private ShipResourceMap _cache;
-        public ShipResourceMap Cache => _cache;
+        private ShipResourceMap _map;
+        public ShipResourceMap Map => _map;
 
         private Part _examplePart;
 
@@ -454,10 +626,10 @@ namespace RealFuels
             _examplePart = itr.Current;
         }
 
-        public void SetResCache(ShipResourceMap cache)
+        public void SetResMap(ShipResourceMap cache)
         {
-            _cache = cache;
-            simulationSet = _cache.isSim;
+            _map = cache;
+            simulationSet = _map.isSim;
         }
 
         public void SetSim(bool sim) { simulationSet = sim; }
@@ -465,9 +637,9 @@ namespace RealFuels
         public override void GetConnectedResourceTotals(int id, out double amount, out double maxAmount, bool pulling, bool simulate)
         {
             if (vesselWide)
-                _cache.Resource(id).GetTotals(out amount, out maxAmount, 0f, pulling);
+                _map.Resource(id).GetTotals(out amount, out maxAmount, 0f, pulling);
             else
-                _cache.Resource(id).GetTotals(_examplePart, out amount, out maxAmount, 0f, pulling);
+                _map.Resource(id).GetTotals(_examplePart, out amount, out maxAmount, 0f, pulling);
         }
 
         public override void GetConnectedResourceTotals(int id, out double amount, out double maxAmount, bool pulling)
@@ -487,7 +659,7 @@ namespace RealFuels
 
         public override void RebuildInPlace()
         {
-            _cache.Rebuild();
+            _map.Rebuild();
         }
 
         public override double RequestResource(Part part, int id, double demand, bool usePri)
@@ -497,11 +669,10 @@ namespace RealFuels
 
         public override double RequestResource(Part part, int id, double demand, bool usePri, bool simulate)
         {
-            var res = _cache.Resource(id);
             if (vesselWide)
-                return res.Request(demand, 0f, usePri, simulate);
+                return _map.Resource(id).Request(demand, 0f, usePri, simulate);
             else
-                return res.Request(demand, part, 0f, simulate);
+                return _map.Resource(id).Request(demand, part, 0f, simulate);
         }
     }
 }
