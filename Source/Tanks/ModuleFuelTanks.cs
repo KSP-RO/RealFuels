@@ -686,37 +686,41 @@ namespace RealFuels.Tanks
 
         public void ChangeTotalVolume (double newTotalVolume, bool propagate = false)
         {
+            double oldVolume = volume;
             double newVolume = Math.Round (newTotalVolume * utilization * 0.01d, 4);
-
-            if (Double.IsInfinity(newVolume / volume))
-            {
-                totalVolume = newTotalVolume;
-                volume = newVolume;
-                Debug.LogWarning("[ModularFuelTanks] caught DIV/0 in ChangeTotalVolume. Setting volume/totalVolume and exiting function");
-                return;
-            }
-            double volumeRatio = newVolume / volume;
-
-            bool doResources = false;
-
-            if (volume > newVolume) {
-                ChangeResources (volumeRatio, propagate);
-            } else {
-                doResources = true;
-            }
             totalVolume = newTotalVolume;
             volume = newVolume;
-            if (propagate) {
-                foreach (Part p in part.symmetryCounterparts) {
-                    // FIXME: Not safe, assumes only 1 MFT on the part.
-                    ModuleFuelTanks m = p.FindModuleImplementing<ModuleFuelTanks>();
-                    m.totalVolume = newTotalVolume;
-                    m.volume = newVolume;
+
+            if (oldVolume > 0)    // Can't rescale resource amounts if previously the tank had 0 volume and thus also no resources
+            {
+                double volumeRatio = newVolume / oldVolume;
+                bool doResources = false;
+                if (oldVolume > newVolume)
+                {
+                    ChangeResources (volumeRatio, propagate);
+                }
+                else
+                {
+                    doResources = true;
+                }
+
+                if (propagate)
+                {
+                    foreach (Part p in part.symmetryCounterparts)
+                    {
+                        // FIXME: Not safe, assumes only 1 MFT on the part.
+                        ModuleFuelTanks m = p.FindModuleImplementing<ModuleFuelTanks>();
+                        m.totalVolume = newTotalVolume;
+                        m.volume = newVolume;
+                    }
+                }
+
+                if (doResources)
+                {
+                    ChangeResources (volumeRatio, propagate);
                 }
             }
-            if (doResources) {
-                ChangeResources (volumeRatio, propagate);
-            }
+
             massDirty = true;
         }
 
