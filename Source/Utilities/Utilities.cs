@@ -275,5 +275,18 @@ namespace RealFuels
                 ResolveAndAddUnique(defs, name);
             }
         }
+
+        public static T FetchModuleFromPrefab<T>(this Part part, T pm)
+            where T : PartModule
+        {
+            int index = part.Modules.IndexOf(pm);
+            if (index < 0)
+                index = part.Modules.Count;    // during instantiation (OnAwake), when we are addcomponenting this module, we may not have added it to the Modules list
+            Part prefab = part.partInfo.partPrefab;
+            if (prefab.Modules.Count > index && prefab.Modules[index] is T m)
+                return m;
+            else
+                return prefab.FindModuleImplementing<T>();
+        }
     }
 }

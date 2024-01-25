@@ -756,6 +756,25 @@ namespace RealFuels
             scale = newScale;
             rfSolver?.SetScale(scale);
         }
+
+        /// <summary>
+        /// Used by the engine repair feature in RP-1.
+        /// </summary>
+        public void ResetIgnitions()
+        {
+            List<ModuleEngineConfigs> mecs = part.FindModulesImplementing<ModuleEngineConfigs>();
+            ModuleEngineConfigs matchingMEC = mecs.Find(m => m.pModule == this);
+            if (matchingMEC != null && matchingMEC.Ignitions.HasValue)
+            {
+                ignitions = matchingMEC.Ignitions.Value;
+            }
+            else
+            {
+                ModuleEnginesRF merf = part.FetchModuleFromPrefab(this);
+                if (merf != null)
+                    ignitions = merf.ignitions;
+            }
+        }
         #endregion
 
         #region Info
