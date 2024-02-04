@@ -219,6 +219,8 @@ namespace RealFuels
         public float origMass = -1;
         protected float massDelta = 0;
 
+        public int? Ignitions { get; protected set; }
+
         [KSPField]
         public string gimbalTransform = string.Empty;
         [KSPField]
@@ -824,15 +826,18 @@ namespace RealFuels
                 DoConfig(config);
 
                 HandleEngineIgnitor(config);
+
+                Ignitions = null;
                 if (config.HasValue("ignitions"))
                 {
+                    if (int.TryParse(config.GetValue("ignitions"), out int tmpIgnitions))
+                    {
+                        Ignitions = ConfigIgnitions(tmpIgnitions);
+                        config.SetValue("ignitions", Ignitions.Value);
+                    }
+
                     if (HighLogic.LoadedSceneIsFlight && vessel?.situation != Vessel.Situations.PRELAUNCH)
                         config.RemoveValue("ignitions");
-                    else if (int.TryParse(config.GetValue("ignitions"), out int ignitions))
-                    {
-                        ignitions = ConfigIgnitions(ignitions);
-                        config.SetValue("ignitions", ignitions);
-                    }
                 }
 
                 // Trigger re-computation of the response rate if one is not set explicitly.

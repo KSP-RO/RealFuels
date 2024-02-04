@@ -130,15 +130,7 @@ namespace RealFuels.Tanks
                 unmanagedResources = new Dictionary<string, UnmanagedResource>();
             else if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
             {
-                int index = part.Modules.IndexOf(this);
-                if (index < 0)
-                    index = part.Modules.Count;
-                Part prefab = part.partInfo.partPrefab;
-                ModuleFuelTanks mft;
-                if (prefab.Modules.Count > index && prefab.Modules[index] is ModuleFuelTanks m)
-                    mft = m;
-                else
-                    mft = prefab.FindModuleImplementing<ModuleFuelTanks>();
+                ModuleFuelTanks mft = part.FetchModuleFromPrefab(this);
                 unmanagedResources = mft.unmanagedResources;
                 typesAvailable = new List<TankDefinition>(mft.typesAvailable);  // Copy so any changes don't impact the prefab
                 allPossibleTypes = mft.allPossibleTypes;
