@@ -424,7 +424,8 @@ namespace RealFuels
             }
             else
             {
-                if (partSeed == -1)
+                // Revert To Launch will use a state that is captured after the random got seeded
+                if (partSeed == -1 || vessel?.situation == Vessel.Situations.PRELAUNCH)
                 {
                     // using egg's formula here that ensures a gradual climb from 0, 0.5 as median (e^(0-ln(2)) == 0.5), and a very thin tail past 1.0
                     // Due to the exponent, this will never go below 0 so we needn't chop off variance in that direction.
