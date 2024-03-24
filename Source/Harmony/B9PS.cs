@@ -19,7 +19,7 @@ namespace RealFuels.Harmony
 
         [HarmonyPostfix]
         [HarmonyPatch("CreatePartModifiers")]
-        internal static IEnumerable<IPartModifier> Postfix_handleMFTConfig(IEnumerable<IPartModifier> result, Part part, ModuleModifierInfo __instance, BaseEventDetails moduleDataChangedEventDetails)
+        internal static IEnumerable<IPartModifier> Postfix_CreatePartModifiers(IEnumerable<IPartModifier> result, Part part, ModuleModifierInfo __instance, BaseEventDetails moduleDataChangedEventDetails)
         {
             foreach (var partModifier in result)
             {
@@ -41,7 +41,7 @@ namespace RealFuels.Harmony
     }
 }
 
-namespace B9PartSwitch.PartSwitch.PartModifiers
+namespace RealFuels.Harmony
 {
     public class ModuleFuelTanksHandler : PartModifierBase
     {
