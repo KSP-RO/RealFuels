@@ -38,7 +38,14 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
+  <Reference Include="0Harmony, Version=2.2.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Assembly-CSharp">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="B9PartSwitch">
       <Private>False</Private>
     </Reference>
     <Reference Include="ROUtils">
@@ -102,6 +109,8 @@
     <Compile Include="EntryCosts\UpgradeManager.cs" />
     <Compile Include="EntryCosts\EntryCostDatabase.cs" />
     <Compile Include="EntryCosts\PartEntryCostHolder.cs" />
+    <Compile Include="Harmony\HarmonyPatcher.cs" />
+    <Compile Include="Harmony\B9PS.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
     <Compile Include="Tanks\EditorCrossfeedSetMaintainer.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
