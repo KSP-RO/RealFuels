@@ -635,16 +635,9 @@ namespace RealFuels.Tanks
 
             // 'volume = x' provided
             var oldVolume = volume;
-            if (MFTConfigNode.TryGetValue("volume", ref volume))
+            if (MFTConfigNode.TryGetValue("volume", ref volume) && oldVolume != 0)
             {
-                if (volume == 0)
-                {
-                    Empty();
-                }
-                else if (oldVolume != 0)
-                {
-                    ChangeResources(volume / oldVolume);
-                }
+                ChangeResources(volume / oldVolume);
             }
 
             // 'basemass = x' provided
