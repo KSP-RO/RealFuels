@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace RealFuels.Harmony
+namespace RealFuels.B9PSPatch
 {
     [KSPAddon(KSPAddon.Startup.Instantly, true)]
     public class HarmonyPatcher : MonoBehaviour

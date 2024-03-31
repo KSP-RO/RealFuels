@@ -61,10 +61,6 @@
     <Compile Include="HarmonyPatcher.cs" />
     <Compile Include="B9PSMFTHandler.cs" />
     <Compile Include="B9PS.cs" />
-    <None Include="tools\git-version-gen" />
-    <None Include="tools\git-version-mft.sh" />
-    <None Include="tools\git-version-rf.sh" />
-    <None Include="tools\post-build-rf.sh" />
   </ItemGroup>
   <ItemGroup />
 </Project>

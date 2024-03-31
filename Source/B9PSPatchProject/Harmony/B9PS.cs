@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using B9PartSwitch.PartSwitch.PartModifiers;
 using B9PartSwitch;
 
-namespace RealFuels.Harmony
+namespace RealFuels.B9PSPatch
 {
     [HarmonyPatch(typeof(ModuleModifierInfo))]
     internal class PatchModuleModifierInfo

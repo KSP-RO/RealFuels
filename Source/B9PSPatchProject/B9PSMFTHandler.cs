@@ -1,7 +1,7 @@
 
 using B9PartSwitch.PartSwitch.PartModifiers;
 
-namespace RealFuels.Harmony
+namespace RealFuels.B9PSPatch
 {
     public class ModuleFuelTanksHandler : PartModifierBase
     {
