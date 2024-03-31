@@ -634,7 +634,11 @@ namespace RealFuels.Tanks
             UpdateTypesAvailable(types);
 
             // 'volume = x' provided
-            MFTConfigNode.TryGetValue("volume", ref volume);
+            var oldVolume = volume;
+            if (MFTConfigNode.TryGetValue("volume", ref volume) && oldVolume != 0)
+            {
+                ChangeResources(volume / oldVolume);
+            }
 
             // 'basemass = x' provided
             ParseBaseMass(MFTConfigNode);
