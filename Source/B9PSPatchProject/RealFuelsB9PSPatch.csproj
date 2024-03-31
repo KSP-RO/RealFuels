@@ -60,7 +60,7 @@
     <Compile Include="assembly\AssemblyInfoB9PSPatch.cs" />
     <Compile Include="HarmonyPatcher.cs" />
     <Compile Include="B9PSMFTHandler.cs" />
-    <Compile Include="B9PS.cs" />
+    <Compile Include="Harmony\B9PS.cs" />
   </ItemGroup>
   <ItemGroup />
 </Project>
