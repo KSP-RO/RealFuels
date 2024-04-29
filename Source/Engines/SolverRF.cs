@@ -16,7 +16,7 @@ namespace RealFuels
         double VarianceDuring = 0.2d;
 
         // engine params
-        private FloatCurve atmosphereCurve = null, atmCurve = null, velCurve = null, atmCurveIsp = null, velCurveIsp = null;
+        private FloatCurve atmosphereCurve = null, atmCurve = null, velCurve = null, atmCurveIsp = null, velCurveIsp = null, throttleIspCurve = null, throttleIspCurveAtmStrength = null;
         private double minFlow, maxFlow, maxFlowRecip, thrustRatio = 1d, throttleResponseRate, machLimit, machMult;
         private double flowMultMin, flowMultCap, flowMultCapSharpness;
         private bool combusting = true;
@@ -61,6 +61,8 @@ namespace RealFuels
             FloatCurve nVelCurve,
             FloatCurve nAtmCurveIsp,
             FloatCurve nVelCurveIsp,
+            FloatCurve nthrottleIspCurve,
+            FloatCurve nthrottleIspCurveAtmStrength,
             bool nDisableUnderwater,
             double nThrottleResponseRate,
             double nChamberNominalTemp,
@@ -83,6 +85,8 @@ namespace RealFuels
             velCurve = nVelCurve;
             atmCurveIsp = nAtmCurveIsp;
             velCurveIsp = nVelCurveIsp;
+            throttleIspCurve = nthrottleIspCurve;
+            throttleIspCurveAtmStrength = nthrottleIspCurveAtmStrength;
             disableUnderwater = nDisableUnderwater;
             throttleResponseRate = nThrottleResponseRate;
             chamberTemp = 288d;
@@ -164,7 +168,8 @@ namespace RealFuels
             M0 = mach;
 
             // Calculate Isp (before the shutdown check, so it displays even then)
-            Isp = atmosphereCurve.Evaluate((float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres)) * ispMult;
+            float pressureAtm = (float)(p0 * 0.001d * PhysicsGlobals.KpaToAtmospheres);
+            Isp = atmosphereCurve.Evaluate(pressureAtm) * ispMult;
 
             // if we're not combusting, don't combust and start cooling off
             combusting = running;
@@ -263,6 +268,9 @@ namespace RealFuels
                     ispOtherMult *= atmCurveIsp.Evaluate((float)(rho * (1d / 1.225d)));
                 if (velCurveIsp != null)
                     ispOtherMult *= velCurveIsp.Evaluate((float)mach);
+                if (throttleIspCurve != null)
+                    ispOtherMult *= Mathf.Lerp(1f, throttleIspCurve.Evaluate(commandedThrottle),
+                        throttleIspCurveAtmStrength.Evaluate(pressureAtm));
 
                 if (HighLogic.LoadedSceneIsFlight && varyIsp > 0d && fuelFlow > 0d)
                 {

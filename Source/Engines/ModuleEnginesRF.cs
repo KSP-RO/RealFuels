@@ -209,6 +209,8 @@ namespace RealFuels
                 useVelCurve ? velCurve : null,
                 useAtmCurveIsp ? atmCurveIsp : null,
                 useVelCurveIsp ? velCurveIsp : null,
+                useThrottleIspCurve ? throttleIspCurve : null,
+                useThrottleIspCurve ? throttleIspCurveAtmStrength : null,
                 disableUnderwater,
                 throttleResponseRate,
                 chamberNominalTemp,
