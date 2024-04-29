@@ -269,7 +269,7 @@ namespace RealFuels
                 if (velCurveIsp != null)
                     ispOtherMult *= velCurveIsp.Evaluate((float)mach);
                 if (throttleIspCurve != null)
-                    ispOtherMult *= Mathf.Lerp(1f, throttleIspCurve.Evaluate(commandedThrottle),
+                    ispOtherMult *= Mathf.Lerp(1f, throttleIspCurve.Evaluate((float)commandedThrottle),
                         throttleIspCurveAtmStrength.Evaluate(pressureAtm));
 
                 if (HighLogic.LoadedSceneIsFlight && varyIsp > 0d && fuelFlow > 0d)
