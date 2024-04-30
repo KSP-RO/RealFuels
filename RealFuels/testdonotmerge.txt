@@ -1,0 +1,4 @@
+**** RealFuels ****
+by NathanKell
+Contributors: tinygrox, Stonesmile, CaptKirk123, Butcher, DRVeyl, Al2Me6, siimav, Standecco, Chestburster, Starwaster, taniwha, swamp_ig, ialdabaoth (obviously, but back again!), blowfish
+ialdabaoth (who is awesome) created Modular Fuels, and this is a fork of the RealFuels branch.
