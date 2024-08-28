@@ -28,7 +28,6 @@ namespace RealFuels.Tanks
 			{
 				Propellant tfuel = kvp.Key;
 				if (PartResourceLibrary.Instance.GetDefinition(tfuel.name).resourceTransferMode != ResourceTransferMode.NONE && !IgnoreFuel(tfuel.name))
-					//labelString.Add($"{Math.Round(100 * tfuel.ratio * kvp.Value / efficiency, 3)}% {tfuel.name}");
 					labelString.Add($"{Math.Round(100 * tfuel.ratio * kvp.Value / efficiency, 3)}% {tfuel.displayName}");
 			}
 			return string.Join(" / ", labelString);
@@ -42,15 +41,15 @@ namespace RealFuels.Tanks
 
 			this.source = source;
 			string _title = source.part.partInfo.title;
-			if (source.part.Modules.GetModule("ModuleEngineConfigs") is PartModule pm && pm != null)
-				_title = $"{pm.Fields["configuration"].GetValue<string>(pm)}: {_title}";
+			if (source.part.FindModuleImplementing<ModuleEngineConfigs>() is ModuleEngineConfigs mec)
+				_title = $"{mec.configuration}: {_title}";
 			title = _title;
 			ratioFactor = 0.0;
 			efficiency = 0.0;
 
 			// Error conditions: Resource not defined in library, or resource has no tank and is not in IgnoreFuel
-			var missingRes = props.FirstOrDefault(p => PartResourceLibrary.Instance.GetDefinition(p.name) == null);
-			var noTanks = props.Where(p => !tank.tanksDict.ContainsKey(p.name));
+			Propellant missingRes = props.FirstOrDefault(p => PartResourceLibrary.Instance.GetDefinition(p.name) == null);
+			IEnumerable<Propellant> noTanks = props.Where(p => !tank.tanksDict.ContainsKey(p.name));
 			bool noTanksAndNotIgnored = noTanks.Any(p => !IgnoreFuel(p.name));
 			if (missingRes != null)
 				Debug.LogError($"[MFT/RF] FuelInfo: Unknown RESOURCE: {missingRes.name}");
