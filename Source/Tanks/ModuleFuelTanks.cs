@@ -542,7 +542,7 @@ namespace RealFuels.Tanks
             if (!MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def))
             {
                 string msg = $"[ModuleFuelTanks] Tried to set tank type to {type} but it has no definition.";
-                if (!MFSSettings.tankDefinitions.TryGetValue(oldType, out def))
+                if (oldType == null || !MFSSettings.tankDefinitions.TryGetValue(oldType, out def))
                 {
                     def = typesAvailable.First();
                 }
