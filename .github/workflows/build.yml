@@ -73,7 +73,7 @@ jobs:
           cp -v -R "${GITHUB_WORKSPACE}/RealFuels" "${RELEASE_DIR}"/GameData/RealFuels
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: RealFuels
           path: ${{ steps.assemble-release.outputs.release-dir }}
