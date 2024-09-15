@@ -46,7 +46,7 @@ jobs:
         uses: KSP-RO/BuildTools/update-assembly-info@master
         with:
           path: ${GITHUB_WORKSPACE}/Source/assembly/AssemblyInfoRF.cs
-          tag: "2.0.0.0"
+          tag: "15.9.0.0"
 
       - name: Build mod solution
         run: msbuild ${GITHUB_WORKSPACE}/Source/RealFuels.sln /t:build /restore /p:RestorePackagesConfig=true /p:Configuration=Release /p:ReferencePath="${{ steps.download-assemblies.outputs.ksp-dll-path }}"

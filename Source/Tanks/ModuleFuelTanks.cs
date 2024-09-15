@@ -8,6 +8,7 @@ using KSP.UI.Screens;
 using System.Reflection;
 using KSP.Localization;
 using ROUtils;
+using UnityEngine.Profiling;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -273,8 +274,6 @@ namespace RealFuels.Tanks
         {
             if (HighLogic.LoadedSceneIsEditor)
             {
-                GameEvents.onPartAttach.Add(OnPartAttach);
-                GameEvents.onPartRemove.Add(OnPartRemove);
                 GameEvents.onEditorShipModified.Add(OnEditorShipModified);
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
                 GameEvents.onPartActionUIShown.Add(OnPartActionUIShown);
@@ -287,7 +286,7 @@ namespace RealFuels.Tanks
                 Fields[nameof(utilization)].uiControlEditor.onSymmetryFieldChanged += OnUtilizationChanged;
                 Fields[nameof(typeDisp)].uiControlEditor.onFieldChanged += OnTypeDispChanged;
                 Fields[nameof(typeDisp)].uiControlEditor.onSymmetryFieldChanged += OnTypeDispChanged;
-                UpdateUsedBy();
+                EditorPartSetMaintainer.Instance.ScheduleUsedBySetsUpdate();
             }
 
             OnStartRF(state);
@@ -301,8 +300,6 @@ namespace RealFuels.Tanks
 
         void OnDestroy()
         {
-            GameEvents.onPartAttach.Remove(OnPartAttach);
-            GameEvents.onPartRemove.Remove(OnPartRemove);
             GameEvents.onEditorShipModified.Remove(OnEditorShipModified);
             GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
             GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
@@ -330,31 +327,6 @@ namespace RealFuels.Tanks
         }
 
         private void OnEditorShipModified(ShipConstruct _) => PartResourcesChanged();
-
-        private bool PartContainsEngineOrRCS(Part p, bool testChildren = false)
-        {
-            if (p == null) return false;
-            bool result = p.FindModuleImplementing<ModuleEngines>() || p.FindModuleImplementing<ModuleRCS>();
-            if (testChildren && !result)
-                foreach (Part p2 in p.children)
-                    result |= PartContainsEngineOrRCS(p2, testChildren);
-            return result;
-        }
-
-        // Only trigger updates if a part in the tree that was added/removed is a fuel consumer
-        private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> hostTarget)
-        {
-            // Attaching: host is the incoming part
-            if (PartContainsEngineOrRCS(hostTarget.host, true) || PartContainsEngineOrRCS(hostTarget.target, false))
-                UpdateUsedBy();
-        }
-
-        private void OnPartRemove(GameEvents.HostTargetAction<Part, Part> hostTarget)
-        {
-            // Removing: target is the detaching part
-            if (PartContainsEngineOrRCS(hostTarget.host, false) || PartContainsEngineOrRCS(hostTarget.target, true))
-                UpdateUsedBy();
-        }
 
         private void OnPartActionUIShown(UIPartActionWindow window, Part p)
         {
@@ -587,7 +559,7 @@ namespace RealFuels.Tanks
                 
                 massDirty = true;
             }
-            UpdateUsedBy();
+            EditorPartSetMaintainer.Instance?.ScheduleUsedBySetsUpdate();
 
             UpdateTankTypeRF(def);
             UpdateTestFlight();
@@ -1009,46 +981,14 @@ namespace RealFuels.Tanks
         internal readonly Dictionary<PartModule, FuelInfo> usedBy = new Dictionary<PartModule, FuelInfo>();
         internal readonly HashSet<FuelTank> usedByTanks = new HashSet<FuelTank>();
 
-        private void UpdateFuelInfo(FuelInfo f, PartModule source)
+        internal void UpdateFuelInfo(FuelInfo f, PartModule source)
         {
+            Profiler.BeginSample("UpdateFuelInfo");
             usedBy[source] = f;
             foreach (Propellant tfuel in f.propellantVolumeMults.Keys)
                 if (tanksDict.TryGetValue(tfuel.name, out FuelTank tank) && tank.canHave)
                     usedByTanks.Add(tank);
-        }
-
-        public void UpdateUsedBy()
-        {
-            if (!HighLogic.LoadedSceneIsEditor) return;
-
-            usedBy.Clear();
-            usedByTanks.Clear();
-
-            // Get part list
-            List<Part> parts;
-            if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
-                parts = EditorLogic.fetch.ship.parts;
-            else if (HighLogic.LoadedSceneIsFlight && vessel != null)
-                parts = vessel.parts;
-            else
-                return;
-
-            foreach(Part p in parts)
-            {
-                string title = p.partInfo.title;
-                foreach(PartModule m in p.Modules)
-                {
-                    FuelInfo f = null;
-                    if (m is ModuleEngines)
-                        f = new FuelInfo((m as ModuleEngines).propellants, this, m);
-                    else if (m is ModuleRCS)
-                        f = new FuelInfo((m as ModuleRCS).propellants, this, m);
-                    if (f?.valid == true)
-                        UpdateFuelInfo(f, m);
-                }
-            }
-
-            UpdateTweakableButtonsDelegate();
+            Profiler.EndSample();
         }
 
         private readonly HashSet<string> displayedParts = new HashSet<string>();

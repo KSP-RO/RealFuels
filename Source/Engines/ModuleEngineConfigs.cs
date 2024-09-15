@@ -4,10 +4,11 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
+using RealFuels.Tanks;
 using RealFuels.TechLevels;
 using KSP.UI.Screens;
 using KSP.Localization;
+using Debug = UnityEngine.Debug;
 
 namespace RealFuels
 {
@@ -870,8 +871,7 @@ namespace RealFuels
 
             if (HighLogic.LoadedSceneIsEditor && EditorLogic.fetch.ship != null)
             {
-                foreach (Part p in EditorLogic.fetch.ship.parts)
-                    p.SendMessage("UpdateUsedBy", SendMessageOptions.DontRequireReceiver);
+                EditorPartSetMaintainer.Instance.ScheduleUsedBySetsUpdate();
             }
 
             SetupFX();
