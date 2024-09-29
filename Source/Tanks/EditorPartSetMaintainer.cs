@@ -51,13 +51,13 @@ namespace RealFuels.Tanks
         }
 
         // Only trigger updates if a part in the tree that was added/removed is a fuel consumer
-        // Note that part packed status will be false when a ShipContruct is being loaded.
+        // Note that target ship and EditorLogic ship will be different when a ShipContruct is being loaded.
         // We don't want to run the checks and scheduling in this case.
         // Also note that we do not run updates on ghosted parts.
         private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> hostTarget)
         {
             // Attaching: host is the incoming part
-            if (hostTarget.target?.packed == true)
+            if (hostTarget.target?.ship == EditorLogic.fetch.ship)
                 ScheduleUpdateIfNeeded(hostTarget, isAttachEvent: true);
         }
 
