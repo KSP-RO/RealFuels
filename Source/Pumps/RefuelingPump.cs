@@ -104,13 +104,10 @@ namespace RealFuels
 
             foreach (var tank in tankDefs)
             {
-                if (tank.maxAmount > 0 &&
-                    tank.resource is PartResource r &&
+                if (tank.resource is PartResource r &&
                     PartResourceLibrary.Instance.GetDefinition(r.resourceName) is PartResourceDefinition d &&
                     tank.amount < tank.maxAmount &&
-                    tank.fillable &&
-                    r.flowMode != PartResource.FlowMode.None && r.flowState &&
-                    d.resourceTransferMode == ResourceTransferMode.PUMP)
+                    r.flowMode != PartResource.FlowMode.None && r.flowState)
                 {
                     double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
 
@@ -127,6 +124,7 @@ namespace RealFuels
                     tank.part.TransferResource(r, amount, part);
                 }
             }
+
             foreach (var partResource in batteries)
             {
                 if (partResource.flowMode != PartResource.FlowMode.None && 
