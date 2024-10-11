@@ -1,8 +1,8 @@
 ﻿using KSP.Localization;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 namespace RealFuels.Tanks
 {
@@ -107,6 +107,7 @@ namespace RealFuels.Tanks
 
         private void CalculateInsulation()
         {
+            Profiler.BeginSample("CalculateInsulation");
             // TODO tie this into insulation configuration GUI! Also, we should handle MLI separately and as part skin-internal conduction. (DONE)
             // Dewars and SOFI should be handled separately as part of the boiloff code on a per-tank basis (DONE)
             // Current SOFI configuration system should be left in place with players able to add to tanks that don't have it.
@@ -121,6 +122,7 @@ namespace RealFuels.Tanks
                 part.heatConductivity = normalizationFactor * 1 / ((1 / insulationFactor) + condRecip);
                 CalculateAnalyticInsulationFactor(insulationFactor);
             }
+            Profiler.EndSample();
         }
 
         private void CalculateAnalyticInsulationFactor(double insulationFactor)
@@ -209,17 +211,19 @@ namespace RealFuels.Tanks
             return deltaTemp * wettedArea / divisor;
         }
 
-
         private void CalculateTankBoiloff(double deltaTime, bool analyticalMode = false, double unclampedIntScalar = 0, double unclampedSkinScalar = 0)
         {
+            Profiler.BeginSample("CalculateTankBoiloff");
             if (totalTankArea <= 0)
             {
                 Debug.LogError("RF: CalculateTankBoiloff ran without calculating tank data!");
                 CalculateTankArea();
             }
+
             if (double.IsNaN(part.temperature))
             {
                 Debug.LogError($"RF: CalculateTankBoiloff found NaN part.temperature on {part}");
+                Profiler.EndSample();
                 return;
             }
 
@@ -242,6 +246,7 @@ namespace RealFuels.Tanks
                     // part.skinTemperature or analyticSkinTemp ? Nah.
                 }
                 fueledByLaunchClamp = false;
+                Profiler.EndSample();
                 return;
             }
 
@@ -252,7 +257,8 @@ namespace RealFuels.Tanks
 
                 foreach (var tank in cryoTanks)
                 {
-                    if (tank.amount > 0 && tank.vsp > 0)
+                    double tankAmount = tank.amount;
+                    if (tankAmount > 0 && tank.vsp > 0)
                     {
                         double massLost = 0;
                         double hotTemp = part.temperature;
@@ -282,11 +288,12 @@ namespace RealFuels.Tanks
 
                         double d = tank.density > 0 ? tank.density : 1;
                         double lossAmount = massLost / d;
-                        lossAmount = Math.Min(lossAmount, tank.amount);
+                        lossAmount = Math.Min(lossAmount, tankAmount);
 
                         if (lossAmount > 0)
                         {
-                            tank.amount -= lossAmount;
+                            // operate directly with the PartResource because FuelTank.amount isn't really meant for in-flight resource consumption
+                            tank.resource.amount -= lossAmount;
 
                             // See if there is boiloff byproduct and see if any other parts want to accept it.
                             if (tank.boiloffProductResource != null)
@@ -321,19 +328,20 @@ namespace RealFuels.Tanks
                             }
                         }
                     }
-                    else if (tank.amount > 0 && tank.loss_rate > 0)
+                    else if (tankAmount > 0 && tank.loss_rate > 0)
                     {
                         double deltaTemp = part.temperature - tank.temperature;
                         if (deltaTemp > 0)
                         {
                             double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
-                            lossAmount = Math.Min(lossAmount, tank.amount);
-                            tank.amount -= lossAmount;
+                            lossAmount = Math.Min(lossAmount, tankAmount);
+                            tank.resource.amount -= lossAmount;
                             boiloffMass += lossAmount * tank.density;
                         }
                     }
                 }
             }
+            Profiler.EndSample();
         }
 
         partial void UpdateTankTypeRF(TankDefinition def)
@@ -506,11 +514,10 @@ namespace RealFuels.Tanks
         public double InternalFluxAdjust() => 0;
         #endregion
 
+        [System.Diagnostics.Conditional("DEBUG")]
         void DebugLog(string msg)
         {
-#if DEBUG
             Debug.Log("[RealFuels.ModuleFuelTankRF] " + msg);
-#endif
         }
 
 #region Cryogenics
