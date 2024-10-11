@@ -524,9 +524,9 @@ namespace RealFuels
                 propellantStatus = $"<color=red>{Localizer.GetStringByTag("#RF_EngineRF_Needshighpressuretanks")}</color>"; // Needs high pressure tanks
             else if (HighLogic.LoadedSceneIsFlight)
             {
-                if (!ignited && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant && (
-                        !reignitable
-                        || ignitions == 0 && vessel.FindPartModuleImplementing<LaunchClamp>() == null))
+                if (!ignited && RFSettings.Instance.limitedIgnitions && !CheatOptions.InfinitePropellant &&
+                    (!reignitable || 
+                     (ignitions == 0 && (!vessel.LandedOrSplashed || vessel.FindPartModuleImplementing<LaunchClamp>() == null))))
                 {
                     part.stackIcon.SetIconColor(XKCDColors.LightMauve);
                 }
