@@ -42,12 +42,10 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="ROUtils">
-      <HintPath>..\..\..\..\..\..\Games\R112\GameData\ROUtils\Plugins\ROUtils.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="SolverEngines">
       <Private>False</Private>
-      <HintPath>..\..\SolverEngines\SolverEngines\obj\Release\SolverEngines.dll</HintPath>
     </Reference>
     <Reference Include="System">
       <Private>False</Private>
@@ -73,8 +71,7 @@
     <Reference Include="UnityEngine.TextRenderingModule">
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
+    <Reference Include="UnityEngine.UI">
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.UIElementsModule">
