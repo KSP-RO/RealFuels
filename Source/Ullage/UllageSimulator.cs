@@ -32,6 +32,7 @@ namespace RealFuels.Ullage
         double ullageHeightMin, ullageHeightMax;
         double ullageRadialMin, ullageRadialMax;
 
+        double prevPropellantStability = -1d;
         double propellantStability = 1d;
         string propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryStable"); // "Very Stable"
         double UT = double.MinValue;
@@ -41,6 +42,7 @@ namespace RealFuels.Ullage
         private const double risky = 0.75d;
         private const double veryRisky = 0.3d;
         private const double unstable = 0.15d;
+        private const double minStabilityDiffForUpdate = 0.0005d;
 
         private readonly string name = "Unknown";
 
@@ -188,8 +190,15 @@ namespace RealFuels.Ullage
 //                    + "\nInputs: Time = " + deltaTime + ", UT delta = " + utTimeDelta + ", Acc " + localAcceleration + ", Rot " + rotation + ", FR " + fuelRatio);
 //#endif
         }
+
         private void SetStateString()
         {
+            // Do not update the text values unless a significant enough change has happened
+            if (Math.Abs(propellantStability - prevPropellantStability) < minStabilityDiffForUpdate)
+                return;
+
+            prevPropellantStability = propellantStability;
+
             if (propellantStability >= veryStable)
                 propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryStable"); // "Very Stable"
             else if (propellantStability >= stable)
@@ -202,16 +211,20 @@ namespace RealFuels.Ullage
                 propellantStatus = Localizer.GetStringByTag("#RF_UllageState_Unstable"); // "Unstable"
             else
                 propellantStatus = Localizer.GetStringByTag("#RF_UllageState_VeryUnstable"); // "Very Unstable"
-            propellantStatus += $" ({GetPropellantProbability():P2})";
+            propellantStatus += $" ({GetPropellantProbability():P1})";
         }
+
         public double GetPropellantStability() => propellantStability;
+
         public double GetPropellantProbability()
         {
             // round up veryStable (>= 0.996) to 100% stable
             double stability = propellantStability >= veryStable ? 1.0d : propellantStability;
             return Math.Pow(stability, RFSettings.Instance.stabilityPower);
         }
+
         public void SetPropellantStability(double newStab) => propellantStability = newStab;
+
         public string GetPropellantStatus(out Color col)
         {
             if (propellantStability >= stable)
