@@ -54,7 +54,7 @@ jobs:
       - name: Remove excess DLLs
         uses: KSP-RO/BuildTools/remove-excess-dlls@master
         with:
-          path: ${GITHUB_WORKSPACE}/GameData/
+          path: ${GITHUB_WORKSPACE}/RealFuels/
 
       - name: Build metadata
         uses: KSP-RO/BuildTools/update-version-file@master
