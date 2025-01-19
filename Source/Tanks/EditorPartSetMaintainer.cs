@@ -57,7 +57,7 @@ namespace RealFuels.Tanks
         private void OnPartAttach(GameEvents.HostTargetAction<Part, Part> hostTarget)
         {
             // Attaching: host is the incoming part
-            if (hostTarget.target?.ship == EditorLogic.fetch.ship)
+            if (hostTarget.target?.localRoot?.ship == EditorLogic.fetch.ship)
                 ScheduleUpdateIfNeeded(hostTarget, isAttachEvent: true);
         }
 
