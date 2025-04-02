@@ -35,6 +35,13 @@ namespace RealFuels.Tanks
         [Persistent]
         public float maxUtilization = 0;
 
+        /// <summary>
+        /// When picking a new part from catalog, the definition with highest preference number will be set as the default type.
+        /// Use -1 to prevent a definition from being chosen. If all definitions have -1 then no preference-based override will happen.
+        /// </summary>
+        [Persistent]
+        public int orderOfPreference = -1;
+
         public Dictionary<string, FuelTank> tankList = new Dictionary<string, FuelTank>();
 
         public List<string> tags = new List<string>();
