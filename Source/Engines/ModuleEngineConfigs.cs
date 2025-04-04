@@ -1471,6 +1471,7 @@ namespace RealFuels
         {
             SetConfiguration(configName, true);
             UpdateSymmetryCounterparts();
+            GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
             MarkWindowDirty();
         }
 
