@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Collections;
-using System.Linq;
+using System.Reflection;
+using UniLinq;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 using KSP.UI.Screens;
-using System.Reflection;
 using KSP.Localization;
 using ROUtils;
-using UnityEngine.Profiling;
 
 // ReSharper disable InconsistentNaming, CompareOfFloatsByEqualityOperator
 
@@ -56,6 +55,8 @@ namespace RealFuels.Tanks
             }
         }
         private TankDefinitionSelectionGUI tankDefinitionSelectionGUI = null;
+
+        private bool onLoadFiredInEditor;
 
         // The total tank volume. This is prior to utilization
         public double totalVolume;
@@ -238,6 +239,8 @@ namespace RealFuels.Tanks
                 // Setup the mass
                 massDirty = true;
                 CalculateMass();
+
+                onLoadFiredInEditor = HighLogic.LoadedSceneIsEditor;
             }
             OnLoadRF(node);
         }
@@ -280,6 +283,7 @@ namespace RealFuels.Tanks
                 if (MFSSettings.previewAllLockedTypes)
                     GatherLockedTypesFromAllPossible();
                 InitializeTankType();
+                TrySetBestTankDef();
                 UpdateTankType(false);
                 InitUtilization();
                 Fields[nameof(utilization)].uiControlEditor.onFieldChanged += OnUtilizationChanged;
@@ -373,6 +377,21 @@ namespace RealFuels.Tanks
             var c = (Fields[nameof(typeDisp)].uiControlEditor as UI_ChooseOption);
             c.options = typesAvailable.Select(t => t.Title).ToArray();
             c.display = typesAvailable.Select(t => ConstructColoredTypeTitle(t)).ToArray();
+        }
+
+        private void TrySetBestTankDef()
+        {
+            if (!onLoadFiredInEditor)
+            {
+                var match = typesAvailable
+                    .Where(t => t.orderOfPreference >= 0 && !lockedTypes.Contains(t))
+                    .OrderByDescending((e) => e.orderOfPreference)
+                    .FirstOrDefault();
+                if (match != null)
+                {
+                    type = match.name;
+                }
+            }
         }
 
         private string ConstructColoredTypeTitle(TankDefinition def)
