@@ -23,7 +23,8 @@ namespace RealFuels
             float currentDataValue, float maxDataValue, float realCurrentData, float realMaxData,
             ref bool useSimulatedData, ref float simulatedDataValue, ref int clusterSize,
             ref string clusterSizeInput, ref string dataValueInput, ref float sliderTime, ref string sliderTimeInput,
-            ref bool includeIgnition, FloatCurve cycleCurve, float maxGraphTime)
+            ref bool includeIgnition, ref bool sliderModeIsPercentage, ref float sliderPercentage, ref string sliderPercentageInput,
+            FloatCurve cycleCurve, float maxGraphTime)
         {
             // Draw background
             if (Event.current.type == EventType.Repaint)
@@ -37,7 +38,8 @@ namespace RealFuels
             yPos = DrawReliabilitySection(rect, yPos, ratedBurnTime,
                 cycleReliabilityStart, cycleReliabilityEnd, cycleReliabilityCurrent,
                 ignitionReliabilityStart, ignitionReliabilityEnd, ignitionReliabilityCurrent,
-                hasCurrentData, cycleCurve, clusterSize, sliderTime, includeIgnition);
+                hasCurrentData, cycleCurve, clusterSize, sliderTime, includeIgnition,
+                sliderModeIsPercentage, sliderPercentage, maxGraphTime);
 
             // Separator
             if (Event.current.type == EventType.Repaint)
@@ -47,9 +49,12 @@ namespace RealFuels
             yPos += 10;
 
             // Side-by-side: Data Gains (left) and Controls (right)
-            yPos = DrawSideBySideSection(rect, yPos, ratedBurnTime, maxGraphTime, maxDataValue, realCurrentData, realMaxData,
+            yPos = DrawSideBySideSection(rect, yPos, ratedBurnTime, cycleReliabilityStart, cycleReliabilityEnd, cycleReliabilityCurrent,
+                ignitionReliabilityStart, ignitionReliabilityEnd, ignitionReliabilityCurrent,
+                hasCurrentData, maxGraphTime, maxDataValue, realCurrentData, realMaxData,
                 ref useSimulatedData, ref simulatedDataValue, ref clusterSize, ref clusterSizeInput, ref dataValueInput,
-                ref sliderTime, ref sliderTimeInput, ref includeIgnition);
+                ref sliderTime, ref sliderTimeInput, ref includeIgnition, ref sliderModeIsPercentage, ref sliderPercentage, ref sliderPercentageInput,
+                cycleCurve);
         }
 
         #region Reliability Section
@@ -59,7 +64,8 @@ namespace RealFuels
             float cycleReliabilityStart, float cycleReliabilityEnd, float cycleReliabilityCurrent,
             float ignitionReliabilityStart, float ignitionReliabilityEnd, float ignitionReliabilityCurrent,
             bool hasCurrentData, FloatCurve cycleCurve,
-            int clusterSize, float sliderTime, bool includeIgnition)
+            int clusterSize, float sliderTime, bool includeIgnition,
+            bool sliderModeIsPercentage, float sliderPercentage, float maxGraphTime)
         {
             // Color codes
             string orangeColor = "#FF8033";
@@ -71,25 +77,86 @@ namespace RealFuels
             float baseRateEnd = -Mathf.Log(cycleReliabilityEnd) / ratedBurnTime;
             float baseRateCurrent = hasCurrentData ? -Mathf.Log(cycleReliabilityCurrent) / ratedBurnTime : 0f;
 
-            // Calculate burn survival probabilities at slider time
-            float surviveStart = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityStart, baseRateStart, cycleCurve);
-            float surviveEnd = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityEnd, baseRateEnd, cycleCurve);
-            float surviveCurrent = hasCurrentData ? ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityCurrent, baseRateCurrent, cycleCurve) : 0f;
-
-            // If including ignition, multiply by ignition reliability
-            if (includeIgnition)
+            // Determine what to display based on mode:
+            // - Time mode: user picks time → show percentage
+            // - Percentage mode: user picks percentage → show time
+            float displayValueStart, displayValueEnd, displayValueCurrent;
+            float surviveStart, surviveEnd, surviveCurrent;
+            bool displayIsTime; // true = display time, false = display percentage
+            
+            if (sliderModeIsPercentage)
             {
-                surviveStart *= ignitionReliabilityStart;
-                surviveEnd *= ignitionReliabilityEnd;
-                if (hasCurrentData) surviveCurrent *= ignitionReliabilityCurrent;
+                // Percentage mode: user picks percentage → show TIME
+                displayIsTime = true;
+                float targetProb = sliderPercentage / 100f;
+                
+                // The survival probability is what the user selected (already accounts for clustering/ignition)
+                surviveStart = targetProb;
+                surviveEnd = targetProb;
+                surviveCurrent = targetProb;
+                
+                // Now reverse the clustering and ignition to find per-engine cycle probability
+                float targetCycleProbStart = targetProb;
+                float targetCycleProbEnd = targetProb;
+                float targetCycleProbCurrent = targetProb;
+                
+                if (clusterSize > 1)
+                {
+                    targetCycleProbStart = Mathf.Pow(targetProb, 1f / clusterSize);
+                    targetCycleProbEnd = Mathf.Pow(targetProb, 1f / clusterSize);
+                    targetCycleProbCurrent = Mathf.Pow(targetProb, 1f / clusterSize);
+                }
+                
+                // Apply ignition if needed before finding time
+                if (includeIgnition)
+                {
+                    targetCycleProbStart /= ignitionReliabilityStart;
+                    targetCycleProbEnd /= ignitionReliabilityEnd;
+                    if (hasCurrentData) targetCycleProbCurrent /= ignitionReliabilityCurrent;
+                }
+                
+                displayValueStart = ChartMath.FindTimeForSurvivalProb(targetCycleProbStart, ratedBurnTime, cycleReliabilityStart, cycleCurve, maxGraphTime);
+                displayValueEnd = ChartMath.FindTimeForSurvivalProb(targetCycleProbEnd, ratedBurnTime, cycleReliabilityEnd, cycleCurve, maxGraphTime);
+                
+                if (hasCurrentData)
+                {
+                    displayValueCurrent = ChartMath.FindTimeForSurvivalProb(targetCycleProbCurrent, ratedBurnTime, cycleReliabilityCurrent, cycleCurve, maxGraphTime);
+                }
+                else
+                {
+                    displayValueCurrent = 0f;
+                    surviveCurrent = 0f;
+                }
             }
-
-            // Apply cluster math
-            if (clusterSize > 1)
+            else
             {
-                surviveStart = Mathf.Pow(surviveStart, clusterSize);
-                surviveEnd = Mathf.Pow(surviveEnd, clusterSize);
-                if (hasCurrentData) surviveCurrent = Mathf.Pow(surviveCurrent, clusterSize);
+                // Time mode: user picks time → show PERCENTAGE
+                displayIsTime = false;
+                
+                surviveStart = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityStart, baseRateStart, cycleCurve);
+                surviveEnd = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityEnd, baseRateEnd, cycleCurve);
+                surviveCurrent = hasCurrentData ? ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityCurrent, baseRateCurrent, cycleCurve) : 0f;
+                
+                // If including ignition, multiply by ignition reliability
+                if (includeIgnition)
+                {
+                    surviveStart *= ignitionReliabilityStart;
+                    surviveEnd *= ignitionReliabilityEnd;
+                    if (hasCurrentData) surviveCurrent *= ignitionReliabilityCurrent;
+                }
+
+                // Apply cluster math
+                if (clusterSize > 1)
+                {
+                    surviveStart = Mathf.Pow(surviveStart, clusterSize);
+                    surviveEnd = Mathf.Pow(surviveEnd, clusterSize);
+                    if (hasCurrentData) surviveCurrent = Mathf.Pow(surviveCurrent, clusterSize);
+                }
+                
+                // Display values are the survival percentages (after clustering/ignition)
+                displayValueStart = surviveStart * 100f;
+                displayValueEnd = surviveEnd * 100f;
+                displayValueCurrent = surviveCurrent * 100f;
             }
 
             // Layout: three sections side-by-side
@@ -107,25 +174,25 @@ namespace RealFuels
             float igniteCurrent = hasCurrentData ? (clusterSize > 1 ? Mathf.Pow(ignitionReliabilityCurrent, clusterSize) : ignitionReliabilityCurrent) : 0f;
 
             // Draw Starting DU section
-            DrawSurvivalSection(currentX, yPos, sectionWidth, sectionHeight, "Starting DU", orangeColor, surviveStart, sliderTime, clusterSize, igniteStart, includeIgnition);
+            DrawSurvivalSection(currentX, yPos, sectionWidth, sectionHeight, "Starting DU", orangeColor, surviveStart, displayValueStart, displayIsTime, sliderTime, clusterSize, igniteStart, includeIgnition);
             currentX += sectionWidth;
 
             // Draw Current DU section (if applicable)
             if (hasCurrentData)
             {
-                DrawSurvivalSection(currentX, yPos, sectionWidth, sectionHeight, "Current DU", blueColor, surviveCurrent, sliderTime, clusterSize, igniteCurrent, includeIgnition);
+                DrawSurvivalSection(currentX, yPos, sectionWidth, sectionHeight, "Current DU", blueColor, surviveCurrent, displayValueCurrent, displayIsTime, sliderTime, clusterSize, igniteCurrent, includeIgnition);
                 currentX += sectionWidth;
             }
 
             // Draw Max DU section
-            DrawSurvivalSection(currentX, yPos, sectionWidth, sectionHeight, "Max DU", greenColor, surviveEnd, sliderTime, clusterSize, igniteEnd, includeIgnition);
+            DrawSurvivalSection(currentX, yPos, sectionWidth, sectionHeight, "Max DU", greenColor, surviveEnd, displayValueEnd, displayIsTime, sliderTime, clusterSize, igniteEnd, includeIgnition);
 
             yPos += sectionHeight + 12;
 
             return yPos;
         }
 
-        private void DrawSurvivalSection(float x, float y, float width, float height, string title, string color, float survivalProb, float time, int clusterSize, float ignitionProb, bool includeIgnition)
+        private void DrawSurvivalSection(float x, float y, float width, float height, string title, string color, float survivalProb, float displayValue, bool displayIsTime, float time, int clusterSize, float ignitionProb, bool includeIgnition)
         {
             // Header with colored text (no background)
             GUIStyle headerStyle = new GUIStyle(GUI.skin.label)
@@ -140,23 +207,47 @@ namespace RealFuels
             string headerText = $"<color={color}>{title}</color>";
             GUI.Label(new Rect(x, y, width, 24), headerText, headerStyle);
 
-            // Survival probability
-            float survivalPercent = survivalProb * 100f;
-            string survivalText = $"<size=24><b>{survivalPercent:F2}%</b></size>";
-            GUIStyle survivalStyle = new GUIStyle(GUI.skin.label)
+            // Main display value (time or percentage depending on mode)
+            string displayText;
+            if (displayIsTime)
+            {
+                // Percentage mode: show time
+                displayText = $"<size=24><b>{ChartMath.FormatTime(displayValue)}</b></size>";
+            }
+            else
+            {
+                // Time mode: show percentage
+                displayText = $"<size=24><b>{displayValue:F2}%</b></size>";
+            }
+            
+            GUIStyle displayStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 20,
                 alignment = TextAnchor.MiddleCenter,
                 richText = true,
                 normal = { textColor = Color.white }
             };
-            GUI.Label(new Rect(x, y + 26, width, 28), survivalText, survivalStyle);
+            GUI.Label(new Rect(x, y + 26, width, 28), displayText, displayStyle);
 
-            // "1 in X" text
+            // Secondary info: "1 in X" text
+            float survivalPercent = survivalProb * 100f;
             float failureRate = 1f - survivalProb;
             float oneInX = failureRate > 0.0001f ? (1f / failureRate) : 9999f;
             string entityText = clusterSize > 1 ? $"cluster of {clusterSize}" : "burn";
-            string failText = $"1 in <color=#FF6666>{oneInX:F1}</color> {entityText}s will fail to reach {ChartMath.FormatTime(time)}";
+            
+            // Show complementary info based on mode
+            string secondaryText;
+            if (displayIsTime)
+            {
+                // Percentage mode: show "1 in X burns (Y%)" format
+                secondaryText = $"1 in <color=#FF6666>{oneInX:F1}</color> {entityText}s fail (<color=#90EE90>{survivalPercent:F1}%</color>)";
+            }
+            else
+            {
+                // Time mode: show "at time X, 1 in Y burns fail"
+                secondaryText = $"at <color=#90EE90>{ChartMath.FormatTime(time)}</color>\n1 in <color=#FF6666>{oneInX:F1}</color> {entityText}s fail";
+            }
+            
             GUIStyle failStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
@@ -165,7 +256,7 @@ namespace RealFuels
                 wordWrap = true,
                 normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
             };
-            GUI.Label(new Rect(x + 4, y + 54, width - 8, 50), failText, failStyle);
+            GUI.Label(new Rect(x + 4, y + 54, width - 8, 50), secondaryText, failStyle);
 
             // Small ignition probability text (only when not including ignition)
             if (!includeIgnition)
@@ -186,10 +277,15 @@ namespace RealFuels
 
         #region Side-by-Side Section
 
-        private float DrawSideBySideSection(Rect rect, float yPos, float ratedBurnTime, float maxGraphTime, float maxDataValue,
+        private float DrawSideBySideSection(Rect rect, float yPos, float ratedBurnTime,
+            float cycleReliabilityStart, float cycleReliabilityEnd, float cycleReliabilityCurrent,
+            float ignitionReliabilityStart, float ignitionReliabilityEnd, float ignitionReliabilityCurrent,
+            bool hasCurrentData, float maxGraphTime, float maxDataValue,
             float realCurrentData, float realMaxData,
             ref bool useSimulatedData, ref float simulatedDataValue, ref int clusterSize,
-            ref string clusterSizeInput, ref string dataValueInput, ref float sliderTime, ref string sliderTimeInput, ref bool includeIgnition)
+            ref string clusterSizeInput, ref string dataValueInput, ref float sliderTime, ref string sliderTimeInput,
+            ref bool includeIgnition, ref bool sliderModeIsPercentage, ref float sliderPercentage, ref string sliderPercentageInput,
+            FloatCurve cycleCurve)
         {
             float columnStartY = yPos;
             float leftColumnWidth = rect.width * 0.5f;
@@ -202,9 +298,12 @@ namespace RealFuels
 
             // Draw right column: Simulation Controls
             float rightColumnEndY = DrawSimulationControls(rightColumnX, rightColumnWidth, columnStartY,
-                maxGraphTime, maxDataValue, realCurrentData, realMaxData,
+                ratedBurnTime, cycleReliabilityStart, cycleReliabilityEnd, cycleReliabilityCurrent,
+                ignitionReliabilityStart, ignitionReliabilityEnd, ignitionReliabilityCurrent,
+                hasCurrentData, maxGraphTime, maxDataValue, realCurrentData, realMaxData,
                 ref useSimulatedData, ref simulatedDataValue, ref clusterSize, ref clusterSizeInput, ref dataValueInput,
-                ref sliderTime, ref sliderTimeInput, ref includeIgnition);
+                ref sliderTime, ref sliderTimeInput, ref includeIgnition, ref sliderModeIsPercentage, ref sliderPercentage, ref sliderPercentageInput,
+                cycleCurve);
 
             // Draw vertical separator
             if (Event.current.type == EventType.Repaint)
@@ -270,10 +369,15 @@ namespace RealFuels
             return yPos;
         }
 
-        private float DrawSimulationControls(float x, float width, float yPos, float maxGraphTime, float maxDataValue,
+        private float DrawSimulationControls(float x, float width, float yPos,
+            float ratedBurnTime, float cycleReliabilityStart, float cycleReliabilityEnd, float cycleReliabilityCurrent,
+            float ignitionReliabilityStart, float ignitionReliabilityEnd, float ignitionReliabilityCurrent,
+            bool hasCurrentData, float maxGraphTime, float maxDataValue,
             float realCurrentData, float realMaxData,
             ref bool useSimulatedData, ref float simulatedDataValue, ref int clusterSize,
-            ref string clusterSizeInput, ref string dataValueInput, ref float sliderTime, ref string sliderTimeInput, ref bool includeIgnition)
+            ref string clusterSizeInput, ref string dataValueInput, ref float sliderTime, ref string sliderTimeInput,
+            ref bool includeIgnition, ref bool sliderModeIsPercentage, ref float sliderPercentage, ref string sliderPercentageInput,
+            FloatCurve cycleCurve)
         {
             bool hasRealData = realCurrentData >= 0f && realMaxData > 0f;
 
@@ -289,29 +393,66 @@ namespace RealFuels
             // Common width for all controls
             float btnWidth = width - 16;
 
-            // Burn Time slider (first control) - max matches graph range
-            GUI.Label(new Rect(x + 8, yPos, btnWidth, 16), "Burn Time (s)", controlStyle);
-            yPos += 16;
-
-            float maxSliderTime = maxGraphTime;
-            sliderTime = GUI.HorizontalSlider(new Rect(x + 8, yPos, btnWidth - 50, 16),
-                sliderTime, 0f, maxSliderTime, GUI.skin.horizontalSlider, GUI.skin.horizontalSliderThumb);
-
-            sliderTimeInput = $"{sliderTime:F1}";
-            GUI.SetNextControlName("sliderTimeInput");
-            string newTimeInput = GUI.TextField(new Rect(x + btnWidth - 35, yPos - 2, 40, 20),
-                sliderTimeInput, 8, inputStyle);
-
-            if (newTimeInput != sliderTimeInput)
+            // Toggle button for slider mode
+            string toggleButtonText = sliderModeIsPercentage ? "Mode: % → Time" : "Mode: Time → %";
+            if (GUI.Button(new Rect(x + 8, yPos, btnWidth, 20), toggleButtonText, buttonStyle))
             {
-                sliderTimeInput = newTimeInput;
-                if (GUI.GetNameOfFocusedControl() == "sliderTimeInput" && float.TryParse(sliderTimeInput, out float inputTime))
-                {
-                    inputTime = Mathf.Clamp(inputTime, 0f, maxSliderTime);
-                    sliderTime = inputTime;
-                }
+                sliderModeIsPercentage = !sliderModeIsPercentage;
             }
             yPos += 24;
+
+            // Slider control (changes based on mode)
+            if (sliderModeIsPercentage)
+            {
+                // Percentage mode: pick percentage, see time
+                GUI.Label(new Rect(x + 8, yPos, btnWidth, 16), "Survival %", controlStyle);
+                yPos += 16;
+
+                sliderPercentage = GUI.HorizontalSlider(new Rect(x + 8, yPos, btnWidth - 50, 16),
+                    sliderPercentage, 0.1f, 99.9f, GUI.skin.horizontalSlider, GUI.skin.horizontalSliderThumb);
+
+                sliderPercentageInput = $"{sliderPercentage:F1}";
+                GUI.SetNextControlName("sliderPercentageInput");
+                string newPercentInput = GUI.TextField(new Rect(x + btnWidth - 35, yPos - 2, 40, 20),
+                    sliderPercentageInput, 6, inputStyle);
+
+                if (newPercentInput != sliderPercentageInput)
+                {
+                    sliderPercentageInput = newPercentInput;
+                    if (GUI.GetNameOfFocusedControl() == "sliderPercentageInput" && float.TryParse(sliderPercentageInput, out float inputPercent))
+                    {
+                        inputPercent = Mathf.Clamp(inputPercent, 0.1f, 99.9f);
+                        sliderPercentage = inputPercent;
+                    }
+                }
+                yPos += 24;
+            }
+            else
+            {
+                // Time mode: pick time, see percentage
+                GUI.Label(new Rect(x + 8, yPos, btnWidth, 16), "Burn Time (s)", controlStyle);
+                yPos += 16;
+
+                float maxSliderTime = maxGraphTime;
+                sliderTime = GUI.HorizontalSlider(new Rect(x + 8, yPos, btnWidth - 50, 16),
+                    sliderTime, 0f, maxSliderTime, GUI.skin.horizontalSlider, GUI.skin.horizontalSliderThumb);
+
+                sliderTimeInput = $"{sliderTime:F1}";
+                GUI.SetNextControlName("sliderTimeInput");
+                string newTimeInput = GUI.TextField(new Rect(x + btnWidth - 35, yPos - 2, 40, 20),
+                    sliderTimeInput, 8, inputStyle);
+
+                if (newTimeInput != sliderTimeInput)
+                {
+                    sliderTimeInput = newTimeInput;
+                    if (GUI.GetNameOfFocusedControl() == "sliderTimeInput" && float.TryParse(sliderTimeInput, out float inputTime))
+                    {
+                        inputTime = Mathf.Clamp(inputTime, 0f, maxSliderTime);
+                        sliderTime = inputTime;
+                    }
+                }
+                yPos += 24;
+            }
 
             // Include Ignition checkbox
             GUIStyle checkboxStyle = new GUIStyle(GUI.skin.toggle)

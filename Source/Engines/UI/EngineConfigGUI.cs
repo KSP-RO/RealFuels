@@ -63,7 +63,10 @@ namespace RealFuels
         private string dataValueInput = "0";
         private float sliderTime = 100f;
         private string sliderTimeInput = "100.0";
-        private bool includeIgnition = false;
+        private static bool includeIgnition = false; // Static so it persists across all engines
+        private static bool sliderModeIsPercentage = false; // Static so it persists across all engines
+        private float sliderPercentage = 95.0f;
+        private string sliderPercentageInput = "95.0";
 
         private const int ConfigRowHeight = 22;
         private const int ConfigMaxVisibleRows = 16;
@@ -250,6 +253,15 @@ namespace RealFuels
             {
                 showBottomSection = !showBottomSection;
             }
+            // Heatmap toggle button (only show if chart is visible and has reliability data)
+            if (showBottomSection && _module.config != null && _module.config.HasValue("cycleReliabilityStart"))
+            {
+                bool currentHeatmapMode = Chart.UseHeatmapMode;
+                if (GUILayout.Button(currentHeatmapMode ? "Line Chart" : "Heatmap", GUILayout.Width(85)))
+                {
+                    Chart.UseHeatmapMode = !currentHeatmapMode;
+                }
+            }
             if (GUILayout.Button("Settings", GUILayout.Width(70)))
             {
                 showColumnMenu = !showColumnMenu;
@@ -287,6 +299,9 @@ namespace RealFuels
                     Chart.DataValueInput = dataValueInput;
                     Chart.SliderTimeInput = sliderTimeInput;
                     Chart.IncludeIgnition = includeIgnition;
+                    Chart.SliderModeIsPercentage = sliderModeIsPercentage;
+                    Chart.SliderPercentage = sliderPercentage;
+                    Chart.SliderPercentageInput = sliderPercentageInput;
 
                     Chart.Draw(_module.config, guiWindowRect.width - 10, 375, ref sliderTime);
 
@@ -299,6 +314,9 @@ namespace RealFuels
                     dataValueInput = Chart.DataValueInput;
                     sliderTimeInput = Chart.SliderTimeInput;
                     includeIgnition = Chart.IncludeIgnition;
+                    sliderModeIsPercentage = Chart.SliderModeIsPercentage;
+                    sliderPercentage = Chart.SliderPercentage;
+                    sliderPercentageInput = Chart.SliderPercentageInput;
 
                     GUILayout.Space(6);
                 }
@@ -450,13 +468,29 @@ namespace RealFuels
         private void DrawHeaderRow(Rect headerRect)
         {
             float currentX = headerRect.x;
+            
+            // Dynamic header and tooltip for survival column based on mode
+            string survivalHeader;
+            string survivalTooltip;
+            
+            if (sliderModeIsPercentage)
+            {
+                survivalHeader = $"Time @ {sliderPercentage:F1}%";
+                survivalTooltip = $"Time to reach {sliderPercentage:F1}% survival (starting / max data)";
+            }
+            else
+            {
+                survivalHeader = $"Survival @ {ChartMath.FormatTime(sliderTime)}";
+                survivalTooltip = $"Survival probability at {ChartMath.FormatTime(sliderTime)} (starting / max data)";
+            }
+            
             string[] headers = {
                 "Name", Localizer.GetStringByTag("#RF_EngineRF_Thrust"), "Min%",
                 Localizer.GetStringByTag("#RF_Engine_Isp"), Localizer.GetStringByTag("#RF_Engine_Enginemass"),
                 Localizer.GetStringByTag("#RF_Engine_TLTInfo_Gimbal"), Localizer.GetStringByTag("#RF_EngineRF_Ignitions"),
                 Localizer.GetStringByTag("#RF_Engine_ullage"), Localizer.GetStringByTag("#RF_Engine_pressureFed"),
                 "Rated (s)", "Tested (s)", "Ign Reliability", "Burn No Data", "Burn Max Data",
-                "Survival @ Time",
+                survivalHeader,
                 Localizer.GetStringByTag("#RF_Engine_Requires"), "Extra Cost", ""
             };
             string[] tooltips = {
@@ -466,7 +500,7 @@ namespace RealFuels
                 "Tested burn time (real-world test duration)",
                 "Ignition reliability (starting / max data)",
                 "Cycle reliability at 0 data", "Cycle reliability at max data",
-                "Survival probability at slider time (starting / max data)",
+                survivalTooltip,
                 "Required technology", "Extra cost for this config", "Switch and purchase actions"
             };
 
@@ -1057,18 +1091,32 @@ namespace RealFuels
             node.TryGetValue("overburnPenalty", ref overburnPenalty);
             FloatCurve cycleCurve = ChartMath.BuildTestFlightCycleCurve(ratedBurnTime, testedBurnTime, overburnPenalty, hasTestedBurnTime);
 
-            // Calculate survival at slider time
-            float baseRateStart = -Mathf.Log(cycleReliabilityStart) / ratedBurnTime;
-            float baseRateEnd = -Mathf.Log(cycleReliabilityEnd) / ratedBurnTime;
-
-            float surviveStart = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityStart, baseRateStart, cycleCurve);
-            float surviveEnd = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityEnd, baseRateEnd, cycleCurve);
-
             // Faded colors for better readability in table
             string fadedOrange = "#FFB380";
             string fadedGreen = "#80E680";
 
-            return $"<color={fadedOrange}>{surviveStart:P1}</color> / <color={fadedGreen}>{surviveEnd:P1}</color>";
+            if (sliderModeIsPercentage)
+            {
+                // Percentage mode: show TIME to reach the selected percentage
+                float targetProb = sliderPercentage / 100f;
+                
+                // Find time for start and end reliability (no clustering/ignition for table display)
+                float timeStart = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityStart, cycleCurve, 10000f);
+                float timeEnd = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityEnd, cycleCurve, 10000f);
+                
+                return $"<color={fadedOrange}>{ChartMath.FormatTime(timeStart)}</color> / <color={fadedGreen}>{ChartMath.FormatTime(timeEnd)}</color>";
+            }
+            else
+            {
+                // Time mode: show PERCENTAGE at the selected time
+                float baseRateStart = -Mathf.Log(cycleReliabilityStart) / ratedBurnTime;
+                float baseRateEnd = -Mathf.Log(cycleReliabilityEnd) / ratedBurnTime;
+
+                float surviveStart = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityStart, baseRateStart, cycleCurve);
+                float surviveEnd = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityEnd, baseRateEnd, cycleCurve);
+
+                return $"<color={fadedOrange}>{surviveStart:P1}</color> / <color={fadedGreen}>{surviveEnd:P1}</color>";
+            }
         }
 
         internal string GetTechString(ConfigNode node)

@@ -1101,7 +1101,9 @@ namespace RealFuels
         [NonSerialized]
         public bool showRFGUI;
 
-        public static bool userClosedWindow = false;
+        // Track if the user manually closed this specific window (per-instance, not static)
+        [NonSerialized]
+        private bool userClosedWindow = false;
 
         // Track the currently open GUI to ensure only one is visible at a time
         private static ModuleEngineConfigsBase currentlyOpenGUI = null;

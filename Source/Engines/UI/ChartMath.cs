@@ -226,6 +226,42 @@ namespace RealFuels
             return sum;
         }
 
+        /// <summary>
+        /// Find the time at which survival probability reaches a target percentage.
+        /// Uses binary search to find the time that gives the desired survival probability.
+        /// </summary>
+        public static float FindTimeForSurvivalProb(float targetSurvivalProb, float ratedBurnTime,
+            float cycleReliability, FloatCurve cycleCurve, float maxTime, int maxIterations = 50)
+        {
+            if (targetSurvivalProb >= 1f) return 0f;
+            if (targetSurvivalProb <= 0f) return maxTime;
+
+            float baseRate = -Mathf.Log(cycleReliability) / ratedBurnTime;
+            
+            // Binary search for the time that gives us the target survival probability
+            float minTime = 0f;
+            float maxSearchTime = maxTime;
+            float tolerance = 0.01f; // 1% tolerance
+            
+            for (int i = 0; i < maxIterations; i++)
+            {
+                float midTime = (minTime + maxSearchTime) / 2f;
+                float survivalProb = CalculateSurvivalProbAtTime(midTime, ratedBurnTime, cycleReliability, baseRate, cycleCurve);
+                
+                // If we're close enough, return
+                if (Mathf.Abs(survivalProb - targetSurvivalProb) < tolerance * targetSurvivalProb)
+                    return midTime;
+                
+                // Survival probability decreases with time, so if current is too high, we need more time
+                if (survivalProb > targetSurvivalProb)
+                    minTime = midTime;
+                else
+                    maxSearchTime = midTime;
+            }
+            
+            return (minTime + maxSearchTime) / 2f;
+        }
+
         #endregion
 
         #region Coordinate Conversion
