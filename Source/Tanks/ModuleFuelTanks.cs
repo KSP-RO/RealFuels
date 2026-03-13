@@ -774,6 +774,14 @@ namespace RealFuels.Tanks
             }
         }
 
+        //Here's the function I'm adding to calculate the volume of a hollow, spherical tank. Instead of the whole tank volume, you psychos...
+        public double TankWallVolume (float OldVolume)
+        {
+            double radius = Math.Pow(OldVolume * 0.001 * 0.75f / Math.PI, 1f / 3);
+            double dV = (4 / 3) * Math.PI * Math.Pow(radius - .004, 2);
+            return OldVolume - dV;
+        }
+
         public void CalculateMass ()
         {
             if (!massDirty)
@@ -787,7 +795,7 @@ namespace RealFuels.Tanks
 
             if (basemass >= 0)
             {
-                double tankDryMass = tanksDict.Values.Sum(t => t.Volume * t.mass);
+                double tankDryMass = tanksDict.Values.Sum(t => TankWallVolume(t.Volume) * t.mass);
                 mass = (float) ((basemass + tankDryMass) * MassMult);
             }
             else
