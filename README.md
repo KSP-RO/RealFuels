@@ -1,4 +1,5 @@
-needs review
+Hotfix, needs review
+
 Tank masses used to be calculated improperly, using the whole volume of the tank, instead of an area or wall volume, causing the tank's dry mass to increase as a cube, resulting in very poor performance in large rockets.
 
 The new method is to calculate the wall volume of a spherical tank, then apply an aluminum density to it, resulting in an accurate dry mass, similar to numbers irl.
