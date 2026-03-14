@@ -774,6 +774,20 @@ namespace RealFuels.Tanks
             }
         }
 
+ // heres the function im adding to calculate the wall volume of a hollow, spherical tank
+        // not accurate for cylindrical volumes but inspired by a method i found in modulefueltanksRF
+
+        public double TankWallVolume (double OldVolume)
+        {
+            //stole this one line from modulefueltanksRF <3
+            double radius = Math.Pow(OldVolume * 0.001 * 0.75f / Math.PI, 1f / 3);
+            // calculates volume of sphere slightly smaller 4mm in radius than the previous volume
+            //then converts from m^3 to L
+            double dV = 1.33 * Math.PI * Math.Pow((radius - 0.004), 3f) * 1000;
+            //the dry mas resides in the volume between the two
+            return OldVolume - dV;
+        }
+
         public void CalculateMass ()
         {
             if (!massDirty)
@@ -781,14 +795,34 @@ namespace RealFuels.Tanks
                 return;
             }
             massDirty = false;
+            /*
+            -also changing t.mass to be a static 2.71 kg/l for an aerospace alluminum alloy 
+
+            -2195 was used as the alloy for the space shuttle main tank so I'll use that as the model : using matweb.com as a reference
+
+            it would be really cool if someone more knowledgable made the tech levels change the density so that the player gets 
+            additional mass savings as they progress, as if they are using better alloys 
+            */
+            double density_2195A = 0.00271;
+            //whyyyyyy does ksp use base units of tons bro (its not that bad)
+
+             /*this is the new method i added to calculate tank mass, its accurate to a few percent
+             * but theres probably a lot of error in the way im coding the math and the method im using
+             * isnt 100% accurate for a cylindrical tank, i just wanted better functionality with 
+             * procedural parts tanks so that my tanks didnt weigh 300t dry */
+
+            double tankDryMass = TankWallVolume(totalVolume) * density_2195A;
 
             double basemass = basemassConst + basemassPV * (MFSSettings.basemassUseTotalVolume ? totalVolume : volume);
-            CalculateMassRF(ref basemass);
+            CalculateMassRF(ref tankDryMass);
+
+
 
             if (basemass >= 0)
             {
-                double tankDryMass = tanksDict.Values.Sum(t => t.Volume * t.mass);
-                mass = (float) ((basemass + tankDryMass) * MassMult);
+                mass = (float) (tankDryMass);
+                //afternote, this may be horribly balanced for stock KSP, because now tanks are lighter
+               
             }
             else
             {
