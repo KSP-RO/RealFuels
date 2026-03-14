@@ -1,4 +1,5 @@
-Dont download this, i broke it, tank masses dont calculate properly, will do more work on the problem soon and try to come up with an actual solution thats not just deleting a variable
+needs review
+Tank masses used to be calculated improperly, using the whole volume of the tank, instead of an area or wall volume, causing the tank's dry mass to increase as a cube, resulting in very poor performance in large rockets.
 
-update 1:
-- added some math, might work idk, testing when i can figure out how to compile this god forsaken program on Windows
+The new method is to calculate the wall volume of a spherical tank, then apply an aluminum density to it, resulting in an accurate dry mass, similar to numbers irl.
+The method is not incredibly accurate, but it is a quick and dirty patch, so hopefully someone more skilled & knowledgeable of the codebase takes on the task to optimize and clean it up/make it play nice with older code.
