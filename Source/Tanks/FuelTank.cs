@@ -16,9 +16,6 @@ namespace RealFuels.Tanks
 	//              of tank installed for this resource type. Tons per
 	//              volume unit.
 	// temperature  the part temperature at which this tank's contents start boiling
-	// loss_rate    How quickly this resource type bleeds out of the tank. 
-	//              (TODO: instead of this unrealistic static loss_rate, all 
-	//              resources should have vsp (heat of vaporization) added and optionally conduction)
 	//
 
 	public class FuelTank : IConfigNode
@@ -37,10 +34,6 @@ namespace RealFuels.Tanks
 		public float mass = 0.0f;
 		[Persistent]
 		public float cost = 0.0f;
-		// TODO Retaining for fallback purposes but should be deprecated
-		[Persistent]
-		public double loss_rate = 0.0;
-
 		public double vsp;
 
 		public double resourceConductivity = 10;
