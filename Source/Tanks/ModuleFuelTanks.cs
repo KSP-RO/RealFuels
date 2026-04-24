@@ -307,7 +307,7 @@ namespace RealFuels.Tanks
             GameEvents.onEditorShipModified.Remove(OnEditorShipModified);
             GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
             GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
-            TankWindow.HideGUI();
+            RealFuelsWindow.HideGUI();
         }
 
         public override void OnSave (ConfigNode node)
@@ -363,9 +363,9 @@ namespace RealFuels.Tanks
                 bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
 
                 if (partIsSelectedInActionsScreen || showUI)
-                    TankWindow.ShowGUI(this);
+                    RealFuelsWindow.ShowGUI(this);
                 else
-                    TankWindow.HideGUIForModule(this);
+                    RealFuelsWindow.HideGUIForModule(this);
             }
             UpdateRF();
         }
