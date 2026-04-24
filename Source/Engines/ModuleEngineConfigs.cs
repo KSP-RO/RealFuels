@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using System.Linq;
 using UnityEngine;
@@ -32,18 +33,18 @@ namespace RealFuels
         public string Info()
         {
             if (new[] { gimbalRange, gimbalRangeXP, gimbalRangeXN, gimbalRangeYP, gimbalRangeYN }.Distinct().Count() == 1)
-                return $"{gimbalRange:N1}d"; // 
+                return $"{gimbalRange:0.#}°";
             if (new[] { gimbalRangeXP, gimbalRangeXN, gimbalRangeYP, gimbalRangeYN }.Distinct().Count() == 1)
-                return $"{gimbalRangeXP:N1}d"; // 
+                return $"{gimbalRangeXP:0.#}°";
             var ret = string.Empty;
             if (gimbalRangeXP == gimbalRangeXN)
-                ret += $"{gimbalRangeXP:N1}d pitch, "; // 
+                ret += $"{gimbalRangeXP:0.#}° pitch, ";
             else
-                ret += $"+{gimbalRangeXP:N1}d/-{gimbalRangeXN:N1}d pitch, "; // 
+                ret += $"+{gimbalRangeXP:0.#}°/-{gimbalRangeXN:0.#}° pitch, ";
             if (gimbalRangeYP == gimbalRangeYN)
-                ret += $"{gimbalRangeYP:N1}d yaw"; // 
+                ret += $"{gimbalRangeYP:0.#}° yaw";
             else
-                ret += $"+{gimbalRangeYP:N1}d/-{gimbalRangeYN:N1}d yaw"; // 
+                ret += $"+{gimbalRangeYP:0.#}°/-{gimbalRangeYN:0.#}° yaw";
             return ret;
         }
     }
@@ -155,37 +156,44 @@ namespace RealFuels
             var name = node.GetValue("name");
             if (!node.HasValue(PatchNameKey))
                  return name;
-            return $"{name} [Subconfig {node.GetValue(PatchNameKey)}]";
+            return node.GetValue(PatchNameKey); // Just show subconfig name without parent prefix
         }
 
-        protected override void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
+        public override IEnumerable<ConfigRowDefinition> BuildConfigRows()
         {
-            foreach (var node in availableConfigNodes)
+            foreach (var node in FilteredDisplayConfigs(false))
             {
-                DrawSelectButton(
-                    node,
-                    node.GetValue("name") == configuration && activePatchName == "",
-                    (configName) =>
+                string configName = node.GetValue("name");
+                yield return new ConfigRowDefinition
+                {
+                    Node = node,
+                    DisplayName = GetConfigDisplayName(node),
+                    IsSelected = configName == configuration && activePatchName == "",
+                    Indent = false,
+                    Apply = () =>
                     {
                         activePatchName = "";
                         GUIApplyConfig(configName);
-                    });
+                    }
+                };
+
                 foreach (var patch in GetPatchesOfConfig(node))
                 {
                     var patchedNode = PatchConfig(node, patch, false);
                     string patchName = patch.GetValue("name");
-                    using (new GUILayout.HorizontalScope())
+                    string patchedConfigName = configName;
+                    yield return new ConfigRowDefinition
                     {
-                        GUILayout.Space(30);
-                        DrawSelectButton(
-                            patchedNode,
-                            node.GetValue("name") == configuration && patchName == activePatchName,
-                            (configName) =>
-                            {
-                                activePatchName = patchName;
-                                GUIApplyConfig(configName);
-                            });
-                    }
+                        Node = patchedNode,
+                        DisplayName = GetConfigDisplayName(patchedNode),
+                        IsSelected = patchedConfigName == configuration && patchName == activePatchName,
+                        Indent = true,
+                        Apply = () =>
+                        {
+                            activePatchName = patchName;
+                            GUIApplyConfig(patchedConfigName);
+                        }
+                    };
                 }
             }
         }
@@ -193,13 +201,11 @@ namespace RealFuels
 
     public class ModuleEngineConfigsBase : PartModule, IPartCostModifier, IPartMassModifier
     {
-        private static FieldInfo MRCSConsumedResources = typeof(ModuleRCS).GetField("consumedResources", BindingFlags.NonPublic | BindingFlags.Instance);
-
         //protected const string groupName = "ModuleEngineConfigs";
         public const string groupName = ModuleEnginesRF.groupName;
         public const string groupDisplayName = "#RF_Engine_EngineConfigs"; // "Engine Configs"
         #region Fields
-        protected bool compatible = true;
+        internal bool compatible = true;
 
         [KSPField(isPersistant = true)]
         public string configuration = string.Empty;
@@ -298,130 +304,6 @@ namespace RealFuels
         public float scale = 1f;
         #endregion
 
-        #region TestFlight
-
-        public void UpdateTFInterops()
-        {
-            TestFlightWrapper.AddInteropValue(part, isMaster ? "engineConfig" : "vernierConfig", configuration, "RealFuels");
-        }
-        #endregion
-
-        #region B9PartSwitch
-        protected static bool _b9psReflectionInitialized = false;
-        protected static FieldInfo B9PS_moduleID;
-        protected static MethodInfo B9PS_SwitchSubtype;
-        protected static FieldInfo B9PS_switchInFlight;
-        public Dictionary<string, PartModule> B9PSModules;
-        protected Dictionary<string, string> RequestedB9PSVariants = new Dictionary<string, string>();
-
-        private void InitializeB9PSReflection()
-        {
-            if (_b9psReflectionInitialized || !Utilities.B9PSFound) return;
-            B9PS_moduleID = Type.GetType("B9PartSwitch.CustomPartModule, B9PartSwitch")?.GetField("moduleID");
-            B9PS_SwitchSubtype = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetMethod("SwitchSubtype");
-            B9PS_switchInFlight = Type.GetType("B9PartSwitch.ModuleB9PartSwitch, B9PartSwitch")?.GetField("switchInFlight");
-            _b9psReflectionInitialized = true;
-        }
-
-        private void LoadB9PSModules()
-        {
-            IEnumerable<string> b9psModuleIDs = configs
-                .Where(cfg => cfg.HasNode("LinkB9PSModule"))
-                .SelectMany(cfg => cfg.GetNodes("LinkB9PSModule"))
-                .Select(link => link?.GetValue("name"))
-                .Where(moduleID => moduleID != null)
-                .Distinct();
-
-            B9PSModules = new Dictionary<string, PartModule>(b9psModuleIDs.Count());
-
-            foreach (string moduleID in b9psModuleIDs)
-            {
-                var module = GetSpecifiedModules(part, string.Empty, -1, "ModuleB9PartSwitch", false)
-                    .FirstOrDefault(m => (string)B9PS_moduleID?.GetValue(m) == moduleID);
-                if (module == null)
-                    Debug.LogError($"*RFMEC* B9PartSwitch module with ID {moduleID} was not found for {part}!");
-                else
-                    B9PSModules[moduleID] = module;
-            }
-        }
-
-        /// <summary>
-        /// Hide the GUI for all `ModuleB9PartSwitch`s managed by RF.
-        /// This is somewhat of a hack-ish approach...
-        /// </summary>
-        private void HideB9PSVariantSelectors()
-        {
-            if (B9PSModules == null) return;
-            foreach (var module in B9PSModules.Values)
-            {
-                module.Fields["currentSubtypeTitle"].guiActive = false;
-                module.Fields["currentSubtypeTitle"].guiActiveEditor = false;
-                module.Fields["currentSubtypeIndex"].guiActive = false;
-                module.Fields["currentSubtypeIndex"].guiActiveEditor = false;
-                module.Events["ShowSubtypesWindow"].guiActive = false;
-                module.Events["ShowSubtypesWindow"].guiActiveEditor = false;
-            }
-        }
-
-        private IEnumerator HideB9PSInFlightSelector_Coroutine(PartModule module)
-        {
-            yield return null;
-            module.Events["ShowSubtypesWindow"].guiActive = false;
-        }
-
-        protected void RequestB9PSVariantsForConfig(ConfigNode node)
-        {
-            if (B9PSModules == null || B9PSModules.Count == 0) return;
-            RequestedB9PSVariants.Clear();
-            if (node.GetNodes("LinkB9PSModule") is ConfigNode[] links)
-            {
-                foreach (ConfigNode link in links)
-                {
-                    string moduleID = null, subtype = null;
-                    if (!link.TryGetValue("name", ref moduleID))
-                        Debug.LogError($"*RFMEC* Config `{configurationDisplay}` of {part} has a LinkB9PSModule specification without a name key!");
-                    if (!link.TryGetValue("subtype", ref subtype))
-                        Debug.LogError($"*RFMEC* Config `{configurationDisplay}` of {part} has a LinkB9PSModule specification without a subtype key!");
-                    if (moduleID != null && subtype != null)
-                        RequestedB9PSVariants[moduleID] = subtype;
-                }
-            }
-            StartCoroutine(ApplyRequestedB9PSVariants_Coroutine());
-        }
-
-        protected IEnumerator ApplyRequestedB9PSVariants_Coroutine()
-        {
-            yield return new WaitForEndOfFrame();
-
-            if (RequestedB9PSVariants.Count == 0) yield break;
-
-            foreach (var entry in B9PSModules)
-            {
-                string moduleID = entry.Key;
-                PartModule module = entry.Value;
-
-                if (HighLogic.LoadedSceneIsFlight
-                    && B9PS_switchInFlight != null
-                    && !(bool)B9PS_switchInFlight.GetValue(module)) continue;
-
-                if (!RequestedB9PSVariants.TryGetValue(moduleID, out string subtypeName))
-                {
-                    Debug.LogError($"*RFMEC* Config {configurationDisplay} of {part} does not specify a subtype for linked B9PS module with ID {moduleID}; defaulting to `{configuration}`.");
-                    subtypeName = configuration;
-                }
-
-                B9PS_SwitchSubtype?.Invoke(module, new object[] { subtypeName });
-                if (HighLogic.LoadedSceneIsFlight) StartCoroutine(HideB9PSInFlightSelector_Coroutine(module));
-            }
-
-            RequestedB9PSVariants.Clear();
-            // Clear symmetry counterparts' queues since B9PS already handles symmetry.
-            DoForEachSymmetryCounterpart(mec => mec.RequestedB9PSVariants.Clear());
-        }
-
-        public void UpdateB9PSVariants() => RequestB9PSVariantsForConfig(config);
-        #endregion
-
         #region Callbacks
         public float GetModuleCost(float stdCost, ModifierStagingSituation sit) => configCost;
         public ModifierChangeWhen GetModuleCostChangeWhen() => ModifierChangeWhen.FIXED;
@@ -474,7 +356,7 @@ namespace RealFuels
             field.group = new BasePAWGroup(groupName, groupDisplayName, false);
         }
 
-        private List<ConfigNode> FilteredDisplayConfigs(bool update)
+        internal List<ConfigNode> FilteredDisplayConfigs(bool update)
         {
             if (update || filteredDisplayConfigs == null)
             {
@@ -488,7 +370,6 @@ namespace RealFuels
         {
             techNodes = new ConfigNode();
             configs = new List<ConfigNode>();
-            InitializeB9PSReflection();
         }
 
         public override void OnLoad(ConfigNode node)
@@ -540,11 +421,14 @@ namespace RealFuels
 
             Fields[nameof(showRFGUI)].guiActiveEditor = isMaster;
             if (HighLogic.LoadedSceneIsEditor)
+            {
                 GameEvents.onPartActionUIDismiss.Add(OnPartActionGuiDismiss);
+                GameEvents.onPartActionUIShown.Add(OnPartActionUIShown);
+            }
 
             ConfigSaveLoad();
 
-            LoadB9PSModules();
+            Integrations.LoadB9PSModules();
 
             LoadDefaultGimbals();
 
@@ -558,7 +442,7 @@ namespace RealFuels
 
         public override void OnStartFinished(StartState state)
         {
-            HideB9PSVariantSelectors();
+            Integrations.HideB9PSVariantSelectors();
             if (pModule is ModuleRCS mrcs) RelocateRCSPawItems(mrcs);
         }
         #endregion
@@ -588,7 +472,7 @@ namespace RealFuels
 
                 float gimbalR = -1f;
                 if (config.HasValue("gimbalRange"))
-                    gimbalR = float.Parse(config.GetValue("gimbalRange"));
+                    gimbalR = float.Parse(config.GetValue("gimbalRange"), CultureInfo.InvariantCulture);
                 else if (!gimbalTransform.Equals(string.Empty) || useGimbalAnyway)
                 {
                     if (cTL != null)
@@ -634,12 +518,12 @@ namespace RealFuels
 
             if (config.HasValue(thrustRating))
             {
-                info.Append($"  {Utilities.FormatThrust(scale * ThrustTL(config.GetValue(thrustRating), config))}");
+                info.Append($"  {Utilities.FormatThrust(scale * TechLevels.ThrustTL(config.GetValue(thrustRating), config))}");
                 // add throttling info if present
                 if (config.HasValue("minThrust"))
-                    info.Append($", {Localizer.GetStringByTag("#RF_Engine_minThrustInfo")} {float.Parse(config.GetValue("minThrust")) / float.Parse(config.GetValue(thrustRating)):P0}"); //min
+                    info.Append($", {Localizer.GetStringByTag("#RF_Engine_minThrustInfo")} {float.Parse(config.GetValue("minThrust"), CultureInfo.InvariantCulture) / float.Parse(config.GetValue(thrustRating), CultureInfo.InvariantCulture):P0}"); //min
                 else if (config.HasValue("throttle"))
-                    info.Append($", {Localizer.GetStringByTag("#RF_Engine_minThrustInfo")} {float.Parse(config.GetValue("throttle")):P0}"); // min
+                    info.Append($", {Localizer.GetStringByTag("#RF_Engine_minThrustInfo")} {float.Parse(config.GetValue("throttle"), CultureInfo.InvariantCulture):P0}"); // min
             }
             else
                 info.Append($"  {Localizer.GetStringByTag("#RF_Engine_UnknownThrust")}"); // Unknown Thrust
@@ -667,6 +551,24 @@ namespace RealFuels
                 ispSL *= ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
                 ispV *= ispVMult * cTL.AtmosphereCurve.Evaluate(0);
                 info.Append($"  {Localizer.GetStringByTag("#RF_Engine_Isp")}: {ispSL:N0} - {ispV:N0}s\n"); // Isp
+            }
+
+            if (config.HasNode("PROPELLANT"))
+            {
+                var propellants = config.GetNodes("PROPELLANT")
+                    .Select(node =>
+                    {
+                        string name = node.GetValue("name");
+                        string ratioStr = null;
+                        if (node.TryGetValue("ratio", ref ratioStr) && float.TryParse(ratioStr, out float ratio))
+                            return $"{name} ({ratio:N3})";
+                        return name;
+                    })
+                    .Where(name => !string.IsNullOrWhiteSpace(name));
+
+                string propellantList = string.Join(", ", propellants);
+                if (!string.IsNullOrWhiteSpace(propellantList))
+                    info.Append($"  {Localizer.GetStringByTag("#RF_EngineRF_Propellant")}: {propellantList}\n");
             }
 
             if (config.HasValue("ratedBurnTime"))
@@ -730,7 +632,7 @@ namespace RealFuels
                 info.Append("\n");
             }
             if (config.HasValue("cost") && float.TryParse(config.GetValue("cost"), out float cst))
-                info.Append($"  ({scale * cst:N0} {Localizer.GetStringByTag("#RF_Engine_extraCost")} )\n"); // extra cost// FIXME should get cost from TL, but this should be safe
+                info.Append($"  ({scale * cst:N0}√ {Localizer.GetStringByTag("#RF_Engine_extraCost")} )\n"); // extra cost// FIXME should get cost from TL, but this should be safe
 
             if (addDescription && config.HasValue("description"))
                 info.Append($"\n  {config.GetValue("description")}\n");
@@ -814,11 +716,11 @@ namespace RealFuels
             Type mType = pModule.GetType();
             config.SetValue("name", mType.Name);
 
-            ClearFloatCurves(mType, pModule, config, techLevel);
-            ClearPropellantGauges(mType, pModule);
+            EngineConfigPropellants.ClearFloatCurves(mType, pModule, config, techLevel);
+            EngineConfigPropellants.ClearPropellantGauges(mType, pModule);
 
             if (type.Equals("ModuleRCS") || type.Equals("ModuleRCSFX"))
-                ClearRCSPropellants(config);
+                EngineConfigPropellants.ClearRCSPropellants(part, config, DoConfig);
             else
             { // is an ENGINE
                 if (pModule is ModuleEngines mE && config.HasNode("PROPELLANT"))
@@ -833,7 +735,7 @@ namespace RealFuels
                 {
                     if (int.TryParse(config.GetValue("ignitions"), out int tmpIgnitions))
                     {
-                        Ignitions = ConfigIgnitions(tmpIgnitions);
+                        Ignitions = TechLevels.ConfigIgnitions(tmpIgnitions);
                         config.SetValue("ignitions", Ignitions.Value);
                     }
 
@@ -876,9 +778,9 @@ namespace RealFuels
 
             SetupFX();
 
-            UpdateB9PSVariants();
+            Integrations.UpdateB9PSVariants();
 
-            UpdateTFInterops(); // update TestFlight if it's installed
+            Integrations.UpdateTFInterops(); // update TestFlight if it's installed
 
             StopFX();
         }
@@ -913,82 +815,8 @@ namespace RealFuels
             SetConfiguration(newConfig, resetTechLevels);
         }
 
-        virtual protected int ConfigIgnitions(int ignitions)
-        {
-            if (ignitions < 0)
-            {
-                ignitions = techLevel + ignitions;
-                if (ignitions < 1)
-                    ignitions = 1;
-            }
-            else if (ignitions == 0 && !literalZeroIgnitions)
-                ignitions = -1;
-            return ignitions;
-        }
-
         #region SetConfiguration Tools
-        private void ClearFloatCurves(Type mType, PartModule pm, ConfigNode cfg, int techLevel)
-        {
-            // clear all FloatCurves we need to clear (i.e. if our config has one, or techlevels are enabled)
-            bool delAtmo = cfg.HasNode("atmosphereCurve") || techLevel >= 0;
-            bool delDens = cfg.HasNode("atmCurve") || techLevel >= 0;
-            bool delVel = cfg.HasNode("velCurve") || techLevel >= 0;
-            foreach (FieldInfo field in mType.GetFields())
-            {
-                if (field.FieldType == typeof(FloatCurve) &&
-                    ((field.Name.Equals("atmosphereCurve") && delAtmo)
-                    || (field.Name.Equals("atmCurve") && delDens)
-                    || (field.Name.Equals("velCurve") && delVel)))
-                {
-                    field.SetValue(pm, new FloatCurve());
-                }
-            }
-        }
-
-        private void ClearPropellantGauges(Type mType, PartModule pm)
-        {
-            foreach (FieldInfo field in mType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
-            {
-                if (field.FieldType == typeof(Dictionary<Propellant, ProtoStageIconInfo>) &&
-                    field.GetValue(pm) is Dictionary<Propellant, ProtoStageIconInfo> boxes)
-                {
-                    foreach (ProtoStageIconInfo v in boxes.Values)
-                    {
-                        try
-                        {
-                            if (v is ProtoStageIconInfo)
-                                pm.part.stackIcon.RemoveInfo(v);
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogError("*RFMEC* Trying to remove info box: " + e.Message);
-                        }
-                    }
-                    boxes.Clear();
-                }
-            }
-        }
-
-        private void ClearRCSPropellants(ConfigNode cfg)
-        {
-            List<ModuleRCS> RCSModules = part.Modules.OfType<ModuleRCS>().ToList();
-            if (RCSModules.Count > 0)
-            {
-                DoConfig(cfg);
-                foreach (var rcsModule in RCSModules)
-                {
-                    if (cfg.HasNode("PROPELLANT"))
-                        rcsModule.propellants.Clear();
-                    rcsModule.Load(cfg);
-                    List<PartResourceDefinition> res = MRCSConsumedResources.GetValue(rcsModule) as List<PartResourceDefinition>;
-                    res.Clear();
-                    foreach (Propellant p in rcsModule.propellants)
-                        res.Add(p.resourceDef);
-                }
-            }
-        }
-
-        private Dictionary<string, Gimbal> ExtractGimbals(ConfigNode cfg)
+        internal Dictionary<string, Gimbal> ExtractGimbals(ConfigNode cfg)
         {
             Gimbal ExtractGimbalKeys(ConfigNode c)
             {
@@ -1070,7 +898,7 @@ namespace RealFuels
                     if (eiNode.HasValue("ignitionsAvailable") &&
                         int.TryParse(eiNode.GetValue("ignitionsAvailable"), out int ignitions))
                     {
-                        ignitions = ConfigIgnitions(ignitions);
+                        ignitions = TechLevels.ConfigIgnitions(ignitions);
                         eiNode.SetValue("ignitionsAvailable", ignitions);
                         eiNode.SetValue("ignitionsRemained", ignitions, true);
                     }
@@ -1121,11 +949,11 @@ namespace RealFuels
 
             float gimbal = -1f;
             if (cfg.HasValue("gimbalRange"))
-                gimbal = float.Parse(cfg.GetValue("gimbalRange"));
+                gimbal = float.Parse(cfg.GetValue("gimbalRange"), CultureInfo.InvariantCulture);
 
             float cost = 0f;
             if (cfg.HasValue("cost"))
-                cost = scale * float.Parse(cfg.GetValue("cost"));
+                cost = scale * float.Parse(cfg.GetValue("cost"), CultureInfo.InvariantCulture);
 
             if (techLevel != -1)
             {
@@ -1155,14 +983,14 @@ namespace RealFuels
 
                 // set heatProduction
                 if (configHeat > 0)
-                    configHeat = MassTL(configHeat);
+                    configHeat = TechLevels.MassTL(configHeat);
 
                 // set thrust and throttle
                 if (configMaxThrust >= 0)
                 {
-                    configMaxThrust = ThrustTL(configMaxThrust);
+                    configMaxThrust = TechLevels.ThrustTL(configMaxThrust);
                     if (configMinThrust >= 0)
-                        configMinThrust = ThrustTL(configMinThrust);
+                        configMinThrust = TechLevels.ThrustTL(configMinThrust);
                     else if (thrustRating.Equals("thrusterPower"))
                         configMinThrust = configMaxThrust * 0.5f;
                     else
@@ -1178,7 +1006,7 @@ namespace RealFuels
                     }
                     configThrottle = configMinThrust / configMaxThrust;
                     if (origMass > 0)
-                        TLMassMult = MassTL(1.0f);
+                        TLMassMult = TechLevels.MassTL(1.0f);
                 }
                 // Don't want to change gimbals on TL-enabled engines willy-nilly
                 // So we don't unless either a transform is specified, or we override.
@@ -1189,11 +1017,11 @@ namespace RealFuels
                 {
                     // allow local override of gimbal mult
                     if (cfg.HasValue("gimbalMult"))
-                        gimbal *= float.Parse(cfg.GetValue("gimbalMult"));
+                        gimbal *= float.Parse(cfg.GetValue("gimbalMult"), CultureInfo.InvariantCulture);
                 }
 
                 // Cost (multiplier will be 1.0 if unspecified)
-                cost = scale * CostTL(cost, cfg);
+                cost = scale * TechLevels.CostTL(cost, cfg);
             }
             else
             {
@@ -1263,97 +1091,6 @@ namespace RealFuels
             SetConfiguration(configuration);
         }
 
-        #region TechLevel and Required
-        /// <summary>
-        /// Is this config unlocked? Note: Is the same as CanConfig when not CAREER and no upgrade manager instance.
-        /// </summary>
-        /// <param name="config"></param>
-        /// <returns></returns>
-        public static bool UnlockedConfig(ConfigNode config, Part p)
-        {
-            if (config == null)
-                return false;
-            if (!config.HasValue("name"))
-                return false;
-            if (EntryCostManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
-                return EntryCostManager.Instance.ConfigUnlocked((RFSettings.Instance.usePartNameInConfigUnlock ? Utilities.GetPartName(p) : string.Empty) + config.GetValue("name"));
-            return true;
-        }
-        public static bool CanConfig(ConfigNode config)
-        {
-            if (config == null)
-                return false;
-            if (!config.HasValue("techRequired") || HighLogic.CurrentGame == null)
-                return true;
-            if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX || ResearchAndDevelopment.GetTechnologyState(config.GetValue("techRequired")) == RDTech.State.Available)
-                return true;
-            return false;
-        }
-        public static bool UnlockedTL(string tlName, int newTL)
-        {
-            if (EntryCostManager.Instance != null && HighLogic.CurrentGame != null && HighLogic.CurrentGame.Mode != Game.Modes.SANDBOX)
-                return EntryCostManager.Instance.TLUnlocked(tlName) >= newTL;
-            return true;
-        }
-
-        private double ThrustTL(ConfigNode cfg = null)
-        {
-            if (techLevel != -1 && !engineType.Contains("S"))
-            {
-                TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
-                if (oldTL.Load(cfg ?? config, techNodes, engineType, origTechLevel) &&
-                    newTL.Load(cfg ?? config, techNodes, engineType, techLevel))
-                    return newTL.Thrust(oldTL);
-            }
-            return 1;
-        }
-
-        private float ThrustTL(float thrust, ConfigNode cfg = null)
-        {
-            return (float)Math.Round(thrust * ThrustTL(cfg), 6);
-        }
-
-        private float ThrustTL(string thrust, ConfigNode cfg = null)
-        {
-            float.TryParse(thrust, out float tmp);
-            return ThrustTL(tmp, cfg);
-        }
-
-        private double MassTL(ConfigNode cfg = null)
-        {
-            if (techLevel != -1)
-            {
-                TechLevel oldTL = new TechLevel(), newTL = new TechLevel();
-                if (oldTL.Load(cfg ?? config, techNodes, engineType, origTechLevel) &&
-                    newTL.Load(cfg ?? config, techNodes, engineType, techLevel))
-                    return newTL.Mass(oldTL, engineType.Contains("S"));
-            }
-            return 1;
-        }
-
-        private float MassTL(float mass)
-        {
-            return (float)Math.Round(mass * MassTL(), 6);
-        }
-        private float CostTL(float cost, ConfigNode cfg = null)
-        {
-            TechLevel cTL = new TechLevel();
-            TechLevel oTL = new TechLevel();
-            if (cTL.Load(cfg, techNodes, engineType, techLevel) && oTL.Load(cfg, techNodes, engineType, origTechLevel) && part.partInfo != null)
-            {
-                // Bit of a dance: we have to figure out the total cost of the part, but doing so
-                // also depends on us. So we zero out our contribution first
-                // and then restore configCost.
-                float oldCC = configCost;
-                configCost = 0f;
-                float totalCost = part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost);
-                configCost = oldCC;
-                cost = (totalCost + cost) * (cTL.CostMult / oTL.CostMult) - totalCost;
-            }
-
-            return cost;
-        }
-        #endregion
         #endregion
 
         #region GUI
@@ -1364,10 +1101,40 @@ namespace RealFuels
         [NonSerialized]
         public bool showRFGUI;
 
+        // Track if the user manually closed this specific window (per-instance, not static)
+        [NonSerialized]
+        private bool userClosedWindow = false;
+
+        // Track the currently open GUI to ensure only one is visible at a time
+        private static ModuleEngineConfigsBase currentlyOpenGUI = null;
+
         private void OnPartActionGuiDismiss(Part p)
         {
             if (p == part || p.isSymmetryCounterPart(part))
+            {
                 showRFGUI = false;
+                // Clear the currently open GUI tracker if it's this instance
+                if (currentlyOpenGUI == this)
+                    currentlyOpenGUI = null;
+            }
+        }
+
+        private void OnPartActionUIShown(UIPartActionWindow window, Part p)
+        {
+            if (p == part && !userClosedWindow)
+            {
+                // Close any previously open GUI before opening this one
+                if (currentlyOpenGUI != null && currentlyOpenGUI != this)
+                {
+                    currentlyOpenGUI.showRFGUI = false;
+                }
+
+                showRFGUI = isMaster;
+
+                // Track this as the currently open GUI
+                if (isMaster)
+                    currentlyOpenGUI = this;
+            }
         }
 
         public override void OnInactive()
@@ -1375,344 +1142,169 @@ namespace RealFuels
             if (!compatible)
                 return;
             if (HighLogic.LoadedSceneIsEditor)
+            {
                 GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
+                GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
+            }
         }
 
         public void OnDestroy()
         {
             GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
+            GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
+
+            // Note: We don't call EngineConfigTextures.Cleanup() here because textures
+            // are shared across all instances. They'll be cleaned up when Unity unloads the scene.
         }
 
-        private static Vector3 mousePos = Vector3.zero;
-        private Rect guiWindowRect = new Rect(0, 0, 0, 0);
-        private string myToolTip = string.Empty;
-        private int counterTT;
-        private bool editorLocked = false;
+        // Tech level management - lazy initialization
+        private EngineConfigTechLevels _techLevels;
+        protected EngineConfigTechLevels TechLevels
+        {
+            get
+            {
+                if (_techLevels == null)
+                    _techLevels = new EngineConfigTechLevels(this);
+                return _techLevels;
+            }
+        }
 
-        private int toolTipWidth => EditorLogic.fetch.editorScreen == EditorScreen.Parts ? 220 : 300;
-        private int toolTipHeight => (int)Styles.styleEditorTooltip.CalcHeight(new GUIContent(myToolTip), toolTipWidth);
+        // Integration with B9PartSwitch and TestFlight - lazy initialization
+        private EngineConfigIntegrations _integrations;
+        internal EngineConfigIntegrations Integrations
+        {
+            get
+            {
+                if (_integrations == null)
+                    _integrations = new EngineConfigIntegrations(this);
+                return _integrations;
+            }
+        }
+
+        // GUI rendering - lazy initialization
+        private EngineConfigGUI _gui;
+        private EngineConfigGUI GUI
+        {
+            get
+            {
+                if (_gui == null)
+                    _gui = new EngineConfigGUI(this);
+                return _gui;
+            }
+        }
+
+        /// <summary>
+        /// Struct for passing configuration row data to GUI
+        /// </summary>
+        public struct ConfigRowDefinition
+        {
+            public ConfigNode Node;
+            public string DisplayName;
+            public bool IsSelected;
+            public bool Indent;
+            public Action Apply;
+        }
+
+        /// <summary>
+        /// Builds the list of configuration rows to display in the GUI.
+        /// Virtual so derived classes can customize the row structure.
+        /// </summary>
+        public virtual IEnumerable<ConfigRowDefinition> BuildConfigRows()
+        {
+            foreach (var node in FilteredDisplayConfigs(false))
+            {
+                string configName = node.GetValue("name");
+                yield return new ConfigRowDefinition
+                {
+                    Node = node,
+                    DisplayName = GetConfigDisplayName(node),
+                    IsSelected = configName == configuration,
+                    Indent = false,
+                    Apply = () => GUIApplyConfig(configName)
+                };
+            }
+        }
+
+        /// <summary>
+        /// Draws the configuration selector UI elements.
+        /// Virtual so derived classes can add custom UI before the config table.
+        /// </summary>
+        protected internal virtual void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
+        {
+            // Default implementation - just draw the table
+            // Derived classes can override to add custom UI
+        }
+
+        /// <summary>
+        /// Internal callback for GUI to apply a selected configuration.
+        /// </summary>
+        internal void GUIApplyConfig(string configName)
+        {
+            SetConfiguration(configName);
+            UpdateSymmetryCounterparts();
+        }
+
+        /// <summary>
+        /// Hook point for external mod compatibility (e.g., RP-1 Harmony patches).
+        /// Called by the GUI before rendering each config row to allow external mods
+        /// to track context via Harmony prefix/postfix patches.
+        /// Does not render anything - rendering is handled by EngineConfigGUI.
+        /// </summary>
+        internal void DrawSelectButton(ConfigNode node, bool isSelected, Action<string> applyCallback)
+        {
+            // Hook point for external mods (RP-1) to patch and track tech node context
+            // RP-1's Harmony prefix sets techNode here, and postfix clears it after this method returns
+            // So we must invoke the callback HERE, not after this returns, to keep techNode set
+            string configName = node?.GetValue("name") ?? "null";
+
+            // Invoke the callback while we're still inside this method (before RP-1's postfix clears techNode)
+            applyCallback?.Invoke(configName);
+        }
+
+        private bool lastShowRFGUI = false;
 
         public void OnGUI()
         {
-            if (!compatible || !isMaster || !HighLogic.LoadedSceneIsEditor || EditorLogic.fetch == null)
-                return;
-
-            bool inPartsEditor = EditorLogic.fetch.editorScreen == EditorScreen.Parts;
-            if (!(showRFGUI && inPartsEditor) && !(EditorLogic.fetch.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(part)))
+            if (isMaster && HighLogic.LoadedSceneIsEditor)
             {
-                EditorUnlock();
-                return;
+                // If the user clicked the PAW button to show the GUI, clear the userClosedWindow flag
+                if (showRFGUI && !lastShowRFGUI)
+                {
+                    userClosedWindow = false;
+
+                    // Close any previously open GUI before opening this one
+                    if (currentlyOpenGUI != null && currentlyOpenGUI != this)
+                    {
+                        currentlyOpenGUI.showRFGUI = false;
+                    }
+
+                    // Track this as the currently open GUI
+                    currentlyOpenGUI = this;
+                }
+                // If the user clicked the PAW button to hide the GUI
+                else if (!showRFGUI && lastShowRFGUI)
+                {
+                    // Clear the currently open GUI tracker if it's this instance
+                    if (currentlyOpenGUI == this)
+                        currentlyOpenGUI = null;
+                }
+
+                lastShowRFGUI = showRFGUI;
+
+                GUI.OnGUI();
             }
-
-            if (inPartsEditor && part.symmetryCounterparts.FirstOrDefault(p => p.persistentId < part.persistentId) is Part)
-                return;
-
-            if (guiWindowRect.width == 0)
-            {
-                int posAdd = inPartsEditor ? 256 : 0;
-                int posMult = (offsetGUIPos == -1) ? (part.Modules.Contains("ModuleFuelTanks") ? 1 : 0) : offsetGUIPos;
-                guiWindowRect = new Rect(posAdd + 430 * posMult, 365, 430, (Screen.height - 365));
-            }
-
-            mousePos = Input.mousePosition; //Mouse location; based on Kerbal Engineer Redux code
-            mousePos.y = Screen.height - mousePos.y;
-            if (guiWindowRect.Contains(mousePos))
-                EditorLock();
-            else
-                EditorUnlock();
-
-            myToolTip = myToolTip.Trim();
-            if (!string.IsNullOrEmpty(myToolTip))
-            {
-                int offset = inPartsEditor ? -222 : 440;
-                GUI.Label(new Rect(guiWindowRect.xMin + offset, mousePos.y - 5, toolTipWidth, toolTipHeight), myToolTip, Styles.styleEditorTooltip);
-            }
-
-            guiWindowRect = GUILayout.Window(unchecked((int)part.persistentId), guiWindowRect, EngineManagerGUI, Localizer.Format("#RF_Engine_WindowTitle", part.partInfo.title), Styles.styleEditorPanel); // "Configure " + part.partInfo.title
         }
 
-        private void EditorLock()
+        internal void CloseWindow()
         {
-            if (!editorLocked)
-            {
-                EditorLogic.fetch.Lock(false, false, false, "RFGUILock");
-                editorLocked = true;
-                KSP.UI.Screens.Editor.PartListTooltipMasterController.Instance?.HideTooltip();
-            }
+            showRFGUI = false;
+            userClosedWindow = true;
+
+            // Clear the currently open GUI tracker if it's this instance
+            if (currentlyOpenGUI == this)
+                currentlyOpenGUI = null;
         }
 
-        private void EditorUnlock()
-        {
-            if (editorLocked)
-            {
-                EditorLogic.fetch.Unlock("RFGUILock");
-                editorLocked = false;
-            }
-        }
-
-        protected string GetCostString(ConfigNode node)
-        {
-            string costString = string.Empty;
-            if (node.HasValue("cost"))
-            {
-                float curCost = scale * float.Parse(node.GetValue("cost"));
-
-                if (techLevel != -1)
-                {
-                    curCost = CostTL(curCost, node) - CostTL(0f, node); // get purely the config cost difference
-                }
-                costString = $" ({((curCost < 0) ? string.Empty : "+")}{curCost:N0}f)";
-            }
-            return costString;
-        }
-
-        /// Normal apply action for the 'select <config>' button.
-        protected void GUIApplyConfig(string configName)
-        {
-            SetConfiguration(configName, true);
-            UpdateSymmetryCounterparts();
-            GameEvents.onEditorShipModified.Fire(EditorLogic.fetch.ship);
-            MarkWindowDirty();
-        }
-
-        protected void DrawSelectButton(ConfigNode node, bool isSelected, Action<string> apply)
-        {
-            var nName = node.GetValue("name");
-            var dispName = GetConfigDisplayName(node);
-            var costString = GetCostString(node);
-            var configInfo = GetConfigInfo(node);
-
-            using (new GUILayout.HorizontalScope())
-            {
-                // For simulations, RP-1 will allow selecting all configs despite tech status or whether the entry cost has been paid.
-                // The KCT that comes with RP-1 will call the Validate() method when the player tries to add a vessel to the build queue.
-                if (Utilities.RP1Found)
-                {
-                    // Currently selected.
-                    if (isSelected)
-                    {
-                        GUILayout.Label(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_CurrentConfig")}: {dispName}{costString}", configInfo)); // Current config
-                    }
-                    else if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_ConfigSwitch")} {dispName}{costString}", configInfo))) // Switch to
-                        apply(nName);
-
-                    if (!UnlockedConfig(node, part))
-                    {
-                        double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
-                        string techRequired = node.GetValue("techRequired");
-                        if (upgradeCost <= 0)
-                        {
-                            // Auto-buy.
-                            EntryCostManager.Instance.PurchaseConfig(nName, techRequired);
-                        }
-
-                        bool isConfigAvailable = CanConfig(node);
-                        string tooltip = string.Empty;
-                        if (!isConfigAvailable && techNameToTitle.TryGetValue(techRequired, out string techStr))
-                        {
-                            tooltip = Localizer.Format("#RF_Engine_LacksTech", techStr); // $"Lacks tech for {techStr}"
-                        }
-
-                        GUI.enabled = isConfigAvailable;
-                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_Purchase")} ({upgradeCost:N0}f)", tooltip), GUILayout.Width(145))) // Purchase
-                        {
-                            if (EntryCostManager.Instance.PurchaseConfig(nName, node.GetValue("techRequired")))
-                                apply(nName);
-                        }
-                        GUI.enabled = true;
-                    }
-                }
-                else
-                {
-                    // Currently selected.
-                    if (isSelected)
-                    {
-                        GUILayout.Label(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_CurrentConfig")}: {dispName}{costString}", configInfo)); // Current config
-                        return;
-                    }
-
-                    // Locked.
-                    if (!CanConfig(node))
-                    {
-                        if (techNameToTitle.TryGetValue(node.GetValue("techRequired"), out string techStr))
-                            techStr = $"\n{Localizer.GetStringByTag("#RF_Engine_Requires")}: " + techStr; // Requires
-                        GUILayout.Label(new GUIContent(Localizer.Format("#RF_Engine_LacksTech", dispName), configInfo + techStr)); // $"Lacks tech for {dispName}"
-                        return;
-                    }
-
-                    // Available.
-                    if (UnlockedConfig(node, part))
-                    {
-                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_ConfigSwitch")} {dispName}{costString}", configInfo))) // Switch to
-                            apply(nName);
-                        return;
-                    }
-
-                    // Purchase.
-                    double upgradeCost = EntryCostManager.Instance.ConfigEntryCost(nName);
-                    string techRequired = node.GetValue("techRequired");
-                    if (upgradeCost > 0d)
-                    {
-                        costString = $" ({upgradeCost:N0}f)";
-                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_Purchase")}  {dispName}{costString}", configInfo))) // Purchase
-                        {
-                            if (EntryCostManager.Instance.PurchaseConfig(nName, techRequired))
-                                apply(nName);
-                        }
-                    }
-                    else
-                    {
-                        // Auto-buy.
-                        EntryCostManager.Instance.PurchaseConfig(nName, techRequired);
-                        if (GUILayout.Button(new GUIContent($"{Localizer.GetStringByTag("#RF_Engine_ConfigSwitch")}  {dispName}{costString}", configInfo))) // Switch to
-                            apply(nName);
-                    }
-                }
-            }
-        }
-
-        virtual protected void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
-        {
-            foreach (ConfigNode node in availableConfigNodes)
-                DrawSelectButton(node, node.GetValue("name") == configuration, GUIApplyConfig);
-        }
-
-        virtual protected void DrawPartInfo()
-        {
-            // show current info, cost
-            if (pModule != null && part.partInfo != null)
-            {
-                GUILayout.BeginHorizontal();
-                string ratedBurnTime = string.Empty;
-                if (config.HasValue("ratedBurnTime"))
-                {
-                    if (config.HasValue("ratedContinuousBurnTime"))
-                        ratedBurnTime = $"{Localizer.GetStringByTag("#RF_Engine_RatedBurnTime")}: {config.GetValue("ratedContinuousBurnTime")}/{config.GetValue("ratedBurnTime")}s\n"; // Rated burn time
-                    else
-                        ratedBurnTime = $"{Localizer.GetStringByTag("#RF_Engine_RatedBurnTime")}: {config.GetValue("ratedBurnTime")}s\n"; // Rated burn time
-                }
-                string label = $"<b>{Localizer.GetStringByTag("#RF_Engine_Enginemass")}:</b> {part.mass:N3}t\n" + // Engine mass
-                               $"{ratedBurnTime}" +
-                               $"{pModule.GetInfo()}\n" +
-                               $"{TLTInfo()}\n" +
-                               $"{Localizer.GetStringByTag("#RF_Engine_TotalCost")}: {part.partInfo.cost + part.GetModuleCosts(part.partInfo.cost):0}"; // Total cost
-                GUILayout.Label(label);
-                GUILayout.EndHorizontal();
-            }
-        }
-
-        protected void DrawTechLevelSelector()
-        {
-            // NK Tech Level
-            if (techLevel != -1)
-            {
-                GUILayout.BeginHorizontal();
-
-                GUILayout.Label($"{Localizer.GetStringByTag("#RF_Engine_TechLevel")}: "); // Tech Level
-                string minusStr = "X";
-                bool canMinus = false;
-                if (TechLevel.CanTL(config, techNodes, engineType, techLevel - 1) && techLevel > minTechLevel)
-                {
-                    minusStr = "-";
-                    canMinus = true;
-                }
-                if (GUILayout.Button(minusStr) && canMinus)
-                {
-                    techLevel--;
-                    SetConfiguration();
-                    UpdateSymmetryCounterparts();
-                    MarkWindowDirty();
-                }
-                GUILayout.Label(techLevel.ToString());
-                string plusStr = "X";
-                bool canPlus = false;
-                bool canBuy = false;
-                string tlName = Utilities.GetPartName(part) + configuration;
-                double tlIncrMult = (double)(techLevel + 1 - origTechLevel);
-                if (TechLevel.CanTL(config, techNodes, engineType, techLevel + 1) && techLevel < maxTechLevel)
-                {
-                    if (UnlockedTL(tlName, techLevel + 1))
-                    {
-                        plusStr = "+";
-                        canPlus = true;
-                    }
-                    else
-                    {
-                        double cost = EntryCostManager.Instance.TLEntryCost(tlName) * tlIncrMult;
-                        double sciCost = EntryCostManager.Instance.TLSciEntryCost(tlName) * tlIncrMult;
-                        bool autobuy = true;
-                        plusStr = string.Empty;
-                        if (cost > 0d)
-                        {
-                            plusStr += cost.ToString("N0") + "f";
-                            autobuy = false;
-                            canBuy = true;
-                        }
-                        if (sciCost > 0d)
-                        {
-                            if (cost > 0d)
-                                plusStr += "/";
-                            autobuy = false;
-                            canBuy = true;
-                            plusStr += sciCost.ToString("N1") + "s";
-                        }
-                        if (autobuy)
-                        {
-                            // auto-upgrade
-                            EntryCostManager.Instance.SetTLUnlocked(tlName, techLevel + 1);
-                            plusStr = "+";
-                            canPlus = true;
-                            canBuy = false;
-                        }
-                    }
-                }
-                if (GUILayout.Button(plusStr) && (canPlus || canBuy))
-                {
-                    if (!canBuy || EntryCostManager.Instance.PurchaseTL(tlName, techLevel + 1, tlIncrMult))
-                    {
-                        techLevel++;
-                        SetConfiguration();
-                        UpdateSymmetryCounterparts();
-                        MarkWindowDirty();
-                    }
-                }
-                GUILayout.EndHorizontal();
-            }
-        }
-
-        private void EngineManagerGUI(int WindowID)
-        {
-            GUILayout.Space(20);
-
-            GUILayout.BeginHorizontal();
-            GUILayout.Label(EditorDescription);
-            GUILayout.EndHorizontal();
-
-            DrawConfigSelectors(FilteredDisplayConfigs(false));
-
-            DrawTechLevelSelector();
-            DrawPartInfo();
-
-            if (!myToolTip.Equals(string.Empty) && GUI.tooltip.Equals(string.Empty))
-            {
-                if (counterTT > 4)
-                {
-                    myToolTip = GUI.tooltip;
-                    counterTT = 0;
-                }
-                else
-                {
-                    counterTT++;
-                }
-            }
-            else
-            {
-                myToolTip = GUI.tooltip;
-                counterTT = 0;
-            }
-
-            GUI.DragWindow();
-        }
 
         #endregion
 
@@ -1785,7 +1377,7 @@ namespace RealFuels
         protected static PartModule GetSpecifiedModule(Part p, string eID, int mIdx, string eType, bool weakType) => GetSpecifiedModules(p, eID, mIdx, eType, weakType).FirstOrDefault();
 
         private static readonly List<PartModule> _searchList = new List<PartModule>();
-        protected static List<PartModule> GetSpecifiedModules(Part p, string eID, int mIdx, string eType, bool weakType)
+        internal static List<PartModule> GetSpecifiedModules(Part p, string eID, int mIdx, string eType, bool weakType)
         {
             int mCount = p.Modules.Count;
             int tmpIdx = 0;
@@ -1857,10 +1449,10 @@ namespace RealFuels
 
             ConfigNode node = GetConfigByName(configuration);
 
-            if (UnlockedConfig(node, part)) return true;
+            if (EngineConfigTechLevels.UnlockedConfig(node, part)) return true;
 
             techToResolve = config.GetValue("techRequired");
-            if (!CanConfig(node))
+            if (!EngineConfigTechLevels.CanConfig(node))
             {
                 validationError = $"{Localizer.GetStringByTag("#RF_Engine_unlocktech")} {ResearchAndDevelopment.GetTechnologyTitle(techToResolve)}"; // unlock tech
                 canBeResolved = false;

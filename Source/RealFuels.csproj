@@ -90,6 +90,15 @@
     <Compile Include="Engines\ConfigFilters.cs" />
     <Compile Include="Engines\ModuleBimodalEngineConfigs.cs" />
     <Compile Include="Engines\ModuleEngineConfigs.cs" />
+    <Compile Include="Engines\UI\ChartMath.cs" />
+    <Compile Include="Engines\UI\EngineConfigChart.cs" />
+    <Compile Include="Engines\UI\EngineConfigGUI.cs" />
+    <Compile Include="Engines\UI\EngineConfigInfoPanel.cs" />
+    <Compile Include="Engines\EngineConfigIntegrations.cs" />
+    <Compile Include="Engines\EngineConfigPropellants.cs" />
+    <Compile Include="Engines\EngineConfigTechLevels.cs" />
+    <Compile Include="Engines\UI\EngineConfigStyles.cs" />
+    <Compile Include="Engines\UI\EngineConfigTextures.cs" />
     <Compile Include="Engines\ModuleHybridEngine.cs" />
     <Compile Include="Engines\RFSettings.cs" />
     <Compile Include="Engines\ModuleEnginesRF.cs" />
