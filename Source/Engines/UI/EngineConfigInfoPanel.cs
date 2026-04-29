@@ -320,8 +320,7 @@ namespace RealFuels
         {
             string purpleColor = "#CCB3FF";
 
-            float ratedContinuousBurnTime = ratedBurnTime;
-            float dataRate = 640f / ratedContinuousBurnTime;
+            float dataRate = TestFlightConstants.RunningDataNumerator / ratedBurnTime;
 
             // Section header
             GUIStyle sectionStyle = EngineConfigStyles.InfoSection;
@@ -335,16 +334,12 @@ namespace RealFuels
             float bulletHeight = 18;
 
             // Failures section
-            GUI.Label(new Rect(x, yPos, width, bulletHeight), "An engine can fail in 4 ways:", bulletStyle);
+            GUI.Label(new Rect(x, yPos, width, bulletHeight), $"An engine can fail in {TestFlightConstants.FailureTypeNames.Length} ways:", bulletStyle);
             yPos += bulletHeight;
 
-            string[] failureTypes = { "Shutdown", "Perf. Loss", "Reduced Thrust", "Explode" };
-            int[] failureDu = { 1000, 800, 700, 1000 };
-            float[] failurePercents = { 55.2f, 27.6f, 13.8f, 3.4f };
-
-            for (int i = 0; i < failureTypes.Length; i++)
+            for (int i = 0; i < TestFlightConstants.FailureTypeNames.Length; i++)
             {
-                string failText = $" ({failurePercents[i]:F0}%) {failureTypes[i]} <color={purpleColor}>+{failureDu[i]}</color> du";
+                string failText = $" ({TestFlightConstants.FailureTypePercent[i]:F0}%) {TestFlightConstants.FailureTypeNames[i]} <color={purpleColor}>+{TestFlightConstants.FailureTypeDU[i]}</color> du";
                 GUI.Label(new Rect(x, yPos, width, bulletHeight), failText, indentedBulletStyle);
                 yPos += bulletHeight;
             }
@@ -357,12 +352,12 @@ namespace RealFuels
             yPos += bulletHeight;
 
             // Ignition failure
-            string ignitionText = $"Ignition Fail <color={purpleColor}>+1000</color> du";
+            string ignitionText = $"Ignition Fail <color={purpleColor}>+{TestFlightConstants.IgnitionFailDU}</color> du";
             GUI.Label(new Rect(x, yPos, width, bulletHeight), ignitionText, bulletStyle);
             yPos += bulletHeight + 8;
 
             // Footer
-            string footerText = "(no more than 1000 du per flight)";
+            string footerText = $"(no more than {TestFlightConstants.MaxDUPerFlight} du per flight)";
             GUI.Label(new Rect(x, yPos, width, bulletHeight), footerText, footerStyle);
             yPos += bulletHeight;
 

@@ -1121,20 +1121,35 @@ namespace RealFuels
 
         private void OnPartActionUIShown(UIPartActionWindow window, Part p)
         {
-            if (p == part && !userClosedWindow)
-            {
-                // Close any previously open GUI before opening this one
-                if (currentlyOpenGUI != null && currentlyOpenGUI != this)
-                {
-                    currentlyOpenGUI.showRFGUI = false;
-                }
+            // Fire for the part itself or any symmetric counterpart
+            bool isThisGroup = p == part || p.isSymmetryCounterPart(part);
+            if (!isThisGroup)
+                return;
 
-                showRFGUI = isMaster;
+            // The GUI is always rendered by the module whose part has the lowest persistentId in
+            // the symmetry group (EngineConfigGUI.OnGUI suppresses all others). Only that module
+            // should open the GUI; all other counterparts exit here.
+            bool isLowestInGroup = !part.symmetryCounterparts.Any(cp => cp.persistentId < part.persistentId);
+            if (!isLowestInGroup)
+                return;
 
-                // Track this as the currently open GUI
-                if (isMaster)
-                    currentlyOpenGUI = this;
-            }
+            // Don't auto-reopen if the user explicitly closed this window with ✕.
+            // The flag is cleared in OnGUI when the user re-enables it via the PAW toggle.
+            if (userClosedWindow)
+                return;
+
+            // Respect the player's auto-open preference before showing the window
+            bool autoOpen = HighLogic.CurrentGame?.Parameters.CustomParams<RFGameParameters>()?.autoOpenEngineGUI ?? true;
+            if (!autoOpen)
+                return;
+
+            // Close any previously open GUI before opening this one
+            if (currentlyOpenGUI != null && currentlyOpenGUI != this)
+                currentlyOpenGUI.showRFGUI = false;
+
+            showRFGUI = isMaster;
+            if (isMaster)
+                currentlyOpenGUI = this;
         }
 
         public override void OnInactive()
@@ -1152,6 +1167,11 @@ namespace RealFuels
         {
             GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
             GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
+
+            // Clear the static reference when this instance is destroyed so the C# object
+            // can be garbage collected after the editor scene unloads.
+            if (currentlyOpenGUI == this)
+                currentlyOpenGUI = null;
 
             // Note: We don't call EngineConfigTextures.Cleanup() here because textures
             // are shared across all instances. They'll be cleaned up when Unity unloads the scene.

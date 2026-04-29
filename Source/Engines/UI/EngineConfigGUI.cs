@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using UnityEngine;
 using KSP.Localization;
 using KSP.UI.Screens;
 using RealFuels.TechLevels;
+using ClickThroughFix;
 
 namespace RealFuels
 {
@@ -20,14 +20,6 @@ namespace RealFuels
         private readonly EngineConfigTechLevels _techLevels;
         private readonly EngineConfigTextures _textures;
         private EngineConfigChart _chart;
-
-        // RP-1 integration for credit display
-        private static bool _rp1Checked = false;
-        private static Type _unlockCreditHandlerType = null;
-        private static PropertyInfo _unlockCreditInstanceProperty = null;
-        private static PropertyInfo _totalCreditProperty = null;
-        private static double _cachedCredits = 0;
-        private static int _creditCacheFrame = -1;
 
         // GUI state
         private static Vector3 mousePos = Vector3.zero;
@@ -124,7 +116,7 @@ namespace RealFuels
 
             uint currentPartId = _module.part.persistentId;
             int currentConfigCount = _module.FilteredDisplayConfigs(false).Count;
-            bool currentHasChart = _module.config != null && _module.config.HasValue("cycleReliabilityStart");
+            bool currentHasChart = CanShowChart(_module.config);
             bool contentChanged = currentPartId != lastPartId
                                || currentConfigCount != lastConfigCount
                                || compactView != lastCompactView
@@ -154,11 +146,11 @@ namespace RealFuels
 
             myToolTip = myToolTip.Trim();
 
-            guiWindowRect = GUILayout.Window(unchecked((int)_module.part.persistentId), guiWindowRect, EngineManagerGUI, Localizer.Format("#RF_Engine_WindowTitle", _module.part.partInfo.title), Styles.styleEditorPanel);
+            guiWindowRect = ClickThruBlocker.GUILayoutWindow(unchecked((int)_module.part.persistentId), guiWindowRect, EngineManagerGUI, Localizer.Format("#RF_Engine_WindowTitle", _module.part.partInfo.title), Styles.styleEditorPanel);
 
             if (showColumnMenu)
             {
-                columnMenuRect = GUI.Window(unchecked((int)_module.part.persistentId) + 1, columnMenuRect, DrawColumnMenuWindow, "Column Settings", Styles.styleEditorPanel);
+                columnMenuRect = ClickThruBlocker.GUIWindow(unchecked((int)_module.part.persistentId) + 1, columnMenuRect, DrawColumnMenuWindow, "Column Settings", Styles.styleEditorPanel);
             }
 
             // Draw tooltip AFTER all windows to ensure it appears on top
@@ -233,17 +225,17 @@ namespace RealFuels
 
         private void EngineManagerGUI(int WindowID)
         {
+            // Must initialize before any EngineConfigStyles.* property is accessed.
+            // EnsureTexturesAndStyles is also called inside DrawConfigTable, but styles
+            // are used earlier in this method (DescriptionLabel, CloseButton, etc.) and
+            // a null GUIStyle throws a NullReferenceException that collapses the window.
+            EnsureTexturesAndStyles();
+
             GUILayout.BeginVertical(GUILayout.ExpandHeight(false));
             GUILayout.Space(12); // Increased spacing to prevent overlap with window title
 
             GUILayout.BeginHorizontal();
-            var descStyle = new GUIStyle(GUI.skin.label)
-            {
-                padding = new RectOffset(0, 0, 0, 0),
-                margin = new RectOffset(0, 0, 0, 0),
-                normal = { textColor = Color.white } // Make description text white
-            };
-            GUILayout.Label(_module.EditorDescription, descStyle);
+            GUILayout.Label(_module.EditorDescription, EngineConfigStyles.DescriptionLabel);
             GUILayout.FlexibleSpace();
             if (GUILayout.Button(compactView ? "Full View" : "Compact View", GUILayout.Width(100)))
             {
@@ -253,8 +245,8 @@ namespace RealFuels
             {
                 showBottomSection = !showBottomSection;
             }
-            // Heatmap toggle button (only show if chart is visible and has reliability data)
-            if (showBottomSection && _module.config != null && _module.config.HasValue("cycleReliabilityStart"))
+            // Heatmap toggle button (only show if chart is visible and has all required reliability data)
+            if (showBottomSection && CanShowChart(_module.config))
             {
                 bool currentHeatmapMode = Chart.UseHeatmapMode;
                 if (GUILayout.Button(currentHeatmapMode ? "Line Chart" : "Heatmap", GUILayout.Width(85)))
@@ -267,14 +259,7 @@ namespace RealFuels
                 showColumnMenu = !showColumnMenu;
             }
             // Close button
-            var closeButtonStyle = new GUIStyle(GUI.skin.button)
-            {
-                normal = { textColor = new Color(1f, 0.4f, 0.4f) },
-                hover = { textColor = new Color(1f, 0.2f, 0.2f) },
-                fontStyle = FontStyle.Bold,
-                fontSize = 14
-            };
-            if (GUILayout.Button("✕", closeButtonStyle, GUILayout.Width(25)))
+            if (GUILayout.Button("✕", EngineConfigStyles.CloseButton, GUILayout.Width(25)))
             {
                 _module.CloseWindow();
                 return;
@@ -286,7 +271,7 @@ namespace RealFuels
 
             if (showBottomSection)
             {
-                if (_module.config != null && _module.config.HasValue("cycleReliabilityStart"))
+                if (CanShowChart(_module.config))
                 {
                     GUILayout.Space(6);
 
@@ -320,6 +305,15 @@ namespace RealFuels
 
                     GUILayout.Space(6);
                 }
+                else if (_module.config != null)
+                {
+                    GUILayout.Space(10);
+                    string noChartMsg = (_module.type != null && _module.type.Contains("ModuleRCS"))
+                        ? "RCS thrusters do not use burn-cycle reliability data."
+                        : "No reliability data available for this configuration.";
+                    GUILayout.Label(noChartMsg, EngineConfigStyles.NoChartLabel);
+                    GUILayout.Space(10);
+                }
 
                 _techLevels.DrawTechLevelSelector();
             }
@@ -351,14 +345,7 @@ namespace RealFuels
         private void DrawColumnMenuWindow(int windowID)
         {
             // Close button in top right
-            var closeButtonStyle = new GUIStyle(GUI.skin.button)
-            {
-                normal = { textColor = new Color(1f, 0.4f, 0.4f) },
-                hover = { textColor = new Color(1f, 0.2f, 0.2f) },
-                fontStyle = FontStyle.Bold,
-                fontSize = 14
-            };
-            if (GUI.Button(new Rect(columnMenuRect.width - 29, 4, 25, 20), "✕", closeButtonStyle))
+            if (GUI.Button(new Rect(columnMenuRect.width - 29, 4, 25, 20), "✕", EngineConfigStyles.CloseButton))
             {
                 showColumnMenu = false;
                 return;
@@ -412,15 +399,12 @@ namespace RealFuels
             int visibleRows = Mathf.Min(actualRows, ConfigMaxVisibleRows);
             int scrollViewHeight = visibleRows * ConfigRowHeight;
 
-            var scrollStyle = new GUIStyle(GUI.skin.scrollView) { padding = new RectOffset(0, 0, 0, 0) };
-            configScrollPos = GUILayout.BeginScrollView(configScrollPos, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, scrollStyle, GUILayout.Height(scrollViewHeight));
-
-            var noSpaceStyle = new GUIStyle { margin = new RectOffset(0, 0, 0, 0), padding = new RectOffset(0, 0, 0, 0) };
+            configScrollPos = GUILayout.BeginScrollView(configScrollPos, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, EngineConfigStyles.TableScrollView, GUILayout.Height(scrollViewHeight));
 
             int rowIndex = 0;
             foreach (var row in rowList)
             {
-                Rect rowRect = GUILayoutUtility.GetRect(GUIContent.none, noSpaceStyle, GUILayout.Height(ConfigRowHeight));
+                Rect rowRect = GUILayoutUtility.GetRect(GUIContent.none, EngineConfigStyles.TableRowLayout, GUILayout.Height(ConfigRowHeight));
                 float rowStartX = rowRect.x;
                 Rect tableRowRect = new Rect(rowStartX, rowRect.y, totalWidth, rowRect.height);
                 bool isHovered = tableRowRect.Contains(Event.current.mousePosition);
@@ -472,36 +456,57 @@ namespace RealFuels
             // Dynamic header and tooltip for survival column based on mode
             string survivalHeader;
             string survivalTooltip;
-            
+
             if (sliderModeIsPercentage)
             {
-                survivalHeader = $"Time @ {sliderPercentage:F1}%";
-                survivalTooltip = $"Time to reach {sliderPercentage:F1}% survival (starting / max data)";
+                survivalHeader = Localizer.Format("#RF_Engine_ColTimeAtSurvival", $"{sliderPercentage:F1}");
+                survivalTooltip = Localizer.Format("#RF_Engine_TipTimeAtSurvival", $"{sliderPercentage:F1}");
             }
             else
             {
-                survivalHeader = $"Survival @ {ChartMath.FormatTime(sliderTime)}";
-                survivalTooltip = $"Survival probability at {ChartMath.FormatTime(sliderTime)} (starting / max data)";
+                survivalHeader = Localizer.Format("#RF_Engine_ColSurvivalAtTime", ChartMath.FormatTime(sliderTime));
+                survivalTooltip = Localizer.Format("#RF_Engine_TipSurvivalAtTime", ChartMath.FormatTime(sliderTime));
             }
-            
+
             string[] headers = {
-                "Name", Localizer.GetStringByTag("#RF_EngineRF_Thrust"), "Min%",
-                Localizer.GetStringByTag("#RF_Engine_Isp"), Localizer.GetStringByTag("#RF_Engine_Enginemass"),
-                Localizer.GetStringByTag("#RF_Engine_TLTInfo_Gimbal"), Localizer.GetStringByTag("#RF_EngineRF_Ignitions"),
-                Localizer.GetStringByTag("#RF_Engine_ullage"), Localizer.GetStringByTag("#RF_Engine_pressureFed"),
-                "Rated (s)", "Tested (s)", "Ign Reliability", "Burn No Data", "Burn Max Data",
+                Localizer.GetStringByTag("#RF_Engine_ColName"),
+                Localizer.GetStringByTag("#RF_EngineRF_Thrust"),
+                Localizer.GetStringByTag("#RF_Engine_ColMinThrottle"),
+                Localizer.GetStringByTag("#RF_Engine_Isp"),
+                Localizer.GetStringByTag("#RF_Engine_Enginemass"),
+                Localizer.GetStringByTag("#RF_Engine_TLTInfo_Gimbal"),
+                Localizer.GetStringByTag("#RF_EngineRF_Ignitions"),
+                Localizer.GetStringByTag("#RF_Engine_ullage"),
+                Localizer.GetStringByTag("#RF_Engine_pressureFed"),
+                Localizer.GetStringByTag("#RF_Engine_ColRatedBurnTime"),
+                Localizer.GetStringByTag("#RF_Engine_ColTestedBurnTime"),
+                Localizer.GetStringByTag("#RF_Engine_ColIgnReliability"),
+                Localizer.GetStringByTag("#RF_Engine_ColBurnNoData"),
+                Localizer.GetStringByTag("#RF_Engine_ColBurnMaxData"),
                 survivalHeader,
-                Localizer.GetStringByTag("#RF_Engine_Requires"), "Extra Cost", ""
+                Localizer.GetStringByTag("#RF_Engine_Requires"),
+                Localizer.GetStringByTag("#RF_Engine_ColExtraCost"),
+                ""
             };
             string[] tooltips = {
-                "Configuration name", "Rated thrust", "Minimum throttle",
-                "Sea level and vacuum Isp", "Engine mass", "Gimbal range", "Ignitions",
-                "Ullage requirement", "Pressure-fed", "Rated burn time",
-                "Tested burn time (real-world test duration)",
-                "Ignition reliability (starting / max data)",
-                "Cycle reliability at 0 data", "Cycle reliability at max data",
+                Localizer.GetStringByTag("#RF_Engine_TipName"),
+                Localizer.GetStringByTag("#RF_Engine_TipThrust"),
+                Localizer.GetStringByTag("#RF_Engine_TipMinThrottle"),
+                Localizer.GetStringByTag("#RF_Engine_TipIsp"),
+                Localizer.GetStringByTag("#RF_Engine_TipMass"),
+                Localizer.GetStringByTag("#RF_Engine_TipGimbal"),
+                Localizer.GetStringByTag("#RF_Engine_TipIgnitions"),
+                Localizer.GetStringByTag("#RF_Engine_TipUllage"),
+                Localizer.GetStringByTag("#RF_Engine_TipPressureFed"),
+                Localizer.GetStringByTag("#RF_Engine_TipRatedBurnTime"),
+                Localizer.GetStringByTag("#RF_Engine_TipTestedBurnTime"),
+                Localizer.GetStringByTag("#RF_Engine_TipIgnReliability"),
+                Localizer.GetStringByTag("#RF_Engine_TipBurnNoData"),
+                Localizer.GetStringByTag("#RF_Engine_TipBurnMaxData"),
                 survivalTooltip,
-                "Required technology", "Extra cost for this config", "Switch and purchase actions"
+                Localizer.GetStringByTag("#RF_Engine_TipRequires"),
+                Localizer.GetStringByTag("#RF_Engine_TipExtraCost"),
+                Localizer.GetStringByTag("#RF_Engine_TipActions")
             };
 
             for (int i = 0; i < headers.Length; i++)
@@ -604,7 +609,7 @@ namespace RealFuels
             {
                 // Check if we can use credits to reduce the cost
                 double displayCost = cost;
-                if (!unlocked && TryGetCreditAdjustedCost(cost, out double creditsAvailable, out double costAfterCredits))
+                if (!unlocked && EngineConfigRP1Integration.TryGetCreditAdjustedCost(cost, out double creditsAvailable, out double costAfterCredits))
                 {
                     displayCost = costAfterCredits;
                     double creditsUsed = cost - costAfterCredits;
@@ -689,17 +694,8 @@ namespace RealFuels
             float yPos = menuRect.y + 5;
             float leftX = menuRect.x + 8;
 
-            GUIStyle headerStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 11,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
-            };
-            GUIStyle labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 11,
-                normal = { textColor = new Color(0.85f, 0.85f, 0.85f) }
-            };
+            GUIStyle headerStyle = EngineConfigStyles.ColumnMenuHeader;
+            GUIStyle labelStyle = EngineConfigStyles.ColumnMenuLabel;
 
             GUI.Label(new Rect(leftX + 80, yPos, 50, 16), "Full", headerStyle);
             GUI.Label(new Rect(leftX + 135, yPos, 60, 16), "Compact", headerStyle);
@@ -764,12 +760,7 @@ namespace RealFuels
 
         private void CalculateColumnWidths(List<ModuleEngineConfigsBase.ConfigRowDefinition> rows)
         {
-            var cellStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 14,
-                fontStyle = FontStyle.Bold,
-                padding = new RectOffset(5, 0, 0, 0)
-            };
+            GUIStyle cellStyle = EngineConfigStyles.CellMeasure;
 
             for (int i = 0; i < ConfigColumnWidths.Length; i++)
             {
@@ -833,7 +824,7 @@ namespace RealFuels
                 {
                     double displayCost = cost;
                     // Check if credits would reduce the cost
-                    if (!unlocked && TryGetCreditAdjustedCost(cost, out _, out double costAfterCredits))
+                    if (!unlocked && EngineConfigRP1Integration.TryGetCreditAdjustedCost(cost, out _, out double costAfterCredits))
                         displayCost = costAfterCredits;
 
                     purchaseLabel = unlocked ? "Owned" : $"Buy ({displayCost:N0}√)";
@@ -1128,19 +1119,7 @@ namespace RealFuels
             if (ModuleEngineConfigsBase.techNameToTitle.TryGetValue(tech, out string title))
                 tech = title;
 
-            var words = tech.Split(' ');
-            if (words.Length <= 1)
-                return tech;
-
-            var abbreviated = words[0];
-            for (int i = 1; i < words.Length; i++)
-            {
-                if (words[i].Length > 4)
-                    abbreviated += "-" + words[i].Substring(0, 4);
-                else
-                    abbreviated += "-" + words[i];
-            }
-            return abbreviated;
+            return $"<size=11>{tech}</size>";
         }
 
         internal string GetCostDeltaString(ConfigNode node)
@@ -1176,6 +1155,14 @@ namespace RealFuels
             if (node.HasValue("description"))
                 tooltipParts.Add(node.GetValue("description"));
 
+            if (node.HasValue("techRequired"))
+            {
+                string techId = node.GetValue("techRequired");
+                if (!ModuleEngineConfigsBase.techNameToTitle.TryGetValue(techId, out string techTitle))
+                    techTitle = techId;
+                tooltipParts.Add($"<b><color={headerColor}>Requires:</color></b> {techTitle}");
+            }
+
             if (node.HasNode("PROPELLANT"))
             {
                 float thrust = 0f;
@@ -1196,14 +1183,26 @@ namespace RealFuels
                 float totalMassFlow = (thrustN > 0f && isp > 0f) ? thrustN / (isp * g0) : 0f;
 
                 var propNodes = node.GetNodes("PROPELLANT");
-                float totalRatio = 0f;
+
+                // First pass: accumulate the density-weighted volume ratio sum.
+                // PROPELLANT ratios are volume ratios (units/s), not mass ratios, so we
+                // need Σ(ratio_i × density_i) to correctly derive per-propellant flows
+                // from the total mass flow.
+                float weightedDensitySum = 0f; // kg/unit, weighted by volume ratio
                 foreach (var propNode in propNodes)
                 {
                     string ratioStr = null;
                     if (propNode.TryGetValue("ratio", ref ratioStr) && float.TryParse(ratioStr, out float ratio))
-                        totalRatio += ratio;
+                    {
+                        var resource = PartResourceLibrary.Instance?.GetDefinition(propNode.GetValue("name"));
+                        if (resource != null && resource.density > 0)
+                            weightedDensitySum += ratio * (float)(resource.density * 1000f);
+                    }
                 }
 
+                // Second pass: build per-propellant display lines.
+                // volumeFlow_i = totalMassFlow × ratio_i / Σ(ratio_j × density_j)
+                // massFlow_i   = volumeFlow_i × density_i
                 var propellantLines = new List<string>();
                 foreach (var propNode in propNodes)
                 {
@@ -1213,30 +1212,23 @@ namespace RealFuels
                     string line = $"  • <color={propNameColor}>{name}</color>";
 
                     string ratioStr2 = null;
-                    if (propNode.TryGetValue("ratio", ref ratioStr2) && float.TryParse(ratioStr2, out float ratio) && totalMassFlow > 0f && totalRatio > 0f)
+                    if (propNode.TryGetValue("ratio", ref ratioStr2) && float.TryParse(ratioStr2, out float ratio)
+                        && totalMassFlow > 0f && weightedDensitySum > 0f)
                     {
-                        float propMassFlow = totalMassFlow * (ratio / totalRatio);
-
                         var resource = PartResourceLibrary.Instance?.GetDefinition(name);
-
-                        if (resource != null)
+                        if (resource != null && resource.density > 0)
                         {
-                            // resource.density is in t/unit, convert to kg/unit, then to units/s
-                            float volumeFlow = propMassFlow / (float)(resource.density * 1000f);
-                            line += $": <color={valueColor}>{volumeFlow:F2}</color> <color={unitColor}>units/s</color>";
+                            float density = (float)(resource.density * 1000f); // t/unit → kg/unit
+                            float volumeFlow = totalMassFlow * ratio / weightedDensitySum; // units/s
+                            float massFlow = volumeFlow * density; // kg/s
 
-                            string massFlowStr = propMassFlow >= 1f
-                                ? $"{propMassFlow:F2} kg/s"
-                                : $"{propMassFlow * 1000f:F1} g/s";
+                            line += $": <color={valueColor}>{volumeFlow:F2}</color> <color={unitColor}>units/s</color>";
+                            string massFlowStr = massFlow >= 1f
+                                ? $"{massFlow:F2} kg/s"
+                                : $"{massFlow * 1000f:F1} g/s";
                             line += $" (<color={unitColor}>{massFlowStr}</color>)";
                         }
-                        else
-                        {
-                            string massFlowStr = propMassFlow >= 1f
-                                ? $"<color={valueColor}>{propMassFlow:F2}</color> <color={unitColor}>kg/s</color>"
-                                : $"<color={valueColor}>{propMassFlow * 1000f:F1}</color> <color={unitColor}>g/s</color>";
-                            line += $": {massFlowStr}";
-                        }
+                        // No density data → show propellant name only; don't display wrong numbers
                     }
 
                     propellantLines.Add(line);
@@ -1251,82 +1243,25 @@ namespace RealFuels
 
         #endregion
 
-        #region RP-1 Credit Integration
-
-        private static void CheckRP1Integration()
-        {
-            if (_rp1Checked) return;
-            _rp1Checked = true;
-
-            try
-            {
-                // Try to find RP-1's UnlockCreditHandler
-                // Note: The assembly name is "RP-0" (with hyphen), not "RP0"
-                var rp1Assembly = AssemblyLoader.loadedAssemblies
-                    .FirstOrDefault(a => a.name == "RP-0");
-
-                if (rp1Assembly != null)
-                {
-                    _unlockCreditHandlerType = rp1Assembly.assembly.GetType("RP0.UnlockCreditHandler");
-                    if (_unlockCreditHandlerType != null)
-                    {
-                        _unlockCreditInstanceProperty = _unlockCreditHandlerType.GetProperty("Instance",
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-                        _totalCreditProperty = _unlockCreditHandlerType.GetProperty("TotalCredit",
-                            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[RealFuels] Failed to initialize RP-1 integration: {ex.Message}");
-            }
-        }
-
-        private static bool TryGetCreditAdjustedCost(double entryCost, out double creditsAvailable, out double costAfterCredits)
-        {
-            creditsAvailable = 0;
-            costAfterCredits = entryCost;
-
-            CheckRP1Integration();
-
-            if (_unlockCreditHandlerType == null || _unlockCreditInstanceProperty == null || _totalCreditProperty == null)
-                return false;
-
-            try
-            {
-                // Cache credits per frame to avoid expensive reflection calls every button render
-                int currentFrame = Time.frameCount;
-                if (_creditCacheFrame != currentFrame)
-                {
-                    var instance = _unlockCreditInstanceProperty.GetValue(null);
-                    if (instance != null)
-                    {
-                        _cachedCredits = (double)_totalCreditProperty.GetValue(instance);
-                        _creditCacheFrame = currentFrame;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-
-                creditsAvailable = _cachedCredits;
-                double creditsUsed = Math.Min(creditsAvailable, entryCost);
-                costAfterCredits = entryCost - creditsUsed;
-                return creditsUsed > 0;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[RealFuels] Failed to query RP-1 credits: {ex.Message}");
-            }
-
-            return false;
-        }
-
-        #endregion
-
         #region Helper Methods
+
+        /// <summary>
+        /// Returns true only when the config node contains all values required for the
+        /// reliability chart to render — cycleReliabilityStart/End (valid 0–1 floats) and
+        /// a positive ratedBurnTime. Mirrors the guard checks inside EngineConfigChart.Draw()
+        /// so that every chart-visibility decision in the GUI stays in sync with what the
+        /// chart can actually render.
+        /// </summary>
+        private static bool CanShowChart(ConfigNode config)
+        {
+            if (config == null) return false;
+            if (!config.HasValue("cycleReliabilityStart") || !config.HasValue("cycleReliabilityEnd")) return false;
+            if (!float.TryParse(config.GetValue("cycleReliabilityStart"), out float crs) || crs <= 0f || crs > 1f) return false;
+            if (!float.TryParse(config.GetValue("cycleReliabilityEnd"), out float cre) || cre <= 0f || cre > 1f) return false;
+            float rbt = 0f;
+            if (!config.TryGetValue("ratedBurnTime", ref rbt) || rbt <= 0f) return false;
+            return true;
+        }
 
         internal void MarkWindowDirty()
         {

@@ -41,6 +41,9 @@
     <Reference Include="Assembly-CSharp">
       <Private>False</Private>
     </Reference>
+    <Reference Include="ClickThroughBlocker">
+      <HintPath>..\..\..\..\..\..\..\..\GAMES\Kerbal Space Program - REF\GameData\000_ClickThroughBlocker\Plugins\ClickThroughBlocker.dll</HintPath>
+    </Reference>
     <Reference Include="ROUtils">
       <Private>False</Private>
     </Reference>
@@ -86,6 +89,8 @@
     <Compile Include="assembly\AssemblyInfoRF.cs" />
     <Compile Include="assembly\Checkers.cs" />
     <Compile Include="assembly\VersionReport.cs" />
+    <Compile Include="Engines\UI\EngineConfigRP1Integration.cs" />
+    <Compile Include="Engines\UI\TestFlightConstants.cs" />
     <Compile Include="EntryCosts\EngineConfigUpgrade.cs" />
     <Compile Include="Engines\ConfigFilters.cs" />
     <Compile Include="Engines\ModuleBimodalEngineConfigs.cs" />
@@ -109,6 +114,7 @@
     <Compile Include="EntryCosts\EntryCostDatabase.cs" />
     <Compile Include="EntryCosts\PartEntryCostHolder.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
+    <Compile Include="RFGameParameters.cs" />
     <Compile Include="Tanks\EditorPartSetMaintainer.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
     <Compile Include="Tanks\FuelTank.cs" />

@@ -13,7 +13,6 @@ namespace RealFuels
     /// </summary>
     public static class EngineConfigPropellants
     {
-        private static readonly FieldInfo MRCSConsumedResources = typeof(ModuleRCS).GetField("consumedResources", BindingFlags.NonPublic | BindingFlags.Instance);
 
         /// <summary>
         /// Clears all FloatCurves that need to be cleared based on config node or tech level.
@@ -80,7 +79,7 @@ namespace RealFuels
                     if (cfg.HasNode("PROPELLANT"))
                         rcsModule.propellants.Clear();
                     rcsModule.Load(cfg);
-                    List<PartResourceDefinition> res = MRCSConsumedResources.GetValue(rcsModule) as List<PartResourceDefinition>;
+                    List<PartResourceDefinition> res = rcsModule.GetConsumedResources();
                     res.Clear();
                     foreach (Propellant p in rcsModule.propellants)
                         res.Add(p.resourceDef);

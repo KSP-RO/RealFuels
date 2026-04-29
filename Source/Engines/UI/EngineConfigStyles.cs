@@ -48,6 +48,22 @@ namespace RealFuels
         public static GUIStyle MenuHeader { get; private set; }
         public static GUIStyle MenuLabel { get; private set; }
 
+        // Main window styles
+        public static GUIStyle DescriptionLabel { get; private set; }
+        public static GUIStyle CloseButton { get; private set; }
+
+        // Table layout styles
+        public static GUIStyle TableScrollView { get; private set; }
+        public static GUIStyle TableRowLayout { get; private set; }
+        public static GUIStyle CellMeasure { get; private set; }
+
+        // Column settings menu styles
+        public static GUIStyle ColumnMenuHeader { get; private set; }
+        public static GUIStyle ColumnMenuLabel { get; private set; }
+
+        // No-chart placeholder label (shown when bottom section is open but config has no reliability data)
+        public static GUIStyle NoChartLabel { get; private set; }
+
         /// <summary>
         /// Initialize all cached styles. Called once on first use.
         /// </summary>
@@ -229,6 +245,63 @@ namespace RealFuels
             {
                 fontSize = 12,
                 normal = { textColor = Color.white }
+            };
+
+            // Main window styles
+            DescriptionLabel = new GUIStyle(GUI.skin.label)
+            {
+                padding = new RectOffset(0, 0, 0, 0),
+                margin = new RectOffset(0, 0, 0, 0),
+                normal = { textColor = Color.white }
+            };
+
+            CloseButton = new GUIStyle(GUI.skin.button)
+            {
+                normal = { textColor = new Color(1f, 0.4f, 0.4f) },
+                hover = { textColor = new Color(1f, 0.2f, 0.2f) },
+                fontStyle = FontStyle.Bold,
+                fontSize = 14
+            };
+
+            // Table layout styles
+            TableScrollView = new GUIStyle(GUI.skin.scrollView)
+            {
+                padding = new RectOffset(0, 0, 0, 0)
+            };
+
+            TableRowLayout = new GUIStyle
+            {
+                margin = new RectOffset(0, 0, 0, 0),
+                padding = new RectOffset(0, 0, 0, 0)
+            };
+
+            CellMeasure = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                padding = new RectOffset(5, 0, 0, 0)
+            };
+
+            // Column settings menu styles
+            ColumnMenuHeader = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
+            };
+
+            ColumnMenuLabel = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                normal = { textColor = new Color(0.85f, 0.85f, 0.85f) }
+            };
+
+            NoChartLabel = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = new Color(0.55f, 0.55f, 0.55f) },
+                wordWrap = true,
+                fontSize = 13
             };
 
             _initialized = true;
