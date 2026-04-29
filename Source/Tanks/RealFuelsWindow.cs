@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using ClickThroughFix;
 
 // Propellant configuration window for ModuleFuelTanks.
 // Replaces TankWindow.cs; redirect the PAW toggle that previously called
@@ -13,13 +14,15 @@ namespace RealFuels.Tanks
     // Wraps a FuelInfo so the draw loop has ready-to-display strings.
     internal class QuickFillPreset
     {
-        public readonly string EngineName;  // e.g. "RD-253"
-        public readonly string FuelsLabel;  // e.g. "UDMH / N2O4"
-        public readonly string RatioLabel;  // e.g. "42% / 58%"
-        public readonly FuelInfo Info;        // original RF object
+        public readonly string EngineName;    // e.g. "RD-253"
+        public readonly string CombinedLabel; // e.g. "LqdHydrogen (75%) / LqdOxygen (25%)"
+        public readonly FuelInfo Info;          // original RF object
 
-        // Per-propellant target percentages (within the mix, not of the tank).
-        // e.g. [ ("UDMH", 42.0), ("N2O4", 58.0) ]
+        // Unique key for per-preset state dictionaries (fill % buffer, etc.)
+        public string Key => EngineName + "|" + CombinedLabel;
+
+        // Per-propellant target percentages (physical volume fractions within the mix).
+        // e.g. [ ("LqdHydrogen", 75.0), ("LqdOxygen", 25.0) ]
         public readonly List<(string name, double targetPct)> PropTargets;
 
         public QuickFillPreset(FuelInfo fi)
@@ -30,25 +33,22 @@ namespace RealFuels.Tanks
             // propellantVolumeMults value = volumePerUnit = 1/utilization
             // fi.efficiency               = sum[ratio * volumePerUnit]
             //
-            // The correct fill fraction for each resource is its share of PHYSICAL
-            // volume, not its share of flow-rate ratio.  Using raw ratios gives wildly
-            // wrong results for high-utilization resources (e.g. Oxygen util=200).
+            // Fill fraction for each resource is its share of PHYSICAL volume, not
+            // its share of flow-rate ratio.  Using raw ratios gives wrong results for
+            // high-utilization resources (e.g. Oxygen util=200).
             //
             //   vol_frac = ratio * volumePerUnit / efficiency
             var props = fi.propellantVolumeMults.ToList();   // List<KVP<Propellant,double>>
-
-            FuelsLabel = string.Join(" / ", props.Select(kv => kv.Key.displayName));
 
             // Volume-fraction percentage for each propellant (same basis FuelInfo.Label uses)
             PropTargets = props
                 .Select(kv => (kv.Key.name, kv.Key.ratio * kv.Value / fi.efficiency * 100d))
                 .ToList();
 
-            // RatioLabel shows the same volume percentages so it stays consistent with
-            // GetRatioStatus (which measures tank.Volume fractions, i.e. physical volume).
-            RatioLabel = string.Join(" / ",
-                props.Select(kv =>
-                    (kv.Key.ratio * kv.Value / fi.efficiency * 100d).ToString("F0") + "%"));
+            // Combined label embeds each propellant's volume percentage inline.
+            CombinedLabel = string.Join(" / ", props.Select(kv =>
+                kv.Key.displayName + " (" +
+                (kv.Key.ratio * kv.Value / fi.efficiency * 100d).ToString("F1") + "%)"));
         }
     }
 
@@ -76,7 +76,7 @@ namespace RealFuels.Tanks
                 _instance._editBuf.Clear();
                 _instance._pctBuf.Clear();
                 _instance._pendingNotify = false;
-                _instance._ullageVolume = 0d;
+                _instance._reserveVolume = 0d;
                 _instance._lockedAmounts.Clear();
             }
 
@@ -175,6 +175,14 @@ namespace RealFuels.Tanks
         // not from within OnGUI, to avoid corrupting Unity's UI layout pool.
         private bool _pendingNotify;
 
+        // Tracks the previously focused IMGUI control so we can detect when focus
+        // moves to a new text field and auto-select its contents.
+        private int _lastKeyboardControl;
+
+        // Last drawn window rect, kept in sync each frame so the ClickThruBlocker
+        // always covers exactly the current window area.
+        private Rect _ctbRect;
+
         // Edit buffers: resource name → string the player is currently typing.
         // Separate from tank.amount so partial input (e.g. "1.") isn't clamped.
         private readonly Dictionary<string, string> _editBuf =
@@ -188,9 +196,9 @@ namespace RealFuels.Tanks
         // Available-list search
         private string _searchQuery = "";
 
-        // Ullage — reserved empty volume (L).  Not a real RF resource; lives only in
+        // Reserve — reserved empty volume (L).  Not a real RF resource; lives only in
         // this window.  Resets to 0 when a different module is opened.
-        private double _ullageVolume = 0d;
+        private double _reserveVolume = 0d;
 
         // Life Support planner state — persists across module switches (crew & days
         // are mission-level parameters, not tank-specific).
@@ -201,6 +209,17 @@ namespace RealFuels.Tanks
         // Cached quick-fill presets; rebuilt whenever the window opens or the
         // vessel's engine list changes (via onEditorShipModified).
         private List<QuickFillPreset> _presets = new List<QuickFillPreset>();
+
+        // Per-preset fill percentage buffer (keyed by QuickFillPreset.Key).
+        // Persists across preset rebuilds so the player's entered value is not lost
+        // when an unrelated ship change triggers a rebuild.  Defaults to "100".
+        private readonly Dictionary<string, string> _qfFillPctBuf =
+            new Dictionary<string, string>();
+
+        // Per-resource fill percentage buffer for the Available list (keyed by tank.name).
+        // Mirrors _qfFillPctBuf so each resource remembers its own fill percentage.
+        private readonly Dictionary<string, string> _availFillPctBuf =
+            new Dictionary<string, string>();
 
         // Locked resources: maps resource name → the maxAmount (RF units) that was
         // snapshotted when the player hit the lock toggle.  Update() polls every
@@ -221,22 +240,24 @@ namespace RealFuels.Tanks
         private Texture2D _txFooter, _txFooterHov, _txFooterRedHov;
         private Texture2D _txDivider, _txAccent;
         private Texture2D _txAvailRowDivider, _txQfTagBg;
-        private Texture2D _txUllageRow, _txBarUllage;
+        private Texture2D _txReserveRow, _txBarReserve;
         private Texture2D _txIconLockClosed, _txIconLockOpen; // programmatic padlock icons
+        private Texture2D _txLsHeaderBg, _txLsHov;            // Life Support header colours
 
         private GUIStyle _sWindow, _sTitle, _sSubtitle;
         private GUIStyle _sSectionLbl, _sCountBadge;
-        private GUIStyle _sPropName, _sPropNameUllage, _sPctLbl, _sField, _sUnitLbl;
+        private GUIStyle _sPropName, _sPropNameReserve, _sPctLbl, _sField, _sUnitLbl;
         private GUIStyle _sBtnApply, _sBtnRemove, _sBtnHalf;
         private GUIStyle _sBtnScale;
         private GUIStyle _sStar, _sStarOn, _sAvailName, _sFavBadge, _sBtnAdd;
-        private GUIStyle _sQfEngine, _sQfName, _sQfRatio, _sQfMain;
+        private GUIStyle _sQfEngine, _sQfName, _sQfRatio, _sQfRatioHighUtil, _sQfMain;
         private GUIStyle _sQfStatusGood, _sQfStatusWarn, _sQfStatusBad, _sQfStatusDim;
+        private GUIStyle _sAvailFull;
         private GUIStyle _sFooter, _sFooterDanger;
         private GUIStyle _sMassLbl, _sMassVal;
         private GUIStyle _sMassRow;
         private GUIStyle _sSearch, _sSearchPlaceholder, _sSearchClear;
-        private GUIStyle _sLsCommit;
+        private GUIStyle _sLsCommit, _sLsHeaderLbl;
         private GUIStyle _sBtnLock, _sBtnLockOn;  // lock toggle: dim when off, amber when on
 
         // ── Lifecycle ────────────────────────────────────────────────────────
@@ -375,17 +396,35 @@ namespace RealFuels.Tanks
             // Window height: fill from the window's current top edge to near the
             // bottom of the screen, matching the old TankWindow's Screen.height - 365
             // behaviour but relative to wherever the player has dragged the window.
-            _targetH = Mathf.Max(200f, Screen.height - _winRect.y - 20f);
+            _targetH = Mathf.Max(200f, Screen.height - _winRect.y - 70f);
 
-            _winRect = GUILayout.Window(WindowID, _winRect, DrawWindow,
+            _winRect = ClickThruBlocker.GUILayoutWindow(WindowID, _winRect, DrawWindow,
                                         GUIContent.none, _sWindow,
                                         GUILayout.Width(WindowW),
                                         GUILayout.Height(_targetH));
+
+            // Keep the ClickThruBlocker rect in sync with the window every frame.
+            _ctbRect = _winRect;
 
             // Editor cursor lock: prevent part-picking while mouse is over window.
             _overWindow = _winRect.Contains(Event.current.mousePosition);
             if (_overWindow) EditorLogic.fetch?.Lock(true, true, true, LockID);
             else EditorLogic.fetch?.Unlock(LockID);
+
+            // Auto-select all text when a text field gains focus.
+            // GUIUtility.keyboardControl holds the control ID of the focused field;
+            // when it changes to a new non-zero value a text field was just clicked.
+            int kc = GUIUtility.keyboardControl;
+            if (kc != _lastKeyboardControl)
+            {
+                _lastKeyboardControl = kc;
+                if (kc != 0)
+                {
+                    TextEditor editor = GUIUtility.GetStateObject(
+                        typeof(TextEditor), kc) as TextEditor;
+                    editor?.SelectAll();
+                }
+            }
         }
 
         // ── Window contents ──────────────────────────────────────────────────
@@ -397,7 +436,7 @@ namespace RealFuels.Tanks
             double filled = activeTanks.Sum(t => t.Volume);           // litres
             double capacity = _module.volume;                            // litres
             double rem = Math.Max(0d, capacity - filled);          // physical empty space
-            double remForFill = Math.Max(0d, rem - _ullageVolume);        // space available for QF
+            double remForFill = Math.Max(0d, rem - _reserveVolume);        // space available for QF
             float usedFrac = Mathf.Clamp01((float)(filled / capacity));
 
             DrawHeader();
@@ -408,7 +447,7 @@ namespace RealFuels.Tanks
 
             foreach (var tank in activeTanks)
                 DrawCurrentRow(tank, filled);
-            DrawUllageRow();   // always-present reserved-space row
+            DrawReserveRow();   // always-present reserved-space row
 
             GUILayout.Space(4);
             DrawScaleAllBar();
@@ -416,7 +455,7 @@ namespace RealFuels.Tanks
             DrawSectionHeader("AVAILABLE",
                 availCount + " resource" + (availCount != 1 ? "s" : ""));
             DrawAvailableList();
-            DrawQuickFill(remForFill);  // Quick Fill only fills non-ullage space
+            DrawQuickFill(remForFill);  // Quick Fill only fills non-reserved space
             DrawLifeSupport();
             DrawFooter();
 
@@ -463,13 +502,13 @@ namespace RealFuels.Tanks
                 GUI.DrawTexture(
                     new Rect(track.x, track.y, track.width * usedFrac, track.height),
                     _txBarBlue);
-            // Ullage segment — amber fill immediately after the propellant fill
-            float ullageFrac = (total > 0d) ? Mathf.Clamp01((float)(_ullageVolume / total)) : 0f;
-            if (ullageFrac > 0f)
+            // Rserve segment — amber fill immediately after the propellant fill
+            float reserveFrac = (total > 0d) ? Mathf.Clamp01((float)(_reserveVolume / total)) : 0f;
+            if (reserveFrac > 0f)
                 GUI.DrawTexture(
                     new Rect(track.x + track.width * usedFrac, track.y,
-                             track.width * ullageFrac, track.height),
-                    _txBarUllage);
+                             track.width * reserveFrac, track.height),
+                    _txBarReserve);
         }
 
         // ── Mass row ─────────────────────────────────────────────────────────
@@ -634,39 +673,39 @@ namespace RealFuels.Tanks
                 (tank.maxAmount * tank.density).ToString("F3") + " t", _sMassRow);
         }
 
-        // ── Ullage row ───────────────────────────────────────────────────────
+        // ── Reserve row ───────────────────────────────────────────────────────
         // An always-present virtual row that reserves empty volume in the tank.
-        // Nothing is written to RF — _ullageVolume is a window-side reservation only.
+        // Nothing is written to RF — _reserveVolume is a window-side reservation only.
 
-        private const string UllageKey = "__ullage__";
+        private const string ReserveKey = "__reserve__";
 
-        private void DrawUllageRow()
+        private void DrawReserveRow()
         {
             double capacity = _module.volume;
-            double ullPct = capacity > 0d ? (_ullageVolume / capacity) * 100d : 0d;
+            double ullPct = capacity > 0d ? (_reserveVolume / capacity) * 100d : 0d;
 
-            if (!_editBuf.ContainsKey(UllageKey))
-                _editBuf[UllageKey] = _ullageVolume.ToString("F4");
-            if (!_pctBuf.ContainsKey(UllageKey))
-                _pctBuf[UllageKey] = ullPct.ToString("F2");
+            if (!_editBuf.ContainsKey(ReserveKey))
+                _editBuf[ReserveKey] = _reserveVolume.ToString("F4");
+            if (!_pctBuf.ContainsKey(ReserveKey))
+                _pctBuf[ReserveKey] = ullPct.ToString("F2");
 
             Rect r = GUILayoutUtility.GetRect(WindowW, 44f);
-            GUI.DrawTexture(r, _txUllageRow);
-            // Thin blue top border ties ullage back to the tank system visually
+            GUI.DrawTexture(r, _txReserveRow);
+            // Thin blue top border ties reserve back to the tank system visually
             GUI.DrawTexture(new Rect(r.x, r.y, r.width, 1), _txAccent);
             GUI.DrawTexture(new Rect(r.x, r.yMax - 1, r.width, 1), _txDivider);
 
             float cx = r.x + 16f;
 
             // Name (italic style to distinguish from real resources)
-            GUI.Label(new Rect(cx, r.y + 11f, 108f, 22f), "ULLAGE", _sPropNameUllage);
+            GUI.Label(new Rect(cx, r.y + 11f, 108f, 22f), "RESERVE", _sPropNameReserve);
             cx += 112f;
 
             // Percentage field
             GUI.DrawTexture(new Rect(cx, r.y + 8f, 44f, 26f), _txInput);
             string newPct = GUI.TextField(
-                new Rect(cx, r.y + 8f, 44f, 26f), _pctBuf[UllageKey], _sField);
-            if (newPct != _pctBuf[UllageKey]) _pctBuf[UllageKey] = newPct;
+                new Rect(cx, r.y + 8f, 44f, 26f), _pctBuf[ReserveKey], _sField);
+            if (newPct != _pctBuf[ReserveKey]) _pctBuf[ReserveKey] = newPct;
             cx += 46f;
 
             GUI.Label(new Rect(cx, r.y + 13f, 14f, 18f), "%", _sUnitLbl);
@@ -675,8 +714,8 @@ namespace RealFuels.Tanks
             // Volume field
             GUI.DrawTexture(new Rect(cx, r.y + 8f, 76f, 26f), _txInput);
             string newVol = GUI.TextField(
-                new Rect(cx, r.y + 8f, 76f, 26f), _editBuf[UllageKey], _sField);
-            if (newVol != _editBuf[UllageKey]) _editBuf[UllageKey] = newVol;
+                new Rect(cx, r.y + 8f, 76f, 26f), _editBuf[ReserveKey], _sField);
+            if (newVol != _editBuf[ReserveKey]) _editBuf[ReserveKey] = newVol;
             cx += 78f;
 
             GUI.Label(new Rect(cx, r.y + 13f, 14f, 18f), "L", _sUnitLbl);
@@ -684,25 +723,25 @@ namespace RealFuels.Tanks
 
             // Apply ✓
             if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "✓", _sBtnApply))
-                ApplyUllage();
+                ApplyReserve();
             cx += 28f;
 
-            // Clear ✕ — zeros out ullage (row stays, just at 0)
+            // Clear ✕ — zeros out reserve (row stays, just at 0)
             if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "✕", _sBtnRemove))
             {
-                _ullageVolume = 0d;
-                _editBuf[UllageKey] = "0.0000";
-                _pctBuf[UllageKey] = "0.00";
+                _reserveVolume = 0d;
+                _editBuf[ReserveKey] = "0.0000";
+                _pctBuf[ReserveKey] = "0.00";
             }
             cx += 28f;
 
             // 1/2
             if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "1/2", _sBtnHalf))
             {
-                _ullageVolume = _ullageVolume * 0.5d;
-                _editBuf[UllageKey] = _ullageVolume.ToString("F4");
-                _pctBuf[UllageKey] = capacity > 0d
-                    ? (_ullageVolume / capacity * 100d).ToString("F2") : "0.00";
+                _reserveVolume = _reserveVolume * 0.5d;
+                _editBuf[ReserveKey] = _reserveVolume.ToString("F4");
+                _pctBuf[ReserveKey] = capacity > 0d
+                    ? (_reserveVolume / capacity * 100d).ToString("F2") : "0.00";
             }
             cx += 28f;
 
@@ -710,38 +749,38 @@ namespace RealFuels.Tanks
             if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "2×", _sBtnHalf))
             {
                 double maxUll = Math.Max(0d, _module.AvailableVolume);
-                _ullageVolume = Math.Min(_ullageVolume * 2d, maxUll);
-                _editBuf[UllageKey] = _ullageVolume.ToString("F4");
-                _pctBuf[UllageKey] = capacity > 0d
-                    ? (_ullageVolume / capacity * 100d).ToString("F2") : "0.00";
+                _reserveVolume = Math.Min(_reserveVolume * 2d, maxUll);
+                _editBuf[ReserveKey] = _reserveVolume.ToString("F4");
+                _pctBuf[ReserveKey] = capacity > 0d
+                    ? (_reserveVolume / capacity * 100d).ToString("F2") : "0.00";
             }
         }
 
         /// <summary>
-        /// Parse the ullage edit buffers and update _ullageVolume.
+        /// Parse the reserve edit buffers and update _reserveVolume.
         /// Prefers the percentage field if it changed; otherwise uses the volume field.
         /// Caps the result at the physically available empty space.
         /// </summary>
-        private void ApplyUllage()
+        private void ApplyReserve()
         {
             double capacity = _module.volume;
             double physical = Math.Max(0d, capacity - ActiveTanks().Sum(t => t.Volume));
 
-            double currentPct = capacity > 0d ? (_ullageVolume / capacity) * 100d : 0d;
+            double currentPct = capacity > 0d ? (_reserveVolume / capacity) * 100d : 0d;
 
-            if (double.TryParse(_pctBuf[UllageKey], out double pctIn) &&
+            if (double.TryParse(_pctBuf[ReserveKey], out double pctIn) &&
                 Math.Abs(pctIn - currentPct) > 0.05d)
             {
-                _ullageVolume = Math.Max(0d, Math.Min(pctIn / 100d * capacity, physical));
+                _reserveVolume = Math.Max(0d, Math.Min(pctIn / 100d * capacity, physical));
             }
-            else if (double.TryParse(_editBuf[UllageKey], out double volIn))
+            else if (double.TryParse(_editBuf[ReserveKey], out double volIn))
             {
-                _ullageVolume = Math.Max(0d, Math.Min(volIn, physical));
+                _reserveVolume = Math.Max(0d, Math.Min(volIn, physical));
             }
 
-            _editBuf[UllageKey] = _ullageVolume.ToString("F4");
-            _pctBuf[UllageKey] = capacity > 0d
-                ? (_ullageVolume / capacity * 100d).ToString("F2") : "0.00";
+            _editBuf[ReserveKey] = _reserveVolume.ToString("F4");
+            _pctBuf[ReserveKey] = capacity > 0d
+                ? (_reserveVolume / capacity * 100d).ToString("F2") : "0.00";
         }
 
         // ── Available list ───────────────────────────────────────────────────
@@ -786,7 +825,6 @@ namespace RealFuels.Tanks
             bool lsAvail = _module.tanksDict.TryGetValue("Food", out _lsFoodCheck) && _lsFoodCheck.canHave;
             float lsH = lsAvail ? 36f + (_lifeSupportExpanded ? 44f + 3f * 34f + 38f : 0f) : 0f;
             float fixedH = 64 + 56 + 46 + 26 + (nActive * 44f) + 44 + 4 + 44 + 26 + 30 + qfPanelH + lsH + 38 + 12;
-            //                                                       ↑ullage  ↑scale bar
             float scrollH = Mathf.Max(rowH, _targetH - fixedH);
 
             float contentH = (available.Count + (favs.Count > 0 && others.Count > 0 ? 1 : 0)) * rowH + 4f;
@@ -866,6 +904,19 @@ namespace RealFuels.Tanks
             Rect r = GUILayoutUtility.GetRect(WindowW, 34f);
             GUI.DrawTexture(new Rect(r.x, r.yMax - 1, r.width, 1), _txAvailRowDivider);
 
+            // Right-side fill controls:
+            // [kg/L 70][gap 6][pct field 44][% 16][gap 8][liters 64][gap 8][+ADD 54][rMargin 10]
+            const float kgLW = 70f;
+            const float kgLGap = 6f;
+            const float pctFieldW = 44f;
+            const float pctLblW = 16f;
+            const float litGap = 8f;
+            const float litW = 64f;
+            const float btnGap = 8f;
+            const float btnW = 54f;
+            const float rMargin = 10f;
+            const float rightW = kgLW + kgLGap + pctFieldW + pctLblW + litGap + litW + btnGap + btnW + rMargin;
+
             float cx = r.x + 14;
 
             // Star toggle
@@ -878,29 +929,60 @@ namespace RealFuels.Tanks
             }
             cx += 30;
 
-            // Name — 166px (narrowed slightly to make room for max-units label)
-            GUI.Label(new Rect(cx, r.y + 6, 166, 22), tank.name, _sAvailName);
-            cx += 170;
+            // Name — fills the remaining left space before the right-side controls
+            float nameW = r.xMax - cx - rightW;
+            GUI.Label(new Rect(cx, r.y + 6, nameW, 22), tank.name, _sAvailName);
 
-            // Max RF units that would be added — gives the player a concrete number
-            // before they click, matching the old TankWindow "Max: X" label.
-            // For util=1 resources this equals physical litres; for gases it's much larger.
-            double physAvail = Math.Max(0d, _module.AvailableVolume - _ullageVolume);
-            double maxRfUnits = physAvail * tank.utilization;
+            // kg/L — stored density of this resource accounting for RF utilization.
+            // Formula: (density t/u × 1000 kg/t × utilization u/L) ÷ volume L/u
+            var resDef = PartResourceLibrary.Instance.GetDefinition(tank.name);
+            if (resDef != null)
+            {
+                double kgPerLitre = (resDef.density * 1000.0 * tank.utilization)
+                                    / Math.Max(resDef.volume, 0.001);
+                float kgLX = r.xMax - rMargin - btnW - btnGap - litW - litGap
+                             - pctLblW - pctFieldW - kgLGap - kgLW;
+                GUI.Label(new Rect(kgLX, r.y + 6, kgLW, 22),
+                    kgPerLitre.ToString("G3") + " kg/L", _sQfRatio);
+            }
+
+            // Right-side fill controls, anchored from the right edge
+            float rx = r.xMax - rMargin - btnW - btnGap - litW - litGap - pctLblW - pctFieldW;
+
+            double physAvail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
             bool canAdd = physAvail >= 0.001d;
 
-            if (canAdd)
-            {
-                string maxStr = maxRfUnits.ToString("F1");
-                GUI.Label(new Rect(cx, r.y + 6, 56, 22), maxStr, _sQfStatusDim);
-            }
-            cx += 60;
+            // Fill percentage input field
+            if (!_availFillPctBuf.ContainsKey(tank.name)) _availFillPctBuf[tank.name] = "100";
+            GUI.DrawTexture(new Rect(rx, r.y + 5f, pctFieldW, 24f), _txInput);
+            string newPct = GUI.TextField(
+                new Rect(rx, r.y + 5f, pctFieldW, 24f),
+                _availFillPctBuf[tank.name], _sField);
+            if (newPct != _availFillPctBuf[tank.name]) _availFillPctBuf[tank.name] = newPct;
+            rx += pctFieldW;
 
-            // + Add button (or FULL indicator)
-            if (canAdd && GUI.Button(new Rect(cx, r.y + 5, 54, 24), "+ADD", _sBtnAdd))
-                AddTank(tank);
+            GUI.Label(new Rect(rx, r.y + 5, pctLblW, 24), "%", _sUnitLbl);
+            rx += pctLblW + litGap;
+
+            // Computed fill amount — updates live as the percentage changes.
+            // Displayed in RF units (physAvail * utilization), which equals physical litres
+            // for util=1 resources but is larger for compressed gases (util > 1).
+            // Resources with utilization > 1 get bold green text to signal that the tank
+            // can store significantly more RF units than its physical litre capacity.
+            double fillPct = 100d;
+            double.TryParse(_availFillPctBuf[tank.name], out fillPct);
+            double fillFrac = Math.Max(0d, Math.Min(100d, fillPct)) / 100d;
+            double fillAmount = physAvail * fillFrac * tank.utilization;
+            GUIStyle litreStyle = tank.utilization > 1.0 ? _sQfRatioHighUtil : _sQfRatio;
+            GUI.Label(new Rect(rx, r.y + 5, litW, 24),
+                fillAmount.ToString("F1") + " L", litreStyle);
+            rx += litW + btnGap;
+
+            // +ADD button (or FULL indicator when tank is at capacity)
+            if (canAdd && GUI.Button(new Rect(rx, r.y + 5, btnW, 24), "+ADD", _sBtnAdd))
+                AddTank(tank, fillFrac);
             else if (!canAdd)
-                GUI.Label(new Rect(cx, r.y + 5, 54, 24), "FULL", _sQfStatusDim);
+                GUI.Label(new Rect(rx, r.y + 5, btnW, 24), "FULL", _sAvailFull);
         }
 
         // ── Quick Fill ratio status ──────────────────────────────────────────
@@ -1004,60 +1086,78 @@ namespace RealFuels.Tanks
             GUI.DrawTexture(r, _txQfNorm);
 
             float tagW = 80f;
-            float ratioW = 72f;
-            float mainW = r.width - tagW - ratioW - 2f;
-            float topH = 26f;   // main button line height
-            float botH = r.height - topH;  // status line height
+            float topH = 26f;
+            float botH = r.height - topH;
 
-            // ── Top line ────────────────────────────────────────────────────
+            // Right-side fill controls: [pct field 44][% 16][gap 6][liters 64] = 130px
+            const float pctFieldW = 44f;
+            const float pctLblW = 16f;
+            const float litGap = 6f;
+            const float litW = 64f;
+            const float rightW = pctFieldW + pctLblW + litGap + litW;
 
-            // Engine tag (spans full height, left column)
+            float mainW = r.width - tagW - 8f - rightW;  // 8px gap after tag
+
+            // ── Engine tag (full height, left column) ──────────────────────
             Rect tagRect = new Rect(r.x, r.y, tagW, r.height);
             GUI.DrawTexture(tagRect, _txQfTagBg);
             GUI.DrawTexture(new Rect(tagRect.xMax - 1, r.y + 4, 1, r.height - 8), _txDivider);
             GUI.Label(tagRect, p.EngineName, _sQfEngine);
 
-            // Fuels name
-            Rect nameRect = new Rect(r.x + tagW + 8, r.y, mainW - 8, topH);
-            GUI.Label(nameRect, p.FuelsLabel, _sQfName);
+            // ── Combined fuels + percentages label (top line, middle) ──────
+            Rect nameRect = new Rect(r.x + tagW + 8f, r.y, mainW, topH);
+            GUI.Label(nameRect, p.CombinedLabel, _sQfName);
 
-            // Target ratio label
-            Rect ratioRect = new Rect(r.x + tagW + mainW, r.y, ratioW, topH);
-            GUI.Label(ratioRect, p.RatioLabel, _sQfRatio);
-
-            // Invisible fill-remaining hit area over top line (full width after tag)
-            Rect fillRect = new Rect(r.x + tagW, r.y, mainW + ratioW, topH);
+            // ── Invisible click area covers name only (not the input fields) ──
+            Rect fillRect = nameRect;
             if (GUI.Button(fillRect, GUIContent.none, GUIStyle.none))
-                DoFillRemaining(p, remaining);
+            {
+                if (!_qfFillPctBuf.TryGetValue(p.Key, out string pctStr)) pctStr = "100";
+                double pctParsed = 100d;
+                double.TryParse(pctStr, out pctParsed);
+                double fillFrac = Math.Max(0d, Math.Min(100d, pctParsed)) / 100d;
+                DoFillRemaining(p, remaining * fillFrac);
+            }
             if (fillRect.Contains(Event.current.mousePosition))
                 GUI.DrawTexture(fillRect, _txBtnHov);
 
-            // ── Status line ─────────────────────────────────────────────────
+            // ── Fill percentage input field (top line, right) ───────────────
+            if (!_qfFillPctBuf.ContainsKey(p.Key)) _qfFillPctBuf[p.Key] = "100";
 
+            float rx = r.x + tagW + 8f + mainW;
+            GUI.DrawTexture(new Rect(rx, r.y + 1f, pctFieldW, topH - 2f), _txInput);
+            string newPct = GUI.TextField(
+                new Rect(rx, r.y + 1f, pctFieldW, topH - 2f),
+                _qfFillPctBuf[p.Key], _sField);
+            if (newPct != _qfFillPctBuf[p.Key]) _qfFillPctBuf[p.Key] = newPct;
+            rx += pctFieldW;
+
+            GUI.Label(new Rect(rx, r.y, pctLblW, topH), "%", _sUnitLbl);
+            rx += pctLblW + litGap;
+
+            // ── Computed fill volume (read-only, updates live as pct changes) ─
+            double fillPct = 100d;
+            double.TryParse(_qfFillPctBuf[p.Key], out fillPct);
+            double fillLitres = remaining * Math.Max(0d, Math.Min(100d, fillPct)) / 100d;
+            GUI.Label(new Rect(rx, r.y, litW, topH),
+                fillLitres.ToString("F1") + " L", _sQfRatio);
+
+            // ── Status line (bottom) ────────────────────────────────────────
             var rs = GetRatioStatus(p);
 
-            // "now:" label
-            Rect nowLblRect = new Rect(r.x + tagW + 8, r.y + topH, 30f, botH);
-            GUI.Label(nowLblRect, "now:", _sQfStatusDim);
+            GUI.Label(new Rect(r.x + tagW + 8f, r.y + topH, 30f, botH), "now:", _sQfStatusDim);
 
-            // Actual ratio + icon
             GUIStyle statusStyle;
             if (rs.Status == RatioStatus.Good) statusStyle = _sQfStatusGood;
             else if (rs.Status == RatioStatus.Warn) statusStyle = _sQfStatusWarn;
             else if (rs.Status == RatioStatus.Bad) statusStyle = _sQfStatusBad;
             else statusStyle = _sQfStatusDim;
 
-            string statusText = rs.ActualLabel;
-            Rect statusRect = new Rect(r.x + tagW + 40f, r.y + topH,
-                                         mainW + ratioW - 44f, botH);
-            GUI.Label(statusRect, statusText, statusStyle);
+            GUI.Label(new Rect(r.x + tagW + 40f, r.y + topH, r.width - tagW - 44f, botH),
+                rs.ActualLabel, statusStyle);
 
-            // Icon (✓ ⚠ ✗) at far right of status line
             if (rs.Icon.Length > 0)
-            {
-                Rect iconRect = new Rect(r.xMax - 26f, r.y + topH, 22f, botH);
-                GUI.Label(iconRect, rs.Icon, statusStyle);
-            }
+                GUI.Label(new Rect(r.xMax - 26f, r.y + topH, 22f, botH), rs.Icon, statusStyle);
         }
 
         // ── Life Support planner ─────────────────────────────────────────────
@@ -1070,14 +1170,12 @@ namespace RealFuels.Tanks
                 return;
 
             // ── Toggle header ────────────────────────────────────────────────
-            Rect hdr = GUILayoutUtility.GetRect(WindowW, 36f);
-            GUI.DrawTexture(hdr, _txDark);
-            GUI.DrawTexture(new Rect(hdr.x, hdr.y, hdr.width, 1), _txDivider);
-            GUI.DrawTexture(new Rect(hdr.x, hdr.yMax - 1, hdr.width, 1), _txDivider);
+            Rect hdr = GUILayoutUtility.GetRect(WindowW, 44f);
+            GUI.DrawTexture(hdr, _txLsHeaderBg);
             if (hdr.Contains(Event.current.mousePosition))
-                GUI.DrawTexture(hdr, _txBtnHov);
-            GUI.Label(new Rect(hdr.x + 16, hdr.y + 10, hdr.width - 32, 16),
-                (_lifeSupportExpanded ? "▼" : "▶") + "  LIFE SUPPORT PLANNER", _sSectionLbl);
+                GUI.DrawTexture(hdr, _txLsHov);
+            GUI.Label(new Rect(hdr.x + 16, hdr.y, hdr.width - 32, hdr.height),
+                (_lifeSupportExpanded ? "▼" : "▶") + "  LIFE SUPPORT PLANNER", _sLsHeaderLbl);
             if (GUI.Button(hdr, GUIContent.none, GUIStyle.none))
                 _lifeSupportExpanded = !_lifeSupportExpanded;
 
@@ -1162,10 +1260,8 @@ namespace RealFuels.Tanks
         }
 
         /// <summary>
-        /// Add calculated Life Support volumes to the tank.
-        /// Each resource is added up to the ullage-respecting available space at that
-        /// moment, so Food is added first, then Water, then Oxygen — if the tank is
-        /// nearly full only the resources that fit will be added.
+        /// Add calculated Life Support volumes to the tank. Each resource is added up to the reserve-respecting available space at that
+        /// moment, so Food is added first, then Water, then Oxygen — if the tank is nearly full only the resources that fit will be added.
         /// </summary>
         private void CommitLifeSupport(double food, double water, double oxygen)
         {
@@ -1181,9 +1277,8 @@ namespace RealFuels.Tanks
         }
 
         /// <summary>
-        /// Add <paramref name="litres"/> of <paramref name="name"/> to the tank.
-        /// Activates the resource if it isn't already loaded.
-        /// Capped by available volume (minus ullage reservation).
+        /// Add <paramref name="litres"/> of <paramref name="name"/> to the tank. Activates the resource if it isn't already loaded.
+        /// Capped by available volume (minus reserve).
         /// </summary>
         private void CommitLsResource(string name, double litres)
         {
@@ -1191,7 +1286,7 @@ namespace RealFuels.Tanks
             if (!_module.tanksDict.TryGetValue(name, out tank)) return;
             if (!tank.canHave || !tank.fillable) return;
 
-            double avail = Math.Max(0d, _module.AvailableVolume - _ullageVolume);
+            double avail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
             double toAdd = Math.Min(litres, avail);
             if (toAdd < 0.0001d) return;
 
@@ -1334,12 +1429,16 @@ namespace RealFuels.Tanks
             NotifyEditor();
         }
 
-        /// <summary>Activate a previously-empty tank, filling the full remaining volume.</summary>
-        private void AddTank(FuelTank tank)
+        /// <summary>
+        /// Activate a previously-empty tank, filling <paramref name="fillFrac"/> of the
+        /// remaining available volume (1.0 = 100%).  Defaults to full fill.
+        /// </summary>
+        private void AddTank(FuelTank tank, double fillFrac = 1.0)
         {
-            double avail = Math.Max(0d, _module.AvailableVolume - _ullageVolume);
+            double avail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
             if (avail < 0.001d) return;
-            tank.maxAmount = avail * tank.utilization;
+            double fill = avail * Math.Max(0d, Math.Min(1d, fillFrac));
+            tank.maxAmount = fill * tank.utilization;
             tank.amount = tank.fillable ? tank.maxAmount : 0d;
             // Store RF units in the edit buffer — consistent with DrawCurrentRow display.
             _editBuf[tank.name] = tank.maxAmount.ToString("F4");
@@ -1404,10 +1503,10 @@ namespace RealFuels.Tanks
             NotifyEditor();
         }
 
-        /// <summary>Double a single tank's volume, capped by available space (respects ullage).</summary>
+        /// <summary>Double a single tank's volume, capped by available space (respects reserve).</summary>
         private void DoubleTank(FuelTank tank)
         {
-            double maxAllowed = tank.Volume + Math.Max(0d, _module.AvailableVolume - _ullageVolume);
+            double maxAllowed = tank.Volume + Math.Max(0d, _module.AvailableVolume - _reserveVolume);
             double newVol = Math.Min(tank.Volume * 2d, maxAllowed);
             tank.maxAmount = newVol * tank.utilization;
             tank.amount = tank.fillable ? tank.maxAmount : 0d;
@@ -1428,8 +1527,8 @@ namespace RealFuels.Tanks
             var active = ActiveTanks();
             if (active.Count == 0) return;
 
-            // Effective capacity respects ullage — FULL fills to capacity−ullage, not 100%.
-            double effectiveCap = Math.Max(0d, _module.volume - _ullageVolume);
+            // Effective capacity respects reserve — FULL fills to capacity − reserve, not 100%.
+            double effectiveCap = Math.Max(0d, _module.volume - _reserveVolume);
 
             var locked = active.Where(t => _lockedAmounts.ContainsKey(t.name)).ToList();
             var unlocked = active.Where(t => !_lockedAmounts.ContainsKey(t.name)).ToList();
@@ -1560,10 +1659,14 @@ namespace RealFuels.Tanks
             _txAccent = T(C("#4a7cc7"));
             _txAvailRowDivider = T(C("#1a2030"));
             _txQfTagBg = T(new Color(0.290f, 0.486f, 0.780f, 0.10f));
-            // Amber-gold tones for ullage (reserved empty space) — warm contrast against
+            // Amber-gold tones for reserve (reserved empty space) — warm contrast against
             // the cool blue-grey of regular propellant rows and the blue accent bar.
-            _txUllageRow = T(C("#1e1a0a")); // very dark amber row background
-            _txBarUllage = T(C("#7a6418")); // medium amber fill for volume bar
+            _txReserveRow = T(C("#1e1a0a")); // very dark amber row background
+            _txBarReserve = T(C("#7a6418")); // medium amber fill for volume bar
+
+            // Life Support header — solid green background, dark overlay on hover
+            _txLsHeaderBg = T(C("#72e0a0"));
+            _txLsHov = T(new Color(0f, 0f, 0f, 0.12f));
 
             // Padlock icons — white on transparent, tinted at draw time via GUI.color.
             _txIconLockClosed = MakeLockIcon(closed: true);
@@ -1604,14 +1707,15 @@ namespace RealFuels.Tanks
             _sPropName = Lbl(13, FontStyle.Bold, cText);
             _sPropName.alignment = TextAnchor.MiddleLeft;
 
-            // Ullage row name — italic to visually signal it's a virtual/reserved entry
-            _sPropNameUllage = Lbl(13, FontStyle.Italic, cTextSec);
-            _sPropNameUllage.alignment = TextAnchor.MiddleLeft;
+            // Reserve row name — italic to visually signal it's a virtual/reserved entry
+            _sPropNameReserve = Lbl(13, FontStyle.Italic, cTextSec);
+            _sPropNameReserve.alignment = TextAnchor.MiddleLeft;
 
             _sPctLbl = Lbl(11, FontStyle.Normal, cBlue);
             _sPctLbl.alignment = TextAnchor.MiddleRight;
 
             _sUnitLbl = Lbl(11, FontStyle.Normal, cTextSec);
+            _sUnitLbl.alignment = TextAnchor.MiddleLeft;
 
             _sField = Sty(GUI.skin.textField);
             _sField.fontSize = 12;
@@ -1628,6 +1732,11 @@ namespace RealFuels.Tanks
             // Life Support commit — same green as ✓ but no fixed width (explicit Rect controls size)
             _sLsCommit = Btn(C("#72e0a0"), cBlueT, _txBorder, _txBtnHov, 13, -1, 28);
             _sLsCommit.fontStyle = FontStyle.Bold;
+
+            // Life Support header label — dark forest green on the bright green header background.
+            // #0f1a12 gives ~12:1 contrast against #72e0a0.
+            _sLsHeaderLbl = Lbl(12, FontStyle.Bold, C("#0f1a12"));
+            _sLsHeaderLbl.normal.textColor = C("#0f1a12");
 
             // Lock toggle — ○ (unlocked, dim) / ● (locked, amber)
             _sBtnLock = Btn(cTextSec, cGold, _txBorder, _txBtnHov, 14, 24, 28);
@@ -1658,6 +1767,11 @@ namespace RealFuels.Tanks
             _sQfRatio = Lbl(11, FontStyle.Normal, cTextSec);
             _sQfRatio.alignment = TextAnchor.MiddleRight;
 
+            // Variant used when the resource has utilization > 1 (e.g. gases stored at
+            // high pressure): bold green to signal the litre figure is especially favourable.
+            _sQfRatioHighUtil = Lbl(11, FontStyle.Bold, C("#72e0a0"));
+            _sQfRatioHighUtil.alignment = TextAnchor.MiddleRight;
+
             _sQfMain = Btn(cTextSec, cText, _txQfNorm, _txQfHov, 12, -1, 32);
             _sQfMain.alignment = TextAnchor.MiddleLeft;
             _sQfMain.padding = new RectOffset(8, 8, 0, 0);
@@ -1667,6 +1781,11 @@ namespace RealFuels.Tanks
             _sQfStatusWarn = Lbl(10, FontStyle.Bold, C("#f8c848")); // amber  — 7.4:1 (was #f0b830 @ 6.5:1)
             _sQfStatusBad = Lbl(10, FontStyle.Bold, C("#ffb8b8")); // red    — 7.4:1 (was #e05858 @ 3.3:1)
             _sQfStatusDim = Lbl(10, FontStyle.Normal, cTextSec);
+
+            // "FULL" indicator in the Available list — amber, bold, centred so it
+            // sits at the same visual baseline as the pct field and liters readout.
+            _sAvailFull = Lbl(10, FontStyle.Bold, C("#f8c848"));
+            _sAvailFull.alignment = TextAnchor.MiddleCenter;
 
             // Footer label styles — backgrounds are drawn manually in DrawFooter so
             // that the invisible GUIStyle.none hit buttons work reliably.
@@ -1708,8 +1827,9 @@ namespace RealFuels.Tanks
                 _txClear, _txFooter, _txFooterHov, _txFooterRedHov,
                 _txDivider, _txAccent,
                 _txAvailRowDivider, _txQfTagBg,
-                _txUllageRow, _txBarUllage,
-                _txIconLockClosed, _txIconLockOpen
+                _txReserveRow, _txBarReserve,
+                _txIconLockClosed, _txIconLockOpen,
+                _txLsHeaderBg, _txLsHov
             };
             foreach (var t in textures) if (t != null) Destroy(t);
         }
