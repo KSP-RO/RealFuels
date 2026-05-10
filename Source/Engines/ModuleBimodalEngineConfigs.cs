@@ -121,34 +121,34 @@ namespace RealFuels
             return info;
         }
 
-        protected override void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
+        public override IEnumerable<ConfigRowDefinition> BuildConfigRows()
         {
-            if (GUILayout.Button(new GUIContent(ToggleText, toggleButtonHoverInfo)))
-                ToggleMode();
-            foreach (var node in availableConfigNodes)
+            foreach (var node in FilteredDisplayConfigs(false))
             {
                 bool hasSecondary = ConfigHasSecondary(node);
                 var nodeApplied = IsSecondaryMode && hasSecondary ? SecondaryConfig(node) : node;
-                DrawSelectButton(
-                    nodeApplied,
-                    node.GetValue("name") == configuration,
-                    (configName) =>
+                string configName = node.GetValue("name");
+                yield return new ConfigRowDefinition
+                {
+                    Node = nodeApplied,
+                    DisplayName = GetConfigDisplayName(nodeApplied),
+                    IsSelected = configName == configuration,
+                    Indent = false,
+                    Apply = () =>
                     {
                         activePatchName = IsSecondaryMode && hasSecondary ? SecondaryPatchName(node) : "";
                         GUIApplyConfig(configName);
-                    });
+                    }
+                };
             }
         }
 
-        protected override void DrawPartInfo()
+        protected internal override void DrawConfigSelectors(IEnumerable<ConfigNode> availableConfigNodes)
         {
-            using (new GUILayout.HorizontalScope())
-            {
-                GUILayout.Label($"<b>{Localizer.GetStringByTag("#RF_BimodalEngine_Currentmode")}:</b> {ActiveModeDescription}"); // Current mode
-            }
-            base.DrawPartInfo();
+            // Add custom toggle button UI before the config table
+            if (GUILayout.Button(new GUIContent(ToggleText, toggleButtonHoverInfo)))
+                ToggleMode();
         }
-
 
         [KSPAction("#RF_BimodalEngine_ToggleEngineMode")] // Toggle Engine Mode
         public void ToggleAction(KSPActionParam _) => ToggleMode();
@@ -300,9 +300,9 @@ namespace RealFuels
             if (animationStates == null) yield break;
 
             bool b9psNeedsReset = false;
-            if (B9PSModules != null && B9PSModules.Count != 0 && switchB9PSAtAnimationTime >= 0f)
+            if (Integrations.B9PSModules != null && Integrations.B9PSModules.Count != 0 && switchB9PSAtAnimationTime >= 0f)
             {
-                RequestB9PSVariantsForConfig(IsPrimaryMode ? SecondaryConfig(config) : GetConfigByName(configuration));
+                Integrations.RequestB9PSVariantsForConfig(IsPrimaryMode ? SecondaryConfig(config) : GetConfigByName(configuration));
                 b9psNeedsReset = true;
             }
 
@@ -320,7 +320,7 @@ namespace RealFuels
                     if (forward && animState.normalizedTime >= switchB9PSAtAnimationTime
                         || !forward && animState.normalizedTime <= switchB9PSAtAnimationTime)
                     {
-                        UpdateB9PSVariants();
+                        Integrations.UpdateB9PSVariants();
                         b9psNeedsReset = false;
                     }
                 }
@@ -328,7 +328,7 @@ namespace RealFuels
             }
             SetAnimationSpeed(0f);
 
-            if (b9psNeedsReset) UpdateB9PSVariants();
+            if (b9psNeedsReset) Integrations.UpdateB9PSVariants();
         }
     }
 }

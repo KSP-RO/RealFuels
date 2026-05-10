@@ -35,9 +35,9 @@ namespace RealFuels
             styleEditorTooltip.alignment = TextAnchor.MiddleLeft;
 
             styleEditorPanel = new GUIStyle();
-            styleEditorPanel.normal.background = CreateColorPixel(new Color32(7,54,66,200));
+            styleEditorPanel.normal.background = CreateColorPixel(new Color32(45,45,45,200));
             styleEditorPanel.border = new RectOffset(27, 27, 27, 27);
-            styleEditorPanel.padding = new RectOffset(10, 10, 10, 10);
+            styleEditorPanel.padding = new RectOffset(5, 5, 6, 0);
             styleEditorPanel.normal.textColor = new Color32(147,161,161,255);
             styleEditorPanel.fontSize = 12;
 
