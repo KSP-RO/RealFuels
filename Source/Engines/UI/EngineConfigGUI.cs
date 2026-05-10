@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
+using ClickThroughFix;
 using KSP.Localization;
 using KSP.UI.Screens;
 using RealFuels.TechLevels;
-using ClickThroughFix;
 
 namespace RealFuels
 {
@@ -304,9 +304,19 @@ namespace RealFuels
                     sliderPercentageInput = Chart.SliderPercentageInput;
 
                     GUILayout.Space(6);
+
+                    // Compact TL selector sits below the chart when both are visible
+                    _techLevels.DrawTechLevelSelector();
+                }
+                else if (_module.config != null && _module.techLevel != -1)
+                {
+                    // No reliability chart but the engine has tech levels: show the
+                    // expanded badge-track panel (includes its own +/− buttons).
+                    _techLevels.DrawTechLevelPanel(guiWindowRect.width - 10);
                 }
                 else if (_module.config != null)
                 {
+                    // No chart and no tech levels — plain informational message.
                     GUILayout.Space(10);
                     string noChartMsg = (_module.type != null && _module.type.Contains("ModuleRCS"))
                         ? "RCS thrusters do not use burn-cycle reliability data."
@@ -314,8 +324,6 @@ namespace RealFuels
                     GUILayout.Label(noChartMsg, EngineConfigStyles.NoChartLabel);
                     GUILayout.Space(10);
                 }
-
-                _techLevels.DrawTechLevelSelector();
             }
 
             GUILayout.Space(4);

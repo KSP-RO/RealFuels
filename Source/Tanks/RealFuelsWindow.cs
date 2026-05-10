@@ -62,6 +62,12 @@ namespace RealFuels.Tanks
         // ── Singleton / static API ───────────────────────────────────────────
         private static RealFuelsWindow _instance;
 
+        // Per-part lock cache keyed by part.persistentId.
+        // Populated whenever the window hides or switches to a different module so
+        // that locks survive closing and reopening the window for the same part.
+        private static readonly Dictionary<uint, Dictionary<string, double>> _lockCache =
+            new Dictionary<uint, Dictionary<string, double>>();
+
         /// <summary>Open (or switch to) the tank window for a given module.</summary>
         public static void ShowGUI(ModuleFuelTanks module)
         {
@@ -73,11 +79,22 @@ namespace RealFuels.Tanks
             // anything can cause RF to call ConfigureFor internally, consuming IDs.
             if (_instance._module != module)
             {
+                // Save current locks before discarding them so they survive a
+                // close/reopen cycle for the same part.
+                if (_instance._module != null && _instance._lockedAmounts.Count > 0)
+                    _lockCache[_instance._module.part.persistentId] =
+                        new Dictionary<string, double>(_instance._lockedAmounts);
+
                 _instance._editBuf.Clear();
                 _instance._pctBuf.Clear();
                 _instance._pendingNotify = false;
                 _instance._reserveVolume = 0d;
                 _instance._lockedAmounts.Clear();
+
+                // Restore any locks that were saved for the incoming module.
+                if (_lockCache.TryGetValue(module.part.persistentId, out var saved))
+                    foreach (var kv in saved)
+                        _instance._lockedAmounts[kv.Key] = kv.Value;
             }
 
             _instance._module = module;
@@ -97,15 +114,52 @@ namespace RealFuels.Tanks
         public static void HideGUI()
         {
             if (_instance == null) return;
+
+            // Persist locks for the current part so they survive a close/reopen cycle.
+            if (_instance._module != null && _instance._lockedAmounts.Count > 0)
+                _lockCache[_instance._module.part.persistentId] =
+                    new Dictionary<string, double>(_instance._lockedAmounts);
+
             _instance._visible = false;
             _instance._module = null;
             EditorLogic.fetch?.Unlock(LockID);
         }
 
-        /// <summary>Close if the window is currently showing this module.</summary>
+        /// <summary>Close if the window is currently showing this module or any of its symmetry counterparts.</summary>
         public static void HideGUIForModule(ModuleFuelTanks module)
         {
-            if (_instance?._module == module) HideGUI();
+            if (_instance == null || !_instance._visible) return;
+
+            // Direct match — the window is showing this exact module.
+            if (_instance._module == module) { HideGUI(); return; }
+
+            // Symmetry match — the window is showing a different member of the same
+            // symmetry group.  ModuleFuelTanks calls HideGUIForModule(this) on every
+            // counterpart when the PAW dismisses, so we must recognise those calls too.
+            if (_instance._module != null &&
+                _instance._module.part.symmetryCounterparts.Contains(module.part))
+                HideGUI();
+        }
+
+        /// <summary>
+        /// Returns true if the named resource is currently locked in the RealFuels window
+        /// for the given module.  Checks the live lock table if the window is open for this
+        /// module, otherwise falls back to the persisted lock cache.
+        /// Called by ModuleFuelTanks to respect UI locks during tank-type carry-over.
+        /// </summary>
+        public static bool IsLockedResource(ModuleFuelTanks module, string name)
+        {
+            if (_instance == null) return false;
+
+            // Window is open and showing exactly this module — use live table.
+            if (_instance._module == module)
+                return _instance._lockedAmounts.ContainsKey(name);
+
+            // Window is closed (or showing another module) — fall back to persisted cache.
+            if (_lockCache.TryGetValue(module.part.persistentId, out var cached))
+                return cached.ContainsKey(name);
+
+            return false;
         }
 
         // ── Constants ────────────────────────────────────────────────────────
@@ -221,6 +275,12 @@ namespace RealFuels.Tanks
         private readonly Dictionary<string, string> _availFillPctBuf =
             new Dictionary<string, string>();
 
+        // Per-resource amount buffer for the Available list (keyed by tank.name).
+        // Kept in sync with _availFillPctBuf: editing one recalculates the other.
+        // Stores RF units (same basis as the rest of the window).
+        private readonly Dictionary<string, string> _availAmountBuf =
+            new Dictionary<string, string>();
+
         // Locked resources: maps resource name → the maxAmount (RF units) that was
         // snapshotted when the player hit the lock toggle.  Update() polls every
         // frame and re-asserts the stored value if RF changed it externally (e.g.
@@ -250,6 +310,7 @@ namespace RealFuels.Tanks
         private GUIStyle _sBtnApply, _sBtnRemove, _sBtnHalf;
         private GUIStyle _sBtnScale;
         private GUIStyle _sStar, _sStarOn, _sAvailName, _sFavBadge, _sBtnAdd;
+        private GUIStyle _sFieldHighUtil; // amount field variant: bold green text for util > 1
         private GUIStyle _sQfEngine, _sQfName, _sQfRatio, _sQfRatioHighUtil, _sQfMain;
         private GUIStyle _sQfStatusGood, _sQfStatusWarn, _sQfStatusBad, _sQfStatusDim;
         private GUIStyle _sAvailFull;
@@ -904,18 +965,20 @@ namespace RealFuels.Tanks
             Rect r = GUILayoutUtility.GetRect(WindowW, 34f);
             GUI.DrawTexture(new Rect(r.x, r.yMax - 1, r.width, 1), _txAvailRowDivider);
 
-            // Right-side fill controls:
-            // [kg/L 70][gap 6][pct field 44][% 16][gap 8][liters 64][gap 8][+ADD 54][rMargin 10]
+            // Right-side controls:
+            // [kg/L 70][gap 6][pct field 44][% 16][gap 6][amt field 64][L 14][gap 6][+ADD 54][rMargin 10]
             const float kgLW = 70f;
             const float kgLGap = 6f;
             const float pctFieldW = 44f;
             const float pctLblW = 16f;
-            const float litGap = 8f;
-            const float litW = 64f;
-            const float btnGap = 8f;
+            const float amtGap = 6f;
+            const float amtFieldW = 64f;
+            const float amtLblW = 14f;
+            const float btnGap = 6f;
             const float btnW = 54f;
             const float rMargin = 10f;
-            const float rightW = kgLW + kgLGap + pctFieldW + pctLblW + litGap + litW + btnGap + btnW + rMargin;
+            const float rightW = kgLW + kgLGap + pctFieldW + pctLblW + amtGap
+                                    + amtFieldW + amtLblW + btnGap + btnW + rMargin;
 
             float cx = r.x + 14;
 
@@ -933,52 +996,101 @@ namespace RealFuels.Tanks
             float nameW = r.xMax - cx - rightW;
             GUI.Label(new Rect(cx, r.y + 6, nameW, 22), tank.name, _sAvailName);
 
-            // kg/L — stored density of this resource accounting for RF utilization.
+            // kg/L — stored density accounting for RF utilization.
             // Formula: (density t/u × 1000 kg/t × utilization u/L) ÷ volume L/u
             var resDef = PartResourceLibrary.Instance.GetDefinition(tank.name);
             if (resDef != null)
             {
                 double kgPerLitre = (resDef.density * 1000.0 * tank.utilization)
                                     / Math.Max(resDef.volume, 0.001);
-                float kgLX = r.xMax - rMargin - btnW - btnGap - litW - litGap
-                             - pctLblW - pctFieldW - kgLGap - kgLW;
+                float kgLX = r.xMax - rMargin - btnW - btnGap - amtLblW - amtFieldW
+                             - amtGap - pctLblW - pctFieldW - kgLGap - kgLW;
                 GUI.Label(new Rect(kgLX, r.y + 6, kgLW, 22),
                     kgPerLitre.ToString("G3") + " kg/L", _sQfRatio);
             }
 
-            // Right-side fill controls, anchored from the right edge
-            float rx = r.xMax - rMargin - btnW - btnGap - litW - litGap - pctLblW - pctFieldW;
-
             double physAvail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
+            double maxRfUnits = physAvail * tank.utilization; // RF units at 100%
             bool canAdd = physAvail >= 0.001d;
 
-            // Fill percentage input field
+            // Initialise pct buffer on first appearance
             if (!_availFillPctBuf.ContainsKey(tank.name)) _availFillPctBuf[tank.name] = "100";
+
+            // Initialise amount buffer from current pct on first appearance
+            if (!_availAmountBuf.ContainsKey(tank.name))
+            {
+                double initPct;
+                double.TryParse(_availFillPctBuf[tank.name], out initPct);
+                _availAmountBuf[tank.name] =
+                    (maxRfUnits * Math.Max(0d, Math.Min(100d, initPct)) / 100d).ToString("F1");
+            }
+
+            string oldPctText = _availFillPctBuf[tank.name];
+            string oldAmtText = _availAmountBuf[tank.name];
+
+            // ── Percentage input field ────────────────────────────────────────
+            float rx = r.xMax - rMargin - btnW - btnGap - amtLblW - amtFieldW
+                       - amtGap - pctLblW - pctFieldW;
+
+            GUI.SetNextControlName("availPct_" + tank.name);
             GUI.DrawTexture(new Rect(rx, r.y + 5f, pctFieldW, 24f), _txInput);
             string newPct = GUI.TextField(
-                new Rect(rx, r.y + 5f, pctFieldW, 24f),
-                _availFillPctBuf[tank.name], _sField);
-            if (newPct != _availFillPctBuf[tank.name]) _availFillPctBuf[tank.name] = newPct;
+                new Rect(rx, r.y + 5f, pctFieldW, 24f), oldPctText, _sField);
             rx += pctFieldW;
 
             GUI.Label(new Rect(rx, r.y + 5, pctLblW, 24), "%", _sUnitLbl);
-            rx += pctLblW + litGap;
+            rx += pctLblW + amtGap;
 
-            // Computed fill amount — updates live as the percentage changes.
-            // Displayed in RF units (physAvail * utilization), which equals physical litres
-            // for util=1 resources but is larger for compressed gases (util > 1).
-            // Resources with utilization > 1 get bold green text to signal that the tank
-            // can store significantly more RF units than its physical litre capacity.
-            double fillPct = 100d;
+            // ── Amount input field ────────────────────────────────────────────
+            // High-utilization resources get the bold-green field style so the
+            // visual signal is consistent with what was previously a read-only label.
+            GUIStyle amtStyle = tank.utilization > 1.0 ? _sFieldHighUtil : _sField;
+
+            GUI.SetNextControlName("availAmt_" + tank.name);
+            GUI.DrawTexture(new Rect(rx, r.y + 5f, amtFieldW, 24f), _txInput);
+            string newAmt = GUI.TextField(
+                new Rect(rx, r.y + 5f, amtFieldW, 24f), oldAmtText, amtStyle);
+            rx += amtFieldW;
+
+            GUI.Label(new Rect(rx, r.y + 5, amtLblW, 24), "L", _sUnitLbl);
+            rx += amtLblW + btnGap;
+
+            // ── Sync: whichever field changed drives the other ────────────────
+            // Amount field changed — back-compute percentage
+            if (newAmt != oldAmtText)
+            {
+                _availAmountBuf[tank.name] = newAmt;
+                double amt;
+                if (double.TryParse(newAmt, out amt) && maxRfUnits > 0.001d)
+                    _availFillPctBuf[tank.name] =
+                        Math.Min(100d, amt / maxRfUnits * 100d).ToString("F1");
+            }
+            // Percentage field changed — recompute amount
+            else if (newPct != oldPctText)
+            {
+                _availFillPctBuf[tank.name] = newPct;
+                double pct;
+                double.TryParse(newPct, out pct);
+                _availAmountBuf[tank.name] =
+                    (maxRfUnits * Math.Max(0d, Math.Min(100d, pct)) / 100d).ToString("F1");
+            }
+            // Neither changed — passive sync so amount reflects current physAvail
+            // (e.g. after another resource is added).  Skip if amount field is focused
+            // so we don't clobber text the player is actively editing.
+            else if (GUI.GetNameOfFocusedControl() != "availAmt_" + tank.name)
+            {
+                double pct;
+                double.TryParse(_availFillPctBuf[tank.name], out pct);
+                _availAmountBuf[tank.name] =
+                    (maxRfUnits * Math.Max(0d, Math.Min(100d, pct)) / 100d).ToString("F1");
+            }
+
+            // fillFrac is always derived from the pct buffer (source of truth)
+            double fillPct;
             double.TryParse(_availFillPctBuf[tank.name], out fillPct);
             double fillFrac = Math.Max(0d, Math.Min(100d, fillPct)) / 100d;
-            double fillAmount = physAvail * fillFrac * tank.utilization;
-            GUIStyle litreStyle = tank.utilization > 1.0 ? _sQfRatioHighUtil : _sQfRatio;
-            GUI.Label(new Rect(rx, r.y + 5, litW, 24),
-                fillAmount.ToString("F1") + " L", litreStyle);
-            rx += litW + btnGap;
 
-            // +ADD button (or FULL indicator when tank is at capacity)
+            // ── +ADD / FULL ───────────────────────────────────────────────────
             if (canAdd && GUI.Button(new Rect(rx, r.y + 5, btnW, 24), "+ADD", _sBtnAdd))
                 AddTank(tank, fillFrac);
             else if (!canAdd)
@@ -1108,8 +1220,11 @@ namespace RealFuels.Tanks
             Rect nameRect = new Rect(r.x + tagW + 8f, r.y, mainW, topH);
             GUI.Label(nameRect, p.CombinedLabel, _sQfName);
 
-            // ── Invisible click area covers name only (not the input fields) ──
-            Rect fillRect = nameRect;
+            // ── Click area: entire row except the pct input field and liters readout ──
+            // The full row height is used so the status line at the bottom is also
+            // clickable — the pct field and liters are excluded by being outside the
+            // rect horizontally (they sit to the right of tagW + gap + mainW).
+            Rect fillRect = new Rect(r.x, r.y, tagW + 8f + mainW, r.height);
             if (GUI.Button(fillRect, GUIContent.none, GUIStyle.none))
             {
                 if (!_qfFillPctBuf.TryGetValue(p.Key, out string pctStr)) pctStr = "100";
@@ -1722,6 +1837,15 @@ namespace RealFuels.Tanks
             _sField.alignment = TextAnchor.MiddleRight;
             _sField.normal.textColor = cBlueT;
             _sField.focused.textColor = cBlueT;
+
+            // Amount field variant for high-utilization resources — bold green text
+            // matches the visual signal used for the kg/L label on the same row.
+            _sFieldHighUtil = Sty(GUI.skin.textField);
+            _sFieldHighUtil.fontSize = 12;
+            _sFieldHighUtil.fontStyle = FontStyle.Bold;
+            _sFieldHighUtil.alignment = TextAnchor.MiddleRight;
+            _sFieldHighUtil.normal.textColor = C("#72e0a0");
+            _sFieldHighUtil.focused.textColor = C("#72e0a0");
             _sField.normal.background = _txInput;
             _sField.focused.background = _txInput;
             _sField.hover.background = _txInput;
@@ -1927,44 +2051,6 @@ namespace RealFuels.Tanks
             tex.SetPixels(px);
             tex.Apply();
             return tex;
-        }
-    }
-
-    // ── PAW hook ─────────────────────────────────────────────────────────────
-    // Added to every part that has ModuleFuelTanks via the companion MM patch.
-    // Keeps RealFuelsWindow.cs self-contained — no edits to ModuleFuelTanks.cs.
-
-    public class RealFuelsWindowPAW : PartModule
-    {
-        private ModuleFuelTanks _mft;
-
-        public override void OnStart(StartState state)
-        {
-            base.OnStart(state);
-            _mft = part.FindModuleImplementing<ModuleFuelTanks>();
-
-            // Only show the PAW button in the editor.
-            bool hasModule = _mft != null;
-            Events[nameof(ToggleTankWindow)].active = hasModule;
-            Events[nameof(ToggleTankWindow)].guiActiveEditor = hasModule;
-            Events[nameof(ToggleTankWindow)].guiActive = false;   // not in flight
-        }
-
-        [KSPEvent(guiName = "Configure Propellants",
-                  guiActiveEditor = true,
-                  guiActive = false,
-                  category = "Fuel")]
-        public void ToggleTankWindow()
-        {
-            if (_mft == null) return;
-            RealFuelsWindow.ToggleGUI(_mft);
-        }
-
-        private void OnDestroy()
-        {
-            // Close the window if this part is removed from the ship.
-            if (_mft != null)
-                RealFuelsWindow.HideGUIForModule(_mft);
         }
     }
 }

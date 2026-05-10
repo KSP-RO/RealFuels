@@ -64,6 +64,13 @@ namespace RealFuels
         // No-chart placeholder label (shown when bottom section is open but config has no reliability data)
         public static GUIStyle NoChartLabel { get; private set; }
 
+        // Tech Level panel styles (expanded badge track shown in place of chart for non-reliability engines)
+        public static GUIStyle TLAlertBanner { get; private set; }
+        public static GUIStyle TLBadgeLabel  { get; private set; }
+        public static GUIStyle TLSubLabel    { get; private set; }
+        public static GUIStyle TLStatHeader  { get; private set; }
+        public static GUIStyle TLStatValue   { get; private set; }
+
         /// <summary>
         /// Initialize all cached styles. Called once on first use.
         /// </summary>
@@ -302,6 +309,52 @@ namespace RealFuels
                 normal = { textColor = new Color(0.55f, 0.55f, 0.55f) },
                 wordWrap = true,
                 fontSize = 13
+            };
+
+            // Tech Level panel
+            TLAlertBanner = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(1f, 0.78f, 0.3f) },
+                richText = true,
+                padding = new RectOffset(10, 8, 0, 0),
+                alignment = TextAnchor.MiddleLeft
+            };
+
+            TLBadgeLabel = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 18,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Color.white },
+                alignment = TextAnchor.MiddleCenter,
+                richText = false
+            };
+
+            TLSubLabel = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Color.white },
+                alignment = TextAnchor.UpperCenter,
+                richText = false
+            };
+
+            TLStatHeader = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = Color.white },
+                richText = true,
+                padding = new RectOffset(4, 4, 2, 2)
+            };
+
+            TLStatValue = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                normal = { textColor = new Color(0.85f, 0.85f, 0.85f) },
+                richText = true,
+                padding = new RectOffset(4, 4, 1, 1)
             };
 
             _initialized = true;

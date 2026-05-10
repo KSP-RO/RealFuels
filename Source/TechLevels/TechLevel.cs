@@ -285,6 +285,8 @@ namespace RealFuels.TechLevels
             }
         }
 
+        public string TechRequired => techRequired;
+
         // looks up in global techlevels
         public static int MaxTL(string type)
         {

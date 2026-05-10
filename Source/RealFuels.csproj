@@ -126,7 +126,6 @@
     <Compile Include="Tanks\RealFuelsWindow.cs" />
     <Compile Include="Tanks\TankDefinition.cs" />
     <Compile Include="Tanks\TankDefinitionSelectionGUI.cs" />
-    <Compile Include="Tanks\TankWindow.cs" />
     <Compile Include="TechLevels\TechLevel.cs" />
     <Compile Include="Ullage\UllageModule.cs" />
     <Compile Include="Ullage\UllageSet.cs" />
