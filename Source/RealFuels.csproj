@@ -116,6 +116,7 @@
     <Compile Include="EntryCosts\PartEntryCostHolder.cs" />
     <Compile Include="Pumps\RefuelingPump.cs" />
     <Compile Include="RFGameParameters.cs" />
+    <Compile Include="Tanks\BgBoiloffCache.cs" />
     <Compile Include="Tanks\EditorPartSetMaintainer.cs" />
     <Compile Include="Tanks\FuelInfo.cs" />
     <Compile Include="Tanks\FuelTank.cs" />

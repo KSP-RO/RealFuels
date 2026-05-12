@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Profiling;
 
@@ -79,6 +80,15 @@ namespace RealFuels.Tanks
         private readonly List<FuelTank> cryoTanks = new List<FuelTank>();
         private readonly List<double> lossInfo = new List<double>();
         private readonly List<double> fluxInfo = new List<double>();
+
+        // Cached solver params for ComputeMLIEquilibriumTemp (values are fixed for a given tank definition).
+        private (double conductW, double coldK)[] _mliTankParamsCache;
+        private (double dewarArea, double coldK)[] _mliDewarParamsCache;
+
+        // Pre-parsed tank boiloff data for background processing.
+        // Keys naturally expire when the vessel loads and KSP releases the snapshot, so no manual cleanup is needed.
+        private static readonly ConditionalWeakTable<ProtoPartModuleSnapshot, BgBoiloffCache> _bgCache
+            = new ConditionalWeakTable<ProtoPartModuleSnapshot, BgBoiloffCache>();
 
         private FlightIntegrator _flightIntegrator;
 
@@ -626,8 +636,18 @@ namespace RealFuels.Tanks
             if (totalMLILayers <= 0 || totalTankArea <= 0)
                 return skinTemp;
 
+            if (_mliTankParamsCache == null)
+                BuildMLISolverParams();
+
+            return _mliTankParamsCache.Length > 0 || _mliDewarParamsCache.Length > 0
+                ? SolveMLIEquilibrium(skinTemp, totalTankArea, totalMLILayers, _mliTankParamsCache, _mliDewarParamsCache)
+                : skinTemp;
+        }
+
+        private void BuildMLISolverParams()
+        {
             var tankParams = new List<(double conductW, double coldK)>(cryoTanks.Count);
-            var dewarParams = new List<(double area, double coldK)>();
+            var dewarParams = new List<(double dewarArea, double coldK)>();
             foreach (var tank in cryoTanks)
             {
                 if (tank.vsp <= 0) continue;
@@ -641,14 +661,11 @@ namespace RealFuels.Tanks
                     double wallF = tank.wallConduction > 0 ? tank.wallThickness / tank.wallConduction : 0;
                     double insulF = tank.insulationConduction > 0 ? tank.insulationThickness / tank.insulationConduction : 0;
                     double resF = tank.resourceConductivity > 0 ? 0.01 / tank.resourceConductivity : 0;
-                    double conductW = tank.totalArea / Math.Max(double.Epsilon, wallF + insulF + resF);
-                    tankParams.Add((conductW, tank.temperature));
+                    tankParams.Add((tank.totalArea / Math.Max(double.Epsilon, wallF + insulF + resF), tank.temperature));
                 }
             }
-
-            return tankParams.Count > 0 || dewarParams.Count > 0
-                ? SolveMLIEquilibrium(skinTemp, totalTankArea, totalMLILayers, tankParams, dewarParams)
-                : skinTemp;
+            _mliTankParamsCache  = tankParams.ToArray();
+            _mliDewarParamsCache = dewarParams.ToArray();
         }
 
         /// <summary>
@@ -658,8 +675,8 @@ namespace RealFuels.Tanks
         /// </summary>
         private static double SolveMLIEquilibrium(
             double skinTemp, double tankAreaM2, int mliLayers,
-            List<(double conductW, double coldK)> tanks,
-            List<(double area, double coldK)> dewarTanks)
+            IReadOnlyList<(double conductW, double coldK)> tanks,
+            IReadOnlyList<(double area, double coldK)> dewarTanks)
         {
             double lo = double.MaxValue;
             foreach (var t in tanks)
@@ -725,81 +742,48 @@ namespace RealFuels.Tanks
 
             bool hasGeometry = KerbalismInterface.TryGetThermalData(vessel, out double vesselTemp, out _);
 
-            // Read MLI geometry needed for the equilibrium solver.
-            int.TryParse(proto_module.moduleValues.GetValue(nameof(totalMLILayers)), out int mliLayers);
-            double.TryParse(proto_module.moduleValues.GetValue(nameof(totalTankArea)),
-                NumberStyles.Float, CultureInfo.InvariantCulture, out double tankAreaM2);
-
-            // Parse all entries. Separate Dewar tanks (handled individually) from vsp tanks
-            // (handled via joint MLI equilibrium).
-            var vspTanks   = new List<(string name, double coldK, double conductW, PartResourceDefinition resDef)>();
-            var dewarTanks = new List<(string name, double coldK, double dewarArea, PartResourceDefinition resDef)>();
-
-            foreach (string entry in data.Split(';'))
+            // bgBoiloffData, totalMLILayers, and totalTankArea are all static while a vessel is unloaded,
+            // so parse them once and cache on the ProtoPartModuleSnapshot (automatically GC'd when the
+            // vessel loads and the snapshot is released).
+            if (!_bgCache.TryGetValue(proto_module, out BgBoiloffCache cache) || cache.DataVersion != data)
             {
-                if (string.IsNullOrEmpty(entry)) continue;
-                string[] f = entry.Split(',');
-                if (f.Length != 4) continue;
-                string resourceName = f[0];
-                if (!double.TryParse(f[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double coldK)) continue;
-                if (!double.TryParse(f[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double conductW)) continue;
-                if (!double.TryParse(f[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double dewarArea)) continue;
-
-                PartResourceDefinition resDef = PartResourceLibrary.Instance.GetDefinition(resourceName);
-                if (resDef == null || resDef.density <= 0d) continue;
-
-                if (dewarArea >= 0)
-                    dewarTanks.Add((resourceName, coldK, dewarArea, resDef));
-                else if (conductW > 0 && MFSSettings.resourceVsps.ContainsKey(resourceName))
-                    vspTanks.Add((resourceName, coldK, conductW, resDef));
+                int.TryParse(proto_module.moduleValues.GetValue(nameof(totalMLILayers)), out int mliLayers);
+                double.TryParse(proto_module.moduleValues.GetValue(nameof(totalTankArea)),
+                    NumberStyles.Float, CultureInfo.InvariantCulture, out double tankAreaM2);
+                cache = BuildBgBoiloffCache(data, mliLayers, tankAreaM2);
+                _bgCache.Remove(proto_module);
+                _bgCache.Add(proto_module, cache);
             }
 
             bool anyRequest = false;
 
-            // Solve the shared part-interior temperature, accounting for MLI and all cryo heat sinks.
-            // Requires Kerbalism VesselTemperature; boiloff is skipped entirely if geometry data is unavailable.
-            if (hasGeometry)
+            if (hasGeometry && (cache.VspParams.Length > 0 || cache.DewarParams.Length > 0))
             {
-                double interiorTemp;
-                if (mliLayers > 0 && tankAreaM2 > 0 && (vspTanks.Count > 0 || dewarTanks.Count > 0))
-                {
-                    var tankParams = new List<(double conductW, double coldK)>(vspTanks.Count);
-                    foreach (var t in vspTanks)
-                    {
-                        tankParams.Add((t.conductW, t.coldK));
-                    }
+                double interiorTemp = cache.MliLayers > 0 && cache.TankAreaM2 > 0
+                    ? SolveMLIEquilibrium(vesselTemp, cache.TankAreaM2, cache.MliLayers, cache.VspParams, cache.DewarParams)
+                    : vesselTemp;
 
-                    var dewarParams = new List<(double area, double coldK)>(dewarTanks.Count);
-                    foreach (var d in dewarTanks)
-                    {
-                        dewarParams.Add((d.dewarArea, d.coldK));
-                    }
-
-                    interiorTemp = SolveMLIEquilibrium(vesselTemp, tankAreaM2, mliLayers, tankParams, dewarParams);
-                }
-                else
+                for (int i = 0; i < cache.VspParams.Length; i++)
                 {
-                    interiorTemp = vesselTemp; // no MLI: interior equilibrates to skin temperature
-                }
-
-                foreach (var (name, coldK, conductW, resDef) in vspTanks)
-                {
-                    if (!MFSSettings.resourceVsps.TryGetValue(name, out double vsp) || vsp <= 0) continue;
+                    var (conductW, coldK) = cache.VspParams[i];
+                    var (name, vsp, density) = cache.VspInfo[i];
                     double deltaTemp = interiorTemp - coldK;
                     if (deltaTemp <= 0) continue;
                     double rateKgS = conductW * deltaTemp * 0.001 / vsp;
                     if (rateKgS <= 0) continue;
-                    resourceChangeRequest.Add(new KeyValuePair<string, double>(name, -rateKgS / resDef.density));
+                    resourceChangeRequest.Add(new KeyValuePair<string, double>(name, -rateKgS / density));
                     anyRequest = true;
                 }
 
-                foreach (var (name, coldK, dewarArea, resDef) in dewarTanks)
+                for (int i = 0; i < cache.DewarParams.Length; i++)
                 {
-                    if (interiorTemp <= coldK || !MFSSettings.resourceVsps.TryGetValue(name, out double vsp) || vsp <= 0) continue;
+                    var (dewarArea, coldK) = cache.DewarParams[i];
+                    var (name, vsp, density) = cache.DewarInfo[i];
+                    if (interiorTemp <= coldK) continue;
                     double Q_kW = GetDewarTransferRate(interiorTemp, coldK, dewarArea) * 0.001;
                     double rateKgS = Math.Max(0, Q_kW / vsp);
                     if (rateKgS <= 0) continue;
-                    resourceChangeRequest.Add(new KeyValuePair<string, double>(name, -rateKgS / resDef.density));
+                    resourceChangeRequest.Add(new KeyValuePair<string, double>(name, -rateKgS / density));
                     anyRequest = true;
                 }
             }
@@ -808,6 +792,44 @@ namespace RealFuels.Tanks
                 Planetarium.GetUniversalTime().ToString(CultureInfo.InvariantCulture));
 
             return anyRequest ? Localizer.GetStringByTag("#RF_FuelTankRF_kerbalismtips") : string.Empty;
+        }
+
+        private static BgBoiloffCache BuildBgBoiloffCache(string data, int mliLayers, double tankAreaM2)
+        {
+            var vspParams = new List<(double conductW, double coldK)>();
+            var vspInfo = new List<(string name, double vsp, double density)>();
+            var dewarParams = new List<(double dewarArea, double coldK)>();
+            var dewarInfo = new List<(string name, double vsp, double density)>();
+
+            foreach (string entry in data.Split(';'))
+            {
+                if (string.IsNullOrEmpty(entry)) continue;
+                string[] split = entry.Split(',');
+                if (split.Length != 4) continue;
+                string resourceName = split[0];
+                if (!double.TryParse(split[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double coldK)) continue;
+                if (!double.TryParse(split[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double conductW)) continue;
+                if (!double.TryParse(split[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double dewarArea)) continue;
+
+                PartResourceDefinition resDef = PartResourceLibrary.Instance.GetDefinition(resourceName);
+                if (resDef == null || resDef.density <= 0d) continue;
+                if (!MFSSettings.resourceVsps.TryGetValue(resourceName, out double vsp) || vsp <= 0) continue;
+
+                if (dewarArea >= 0)
+                {
+                    dewarParams.Add((dewarArea, coldK));
+                    dewarInfo.Add((resourceName, vsp, resDef.density));
+                }
+                else if (conductW > 0)
+                {
+                    vspParams.Add((conductW, coldK));
+                    vspInfo.Add((resourceName, vsp, resDef.density));
+                }
+            }
+
+            return new BgBoiloffCache(data, mliLayers, tankAreaM2,
+                vspParams.ToArray(), vspInfo.ToArray(),
+                dewarParams.ToArray(), dewarInfo.ToArray());
         }
 
         /// <summary>
