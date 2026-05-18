@@ -460,7 +460,7 @@ namespace RealFuels
         private void DrawHeaderRow(Rect headerRect)
         {
             float currentX = headerRect.x;
-            
+
             // Dynamic header and tooltip for survival column based on mode
             string survivalHeader;
             string survivalTooltip;
@@ -873,6 +873,10 @@ namespace RealFuels
             float thrust = _module.scale * _techLevels.ThrustTL(node.GetValue(_module.thrustRating), node);
             if (thrust >= 100f)
                 return $"{thrust:N0} kN";
+            if (thrust < 1e-3f)
+                return $"{thrust * 1e6f:N0} mN";
+            if (thrust < 0.01f)
+                return $"{thrust * 1e3f:N0} N";
             return $"{thrust:N2} kN";
         }
 
@@ -1098,11 +1102,11 @@ namespace RealFuels
             {
                 // Percentage mode: show TIME to reach the selected percentage
                 float targetProb = sliderPercentage / 100f;
-                
+
                 // Find time for start and end reliability (no clustering/ignition for table display)
                 float timeStart = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityStart, cycleCurve, 10000f);
                 float timeEnd = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityEnd, cycleCurve, 10000f);
-                
+
                 return $"<color={fadedOrange}>{ChartMath.FormatTime(timeStart)}</color> / <color={fadedGreen}>{ChartMath.FormatTime(timeEnd)}</color>";
             }
             else
