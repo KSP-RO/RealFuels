@@ -25,6 +25,7 @@ namespace RealFuels
 
         public static readonly Dictionary<string, double> resourceVsps = new Dictionary<string, double>();
         public static readonly Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();
+        public static readonly Dictionary<string, double> resourceHsps = new Dictionary<string, double>();
 
         private static readonly Dictionary<string, ConfigNode[]> overrides = new Dictionary<string, ConfigNode[]>();
 
@@ -72,8 +73,9 @@ namespace RealFuels
         {
             resourceVsps.Clear();
             resourceConductivities.Clear();
+            resourceHsps.Clear();
 
-            // fill vsps & conductivities
+            // fill vsps, conductivities & heat capacities
             foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("RESOURCE_DEFINITION"))
             {
                 string nm = n.GetValue("name");
@@ -82,6 +84,8 @@ namespace RealFuels
                     resourceVsps[nm] = dtmp;
                 if (n.TryGetValue("conductivity", ref dtmp))
                     resourceConductivities[nm] = dtmp;
+                if (n.TryGetValue("hsp", ref dtmp))
+                    resourceHsps[nm] = dtmp;
             }
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("MFSSETTINGS").LastOrDefault();
