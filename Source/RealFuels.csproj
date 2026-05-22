@@ -42,7 +42,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="ClickThroughBlocker">
-      <HintPath>..\..\..\..\..\..\..\..\GAMES\Kerbal Space Program - REF\GameData\000_ClickThroughBlocker\Plugins\ClickThroughBlocker.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="ROUtils">
       <Private>False</Private>
