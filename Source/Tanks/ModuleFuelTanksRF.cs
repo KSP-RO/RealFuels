@@ -1,4 +1,5 @@
 using KSP.Localization;
+using ROUtils;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -51,6 +52,11 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         public double bgBoiloffLastUpdate = 0d;
 
+        // Cryocooler params captured at save time for unloaded BackgroundUpdate use.
+        // Format: "coolerInputKW,coolerFracAtLowestTemp,lowestTempK"
+        [KSPField(isPersistant = true)]
+        public string bgCoolerData = "";
+
         [KSPField]
         public int maxMLILayers = 10;
 
@@ -60,10 +66,48 @@ namespace RealFuels.Tanks
         [KSPField]
         public float MLIArealDensity = 0.000015f;
 
+        [KSPField]
+        public HermiteCurve cryoCoolerEfficiency = new HermiteCurve();
+
+        [KSPField]
+        public float maxCoolerInputKW = 0f;
+
+        [KSPField]
+        public float coolerBaseMass = 0f; // tonnes, fixed overhead (electronics, housing)
+
+        [KSPField]
+        public HermiteCurve coolerMassPerKWInput = new HermiteCurve(); // tonnes/kW, keyed to T_cold (K)
+
+        [KSPField]
+        public float coolerBaseCost = 0f;
+
+        [KSPField]
+        public HermiteCurve coolerCostPerKWInput = new HermiteCurve(); // funds/kW, keyed to T_cold (K)
+
+        [KSPField(isPersistant = true, guiActiveEditor = true,
+            guiName = "#RF_FuelTankRF_CryoCoolerInputPower", guiUnits = " kW", guiFormat = "F2",
+            groupName = CryogenicGroupName, groupDisplayName = CryogenicGroupName),
+         UI_FloatEdit(minValue = 0f, maxValue = 0f, incrementLarge = 1f, incrementSmall = 0.1f, incrementSlide = 0.01f, sigFigs = 2,
+            unit = " kW", scene = UI_Scene.Editor)]
+        public float coolerInputKW = 0f;
+
+        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerLift", groupName = CryogenicGroupName)]
+        public string sCoolerLift;
+
+        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerDraw", groupName = CryogenicGroupName)]
+        public string sCoolerDraw;
+
+        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerCOP", groupName = CryogenicGroupName)]
+        public string sCoolerCOP;   // Coefficient of Performance, ratio of the useful cooling provided to the work (energy) required
+
         private double analyticSkinTemp;
         private readonly Dictionary<string, double> boiloffProducts = new Dictionary<string, double>();
 
         public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
+
+        private double currentCoolerLiftKW;
+        private double currentCoolerDrawKW;
+        private double currentCoolerCOP;
 
         private double boiloffMassT = 0d;
         public double BoiloffMassRate => boiloffMassT;
@@ -71,6 +115,8 @@ namespace RealFuels.Tanks
         private readonly List<FuelTank> cryoTanks = new List<FuelTank>();   // anything with maxAmount > 0 && vsp > 0
         private readonly List<double> lossInfo = new List<double>();
         private readonly List<double> fluxInfo = new List<double>();
+        private readonly Dictionary<FuelTank, double> _perTankFlux = new Dictionary<FuelTank, double>();
+        private readonly Dictionary<FuelTank, double> _perTankLift = new Dictionary<FuelTank, double>();
 
         // Pre-parsed tank boiloff data for background processing.
         private static readonly ConditionalWeakTable<ProtoPartModuleSnapshot, BgBoiloffCache> _bgCache
@@ -84,8 +130,9 @@ namespace RealFuels.Tanks
 
         double lowestTankTemperature = 300d;
 
-        private static double ConductionFactors => RFSettings.Instance.globalConductionCompensation ? Math.Max(1.0d, PhysicsGlobals.ConductionFactor) : 1d;
         public bool SupportsBoiloff => cryoTanks.Count > 0;
+        public bool SupportCryoCooler => maxCoolerInputKW > 0f;
+        public bool HasCryoCooler => coolerInputKW > 0f;
         private bool IsProcedural => part.Modules.Contains("SSTUModularPart") || part.Modules.Contains("WingProcedural");
 
         partial void OnLoadRF(ConfigNode _) { }
@@ -113,7 +160,7 @@ namespace RealFuels.Tanks
 
         partial void OnSaveRF(ConfigNode _)
         {
-            if (!HighLogic.LoadedSceneIsFlight || cryoTanks.Count == 0)
+            if (!HighLogic.LoadedSceneIsFlight || !SupportsBoiloff)
                 return;
 
             double structuralThermalMass = ComputeStructuralThermalMass();
@@ -140,6 +187,21 @@ namespace RealFuels.Tanks
             }
 
             bgBoiloffData = entries.Count > 0 ? string.Join(";", entries) : "";
+
+            bgCoolerData = "";
+            if (HasCryoCooler)
+            {
+                CalculateLowestTankTemperature();
+                if (lowestTankTemperature > 0d && lowestTankTemperature < 300d)
+                {
+                    double frac = cryoCoolerEfficiency.Evaluate(lowestTankTemperature);
+                    if (frac > 0d)
+                    {
+                        bgCoolerData = string.Format(CultureInfo.InvariantCulture, "{0:R},{1:R},{2:R}",
+                            coolerInputKW, frac, lowestTankTemperature);
+                    }
+                }
+            }
         }
 
         partial void OnStartRF(StartState _)
@@ -169,12 +231,29 @@ namespace RealFuels.Tanks
                     massDirty = true;
                     CalculateMass();
                 };
+
+                Fields[nameof(coolerInputKW)].guiActiveEditor = SupportCryoCooler;
+                if (SupportCryoCooler)
+                {
+                    coolerInputKW = Mathf.Clamp(coolerInputKW, 0f, maxCoolerInputKW);
+                    ((UI_FloatEdit)Fields[nameof(coolerInputKW)].uiControlEditor).maxValue = maxCoolerInputKW;
+                    Fields[nameof(coolerInputKW)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
+                    {
+                        massDirty = true;
+                        CalculateMass();
+                    };
+                }
             }
 
             bool debugBoilActive = SupportsBoiloff && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW);
             Fields[nameof(sWallTemp)].guiActive = debugBoilActive;
             Fields[nameof(sHeatPenetration)].guiActive = debugBoilActive;
             Fields[nameof(sBoiloffLoss)].guiActive = debugBoilActive;
+
+            bool coolerFlightActive = HighLogic.LoadedSceneIsFlight && HasCryoCooler;
+            Fields[nameof(sCoolerLift)].guiActive = coolerFlightActive;
+            Fields[nameof(sCoolerDraw)].guiActive = coolerFlightActive;
+            Fields[nameof(sCoolerCOP)].guiActive = coolerFlightActive;
 
             GameEvents.onPartResourceListChange.Add(OnPartResourceListChange);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
@@ -183,6 +262,8 @@ namespace RealFuels.Tanks
         partial void CalculateMassRF(ref double mass)
         {
             mass += MLIArealDensity * totalTankArea * totalMLILayers;
+            if (HasCryoCooler)
+                mass += coolerBaseMass + coolerMassPerKWInput.Evaluate(GetCoolerTargetTemp()) * coolerInputKW;
         }
 
         partial void GetModuleCostRF(ref double cost)
@@ -190,12 +271,16 @@ namespace RealFuels.Tanks
             // Estimate material cost at 0.10764/m2 treating as Fund = $1000 (for RO purposes)
             // Plus another 0.1 for installation
             cost += MLIArealCost * totalTankArea * totalMLILayers;
+            if (HasCryoCooler)
+                cost += coolerBaseCost + coolerCostPerKWInput.Evaluate(GetCoolerTargetTemp()) * coolerInputKW;
         }
 
         partial void UpdateRF()
         {
-            if (HighLogic.LoadedSceneIsFlight && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW) && SupportsBoiloff &&
-                UIPartActionController.Instance.GetItem(part) != null)
+            if (!HighLogic.LoadedSceneIsFlight) return;
+            if (UIPartActionController.Instance.GetItem(part) == null) return;
+
+            if ((RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW) && SupportsBoiloff)
             {
                 sWallTemp = "";
                 foreach (var tank in cryoTanks)
@@ -217,15 +302,35 @@ namespace RealFuels.Tanks
                 if (!string.IsNullOrEmpty(sHeatPenetration))
                     sHeatPenetration = sHeatPenetration.Remove(sHeatPenetration.Length - 3);
             }
+
+            if (HasCryoCooler)
+            {
+                sCoolerLift = Utilities.FormatFlux(currentCoolerLiftKW);
+                sCoolerDraw = Utilities.FormatFlux(currentCoolerDrawKW);
+                sCoolerCOP = currentCoolerCOP > 0d ? currentCoolerCOP.ToString("F3") : "—";
+            }
         }
 
         public void FixedUpdate()
         {
             if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready)
             {
+                // For analytic case boiloff will run though SetAnalyticTemperature()
                 if (!_flightIntegrator.isAnalytical && SupportsBoiloff)
                     ProcessBoiloff(_flightIntegrator.timeSinceLastUpdate);
             }
+        }
+
+        private double GetCoolerTargetTemp()
+        {
+            double lowest = 300d;
+            foreach (FuelTank tank in tanksDict.Values)
+            {
+                if (tank.amount > 0 && tank.vsp > 0 && tank.temperature < lowest)
+                    lowest = tank.temperature;
+            }
+
+            return lowest;
         }
 
         /// <summary>
@@ -287,10 +392,10 @@ namespace RealFuels.Tanks
             boiloffMassT = 0d;
             lossInfo.Clear();
             fluxInfo.Clear();
+            _perTankFlux.Clear();
+            _perTankLift.Clear();
 
             bool hasCryoFuels = CalculateLowestTankTemperature();
-            if (hasCryoFuels && MFSSettings.radiatorMinTempMult >= 0d)
-                part.radiatorMax = lowestTankTemperature * MFSSettings.radiatorMinTempMult / part.maxTemp;
 
             if (fueledByLaunchClamp)
             {
@@ -300,6 +405,9 @@ namespace RealFuels.Tanks
                         tank.internalTemp = tank.temperature;
                 }
                 fueledByLaunchClamp = false;
+                currentCoolerLiftKW = 0d;
+                currentCoolerDrawKW = 0d;
+                currentCoolerCOP = 0d;
                 Profiler.EndSample();
                 return;
             }
@@ -313,28 +421,99 @@ namespace RealFuels.Tanks
             // TODO: structuralThermalMass should be split up per-tank
             // TODO2: KSP will internally still assign a part.thermalMass value that includes resources
             double structuralThermalMass = ComputeStructuralThermalMass();
-            double totalAbsorbedQ_kW = 0d;
 
+            // Pre-pass: compute per-tank incoming flux and tally what the cryocooler could usefully lift.
+            // Only at-boiling cryo tanks are coolable; sub-boiling tanks are left to warm normally
+            // (no subcooling), and non-cryo tanks aren't cooled.
+            double totalCoolableKW = 0d;
             foreach (FuelTank tank in tanksDict.Values)
             {
-                totalAbsorbedQ_kW += CalculateBoiloffForTank(tank, deltaTime, skinTemp, structuralThermalMass);
+                double q = GetIncomingFlux(skinTemp, tank) * 0.001d;
+                _perTankFlux[tank] = q;
+                if (tank.vsp > 0 && tank.amount > 0 && q > 0 && tank.internalTemp >= tank.temperature)
+                    totalCoolableKW += q;
             }
 
-            // Feed the absorbed heat back as a skin heat sink. AddSkinThermalFlux takes kW and
-            // multiplies by TimeWarp.fixedDeltaTime internally, so passing the rate is correct here.
-            // Skipped in analytic mode: should only have a very small effect.
-            if (!analyticalMode && totalAbsorbedQ_kW != 0)
-                part.AddSkinThermalFlux(-totalAbsorbedQ_kW);
+            double totalLiftKW = 0d, totalInputKW = 0d;
+            if (hasCryoFuels)
+                ApplyCryocooling(deltaTime, skinTemp, totalCoolableKW, out totalLiftKW, out totalInputKW);
+
+            double totalAbsorbedQ_kW = 0d;
+            foreach (FuelTank tank in tanksDict.Values)
+            {
+                double qIn = _perTankFlux.TryGetValue(tank, out double qv) ? qv : 0d;
+                double lift = _perTankLift.TryGetValue(tank, out double lv) ? lv : 0d;
+                totalAbsorbedQ_kW += CalculateBoiloffForTank(tank, qIn - lift, deltaTime, structuralThermalMass);
+            }
+
+            currentCoolerLiftKW = totalLiftKW;
+            currentCoolerDrawKW = totalInputKW;
+            currentCoolerCOP = totalInputKW > 0d ? totalLiftKW / totalInputKW : 0d;
+
+            // Skin energy balance:
+            //   skin → tanks: -totalAbsorbedQ_kW (net flux absorbed by tanks, after any cooling)
+            //   tanks → skin via cooler: +totalLiftKW (heat pumped out of tanks)
+            //   EC → skin via cooler: +totalInputKW (electrical work turns into heat in the warm end)
+            // AddSkinThermalFlux takes kW and multiplies by TimeWarp.fixedDeltaTime internally,
+            // so passing the rate is correct here. Skipped in analytic mode.
+            if (!analyticalMode)
+            {
+                double skinFlux = -totalAbsorbedQ_kW + totalLiftKW + totalInputKW;
+                if (skinFlux != 0d)
+                    part.AddSkinThermalFlux(skinFlux);
+            }
 
             Profiler.EndSample();
         }
 
-        private double CalculateBoiloffForTank(FuelTank tank, double deltaTime, double skinTemp, double structuralThermalMass)
+        private void ApplyCryocooling(double deltaTime, double skinTemp, double totalCoolableKW, out double totalLiftKW, out double totalInputKW)
+        {
+            // Cryocooler allocation: COP = (T_cold / (T_hot - T_cold)) * fraction-of-Carnot curve
+            totalLiftKW = 0d;
+            totalInputKW = 0d;
+            if (HasCryoCooler && totalCoolableKW > 0d && skinTemp > lowestTankTemperature)
+            {
+                double carnot = lowestTankTemperature / (skinTemp - lowestTankTemperature);
+                double frac = cryoCoolerEfficiency.Evaluate(lowestTankTemperature);
+                double cop = Math.Max(0d, carnot * frac);
+                if (cop > 0d)
+                {
+                    double maxLiftKW = coolerInputKW * cop;
+                    double wantedLiftKW = Math.Min(maxLiftKW, totalCoolableKW);
+                    double wantedInputKW = wantedLiftKW / cop;
+                    double requestedEC = wantedInputKW * deltaTime;
+                    double receivedEC = requestedEC > 0d
+                        ? part.RequestResource("ElectricCharge", requestedEC, ResourceFlowMode.ALL_VESSEL)
+                        : 0d;
+
+                    double scale = requestedEC > 0d ? receivedEC / requestedEC : 0d;
+                    if (scale < 0d) scale = 0d;
+                    else if (scale > 1d) scale = 1d;
+
+                    totalLiftKW = wantedLiftKW * scale;
+                    totalInputKW = wantedInputKW * scale;
+
+                    if (totalLiftKW > 0d)
+                    {
+                        double liftFrac = totalLiftKW / totalCoolableKW;
+                        foreach (FuelTank tank in cryoTanks)
+                        {
+                            if (tank.amount > 0 && tank.vsp > 0
+                                && tank.internalTemp >= tank.temperature
+                                && _perTankFlux.TryGetValue(tank, out double q) && q > 0)
+                            {
+                                _perTankLift[tank] = q * liftFrac;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private double CalculateBoiloffForTank(FuelTank tank, double Q_kW, double deltaTime, double structuralThermalMass)
         {
             if (tank.totalArea <= 0 || tank.tankRatio <= 0)
                 return 0d;
-
-            double Q_kW = GetIncomingFlux(skinTemp, tank) * 0.001d;
 
             double thermalMass = structuralThermalMass * tank.tankRatio
                                + tank.amount * tank.density * tank.hsp;
@@ -348,6 +527,7 @@ namespace RealFuels.Tanks
                     // At high warp the large deltaTime can push internalTemp past skinTemp in a
                     // single step; the resulting oscillation with asymmetric flux handling bleeds
                     // energy from the skin each cycle, eventually driving it to 0 K (or infinity).
+                    double skinTemp = part.skinTemperature;
                     double prevTemp = tank.internalTemp;
                     double newTemp = prevTemp + Q_kW * deltaTime / thermalMass;
                     newTemp = Q_kW >= 0 ? Math.Min(newTemp, skinTemp) : Math.Max(newTemp, skinTemp);
@@ -611,73 +791,108 @@ namespace RealFuels.Tanks
             List<KeyValuePair<string, double>> resourceChangeRequest,
             double elapsed_s)
         {
-            string data = proto_module.moduleValues.GetValue(nameof(bgBoiloffData));
-            if (string.IsNullOrEmpty(data)) return string.Empty;
 
             bool hasGeometry = KerbalismInterface.TryGetThermalData(vessel, out double vesselTemp, out _);
             if (!hasGeometry) return string.Empty;
 
-            if (!_bgCache.TryGetValue(proto_module, out BgBoiloffCache cache) || cache.DataVersion != data)
+            if (!_bgCache.TryGetValue(proto_module, out BgBoiloffCache cache))
             {
+                string data = proto_module.moduleValues.GetValue(nameof(bgBoiloffData));
+                if (string.IsNullOrEmpty(data)) return string.Empty;
+
+                string coolerData = proto_module.moduleValues.GetValue(nameof(bgCoolerData)) ?? "";
                 int.TryParse(proto_module.moduleValues.GetValue(nameof(totalMLILayers)), out int mliLayers);
-                cache = BuildBgBoiloffCache(data, mliLayers);
+                cache = BgBoiloffCache.Build(data, coolerData, mliLayers);
+                cache.InitTemps(proto_module);
+
                 _bgCache.Remove(proto_module);
                 _bgCache.Add(proto_module, cache);
             }
 
-            // On first use of a cache instance, seed InternalTemps from the persisted TANK nodes
-            bool needsInit = false;
+            double totalCoolableKW = ProcessBackgroundHeatLeakage(vesselTemp, cache);
+            double liftFrac = ProcessBackgroundCryocooling(availableResources, resourceChangeRequest, elapsed_s, vesselTemp, cache, totalCoolableKW);
+            bool anyBoiloff = ApplyBackgroundTankFlux(availableResources, resourceChangeRequest, elapsed_s, cache, liftFrac);
+            PersistBackgroundTankTemps(proto_module, cache);
+
+            proto_module.moduleValues.SetValue("bgBoiloffLastUpdate",
+                Planetarium.GetUniversalTime().ToString(CultureInfo.InvariantCulture));
+
+            return anyBoiloff ? Localizer.GetStringByTag("#RF_FuelTankRF_kerbalismtips") : string.Empty;
+        }
+
+        /// <summary>
+        /// compute per-tank Q_kW and tally coolable demand
+        /// </summary>
+        /// <param name="vesselTemp"></param>
+        /// <param name="cache"></param>
+        /// <returns></returns>
+        private static double ProcessBackgroundHeatLeakage(double vesselTemp, BgBoiloffCache cache)
+        {
+            double totalCoolableKW = 0d;
             for (int i = 0; i < cache.Tanks.Length; i++)
             {
-                if (cache.InternalTemps[i] < 0)
-                {
-                    needsInit = true;
-                    break;
-                }
+                BgTankEntry entry = cache.Tanks[i];
+                double internalTemp = cache.InternalTemps[i];
+                double q;
+                if (entry.IsDewar)
+                    q = GetDewarTransferRate(vesselTemp, internalTemp, entry.TankAreaM2) * 0.001;
+                else if (cache.MliLayers > 0 && entry.TankAreaM2 > 0)
+                    q = GetMLITransferRate(vesselTemp, internalTemp, cache.MliLayers) * entry.TankAreaM2 * 0.001;
+                else if (entry.ConductWPerK > 0)
+                    q = entry.ConductWPerK * (vesselTemp - internalTemp) * 0.001;
+                else
+                    q = 0d;
+
+                cache.FluxScratch[i] = q;
+                if (q > 0 && internalTemp >= entry.BoilingPointK)
+                    totalCoolableKW += q;
             }
 
-            if (needsInit)
+            return totalCoolableKW;
+        }
+
+        private static double ProcessBackgroundCryocooling(Dictionary<string, double> availableResources, List<KeyValuePair<string, double>> resourceChangeRequest, double elapsed_s, double vesselTemp, BgBoiloffCache cache, double totalCoolableKW)
+        {
+            double liftFrac = 0d;
+            if (cache.CoolerInputKW > 0d && cache.CoolerFrac > 0d && totalCoolableKW > 0d
+                && vesselTemp > cache.CoolerLowestTempK)
             {
-                var tempLookup = new Dictionary<string, double>(StringComparer.Ordinal);
-                foreach (ConfigNode tankNode in proto_module.moduleValues.GetNodes("TANK"))
+                double carnot = cache.CoolerLowestTempK / (vesselTemp - cache.CoolerLowestTempK);
+                double cop = carnot * cache.CoolerFrac;
+                if (cop > 0d)
                 {
-                    string tName = tankNode.GetValue("name");
-                    string sVal = tankNode.GetValue("internalTemp");
-                    if (tName != null && double.TryParse(sVal, NumberStyles.Float, CultureInfo.InvariantCulture, out double t))
-                        tempLookup[tName] = t;
-                }
-                for (int i = 0; i < cache.Tanks.Length; i++)
-                {
-                    if (cache.InternalTemps[i] < 0)
-                        cache.InternalTemps[i] = tempLookup.TryGetValue(cache.Tanks[i].Name, out double v) && v > 0
-                            ? v : cache.Tanks[i].BoilingPointK;
+                    double maxLiftKW = cache.CoolerInputKW * cop;
+                    double wantedLiftKW = Math.Min(maxLiftKW, totalCoolableKW);
+                    double wantedInputKW = wantedLiftKW / cop;
+                    double ecAvail = availableResources.TryGetValue("ElectricCharge", out double ev) ? ev : 0d;
+                    double requestedEC = wantedInputKW * elapsed_s;
+                    double scale = requestedEC > 0d ? Math.Min(1d, ecAvail / requestedEC) : 0d;
+                    if (scale < 0d) scale = 0d;
+                    double actualInputKW = wantedInputKW * scale;
+                    double actualLiftKW = wantedLiftKW * scale;
+                    if (actualInputKW > 0d)
+                        resourceChangeRequest.Add(new KeyValuePair<string, double>("ElectricCharge", -actualInputKW));
+                    if (actualLiftKW > 0d)
+                        liftFrac = actualLiftKW / totalCoolableKW;
                 }
             }
 
+            return liftFrac;
+        }
+
+        private static bool ApplyBackgroundTankFlux(Dictionary<string, double> availableResources, List<KeyValuePair<string, double>> resourceChangeRequest, double elapsed_s, BgBoiloffCache cache, double liftFrac)
+        {
             bool anyRequest = false;
             for (int i = 0; i < cache.Tanks.Length; i++)
             {
                 BgTankEntry entry = cache.Tanks[i];
                 double internalTemp = cache.InternalTemps[i];
+                double Q_kW = cache.FluxScratch[i];
 
-                double Q_kW;
-                if (entry.IsDewar)
-                {
-                    Q_kW = GetDewarTransferRate(vesselTemp, internalTemp, entry.TankAreaM2) * 0.001;
-                    if (Q_kW == 0) continue;
-                }
-                else if (cache.MliLayers > 0 && entry.TankAreaM2 > 0)
-                {
-                    Q_kW = GetMLITransferRate(vesselTemp, internalTemp, cache.MliLayers) * entry.TankAreaM2 * 0.001;
-                    if (Q_kW == 0) continue;
-                }
-                else if (entry.ConductWPerK > 0)
-                {
-                    double deltaTemp = vesselTemp - internalTemp;
-                    if (deltaTemp == 0) continue;
-                    Q_kW = entry.ConductWPerK * deltaTemp * 0.001;
-                }
-                else continue;
+                if (Q_kW > 0d && internalTemp >= entry.BoilingPointK && liftFrac > 0d)
+                    Q_kW -= Q_kW * liftFrac;
+
+                if (Q_kW == 0d) continue;
 
                 if (internalTemp < entry.BoilingPointK)
                 {
@@ -689,14 +904,18 @@ namespace RealFuels.Tanks
                 }
                 else if (Q_kW > 0)
                 {
-                    // At boiling point: all flux drives boiloff
+                    // At boiling point: residual flux drives boiloff
                     double rateKgS = Q_kW / entry.Vsp;
                     resourceChangeRequest.Add(new KeyValuePair<string, double>(entry.Name, -rateKgS / entry.Density));
                     anyRequest = true;
                 }
             }
 
-            // Persist updated internalTemps so they survive cache invalidation and vessel reload
+            return anyRequest;
+        }
+
+        private static void PersistBackgroundTankTemps(ProtoPartModuleSnapshot proto_module, BgBoiloffCache cache)
+        {
             foreach (ConfigNode tankNode in proto_module.moduleValues.GetNodes("TANK"))
             {
                 string tName = tankNode.GetValue("name");
@@ -711,50 +930,6 @@ namespace RealFuels.Tanks
                     }
                 }
             }
-
-            proto_module.moduleValues.SetValue("bgBoiloffLastUpdate",
-                Planetarium.GetUniversalTime().ToString(CultureInfo.InvariantCulture));
-
-            return anyRequest ? Localizer.GetStringByTag("#RF_FuelTankRF_kerbalismtips") : string.Empty;
-        }
-
-        private static BgBoiloffCache BuildBgBoiloffCache(string data, int mliLayers)
-        {
-            var tanks = new List<BgTankEntry>();
-
-            foreach (string entry in data.Split(';'))
-            {
-                if (string.IsNullOrEmpty(entry)) continue;
-                string[] split = entry.Split(',');
-                if (split.Length != 7) continue;
-
-                string resourceName = split[0];
-                if (!double.TryParse(split[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double boilingPointK)) continue;
-                if (!double.TryParse(split[2], NumberStyles.Float, CultureInfo.InvariantCulture, out double tankAreaM2)) continue;
-                if (!double.TryParse(split[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double conductWPerK)) continue;
-                if (!int.TryParse(split[4], out int isDewarInt)) continue;
-                if (!double.TryParse(split[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double hsp)) continue;
-                if (!double.TryParse(split[6], NumberStyles.Float, CultureInfo.InvariantCulture, out double structThermalMassKJ)) continue;
-
-                PartResourceDefinition resDef = PartResourceLibrary.Instance.GetDefinition(resourceName);
-                if (resDef == null || resDef.density <= 0d) continue;
-                if (!MFSSettings.resourceVsps.TryGetValue(resourceName, out double vsp) || vsp <= 0) continue;
-
-                tanks.Add(new BgTankEntry
-                {
-                    Name                = resourceName,
-                    Vsp                 = vsp,
-                    Density             = resDef.density,
-                    BoilingPointK       = boilingPointK,
-                    TankAreaM2          = tankAreaM2,
-                    ConductWPerK        = conductWPerK,
-                    IsDewar             = isDewarInt != 0,
-                    Hsp                 = hsp,
-                    StructThermalMassKJ = structThermalMassKJ,
-                });
-            }
-
-            return new BgBoiloffCache(data, mliLayers, tanks.ToArray());
         }
 
         /// <summary>
