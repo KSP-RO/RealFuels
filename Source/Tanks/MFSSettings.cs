@@ -14,7 +14,6 @@ namespace RealFuels
         public static bool partUtilizationTweakable = false;
         public static string unitLabel = "u";
         public static bool basemassUseTotalVolume = false;
-        public static double radiatorMinTempMult = 0.99d;
 
         // Move all possible tank upgrades into the preview list in OnStart
         // It requires an external mod to be responsible for calling the Validate() method.
@@ -99,7 +98,6 @@ namespace RealFuels
                 node.TryGetValue("partUtilizationTweakable", ref partUtilizationTweakable);
                 node.TryGetValue("unitLabel", ref unitLabel);
                 node.TryGetValue("basemassUseTotalVolume", ref basemassUseTotalVolume);
-                node.TryGetValue("radiatorMinTempMult", ref radiatorMinTempMult);
                 node.TryGetValue("previewAllLockedTypes", ref previewAllLockedTypes);
 
                 ignoreFuelsForFill.Clear();
