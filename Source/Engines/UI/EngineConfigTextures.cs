@@ -49,6 +49,12 @@ namespace RealFuels
         public Texture2D ChartBlueLine { get; private set; }
         public Texture2D ChartTooltipBg { get; private set; }
         public Texture2D InfoPanelBg { get; private set; }
+        // Text field background — visible against the dark panel without being harsh.
+        public Texture2D InputFieldBg { get; private set; }
+        // Slider track background — slightly lighter than the panel so the track is visible.
+        public Texture2D SliderTrackBg { get; private set; }
+        // Slider thumb — mid-blue-gray, bright enough to contrast with both track and panel.
+        public Texture2D SliderThumbBg { get; private set; }
 
         private bool _initialized = false;
         private bool _disposed = false;
@@ -63,7 +69,7 @@ namespace RealFuels
             if (_initialized) return;
 
             // Table textures
-            RowHover = CreateColorPixel(new Color(1f, 1f, 1f, 0.05f));
+            RowHover = CreateColorPixel(new Color(0.3f, 0.6f, 1.0f, 0.18f));
             RowCurrent = CreateColorPixel(new Color(0.3f, 0.6f, 1.0f, 0.20f));
             RowLocked = CreateColorPixel(new Color(1f, 0.5f, 0.3f, 0.15f));
             ZebraStripe = CreateColorPixel(new Color(0.05f, 0.05f, 0.05f, 0.3f));
@@ -91,6 +97,9 @@ namespace RealFuels
             ChartBlueLine = CreateColorPixel(new Color(0.5f, 0.85f, 1.0f, 1f));
             ChartTooltipBg = CreateColorPixel(new Color(0.1f, 0.1f, 0.1f, 0.95f));
             InfoPanelBg = CreateColorPixel(new Color(0.12f, 0.12f, 0.12f, 0.9f));
+            InputFieldBg   = CreateColorPixel(new Color(0.28f, 0.30f, 0.35f, 1f));
+            SliderTrackBg  = CreateColorPixel(new Color(0.32f, 0.34f, 0.40f, 1f));
+            SliderThumbBg  = CreateColorPixel(new Color(0.65f, 0.70f, 0.80f, 1f));
 
             _initialized = true;
         }
@@ -150,6 +159,9 @@ namespace RealFuels
             DestroyTexture(ChartBlueLine);
             DestroyTexture(ChartTooltipBg);
             DestroyTexture(InfoPanelBg);
+            DestroyTexture(InputFieldBg);
+            DestroyTexture(SliderTrackBg);
+            DestroyTexture(SliderThumbBg);
 
             // Null them out
             RowHover = RowCurrent = RowLocked = ZebraStripe = ColumnSeparator = null;
@@ -157,7 +169,7 @@ namespace RealFuels
             ChartRedZone = ChartDarkRedZone = ChartStartupZone = ChartLine = null;
             ChartMarkerBlue = ChartMarkerGreen = ChartMarkerYellow = ChartMarkerOrange = ChartMarkerDarkRed = null;
             ChartSeparator = ChartHoverLine = ChartOrangeLine = ChartGreenLine = ChartBlueLine = null;
-            ChartTooltipBg = InfoPanelBg = null;
+            ChartTooltipBg = InfoPanelBg = InputFieldBg = SliderTrackBg = SliderThumbBg = null;
 
             _disposed = true;
         }

@@ -28,17 +28,22 @@ namespace RealFuels
         private static int lastConfigCount = 0;
         private static bool lastCompactView = false;
         private static bool lastHasChart = false;
-        private static bool lastShowBottomSection = true;
+        private static bool lastShowSimPanel   = true;
+        private static bool lastShowChartPanel = false;
+        private static float lastFontScale = 1.0f;
         private string myToolTip = string.Empty;
         private int counterTT;
         private bool editorLocked = false;
 
         private Vector2 configScrollPos = Vector2.zero;
         private GUIContent configGuiContent;
-        private static bool compactView = true; // Default to compact view
+        private static bool compactView = true;    // Default to compact view
         private bool useLogScaleX = false;
         private bool useLogScaleY = false;
-        private static bool showBottomSection = true;
+
+        // Three-panel visibility flags (replaces the old single showBottomSection toggle)
+        private static bool showSimPanel   = true;   // Panel 2: reliability stats + sim controls
+        private static bool showChartPanel = false;  // Panel 3: chart only (hidden by default)
 
         // Column visibility customization
         private bool showColumnMenu = false;
@@ -46,6 +51,20 @@ namespace RealFuels
         private static bool[] columnsVisibleFull = new bool[18];
         private static bool[] columnsVisibleCompact = new bool[18];
         private static bool columnVisibilityInitialized = false;
+
+        // Settings persistence
+        private static readonly string SettingsPath = System.IO.Path.Combine(
+            KSPUtil.ApplicationRootPath, "GameData", "RealFuels", "PluginData", "EngineConfigGUISettings.cfg");
+        private static bool _settingsLoaded = false;
+        private static bool _windowPositionRestored = false;
+        private static bool _positionDirty = false;
+        private static int _positionDirtyFrame = 0;
+
+        // Font scaling (item 1)
+        private static float _fontScale = 1.0f;
+
+        // Burn-time display mode: false = seconds only, true = m:ss (item 9)
+        private static bool _showTimeAsMinSec = false;
 
         // Simulation controls
         private bool useSimulatedData = false;
@@ -65,6 +84,16 @@ namespace RealFuels
         private float[] ConfigColumnWidths = new float[18];
 
         private int toolTipWidth => EditorLogic.fetch.editorScreen == EditorScreen.Parts ? 320 : 380;
+
+        // Window IDs — XOR with a RealFuels-specific magic constant so our windows never collide
+        // with windows from other mods (e.g. RP-1's "Show Part Info") that also derive their IDs
+        // from part.persistentId ± small offsets.  A collision makes Unity store layout positions
+        // from the wrong window and produces the "Getting control N's position in a group with only
+        // M controls when doing repaint" spam.
+        private const int RFWindowMagic = unchecked((int)0x52465547); // "RFUG" — RealFuels Unique GUID
+        private int MainWindowId    => unchecked((int)_module.part.persistentId) ^ RFWindowMagic;
+        private int ColumnMenuId    => (unchecked((int)_module.part.persistentId) ^ RFWindowMagic) + 1;
+        private int TooltipWindowId => (unchecked((int)_module.part.persistentId) ^ RFWindowMagic) + 2;
 
         public EngineConfigGUI(ModuleEngineConfigsBase module)
         {
@@ -98,7 +127,7 @@ namespace RealFuels
                 return;
 
             bool inPartsEditor = EditorLogic.fetch.editorScreen == EditorScreen.Parts;
-            if (!(_module.showRFGUI && inPartsEditor) && !(EditorLogic.fetch.editorScreen == EditorScreen.Actions && EditorActionGroups.Instance.GetSelectedParts().Contains(_module.part)))
+            if (!(_module.showRFGUI && inPartsEditor))
             {
                 EditorUnlock();
                 return;
@@ -107,7 +136,11 @@ namespace RealFuels
             if (inPartsEditor && _module.part.symmetryCounterparts.FirstOrDefault(p => p.persistentId < _module.part.persistentId) is Part)
                 return;
 
-            if (guiWindowRect.width == 0)
+            // Load saved settings (column visibility, window position, view flags) on the
+            // first OnGUI call.  Must run before any static state is read below.
+            EnsureSettings();
+
+            if (guiWindowRect.width == 0 && !_windowPositionRestored)
             {
                 int posAdd = inPartsEditor ? 256 : 0;
                 int posMult = (_module.offsetGUIPos == -1) ? (_module.part.Modules.Contains("ModuleFuelTanks") ? 1 : 0) : _module.offsetGUIPos;
@@ -121,7 +154,9 @@ namespace RealFuels
                                || currentConfigCount != lastConfigCount
                                || compactView != lastCompactView
                                || currentHasChart != lastHasChart
-                               || showBottomSection != lastShowBottomSection;
+                               || showSimPanel    != lastShowSimPanel
+                               || showChartPanel  != lastShowChartPanel
+                               || !Mathf.Approximately(_fontScale, lastFontScale);
 
             if (contentChanged)
             {
@@ -134,7 +169,9 @@ namespace RealFuels
                 lastConfigCount = currentConfigCount;
                 lastCompactView = compactView;
                 lastHasChart = currentHasChart;
-                lastShowBottomSection = showBottomSection;
+                lastShowSimPanel   = showSimPanel;
+                lastShowChartPanel = showChartPanel;
+                lastFontScale = _fontScale;
             }
 
             mousePos = Input.mousePosition;
@@ -146,76 +183,102 @@ namespace RealFuels
 
             myToolTip = myToolTip.Trim();
 
-            guiWindowRect = ClickThruBlocker.GUILayoutWindow(unchecked((int)_module.part.persistentId), guiWindowRect, EngineManagerGUI, Localizer.Format("#RF_Engine_WindowTitle", _module.part.partInfo.title), Styles.styleEditorPanel);
+            Rect prevWindowRect = guiWindowRect;
+            guiWindowRect = ClickThruBlocker.GUILayoutWindow(MainWindowId, guiWindowRect, EngineManagerGUI, "", Styles.styleEditorPanel);
+            if (guiWindowRect.x != prevWindowRect.x || guiWindowRect.y != prevWindowRect.y)
+            {
+                _positionDirty = true;
+                _positionDirtyFrame = Time.frameCount;
+            }
 
             if (showColumnMenu)
             {
-                columnMenuRect = ClickThruBlocker.GUIWindow(unchecked((int)_module.part.persistentId) + 1, columnMenuRect, DrawColumnMenuWindow, "Column Settings", Styles.styleEditorPanel);
+                // Keep the Settings window dimensions in sync with the current font scale so
+                // the scaled text always has room to breathe.
+                columnMenuRect.width  = Mathf.Max(200, Mathf.RoundToInt(250 * _fontScale));
+                columnMenuRect.height = Mathf.Max(300, Mathf.RoundToInt(500 * _fontScale));
+
+                Rect prevMenuRect = columnMenuRect;
+                columnMenuRect = ClickThruBlocker.GUIWindow(ColumnMenuId, columnMenuRect, DrawColumnMenuWindow, "", Styles.styleEditorPanel);
+                if (columnMenuRect.x != prevMenuRect.x || columnMenuRect.y != prevMenuRect.y)
+                {
+                    _positionDirty = true;
+                    _positionDirtyFrame = Time.frameCount;
+                }
             }
 
-            // Draw tooltip AFTER all windows to ensure it appears on top
+            // Debounced position save: write to disk ~0.5 s after the last drag movement.
+            if (_positionDirty && Time.frameCount > _positionDirtyFrame + 30)
+            {
+                _positionDirty = false;
+                SaveSettings();
+            }
+
+            // Draw tooltip AFTER all windows.
+            // IMPORTANT: GUI.Box drawn outside any window renders BEHIND all GUI.Window calls in
+            // Unity IMGUI.  Wrapping in GUI.Window guarantees it renders on top because Unity
+            // composites windows in call order (last = topmost).
             if (!string.IsNullOrEmpty(myToolTip))
             {
-                // Check if this is a button tooltip (marked with [BTN])
                 bool isButtonTooltip = myToolTip.StartsWith("[BTN]");
                 string displayText = isButtonTooltip ? myToolTip.Substring(5) : myToolTip;
 
+                // Scale tooltip font with the rest of the UI (base 13 px).
                 var tooltipStyle = new GUIStyle(EngineConfigStyles.ChartTooltip)
                 {
-                    fontSize = 13,
-                    wordWrap = false,  // Disable word wrap for button tooltips to get natural width
+                    fontSize = Mathf.Max(9, Mathf.RoundToInt(13 * _fontScale)),
+                    wordWrap = false,
                     normal = { background = _textures.ChartTooltipBg }
                 };
 
                 var content = new GUIContent(displayText);
 
-                // Calculate dynamic width based on content
-                float actualTooltipWidth;
-                float tooltipHeight;
-
+                float actualTooltipWidth, tooltipHeight;
                 if (isButtonTooltip)
                 {
-                    // For button tooltips: use natural width of content with some padding
-                    Vector2 contentSize = tooltipStyle.CalcSize(content);
-                    actualTooltipWidth = Mathf.Min(contentSize.x + 20, 400); // Max 400px width
-                    tooltipStyle.wordWrap = actualTooltipWidth >= 400; // Enable wrap only if we hit max width
+                    Vector2 sz = tooltipStyle.CalcSize(content);
+                    actualTooltipWidth = Mathf.Min(sz.x + 20, 400);
+                    tooltipStyle.wordWrap = actualTooltipWidth >= 400;
                     tooltipHeight = tooltipStyle.CalcHeight(content, actualTooltipWidth);
                 }
                 else
                 {
-                    // For row tooltips: use fixed width with word wrap
                     tooltipStyle.wordWrap = true;
                     actualTooltipWidth = toolTipWidth;
                     tooltipHeight = tooltipStyle.CalcHeight(content, actualTooltipWidth);
                 }
 
-                // Position button tooltips near cursor, row tooltips at fixed offset
                 float tooltipX, tooltipY;
                 if (isButtonTooltip)
                 {
-                    // Position near cursor: to the right and slightly down
                     tooltipX = mousePos.x + 20;
                     tooltipY = mousePos.y + 10;
-
-                    // Keep tooltip on screen
                     if (tooltipX + actualTooltipWidth > Screen.width)
-                        tooltipX = mousePos.x - actualTooltipWidth - 10; // Show to the left instead
+                        tooltipX = mousePos.x - actualTooltipWidth - 10;
                     if (tooltipY + tooltipHeight > Screen.height)
                         tooltipY = Screen.height - tooltipHeight - 10;
                 }
                 else
                 {
-                    // Original positioning for row tooltips
                     int offset = inPartsEditor ? -330 : 440;
                     tooltipX = guiWindowRect.xMin + offset;
                     tooltipY = mousePos.y - 5;
                 }
 
-                // Draw tooltip with maximum priority depth (most negative = on top)
-                int oldDepth = GUI.depth;
-                GUI.depth = -100000; // Use very negative depth to ensure it's on top of everything
-                GUI.Box(new Rect(tooltipX, tooltipY, actualTooltipWidth, tooltipHeight), displayText, tooltipStyle);
-                GUI.depth = oldDepth;
+                // Capture locals so the lambda is stable across layout/repaint events.
+                string   ttText  = displayText;
+                GUIStyle ttStyle = tooltipStyle;
+                float    ttW     = actualTooltipWidth;
+                float    ttH     = tooltipHeight;
+                // Use ClickThruBlocker so the tooltip's uGUI overlay panel is present.
+                // Without it, EventSystem.current.IsPointerOverGameObject() returns false
+                // over the tooltip, making EditorActionPartSelector.LateUpdate() think the
+                // mouse is over open space and allowing click-through to deselect the part.
+                ClickThruBlocker.GUIWindow(
+                    TooltipWindowId,
+                    new Rect(tooltipX, tooltipY, ttW, ttH),
+                    _ => GUI.Box(new Rect(0, 0, ttW, ttH), ttText, ttStyle),
+                    GUIContent.none, GUIStyle.none);
             }
         }
 
@@ -232,35 +295,68 @@ namespace RealFuels
             EnsureTexturesAndStyles();
 
             GUILayout.BeginVertical(GUILayout.ExpandHeight(false));
-            GUILayout.Space(12); // Increased spacing to prevent overlap with window title
+            GUILayout.Space(4);
 
+            // Item 6: Composite description — "Configure [part]: [description]"
             GUILayout.BeginHorizontal();
-            GUILayout.Label(_module.EditorDescription, EngineConfigStyles.DescriptionLabel);
+            string descText = $"<b>Configure {_module.part.partInfo.title}:</b>  <color=#B4B4B4>{_module.EditorDescription}</color>";
+            GUILayout.Label(descText, EngineConfigStyles.DescriptionLabel);
             GUILayout.FlexibleSpace();
-            if (GUILayout.Button(compactView ? "Full View" : "Compact View", GUILayout.Width(100)))
+
+            GUIStyle hdrBtn = EngineConfigStyles.CompactButton;
+
+            // All header button widths scale with font so they never overflow at high scales.
+            // Base values are tuned for 1.0× — multiplying by _fontScale keeps them proportional.
+            int w_view    = Mathf.RoundToInt(58  * _fontScale);
+            int w_timefmt = Mathf.RoundToInt(48  * _fontScale);
+            int w_sim     = Mathf.RoundToInt(68  * _fontScale);
+            int w_chart   = Mathf.RoundToInt(78  * _fontScale);
+            int w_heatmap = Mathf.RoundToInt(62  * _fontScale);
+            int w_settings= Mathf.RoundToInt(65  * _fontScale);
+
+            // View toggle — "Full" / "Compact"
+            if (GUILayout.Button(compactView ? "Full" : "Compact", hdrBtn, GUILayout.Width(w_view)))
             {
                 compactView = !compactView;
+                SaveSettings();
             }
-            if (GUILayout.Button(showBottomSection ? "Hide Chart" : "Show Chart", GUILayout.Width(85)))
+
+            // Burn-time format toggle
+            if (GUILayout.Button(_showTimeAsMinSec ? "m:ss" : "Sec", hdrBtn, GUILayout.Width(w_timefmt)))
             {
-                showBottomSection = !showBottomSection;
+                _showTimeAsMinSec = !_showTimeAsMinSec;
+                SaveSettings();
             }
-            // Heatmap toggle button (only show if chart is visible and has all required reliability data)
-            if (showBottomSection && CanShowChart(_module.config))
+
+            // Three-panel toggles
+            bool canChart = CanShowChart(_module.config);
+            if (GUILayout.Button(showSimPanel ? "Hide Sim" : "Show Sim", hdrBtn, GUILayout.Width(w_sim)))
             {
-                bool currentHeatmapMode = Chart.UseHeatmapMode;
-                if (GUILayout.Button(currentHeatmapMode ? "Line Chart" : "Heatmap", GUILayout.Width(85)))
+                showSimPanel = !showSimPanel;
+                SaveSettings();
+            }
+            if (canChart)
+            {
+                if (GUILayout.Button(showChartPanel ? "Hide Chart" : "Show Chart", hdrBtn, GUILayout.Width(w_chart)))
                 {
-                    Chart.UseHeatmapMode = !currentHeatmapMode;
+                    showChartPanel = !showChartPanel;
+                    SaveSettings();
+                }
+                if (showChartPanel)
+                {
+                    bool currentHeatmapMode = Chart.UseHeatmapMode;
+                    if (GUILayout.Button(currentHeatmapMode ? "Line" : "Heatmap", hdrBtn, GUILayout.Width(w_heatmap)))
+                        Chart.UseHeatmapMode = !currentHeatmapMode;
                 }
             }
-            if (GUILayout.Button("Settings", GUILayout.Width(70)))
-            {
+
+            if (GUILayout.Button("Settings", hdrBtn, GUILayout.Width(w_settings)))
                 showColumnMenu = !showColumnMenu;
-            }
-            // Close button
+
+            // Close button — fixed size (single glyph, no text scale needed)
             if (GUILayout.Button("✕", EngineConfigStyles.CloseButton, GUILayout.Width(25)))
             {
+                SaveSettings();
                 _module.CloseWindow();
                 return;
             }
@@ -269,54 +365,64 @@ namespace RealFuels
             GUILayout.Space(7);
             DrawConfigSelectors(_module.FilteredDisplayConfigs(false));
 
-            if (showBottomSection)
+            // ── Panel 2: Simulation panel (reliability stats + simulation controls) ──
+            if (showSimPanel)
             {
-                if (CanShowChart(_module.config))
+                bool hasChart = CanShowChart(_module.config);
+                if (hasChart)
                 {
                     GUILayout.Space(6);
 
-                    Chart.UseLogScaleX = useLogScaleX;
-                    Chart.UseLogScaleY = useLogScaleY;
-                    Chart.UseSimulatedData = useSimulatedData;
-                    Chart.SimulatedDataValue = simulatedDataValue;
-                    Chart.ClusterSize = clusterSize;
-                    Chart.ClusterSizeInput = clusterSizeInput;
-                    Chart.DataValueInput = dataValueInput;
-                    Chart.SliderTimeInput = sliderTimeInput;
-                    Chart.IncludeIgnition = includeIgnition;
+                    // Push current state into the chart object before drawing
+                    Chart.UseLogScaleX          = useLogScaleX;
+                    Chart.UseLogScaleY          = useLogScaleY;
+                    Chart.UseSimulatedData      = useSimulatedData;
+                    Chart.SimulatedDataValue    = simulatedDataValue;
+                    Chart.ClusterSize           = clusterSize;
+                    Chart.ClusterSizeInput      = clusterSizeInput;
+                    Chart.DataValueInput        = dataValueInput;
+                    Chart.SliderTimeInput       = sliderTimeInput;
+                    Chart.IncludeIgnition       = includeIgnition;
                     Chart.SliderModeIsPercentage = sliderModeIsPercentage;
-                    Chart.SliderPercentage = sliderPercentage;
+                    Chart.SliderPercentage      = sliderPercentage;
                     Chart.SliderPercentageInput = sliderPercentageInput;
 
-                    Chart.Draw(_module.config, guiWindowRect.width - 10, 375, ref sliderTime);
+                    // Inform the info panel about the active time format (item 9).
+                    EngineConfigChart.ShowTimeAsMinSec = _showTimeAsMinSec;
 
-                    useLogScaleX = Chart.UseLogScaleX;
-                    useLogScaleY = Chart.UseLogScaleY;
-                    useSimulatedData = Chart.UseSimulatedData;
-                    simulatedDataValue = Chart.SimulatedDataValue;
-                    clusterSize = Chart.ClusterSize;
-                    clusterSizeInput = Chart.ClusterSizeInput;
-                    dataValueInput = Chart.DataValueInput;
-                    sliderTimeInput = Chart.SliderTimeInput;
-                    includeIgnition = Chart.IncludeIgnition;
+                    // Panel height: start offset (4px) + DU content (132×s) + bottom margin (8px).
+                    // DU section ends at ignY(108s) + ignH(24s) = 132s from its start y.
+                    // Sim section with step=28 ends at 4×28s + btnH(20s) = 132s from its start y.
+                    // Both sections fit in 144s with an 8px margin at the bottom.
+                    int infoPanelH = Mathf.Max(140, Mathf.RoundToInt(144 * _fontScale));
+
+                    // Info panel only — chart section hidden (full-width stats + sim controls)
+                    Chart.Draw(_module.config, guiWindowRect.width - 10, infoPanelH, ref sliderTime,
+                               showChartArea: false, showInfoArea: true);
+
+                    // Pull updated state back from the chart object
+                    useLogScaleX           = Chart.UseLogScaleX;
+                    useLogScaleY           = Chart.UseLogScaleY;
+                    useSimulatedData       = Chart.UseSimulatedData;
+                    simulatedDataValue     = Chart.SimulatedDataValue;
+                    clusterSize            = Chart.ClusterSize;
+                    clusterSizeInput       = Chart.ClusterSizeInput;
+                    dataValueInput         = Chart.DataValueInput;
+                    sliderTimeInput        = Chart.SliderTimeInput;
+                    includeIgnition        = Chart.IncludeIgnition;
                     sliderModeIsPercentage = Chart.SliderModeIsPercentage;
-                    sliderPercentage = Chart.SliderPercentage;
-                    sliderPercentageInput = Chart.SliderPercentageInput;
+                    sliderPercentage       = Chart.SliderPercentage;
+                    sliderPercentageInput  = Chart.SliderPercentageInput;
 
                     GUILayout.Space(6);
-
-                    // Compact TL selector sits below the chart when both are visible
                     _techLevels.DrawTechLevelSelector();
                 }
                 else if (_module.config != null && _module.techLevel != -1)
                 {
-                    // No reliability chart but the engine has tech levels: show the
-                    // expanded badge-track panel (includes its own +/− buttons).
                     _techLevels.DrawTechLevelPanel(guiWindowRect.width - 10);
                 }
                 else if (_module.config != null)
                 {
-                    // No chart and no tech levels — plain informational message.
                     GUILayout.Space(10);
                     string noChartMsg = (_module.type != null && _module.type.Contains("ModuleRCS"))
                         ? "RCS thrusters do not use burn-cycle reliability data."
@@ -326,7 +432,47 @@ namespace RealFuels
                 }
             }
 
-            GUILayout.Space(4);
+            // ── Panel 3: Chart panel (line/heatmap chart, full width) ──────────
+            if (showChartPanel && CanShowChart(_module.config))
+            {
+                GUILayout.Space(6);
+
+                Chart.UseLogScaleX          = useLogScaleX;
+                Chart.UseLogScaleY          = useLogScaleY;
+                Chart.UseSimulatedData      = useSimulatedData;
+                Chart.SimulatedDataValue    = simulatedDataValue;
+                Chart.ClusterSize           = clusterSize;
+                Chart.ClusterSizeInput      = clusterSizeInput;
+                Chart.DataValueInput        = dataValueInput;
+                Chart.SliderTimeInput       = sliderTimeInput;
+                Chart.IncludeIgnition       = includeIgnition;
+                Chart.SliderModeIsPercentage = sliderModeIsPercentage;
+                Chart.SliderPercentage      = sliderPercentage;
+                Chart.SliderPercentageInput = sliderPercentageInput;
+
+                EngineConfigChart.ShowTimeAsMinSec = _showTimeAsMinSec;
+
+                // Chart only — info panel hidden (full-width chart)
+                Chart.Draw(_module.config, guiWindowRect.width - 10, 375, ref sliderTime,
+                           showChartArea: true, showInfoArea: false);
+
+                useLogScaleX           = Chart.UseLogScaleX;
+                useLogScaleY           = Chart.UseLogScaleY;
+                useSimulatedData       = Chart.UseSimulatedData;
+                simulatedDataValue     = Chart.SimulatedDataValue;
+                clusterSize            = Chart.ClusterSize;
+                clusterSizeInput       = Chart.ClusterSizeInput;
+                dataValueInput         = Chart.DataValueInput;
+                sliderTimeInput        = Chart.SliderTimeInput;
+                includeIgnition        = Chart.IncludeIgnition;
+                sliderModeIsPercentage = Chart.SliderModeIsPercentage;
+                sliderPercentage       = Chart.SliderPercentage;
+                sliderPercentageInput  = Chart.SliderPercentageInput;
+
+                GUILayout.Space(6);
+            }
+
+            GUILayout.Space(8);
             GUILayout.EndVertical();
 
             if (!myToolTip.Equals(string.Empty) && GUI.tooltip.Equals(string.Empty))
@@ -352,14 +498,33 @@ namespace RealFuels
 
         private void DrawColumnMenuWindow(int windowID)
         {
-            // Close button in top right
-            if (GUI.Button(new Rect(columnMenuRect.width - 29, 4, 25, 20), "✕", EngineConfigStyles.CloseButton))
+            float s = _fontScale;
+            int closeW  = Mathf.RoundToInt(25 * s);
+            int closeH  = Mathf.RoundToInt(22 * s);
+            int titleH  = Mathf.RoundToInt(22 * s);
+            // Header strip is the taller of the title or the close button, plus 6 px breathing room.
+            int headerH = Mathf.Max(closeH, titleH) + 6;
+
+            // Title label — styled like the main window's InfoSection to match the look.
+            var titleStyle = new GUIStyle(EngineConfigStyles.InfoSection)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                padding   = new RectOffset(8, 0, 0, 0)
+            };
+            GUI.Label(new Rect(0, 2, columnMenuRect.width - closeW - 12, titleH + 2), "Column Settings", titleStyle);
+
+            // Close button: right-aligned with 4 px margin from the window edge.
+            if (GUI.Button(new Rect(columnMenuRect.width - closeW - 4, 4, closeW, closeH), "✕", EngineConfigStyles.CloseButton))
             {
                 showColumnMenu = false;
                 return;
             }
 
-            DrawColumnMenu(new Rect(0, 20, columnMenuRect.width, columnMenuRect.height - 20));
+            // Thin separator under the header
+            if (Event.current.type == EventType.Repaint)
+                GUI.DrawTexture(new Rect(0, headerH - 1, columnMenuRect.width, 1), _textures.ChartSeparator);
+
+            DrawColumnMenu(new Rect(0, headerH, columnMenuRect.width, columnMenuRect.height - headerH));
             GUI.DragWindow(); // Allow dragging from anywhere in the window
         }
 
@@ -393,13 +558,14 @@ namespace RealFuels
             float requiredWindowWidth = totalWidth + 10f;
             const float minWindowWidth = 900f;
             const float minWindowWidthCompact = 550f;
-            // Only enforce full minimum width when bottom section is visible (chart needs the width)
-            // Use smaller minimum for compact view
-            guiWindowRect.width = showBottomSection
+            // Enforce full minimum width only when the chart panel is visible (chart needs the room).
+            // The sim panel alone is narrower — use the compact minimum for that case.
+            guiWindowRect.width = showChartPanel
                 ? Mathf.Max(requiredWindowWidth, minWindowWidth)
                 : Mathf.Max(requiredWindowWidth, minWindowWidthCompact);
 
-            Rect headerRowRect = GUILayoutUtility.GetRect(GUIContent.none, GUI.skin.label, GUILayout.Height(45));
+            // Reduced height now that headers are horizontal (no rotation needed).
+            Rect headerRowRect = GUILayoutUtility.GetRect(GUIContent.none, GUI.skin.label, GUILayout.Height(24));
             float headerStartX = headerRowRect.x;
             DrawHeaderRow(new Rect(headerStartX, headerRowRect.y, totalWidth, headerRowRect.height));
 
@@ -460,42 +626,27 @@ namespace RealFuels
         private void DrawHeaderRow(Rect headerRect)
         {
             float currentX = headerRect.x;
-            
-            // Dynamic header and tooltip for survival column based on mode
-            string survivalHeader;
-            string survivalTooltip;
 
-            if (sliderModeIsPercentage)
-            {
-                survivalHeader = Localizer.Format("#RF_Engine_ColTimeAtSurvival", $"{sliderPercentage:F1}");
-                survivalTooltip = Localizer.Format("#RF_Engine_TipTimeAtSurvival", $"{sliderPercentage:F1}");
-            }
-            else
-            {
-                survivalHeader = Localizer.Format("#RF_Engine_ColSurvivalAtTime", ChartMath.FormatTime(sliderTime));
-                survivalTooltip = Localizer.Format("#RF_Engine_TipSurvivalAtTime", ChartMath.FormatTime(sliderTime));
-            }
+            // Abbreviated display labels shown directly in the header row.
+            // Full descriptive text is supplied as the tooltip (shown via the
+            // [BTN]-prefixed tooltip system so it appears near the cursor).
+            string survivalShort = sliderModeIsPercentage
+                ? $"T@{sliderPercentage:F0}%"
+                : $"Surv@{FormatBurnTimeDisplay(sliderTime)}";
 
-            string[] headers = {
-                Localizer.GetStringByTag("#RF_Engine_ColName"),
-                Localizer.GetStringByTag("#RF_EngineRF_Thrust"),
-                Localizer.GetStringByTag("#RF_Engine_ColMinThrottle"),
-                Localizer.GetStringByTag("#RF_Engine_Isp"),
-                Localizer.GetStringByTag("#RF_Engine_Enginemass"),
-                Localizer.GetStringByTag("#RF_Engine_TLTInfo_Gimbal"),
-                Localizer.GetStringByTag("#RF_EngineRF_Ignitions"),
-                Localizer.GetStringByTag("#RF_Engine_ullage"),
-                Localizer.GetStringByTag("#RF_Engine_pressureFed"),
-                Localizer.GetStringByTag("#RF_Engine_ColRatedBurnTime"),
-                Localizer.GetStringByTag("#RF_Engine_ColTestedBurnTime"),
-                Localizer.GetStringByTag("#RF_Engine_ColIgnReliability"),
-                Localizer.GetStringByTag("#RF_Engine_ColBurnNoData"),
-                Localizer.GetStringByTag("#RF_Engine_ColBurnMaxData"),
-                survivalHeader,
-                Localizer.GetStringByTag("#RF_Engine_Requires"),
-                Localizer.GetStringByTag("#RF_Engine_ColExtraCost"),
-                ""
+            string survivalTooltip = sliderModeIsPercentage
+                ? Localizer.Format("#RF_Engine_TipTimeAtSurvival", $"{sliderPercentage:F1}")
+                : Localizer.Format("#RF_Engine_TipSurvivalAtTime", ChartMath.FormatTime(sliderTime));
+
+            // Short labels — full text is in the tooltip so nothing is lost.
+            string[] shortLabels = {
+                "Name", "Thrust", "Min%", "ISP", "Mass", "Gim",
+                "Igns", "Ullg", "PFed",
+                "Rated", "Tested", "Ignition %", "0-DU", "Max-DU",
+                survivalShort,
+                "Tech", "Cost", ""
             };
+
             string[] tooltips = {
                 Localizer.GetStringByTag("#RF_Engine_TipName"),
                 Localizer.GetStringByTag("#RF_Engine_TipThrust"),
@@ -517,11 +668,11 @@ namespace RealFuels
                 Localizer.GetStringByTag("#RF_Engine_TipActions")
             };
 
-            for (int i = 0; i < headers.Length; i++)
+            for (int i = 0; i < shortLabels.Length; i++)
             {
                 if (IsColumnVisible(i))
                 {
-                    DrawHeaderCell(new Rect(currentX, headerRect.y, ConfigColumnWidths[i], headerRect.height), headers[i], tooltips[i]);
+                    DrawHeaderCell(new Rect(currentX, headerRect.y, ConfigColumnWidths[i], headerRect.height), shortLabels[i], tooltips[i]);
                     currentX += ConfigColumnWidths[i];
                 }
             }
@@ -535,13 +686,11 @@ namespace RealFuels
             if (configGuiContent == null)
                 configGuiContent = new GUIContent();
             configGuiContent.text = text;
-            configGuiContent.tooltip = tooltip;
-            Matrix4x4 matrixBackup = GUI.matrix;
-            float offsetX = rect.width / 2f;
-            Vector2 pivot = new Vector2(rect.x + offsetX, rect.y + rect.height + 4f);
-            GUIUtility.RotateAroundPivot(-45f, pivot);
-            GUI.Label(new Rect(rect.x + offsetX, rect.y + rect.height - 22f, 140f, 24f), configGuiContent, headerStyle);
-            GUI.matrix = matrixBackup;
+            // Prefix with [BTN] so the tooltip appears near the cursor (not at the fixed row offset).
+            configGuiContent.tooltip = string.IsNullOrEmpty(tooltip) ? string.Empty : $"[BTN]{tooltip}";
+
+            // Simple horizontal label — no rotation matrix needed.
+            GUI.Label(new Rect(rect.x + 2, rect.y, rect.width - 2, rect.height), configGuiContent, headerStyle);
         }
 
         private void DrawConfigRow(Rect rowRect, ModuleEngineConfigsBase.ConfigRowDefinition row, bool isHovered, bool isLocked)
@@ -564,7 +713,12 @@ namespace RealFuels
             {
                 if (IsColumnVisible(index))
                 {
-                    GUI.Label(new Rect(currentX, rowRect.y, ConfigColumnWidths[index], rowRect.height), text, index == 0 ? primaryStyle : secondaryStyle);
+                    GUIStyle cellStyle = (index == 0)  ? primaryStyle
+                                       : (index == 15) ? EngineConfigStyles.TechCell
+                                       // Ignitions(6), Ullage(7), PFed(8): center-aligned boolean/symbol columns
+                                       : (index == 6 || index == 7 || index == 8) ? EngineConfigStyles.RowSecondaryCenter
+                                       : secondaryStyle;
+                    GUI.Label(new Rect(currentX, rowRect.y, ConfigColumnWidths[index], rowRect.height), text, cellStyle);
                     currentX += ConfigColumnWidths[index];
                 }
             };
@@ -576,8 +730,8 @@ namespace RealFuels
             drawCell(4, GetMassString(row.Node));
             drawCell(5, GetGimbalString(row.Node));
             drawCell(6, GetIgnitionsString(row.Node));
-            drawCell(7, GetBoolSymbol(row.Node, "ullage"));
-            drawCell(8, GetBoolSymbol(row.Node, "pressureFed"));
+            drawCell(7, GetUllageSymbol(row.Node));
+            drawCell(8, GetPressureFedSymbol(row.Node));
             drawCell(9, GetRatedBurnTimeString(row.Node));
             drawCell(10, GetTestedBurnTimeString(row.Node));
             drawCell(11, GetIgnitionReliabilityString(row.Node));
@@ -595,8 +749,6 @@ namespace RealFuels
 
         private void DrawActionCell(Rect rect, ConfigNode node, bool isSelected, Action apply)
         {
-            GUIStyle smallButtonStyle = GUI.skin.button;
-
             string configName = node.GetValue("name");
             bool canUse = EngineConfigTechLevels.CanConfig(node);
             bool unlocked = EngineConfigTechLevels.UnlockedConfig(node, _module.part);
@@ -605,9 +757,16 @@ namespace RealFuels
             if (cost <= 0 && !unlocked && canUse)
                 EntryCostManager.Instance.PurchaseConfig(configName, node.GetValue("techRequired"));
 
-            // Calculate button widths dynamically based on their labels
+            // Switch button style: standard KSP action button.
+            GUIStyle switchStyle = EngineConfigStyles.ActionButton;
+
             string switchLabel = isSelected ? "Active" : "Switch";
-            float switchWidth = smallButtonStyle.CalcSize(new GUIContent(switchLabel)).x + 10f; // Add padding
+            // Fix the switch button width to the wider of "Switch"/"Active" so the action
+            // column doesn't shift when the selected config changes (issue 4).
+            float switchWidth = Mathf.Max(
+                switchStyle.CalcSize(new GUIContent("Switch")).x,
+                switchStyle.CalcSize(new GUIContent("Active")).x
+            ) + 10f;
 
             GUI.enabled = canUse && !unlocked && cost > 0;
             string purchaseLabel;
@@ -615,37 +774,44 @@ namespace RealFuels
 
             if (cost > 0)
             {
-                // Check if we can use credits to reduce the cost
                 double displayCost = cost;
                 if (!unlocked && EngineConfigRP1Integration.TryGetCreditAdjustedCost(cost, out double creditsAvailable, out double costAfterCredits))
                 {
                     displayCost = costAfterCredits;
                     double creditsUsed = cost - costAfterCredits;
-                    // Use special marker [BTN] so we can position this tooltip near cursor
                     purchaseTooltip = $"[BTN]Entry Cost: {cost:N0}√\n" +
                                     $"<color=#FFEB3B>Credits Available: {creditsAvailable:N0}</color>\n" +
                                     $"<color=#FFEB3B>Credits Used: {creditsUsed:N0}</color>\n" +
                                     $"<b>Final Cost: {costAfterCredits:N0}√</b>";
                 }
-
-                // Show final cost after credits on the button
                 purchaseLabel = unlocked ? "Owned" : $"Buy ({displayCost:N0}√)";
             }
             else
                 purchaseLabel = unlocked ? "Owned" : "Free";
 
-            float purchaseWidth = smallButtonStyle.CalcSize(new GUIContent(purchaseLabel)).x + 10f;
+            // Purchase button colour: golden when there's a cost, green when free/owned.
+            GUIStyle purchaseStyle = (cost > 0 && !unlocked)
+                ? EngineConfigStyles.ActionButtonPurchase
+                : EngineConfigStyles.ActionButtonOwned;
 
-            // Position buttons: Switch on left, Purchase on right
-            Rect switchRect = new Rect(rect.x, rect.y, switchWidth, rect.height);
+            // Purchase button fills all remaining column space so every row has identical
+            // widths regardless of label text ("Owned", "Free", "Buy (12345√)").
+            // The column is pre-sized to the widest possible row in CalculateColumnWidths,
+            // so clamping to at least the CalcSize minimum keeps the layout valid when the
+            // column is unexpectedly narrower than the label.
+            float purchaseWidth = Mathf.Max(
+                rect.width - switchWidth - 4f,
+                purchaseStyle.CalcSize(new GUIContent(purchaseLabel)).x + 10f
+            );
+
+            Rect switchRect   = new Rect(rect.x, rect.y, switchWidth, rect.height);
             Rect purchaseRect = new Rect(rect.x + switchWidth + 4f, rect.y, purchaseWidth, rect.height);
 
             GUI.enabled = !isSelected;
-            if (GUI.Button(switchRect, switchLabel, smallButtonStyle))
+            if (GUI.Button(switchRect, switchLabel, switchStyle))
             {
                 if (!unlocked && cost <= 0)
                 {
-                    // Auto-purchase free configs using DrawSelectButton callback
                     _module.DrawSelectButton(node, isSelected, (cfgName) =>
                     {
                         EntryCostManager.Instance.PurchaseConfig(cfgName, node.GetValue("techRequired"));
@@ -655,7 +821,7 @@ namespace RealFuels
             }
 
             GUI.enabled = canUse && !unlocked && cost > 0;
-            if (GUI.Button(purchaseRect, new GUIContent(purchaseLabel, purchaseTooltip), smallButtonStyle))
+            if (GUI.Button(purchaseRect, new GUIContent(purchaseLabel, purchaseTooltip), purchaseStyle))
             {
                 // Call DrawSelectButton with PurchaseConfig as the callback
                 // This ensures PurchaseConfig runs INSIDE DrawSelectButton (before RP-1's postfix clears techNode)
@@ -692,68 +858,100 @@ namespace RealFuels
         {
             InitializeColumnVisibility();
 
+            // All pixel geometry scales with the current font scale so the panel
+            // never has clipped text or dead whitespace at non-default scales.
+            float s        = _fontScale;
+            int pad        = Mathf.RoundToInt(8  * s);
+            int rowH       = Mathf.RoundToInt(18 * s);
+            int itemStep   = Mathf.RoundToInt(22 * s);
+            int labelW     = Mathf.RoundToInt(88 * s);
+            int toggleX1   = Mathf.RoundToInt(100 * s);  // "Full" toggle column
+            int toggleX2   = Mathf.RoundToInt(158 * s);  // "Compact" toggle column
+            int toggleSz   = Mathf.RoundToInt(18  * s);
+
+            float yPos       = menuRect.y + Mathf.RoundToInt(5 * s);
+            float leftX      = menuRect.x + pad;
+            float innerWidth = menuRect.width - pad * 2f;
+
+            GUIStyle headerStyle = EngineConfigStyles.ColumnMenuHeader;
+            GUIStyle labelStyle  = EngineConfigStyles.ColumnMenuLabel;
+
+            // ── Item 1: Font scale ───────────────────────────────────────────
+            GUI.Label(new Rect(leftX, yPos, labelW, rowH), "Font Scale", headerStyle);
+            yPos += rowH + 2;
+
+            float sliderW = innerWidth - 45f;
+            float newScale = GUI.HorizontalSlider(
+                new Rect(leftX, yPos, sliderW, rowH),
+                _fontScale, 0.7f, 1.5f);
+            // Snap to 0.1 increments for a clean feel
+            newScale = Mathf.Round(newScale * 10f) / 10f;
+            if (!Mathf.Approximately(newScale, _fontScale))
+            {
+                _fontScale = newScale;
+                EngineConfigStyles.FontScale = _fontScale;
+                EngineConfigStyles.Reset();   // styles will be rebuilt lazily on next EnsureTexturesAndStyles()
+                SaveSettings();
+            }
+            // Value label sits to the right of the slider track.
+            GUI.Label(new Rect(leftX + sliderW + 5f, yPos - 2, 40f, rowH + 4), $"{_fontScale:F1}×", labelStyle);
+            yPos += rowH + 8;
+
+            // Divider gap
+            yPos += 2;
+
+            // ── Column visibility ────────────────────────────────────────────
             string[] columnNames = {
                 "Name", "Thrust", "Min%", "ISP", "Mass", "Gimbal",
-                "Ignitions", "Ullage", "Press-Fed", "Rated (s)", "Tested (s)",
-                "Ign Rel.", "Burn No Data", "Burn Max Data",
+                "Ignitions", "Ullage", "Pres-Fed", "Rated", "Tested",
+                "Ign%", "0-DU", "Max-DU",
                 "Survival", "Tech", "Cost", "Actions"
             };
 
-            float yPos = menuRect.y + 5;
-            float leftX = menuRect.x + 8;
+            // Column header labels aligned over their respective toggle columns.
+            GUI.Label(new Rect(leftX + toggleX1 - 5, yPos, 50, rowH), "Full",    headerStyle);
+            GUI.Label(new Rect(leftX + toggleX2 - 5, yPos, 60, rowH), "Compact", headerStyle);
+            yPos += rowH + 2;
 
-            GUIStyle headerStyle = EngineConfigStyles.ColumnMenuHeader;
-            GUIStyle labelStyle = EngineConfigStyles.ColumnMenuLabel;
-
-            GUI.Label(new Rect(leftX + 80, yPos, 50, 16), "Full", headerStyle);
-            GUI.Label(new Rect(leftX + 135, yPos, 60, 16), "Compact", headerStyle);
-            yPos += 18;
-
-            Rect scrollRect = new Rect(leftX, yPos, menuRect.width - 16, menuRect.height - 28);
+            float listHeight = menuRect.height - (yPos - menuRect.y) - 5f;
+            Rect scrollRect = new Rect(leftX, yPos, innerWidth, listHeight);
 
             GUI.BeginGroup(scrollRect);
             float itemY = 0;
 
             for (int i = 0; i < columnNames.Length; i++)
             {
-                GUI.Label(new Rect(0, itemY, 75, 18), columnNames[i], labelStyle);
+                GUI.Label(new Rect(0, itemY, labelW, rowH + 2), columnNames[i], labelStyle);
 
-                bool newFullVisible = GUI.Toggle(new Rect(85, itemY + 1, 18, 18), columnsVisibleFull[i], "");
+                bool newFullVisible = GUI.Toggle(new Rect(toggleX1, itemY + 1, toggleSz, toggleSz), columnsVisibleFull[i], "");
                 if (newFullVisible != columnsVisibleFull[i])
                 {
                     columnsVisibleFull[i] = newFullVisible;
+                    SaveSettings();
                 }
 
-                bool newCompactVisible = GUI.Toggle(new Rect(140, itemY + 1, 18, 18), columnsVisibleCompact[i], "");
+                bool newCompactVisible = GUI.Toggle(new Rect(toggleX2, itemY + 1, toggleSz, toggleSz), columnsVisibleCompact[i], "");
                 if (newCompactVisible != columnsVisibleCompact[i])
                 {
                     columnsVisibleCompact[i] = newCompactVisible;
+                    SaveSettings();
                 }
 
-                itemY += 20;
+                itemY += itemStep;
             }
 
             GUI.EndGroup();
         }
 
-        private void InitializeColumnVisibility()
+        private static void InitializeColumnVisibility()
         {
+            // EnsureSettings() (called from OnGUI before any state is read) is the
+            // authoritative initializer.  This fallback handles the rare case where
+            // IsColumnVisible is called before the first OnGUI pass.
             if (columnVisibilityInitialized)
                 return;
 
-            // Full view: all columns visible
-            for (int i = 0; i < 18; i++)
-                columnsVisibleFull[i] = true;
-
-            // Compact view: Name, Thrust, ISP, Mass, Ignitions, Ullage, Press-Fed, Ign Rel., Survival, Tech, Cost, Actions
-            for (int i = 0; i < 18; i++)
-                columnsVisibleCompact[i] = false;
-
-            int[] compactColumns = { 0, 1, 3, 4, 6, 7, 8, 11, 14, 15, 16, 17 };
-            foreach (int col in compactColumns)
-                columnsVisibleCompact[col] = true;
-
-            columnVisibilityInitialized = true;
+            EnsureSettings();
         }
 
         private bool IsColumnVisible(int columnIndex)
@@ -769,11 +967,10 @@ namespace RealFuels
         private void CalculateColumnWidths(List<ModuleEngineConfigsBase.ConfigRowDefinition> rows)
         {
             GUIStyle cellStyle = EngineConfigStyles.CellMeasure;
+            GUIStyle techStyle = EngineConfigStyles.TechCell;
 
             for (int i = 0; i < ConfigColumnWidths.Length; i++)
-            {
                 ConfigColumnWidths[i] = 30f;
-            }
 
             foreach (var row in rows)
             {
@@ -789,15 +986,15 @@ namespace RealFuels
                     GetMassString(row.Node),
                     GetGimbalString(row.Node),
                     GetIgnitionsString(row.Node),
-                    GetBoolSymbol(row.Node, "ullage"),
-                    GetBoolSymbol(row.Node, "pressureFed"),
+                    GetUllageSymbol(row.Node),
+                    GetPressureFedSymbol(row.Node),
                     GetRatedBurnTimeString(row.Node),
                     GetTestedBurnTimeString(row.Node),
                     GetIgnitionReliabilityString(row.Node),
                     GetCycleReliabilityStartString(row.Node),
                     GetCycleReliabilityEndString(row.Node),
                     GetSurvivalAtTimeString(row.Node),
-                    GetTechString(row.Node),
+                    GetTechString(row.Node),   // measured with TechCell (SF(11))
                     GetCostDeltaString(row.Node),
                     ""
                 };
@@ -806,59 +1003,95 @@ namespace RealFuels
                 {
                     if (!string.IsNullOrEmpty(cellValues[i]))
                     {
-                        float width = cellStyle.CalcSize(new GUIContent(cellValues[i])).x + 10f;
+                        // Tech column (15) uses TechCell style (SF(11)) so measure with it.
+                        GUIStyle measureStyle = (i == 15) ? techStyle : cellStyle;
+                        float width = measureStyle.CalcSize(new GUIContent(cellValues[i])).x + 10f;
                         if (width > ConfigColumnWidths[i])
                             ConfigColumnWidths[i] = width;
                     }
                 }
             }
 
-            // Calculate dynamic width for Actions column (index 17) based on button labels
+            // ── Ensure every column is at least as wide as its header label ──────────
+            // This prevents truncated headers when content happens to be narrow.
+            string survivalHeader = sliderModeIsPercentage
+                ? $"T@{sliderPercentage:F0}%"
+                : $"Surv@{FormatBurnTimeDisplay(sliderTime)}";
+
+            string[] headerLabels = {
+                "Name", "Thrust", "Min%", "ISP", "Mass", "Gim",
+                "Igns", "Ullg", "PFed",
+                "Rated", "Tested", "Ignition %", "0-DU", "Max-DU",
+                survivalHeader, "Tech", "Cost", ""
+            };
+
+            GUIStyle hStyle = EngineConfigStyles.HeaderCell;
+            for (int i = 0; i < headerLabels.Length && i < ConfigColumnWidths.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(headerLabels[i]))
+                {
+                    float hw = hStyle.CalcSize(new GUIContent(headerLabels[i])).x + 16f;
+                    if (hw > ConfigColumnWidths[i])
+                        ConfigColumnWidths[i] = hw;
+                }
+            }
+
+            // Calculate dynamic width for Actions column (index 17) based on button labels.
+            // Use the same styles as DrawActionCell so widths match exactly.
             float maxActionWidth = 0f;
-            var buttonStyle = GUI.skin.button;
+            GUIStyle switchMeasureStyle   = EngineConfigStyles.ActionButton;
+            GUIStyle purchaseMeasureStyle = EngineConfigStyles.ActionButtonPurchase;
+            GUIStyle ownedMeasureStyle    = EngineConfigStyles.ActionButtonOwned;
             foreach (var row in rows)
             {
                 string configName = row.Node.GetValue("name");
                 bool unlocked = EngineConfigTechLevels.UnlockedConfig(row.Node, _module.part);
                 double cost = EntryCostManager.Instance.ConfigEntryCost(configName);
 
-                // Calculate Switch button width (must match DrawActionCell padding)
-                string switchLabel = "Switch";
-                float switchWidth = buttonStyle.CalcSize(new GUIContent(switchLabel)).x + 10f; // Add padding to match DrawActionCell
+                // Measure both states so the column width doesn't change when selection changes.
+                float switchWidth = Mathf.Max(
+                    switchMeasureStyle.CalcSize(new GUIContent("Switch")).x,
+                    switchMeasureStyle.CalcSize(new GUIContent("Active")).x
+                ) + 10f;
 
-                // Calculate Purchase button width (can vary based on cost)
                 string purchaseLabel;
+                GUIStyle pStyle;
                 if (cost > 0)
                 {
                     double displayCost = cost;
-                    // Check if credits would reduce the cost
                     if (!unlocked && EngineConfigRP1Integration.TryGetCreditAdjustedCost(cost, out _, out double costAfterCredits))
                         displayCost = costAfterCredits;
-
                     purchaseLabel = unlocked ? "Owned" : $"Buy ({displayCost:N0}√)";
+                    pStyle = (cost > 0 && !unlocked) ? purchaseMeasureStyle : ownedMeasureStyle;
                 }
                 else
                 {
                     purchaseLabel = unlocked ? "Owned" : "Free";
+                    pStyle = ownedMeasureStyle;
                 }
-                float purchaseWidth = buttonStyle.CalcSize(new GUIContent(purchaseLabel)).x + 10f; // Add padding to match DrawActionCell
+                float purchaseWidth = pStyle.CalcSize(new GUIContent(purchaseLabel)).x + 10f;
 
-                // Total width = both buttons + spacing between them (must match DrawActionCell)
-                float totalWidth = switchWidth + purchaseWidth + 4f; // 4px spacing to match DrawActionCell
+                float totalWidth = switchWidth + purchaseWidth + 4f;
                 if (totalWidth > maxActionWidth)
                     maxActionWidth = totalWidth;
             }
 
-            ConfigColumnWidths[17] = Mathf.Max(maxActionWidth, 160f); // Minimum 160px
-            ConfigColumnWidths[7] = Mathf.Max(ConfigColumnWidths[7], 30f);
-            ConfigColumnWidths[8] = Mathf.Max(ConfigColumnWidths[8], 30f);
-            ConfigColumnWidths[9] = Mathf.Max(ConfigColumnWidths[9], 50f);
+            ConfigColumnWidths[17] = Mathf.Max(maxActionWidth, 160f);  // Minimum 160px
+            ConfigColumnWidths[7]  = Mathf.Max(ConfigColumnWidths[7],  30f);
+            ConfigColumnWidths[8]  = Mathf.Max(ConfigColumnWidths[8],  30f);
+            ConfigColumnWidths[9]  = Mathf.Max(ConfigColumnWidths[9],  50f);
             ConfigColumnWidths[10] = Mathf.Max(ConfigColumnWidths[10], 50f);
+            // Item 5: cap the Requires/Tech column so long tech names don't blow out the table.
+            // The full name is always visible in the row hover tooltip.
+            ConfigColumnWidths[15] = Mathf.Min(ConfigColumnWidths[15], 110f);
 
-            // Fix survival column (index 14) to maximum width to prevent window resizing during slider use
-            // Calculate width based on "100.0% / 100.0%" (the widest possible value)
-            float maxSurvivalWidth = cellStyle.CalcSize(new GUIContent("100.0% / 100.0%")).x + 10f;
-            ConfigColumnWidths[14] = maxSurvivalWidth;
+            // Fix survival column (index 14) to a stable maximum width so the window doesn't
+            // resize every time the slider moves.  Reference strings cover both display modes:
+            //   • Time mode   — "99.9 / 99.9 / 99.9 %"  (3 decimals; "100" drops the decimal)
+            //   • % mode      — time strings like "10m 0s / 10m 0s / 10m 0s"
+            float survivalPctW  = cellStyle.CalcSize(new GUIContent("99.9 / 99.9 / 99.9 %")).x + 10f;
+            float survivalTimeW = cellStyle.CalcSize(new GUIContent("10m 0s / 10m 0s / 10m 0s")).x + 10f;
+            ConfigColumnWidths[14] = Mathf.Max(survivalPctW, survivalTimeW);
         }
 
         #endregion
@@ -898,30 +1131,10 @@ namespace RealFuels
 
         internal string GetIspString(ConfigNode node)
         {
-            if (node.HasNode("atmosphereCurve"))
-            {
-                FloatCurve isp = new FloatCurve();
-                isp.Load(node.GetNode("atmosphereCurve"));
-                float ispVac = isp.Evaluate(isp.maxTime);
-                float ispSL = isp.Evaluate(isp.minTime);
-                return $"{ispVac:N0}-{ispSL:N0}";
-            }
-
-            if (node.HasValue("IspSL") && node.HasValue("IspV"))
-            {
-                float.TryParse(node.GetValue("IspSL"), out float ispSL);
-                float.TryParse(node.GetValue("IspV"), out float ispV);
-                if (_module.techLevel != -1)
-                {
-                    TechLevel cTL = new TechLevel();
-                    if (cTL.Load(node, _module.techNodes, _module.engineType, _module.techLevel))
-                    {
-                        ispSL *= ModuleEngineConfigsBase.ispSLMult * cTL.AtmosphereCurve.Evaluate(1);
-                        ispV *= ModuleEngineConfigsBase.ispVMult * cTL.AtmosphereCurve.Evaluate(0);
-                    }
-                }
-                return $"{ispV:N0}-{ispSL:N0}";
-            }
+            // Delegate to the same helper used by the TL stat panel so the table column
+            // and the bottom comparison always agree.
+            if (_techLevels.TryGetIspAtTL(node, _module.techLevel, out float vacIsp, out float slIsp))
+                return $"{vacIsp:N0}-{slIsp:N0}";
 
             return "-";
         }
@@ -1004,6 +1217,7 @@ namespace RealFuels
             return resolved.ToString();
         }
 
+        // Kept for backward-compatibility with any subclass that may call it directly.
         internal string GetBoolSymbol(ConfigNode node, string key)
         {
             if (!node.HasValue(key))
@@ -1012,22 +1226,76 @@ namespace RealFuels
             return isTrue ? "<color=#FFA726>✓</color>" : "<color=#9E9E9E>✗</color>";
         }
 
+        /// <summary>Item 8: Ullage — white ✓ when required, grey ✗ when not.</summary>
+        internal string GetUllageSymbol(ConfigNode node)
+        {
+            if (!node.HasValue("ullage"))
+                return "<color=#9E9E9E>✗</color>";
+            bool isTrue = node.GetValue("ullage").ToLower() == "true";
+            return isTrue ? "<color=#FFFFFF>✓</color>" : "<color=#9E9E9E>✗</color>";
+        }
+
+        /// <summary>Item 8: Pressure-fed — green ✓ when true, plain hyphen when false.</summary>
+        internal string GetPressureFedSymbol(ConfigNode node)
+        {
+            if (!node.HasValue("pressureFed"))
+                return "-";
+            bool isTrue = node.GetValue("pressureFed").ToLower() == "true";
+            return isTrue ? "<color=#4DE64D>✓</color>" : "-";
+        }
+
+        /// <summary>
+        /// Item 9: Format a burn-time in seconds for table display.
+        /// Respects the <see cref="_showTimeAsMinSec"/> toggle — when true values ≥ 60 s
+        /// are shown as "m:ss", otherwise always shown as plain seconds.
+        /// </summary>
+        private static string FormatBurnTimeDisplay(float seconds)
+        {
+            if (!_showTimeAsMinSec || seconds < 60f)
+                return $"{seconds:F0}s";
+            int mins = Mathf.FloorToInt(seconds / 60f);
+            int secs = Mathf.RoundToInt(seconds % 60f);
+            if (secs == 60) { mins++; secs = 0; }
+            return $"{mins}:{secs:D2}";
+        }
+
+        /// <summary>
+        /// Format a survival percentage for display in the table.
+        /// Omits the decimal when the value rounds to exactly 100 so the column
+        /// doesn't waste space on "100.0" — "100" is unambiguous.
+        /// Input is in the 0–100 range (already multiplied by 100).
+        /// </summary>
+        private static string FormatSurvival(float pct)
+            => pct >= 99.9995f ? "100" : $"{pct:F1}";
+
         internal string GetRatedBurnTimeString(ConfigNode node)
         {
-            bool hasRatedBurnTime = node.HasValue("ratedBurnTime");
-            bool hasRatedContinuousBurnTime = node.HasValue("ratedContinuousBurnTime");
+            bool hasRated     = node.HasValue("ratedBurnTime");
+            bool hasContinuous = node.HasValue("ratedContinuousBurnTime");
 
-            if (!hasRatedBurnTime && !hasRatedContinuousBurnTime)
+            if (!hasRated && !hasContinuous)
                 return "∞";
 
-            if (hasRatedBurnTime && hasRatedContinuousBurnTime)
+            if (hasRated && hasContinuous)
             {
-                string continuous = node.GetValue("ratedContinuousBurnTime");
-                string cumulative = node.GetValue("ratedBurnTime");
-                return $"{continuous}/{cumulative}";
+                float cont = 0f, cum = 0f;
+                node.TryGetValue("ratedContinuousBurnTime", ref cont);
+                node.TryGetValue("ratedBurnTime",           ref cum);
+                return $"{FormatBurnTimeDisplay(cont)}/{FormatBurnTimeDisplay(cum)}";
             }
 
-            return hasRatedBurnTime ? node.GetValue("ratedBurnTime") : node.GetValue("ratedContinuousBurnTime");
+            if (hasRated)
+            {
+                float v = 0f;
+                node.TryGetValue("ratedBurnTime", ref v);
+                return FormatBurnTimeDisplay(v);
+            }
+            else
+            {
+                float v = 0f;
+                node.TryGetValue("ratedContinuousBurnTime", ref v);
+                return FormatBurnTimeDisplay(v);
+            }
         }
 
         internal string GetTestedBurnTimeString(ConfigNode node)
@@ -1037,7 +1305,7 @@ namespace RealFuels
 
             float testedBurnTime = 0f;
             if (node.TryGetValue("testedBurnTime", ref testedBurnTime))
-                return testedBurnTime.ToString("F0");
+                return FormatBurnTimeDisplay(testedBurnTime);
 
             return "-";
         }
@@ -1050,7 +1318,7 @@ namespace RealFuels
             if (!float.TryParse(node.GetValue("ignitionReliabilityStart"), out float valStart)) return "-";
             if (!float.TryParse(node.GetValue("ignitionReliabilityEnd"), out float valEnd)) return "-";
 
-            return $"{valStart:P1} / {valEnd:P1}";
+            return $"{valStart * 100:F1} / {valEnd * 100:F1} %";
         }
 
         internal string GetCycleReliabilityStartString(ConfigNode node)
@@ -1090,31 +1358,62 @@ namespace RealFuels
             node.TryGetValue("overburnPenalty", ref overburnPenalty);
             FloatCurve cycleCurve = ChartMath.BuildTestFlightCycleCurve(ratedBurnTime, testedBurnTime, overburnPenalty, hasTestedBurnTime);
 
-            // Faded colors for better readability in table
-            string fadedOrange = "#FFB380";
-            string fadedGreen = "#80E680";
+            // Current reliability — mirrors the chart's data logic so the table and chart are
+            // always consistent: simulated data when the user has overridden it, real TestFlight
+            // data otherwise.  Reflection handles are cached by TestFlightWrapper so this is cheap.
+            float realCurrentData = TestFlightWrapper.GetCurrentFlightData(_module.part);
+            float realMaxData     = TestFlightWrapper.GetMaximumData(_module.part);
+            float currentDataValue = useSimulatedData ? simulatedDataValue : realCurrentData;
+            bool  hasCurrentData   = (useSimulatedData && currentDataValue >= 0f)
+                                  || (realCurrentData >= 0f && realMaxData > 0f);
+
+            float cycleReliabilityCurrent = hasCurrentData
+                ? ChartMath.EvaluateReliabilityAtData(currentDataValue, cycleReliabilityStart, cycleReliabilityEnd)
+                : 0f;
+            // Guard against log(0) if reliability somehow hits zero.
+            if (cycleReliabilityCurrent <= 0f) cycleReliabilityCurrent = cycleReliabilityStart;
+
+            // Color palette — matches the chart's own curve colours.
+            const string colStart   = "#FFB380"; // faded orange — Start (new engine)
+            const string colCurrent = "#80D9FF"; // light blue   — Current (matches chart)
+            const string colEnd     = "#80E680"; // faded green  — End (fully matured)
 
             if (sliderModeIsPercentage)
             {
-                // Percentage mode: show TIME to reach the selected percentage
-                float targetProb = sliderPercentage / 100f;
-                
-                // Find time for start and end reliability (no clustering/ignition for table display)
-                float timeStart = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityStart, cycleCurve, 10000f);
-                float timeEnd = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityEnd, cycleCurve, 10000f);
-                
-                return $"<color={fadedOrange}>{ChartMath.FormatTime(timeStart)}</color> / <color={fadedGreen}>{ChartMath.FormatTime(timeEnd)}</color>";
+                // Percentage mode: show TIME to reach the selected survival percentage.
+                float targetProb  = sliderPercentage / 100f;
+                float timeStart   = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityStart,   cycleCurve, 10000f);
+                float timeEnd     = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityEnd,     cycleCurve, 10000f);
+
+                if (hasCurrentData)
+                {
+                    float timeCurrent = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityCurrent, cycleCurve, 10000f);
+                    return $"<color={colStart}>{ChartMath.FormatTime(timeStart)}</color> / " +
+                           $"<color={colCurrent}>{ChartMath.FormatTime(timeCurrent)}</color> / " +
+                           $"<color={colEnd}>{ChartMath.FormatTime(timeEnd)}</color>";
+                }
+                return $"<color={colStart}>{ChartMath.FormatTime(timeStart)}</color> / " +
+                       $"<color={colEnd}>{ChartMath.FormatTime(timeEnd)}</color>";
             }
             else
             {
-                // Time mode: show PERCENTAGE at the selected time
+                // Time mode: show PERCENTAGE survival at the selected burn time.
                 float baseRateStart = -Mathf.Log(cycleReliabilityStart) / ratedBurnTime;
-                float baseRateEnd = -Mathf.Log(cycleReliabilityEnd) / ratedBurnTime;
+                float baseRateEnd   = -Mathf.Log(cycleReliabilityEnd)   / ratedBurnTime;
 
                 float surviveStart = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityStart, baseRateStart, cycleCurve);
-                float surviveEnd = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityEnd, baseRateEnd, cycleCurve);
+                float surviveEnd   = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityEnd,   baseRateEnd,   cycleCurve);
 
-                return $"<color={fadedOrange}>{surviveStart:P1}</color> / <color={fadedGreen}>{surviveEnd:P1}</color>";
+                if (hasCurrentData)
+                {
+                    float baseRateCurrent = -Mathf.Log(cycleReliabilityCurrent) / ratedBurnTime;
+                    float surviveCurrent  = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityCurrent, baseRateCurrent, cycleCurve);
+                    return $"<color={colStart}>{FormatSurvival(surviveStart * 100)}</color> / " +
+                           $"<color={colCurrent}>{FormatSurvival(surviveCurrent * 100)}</color> / " +
+                           $"<color={colEnd}>{FormatSurvival(surviveEnd * 100)} %</color>";
+                }
+                return $"<color={colStart}>{FormatSurvival(surviveStart * 100)}</color> / " +
+                       $"<color={colEnd}>{FormatSurvival(surviveEnd * 100)} %</color>";
             }
         }
 
@@ -1127,7 +1426,9 @@ namespace RealFuels
             if (ModuleEngineConfigsBase.techNameToTitle.TryGetValue(tech, out string title))
                 tech = title;
 
-            return $"<size=11>{tech}</size>";
+            // No inline <size> tag — TechCell GUIStyle (SF(11)) handles the font size,
+            // and its TextClipping.Clip prevents multi-line overflow.
+            return tech;
         }
 
         internal string GetCostDeltaString(ConfigNode node)
@@ -1143,7 +1444,7 @@ namespace RealFuels
                 return "-";
 
             string sign = curCost < 0 ? string.Empty : "+";
-            return $"{sign}{curCost:N0}√";
+            return $"{sign}{curCost:N0}";
         }
 
         #endregion
@@ -1299,6 +1600,149 @@ namespace RealFuels
         {
             _textures.EnsureInitialized();
             EngineConfigStyles.Initialize();
+        }
+
+        #endregion
+
+        #region Settings Persistence
+
+        /// <summary>
+        /// Loads saved settings from PluginData on first call. Sets column-visibility
+        /// defaults first so that any values missing from the file fall back gracefully.
+        /// Must be called before any static GUI state (compactView, showSimPanel,
+        /// showChartPanel, guiWindowRect, columnMenu*) is read.
+        /// </summary>
+        private static void EnsureSettings()
+        {
+            if (_settingsLoaded) return;
+            _settingsLoaded = true;
+
+            // ── Column visibility defaults ────────────────────────────────────
+            for (int i = 0; i < 18; i++)
+                columnsVisibleFull[i] = true;
+
+            for (int i = 0; i < 18; i++)
+                columnsVisibleCompact[i] = false;
+
+            int[] compactColumns = { 0, 1, 3, 4, 6, 7, 8, 11, 14, 15, 16, 17 };
+            foreach (int col in compactColumns)
+                columnsVisibleCompact[col] = true;
+
+            columnVisibilityInitialized = true;
+
+            // ── Load overrides from disk ──────────────────────────────────────
+            if (!System.IO.File.Exists(SettingsPath)) return;
+            try
+            {
+                ConfigNode root = ConfigNode.Load(SettingsPath);
+                ConfigNode node = root?.GetNode("ENGINECONFIGGUI_SETTINGS");
+                if (node == null) return;
+
+                var ic = System.Globalization.CultureInfo.InvariantCulture;
+                string v, v2;
+
+                v = node.GetValue("compactView");
+                if (v != null && bool.TryParse(v, out bool bCompact))
+                    compactView = bCompact;
+
+                v = node.GetValue("showSimPanel");
+                if (v != null && bool.TryParse(v, out bool bSim))
+                    showSimPanel = bSim;
+
+                v = node.GetValue("showChartPanel");
+                if (v != null && bool.TryParse(v, out bool bChart))
+                    showChartPanel = bChart;
+
+                v = node.GetValue("showTimeAsMinSec");
+                if (v != null && bool.TryParse(v, out bool bMinSec))
+                    _showTimeAsMinSec = bMinSec;
+
+                v = node.GetValue("fontScale");
+                if (v != null && float.TryParse(v, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out float fScale))
+                {
+                    _fontScale = Mathf.Clamp(fScale, 0.7f, 1.5f);
+                    EngineConfigStyles.FontScale = _fontScale;
+                    // Don't reset here — Initialize() hasn't run yet on startup.
+                    // The styles are built lazily on the first EnsureTexturesAndStyles() call.
+                }
+
+                v  = node.GetValue("windowX");
+                v2 = node.GetValue("windowY");
+                if (v != null && v2 != null &&
+                    float.TryParse(v,  System.Globalization.NumberStyles.Float, ic, out float wx) &&
+                    float.TryParse(v2, System.Globalization.NumberStyles.Float, ic, out float wy))
+                {
+                    // Width stays 0 so DrawConfigTable still sizes it correctly on the
+                    // first frame; the position guard in OnGUI checks _windowPositionRestored.
+                    guiWindowRect = new Rect(wx, wy, 0, 0);
+                    _windowPositionRestored = true;
+                }
+
+                v  = node.GetValue("columnMenuX");
+                v2 = node.GetValue("columnMenuY");
+                if (v != null && v2 != null &&
+                    float.TryParse(v,  System.Globalization.NumberStyles.Float, ic, out float cmx) &&
+                    float.TryParse(v2, System.Globalization.NumberStyles.Float, ic, out float cmy))
+                {
+                    columnMenuRect = new Rect(cmx, cmy, columnMenuRect.width, columnMenuRect.height);
+                }
+
+                TryParseBoolArray(node.GetValue("columnsVisibleFull"),    columnsVisibleFull);
+                TryParseBoolArray(node.GetValue("columnsVisibleCompact"), columnsVisibleCompact);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[RFEngineConfigGUI] Could not load settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Writes all persistent GUI state to PluginData. Safe to call from within OnGUI
+        /// (file I/O happens on the calling thread; KSP's editor runs on the main thread
+        /// so this is fine for the low-frequency writes we perform here).
+        /// </summary>
+        private static void SaveSettings()
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SettingsPath));
+                var ic = System.Globalization.CultureInfo.InvariantCulture;
+
+                ConfigNode root = new ConfigNode();
+                ConfigNode node = root.AddNode("ENGINECONFIGGUI_SETTINGS");
+
+                node.AddValue("compactView",       compactView.ToString());
+                node.AddValue("showSimPanel",      showSimPanel.ToString());
+                node.AddValue("showChartPanel",    showChartPanel.ToString());
+                node.AddValue("showTimeAsMinSec",  _showTimeAsMinSec.ToString());
+                node.AddValue("fontScale",         _fontScale.ToString(ic));
+                node.AddValue("windowX",     guiWindowRect.x.ToString(ic));
+                node.AddValue("windowY",     guiWindowRect.y.ToString(ic));
+                node.AddValue("columnMenuX", columnMenuRect.x.ToString(ic));
+                node.AddValue("columnMenuY", columnMenuRect.y.ToString(ic));
+                node.AddValue("columnsVisibleFull",    string.Join(",", columnsVisibleFull));
+                node.AddValue("columnsVisibleCompact", string.Join(",", columnsVisibleCompact));
+
+                root.Save(SettingsPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[RFEngineConfigGUI] Could not save settings: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Parses a comma-separated "True,False,..." string into an existing bool array.
+        /// Silently ignores malformed entries; missing entries leave the default in place.
+        /// </summary>
+        private static void TryParseBoolArray(string s, bool[] target)
+        {
+            if (string.IsNullOrEmpty(s)) return;
+            string[] parts = s.Split(',');
+            for (int i = 0; i < parts.Length && i < target.Length; i++)
+                if (bool.TryParse(parts[i].Trim(), out bool val))
+                    target[i] = val;
         }
 
         #endregion

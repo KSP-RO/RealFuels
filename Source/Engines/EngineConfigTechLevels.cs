@@ -445,17 +445,76 @@ namespace RealFuels
             return new Color(0.42f, 0.44f, 0.50f);
         }
 
+        /// <summary>
+        /// Computes the actual displayed Vac and SL ISP for <paramref name="config"/> at
+        /// <paramref name="tl"/>, mirroring the logic in <c>EngineConfigGUI.GetIspString</c>
+        /// so that the table column and the TL stat panel always agree.
+        ///
+        /// <para>Two config layouts are supported:</para>
+        /// <list type="bullet">
+        ///   <item><c>atmosphereCurve</c> node — ISP is stored as absolute values directly
+        ///     in the config (e.g. HTP at 137 s vacuum).  A TechLevel multiplier is applied
+        ///     on top if one exists for this engine type / TL combination.</item>
+        ///   <item><c>IspSL</c> + <c>IspV</c> values — ISP is expressed as a fraction of the
+        ///     TechLevel's base ISP curve, so the TL multiplier is mandatory.</item>
+        /// </list>
+        /// </summary>
+        public bool TryGetIspAtTL(ConfigNode config, int tl, out float vacIsp, out float slIsp)
+        {
+            vacIsp = 0f;
+            slIsp  = 0f;
+            if (config == null) return false;
+
+            // ── Branch A: direct atmosphereCurve (e.g. RCS propellants like HTP) ───
+            if (config.HasNode("atmosphereCurve"))
+            {
+                var curve = new FloatCurve();
+                curve.Load(config.GetNode("atmosphereCurve"));
+                // Use explicit pressures: 0 = vacuum, 1 = 1 atm
+                // (avoids isp.maxTime trap when a third high-pressure key is present)
+                vacIsp = curve.Evaluate(0f);
+                slIsp  = curve.Evaluate(1f);
+
+                // No TL ISP scaling here.  When a config stores ISP via atmosphereCurve the
+                // values are absolute (propellant-defined), not fractions of a TL base.
+                // TechLevel.AtmosphereCurve also contains absolute ISP (used for thrust/mass
+                // ratio calculations between TLs), NOT a ratio multiplier — multiplying the two
+                // would give nonsense values like 46 000 s.  TL scaling for these engines
+                // affects thrust and mass only, not ISP.
+                return vacIsp > 0f;
+            }
+
+            // ── Branch B: IspV / IspSL fractions scaled by TL atmosphere curve ─────
+            if (config.HasValue("IspSL") && config.HasValue("IspV"))
+            {
+                float.TryParse(config.GetValue("IspSL"), out slIsp);
+                float.TryParse(config.GetValue("IspV"),  out vacIsp);
+
+                if (_module.techLevel != -1)
+                {
+                    var tlObj = new TechLevel();
+                    if (tlObj.Load(config, _module.techNodes, _module.engineType, tl) && tlObj.AtmosphereCurve != null)
+                    {
+                        vacIsp *= ModuleEngineConfigsBase.ispVMult  * tlObj.AtmosphereCurve.Evaluate(0);
+                        slIsp  *= ModuleEngineConfigsBase.ispSLMult * tlObj.AtmosphereCurve.Evaluate(1);
+                    }
+                }
+                return vacIsp > 0f;
+            }
+
+            return false;
+        }
+
         private void DrawTLStatComparison(int currentTL, int bestAvailTL, float panelWidth)
         {
-            var cTL = new TechLevel();
-            if (!cTL.Load(_module.config, _module.techNodes, _module.engineType, currentTL)) return;
-
-            float cVac = cTL.AtmosphereCurve?.Evaluate(0) ?? 0f;
-            float cAsl = cTL.AtmosphereCurve?.Evaluate(1) ?? 0f;
+            // Use TryGetIspAtTL so we get the actual config ISP (not the raw TL curve),
+            // matching what GetIspString shows in the table column.
+            if (!TryGetIspAtTL(_module.config, currentTL, out float cVac, out float cAsl))
+                return;
 
             if (bestAvailTL == currentTL)
             {
-                // Already at best — just show current stats on one line
+                // Already at best — show current stats on one line.
                 string line = string.Empty;
                 if (cVac > 0f) line += $"<color=#AAAAAA>Vac Isp:</color>  {cVac:F0} s";
                 if (cAsl > 0f) line += $"   <color=#AAAAAA>ASL Isp:</color>  {cAsl:F0} s";
@@ -464,9 +523,9 @@ namespace RealFuels
                 return;
             }
 
-            var bTL = new TechLevel();
-            if (!bTL.Load(_module.config, _module.techNodes, _module.engineType, bestAvailTL))
+            if (!TryGetIspAtTL(_module.config, bestAvailTL, out float bVac, out float bAsl))
             {
+                // Best TL data unavailable — fall back to showing current stats only.
                 string line = string.Empty;
                 if (cVac > 0f) line += $"<color=#AAAAAA>Vac Isp:</color>  {cVac:F0} s";
                 if (cAsl > 0f) line += $"   <color=#AAAAAA>ASL Isp:</color>  {cAsl:F0} s";
@@ -474,13 +533,10 @@ namespace RealFuels
                     GUILayout.Label(line, EngineConfigStyles.TLStatValue);
                 return;
             }
-
-            float bVac = bTL.AtmosphereCurve?.Evaluate(0) ?? 0f;
-            float bAsl = bTL.AtmosphereCurve?.Evaluate(1) ?? 0f;
 
             GUILayout.BeginHorizontal();
 
-            // Current column
+            // Current TL column
             GUILayout.BeginVertical(GUILayout.Width(panelWidth * 0.42f));
             GUILayout.Label($"<b>TL {currentTL}</b>  —  Active", EngineConfigStyles.TLStatHeader);
             if (cVac > 0f) GUILayout.Label($"<color=#AAAAAA>Vac Isp:</color>  {cVac:F0} s", EngineConfigStyles.TLStatValue);
@@ -489,7 +545,7 @@ namespace RealFuels
 
             GUILayout.Label("→", EngineConfigStyles.TLStatHeader, GUILayout.Width(22f));
 
-            // Best available column
+            // Best available TL column
             GUILayout.BeginVertical();
             GUILayout.Label($"<b>TL {bestAvailTL}</b>  —  Best Available", EngineConfigStyles.TLStatHeader);
             if (bVac > 0f)

@@ -41,6 +41,14 @@ namespace RealFuels
         private float _sliderPercentage = 95.0f;
         private string _sliderPercentageInput = "95.0";
 
+        /// <summary>
+        /// When true, time values in the simulation-controls input field are displayed
+        /// and accepted in m:ss format as well as plain seconds.
+        /// Set by <see cref="EngineConfigGUI"/> before each <see cref="Draw"/> call.
+        /// Read by <see cref="EngineConfigInfoPanel.DrawSimulationControls"/>.
+        /// </summary>
+        public static bool ShowTimeAsMinSec = false;
+
         // Public properties for external access
         public bool UseLogScaleX { get => _useLogScaleX; set => _useLogScaleX = value; }
         public bool UseLogScaleY { get => _useLogScaleY; set => _useLogScaleY = value; }
@@ -63,9 +71,17 @@ namespace RealFuels
         }
 
         /// <summary>
-        /// Draws the failure probability chart and info panel side by side.
+        /// Draws the failure probability chart and/or the info panel.
+        /// <para>
+        /// When both <paramref name="showChartArea"/> and <paramref name="showInfoArea"/> are
+        /// true (the default) the chart occupies 58 % of the width and the info panel 42 %,
+        /// mirroring the original layout.  Pass <c>false</c> for either flag to render only
+        /// one section at full width — useful for the three-panel layout where Panel 3 is
+        /// the chart and Panel 2 is the simulation/stats panel.
+        /// </para>
         /// </summary>
-        public void Draw(ConfigNode configNode, float width, float height, ref float sliderTime)
+        public void Draw(ConfigNode configNode, float width, float height, ref float sliderTime,
+                         bool showChartArea = true, bool showInfoArea = true)
         {
             _textures.EnsureInitialized();
             EngineConfigStyles.Initialize();
@@ -109,31 +125,44 @@ namespace RealFuels
             float testedBurnTime = 0f;
             bool hasTestedBurnTime = configNode.TryGetValue("testedBurnTime", ref testedBurnTime) && testedBurnTime > ratedBurnTime;
 
-            // Split the area: chart on left (58%), info on right (42%)
-            float chartWidth = width * 0.58f;
-            float infoWidth = width * 0.42f;
-
             float overburnPenalty = 2.0f;
             configNode.TryGetValue("overburnPenalty", ref overburnPenalty);
 
             // Build the actual TestFlight cycle curve
             FloatCurve cycleCurve = ChartMath.BuildTestFlightCycleCurve(ratedBurnTime, testedBurnTime, overburnPenalty, hasTestedBurnTime);
 
-            // Main container
+            // Reserve layout space for the whole block regardless of which sections are shown.
             Rect containerRect = GUILayoutUtility.GetRect(width, height);
 
-            // Chart area (left side)
+            // ── Layout rects ────────────────────────────────────────────────────
             const float padding = 38f;
-            float plotWidth = chartWidth - padding * 2;
             float plotHeight = height - padding * 2;
-
             float maxTime = hasTestedBurnTime ? testedBurnTime * 3.5f : ratedBurnTime * 3.5f;
 
-            Rect chartRect = new Rect(containerRect.x, containerRect.y, chartWidth, height);
-            Rect plotArea = new Rect(chartRect.x + padding, chartRect.y + padding, plotWidth, plotHeight);
-
-            // Info panel area (right side)
-            Rect infoRect = new Rect(containerRect.x + chartWidth, containerRect.y, infoWidth, height);
+            Rect chartRect, plotArea, infoRect;
+            if (showChartArea && showInfoArea)
+            {
+                // Original side-by-side: chart 58 %, info 42 %
+                float chartWidth = width * 0.58f;
+                float infoWidth  = width * 0.42f;
+                chartRect = new Rect(containerRect.x,            containerRect.y, chartWidth, height);
+                plotArea  = new Rect(chartRect.x + padding,      chartRect.y + padding, chartWidth - padding * 2, plotHeight);
+                infoRect  = new Rect(containerRect.x + chartWidth, containerRect.y, infoWidth, height);
+            }
+            else if (showChartArea)
+            {
+                // Chart fills full width; no info panel
+                chartRect = new Rect(containerRect.x, containerRect.y, width, height);
+                plotArea  = new Rect(containerRect.x + padding, containerRect.y + padding, width - padding * 2, plotHeight);
+                infoRect  = new Rect(0, 0, 0, 0); // unused
+            }
+            else
+            {
+                // Info panel fills full width; no chart
+                chartRect = new Rect(0, 0, 0, 0); // unused
+                plotArea  = new Rect(0, 0, 0, 0); // unused
+                infoRect  = new Rect(containerRect.x, containerRect.y, width, height);
+            }
 
             // Get ignition reliability values
             float ignitionReliabilityStart = 1f;
@@ -203,38 +232,40 @@ namespace RealFuels
             }
 
             // Draw chart - either heatmap or line chart based on mode
-            if (_useHeatmapMode)
+            if (showChartArea)
             {
-                DrawHeatmapChart(chartRect, plotArea, cycleReliabilityStart, cycleReliabilityEnd,
-                    ratedBurnTime, cycleCurve, maxTime, maxDataValue, sliderTime, currentDataValue,
-                    ignitionReliabilityStart, ignitionReliabilityEnd);
-            }
-            else
-            {
-                DrawChartBackground(chartRect);
-                DrawGrid(plotArea, curveData.MinSurvivalProb, maxTime);
-                DrawCurves(plotArea, curveData, currentCurveData, hasCurrentData, maxTime, curveData.MinSurvivalProb);
-                
-                // Draw slider line (vertical for time mode, horizontal for percentage mode)
-                if (_sliderModeIsPercentage)
+                if (_useHeatmapMode)
                 {
-                    DrawSliderPercentageLine(plotArea, _sliderPercentage / 100f, curveData.MinSurvivalProb);
+                    DrawHeatmapChart(chartRect, plotArea, cycleReliabilityStart, cycleReliabilityEnd,
+                        ratedBurnTime, cycleCurve, maxTime, maxDataValue, sliderTime, currentDataValue,
+                        ignitionReliabilityStart, ignitionReliabilityEnd);
                 }
                 else
                 {
-                    DrawSliderTimeLine(plotArea, sliderTime, maxTime);
+                    DrawChartBackground(chartRect);
+                    DrawGrid(plotArea, curveData.MinSurvivalProb, maxTime);
+                    DrawCurves(plotArea, curveData, currentCurveData, hasCurrentData, maxTime, curveData.MinSurvivalProb);
+
+                    // Draw slider line (vertical for time mode, horizontal for percentage mode)
+                    if (_sliderModeIsPercentage)
+                        DrawSliderPercentageLine(plotArea, _sliderPercentage / 100f, curveData.MinSurvivalProb);
+                    else
+                        DrawSliderTimeLine(plotArea, sliderTime, maxTime);
+
+                    DrawAxisLabels(chartRect, plotArea, maxTime, curveData.MinSurvivalProb);
+                    DrawLegend(plotArea, hasCurrentData);
                 }
-                
-                DrawAxisLabels(chartRect, plotArea, maxTime, curveData.MinSurvivalProb);
-                DrawLegend(plotArea, hasCurrentData);
             }
 
             // Draw info panel
-            DrawInfoPanel(infoRect, configNode, ratedBurnTime, testedBurnTime, hasTestedBurnTime,
-                cycleReliabilityStart, cycleReliabilityEnd, hasCurrentData, cycleReliabilityCurrent,
-                ignitionReliabilityStart, ignitionReliabilityEnd, ignitionReliabilityCurrent,
-                dataPercentage, currentDataValue, maxDataValue, realCurrentData, realMaxData,
-                cycleCurve, ref sliderTime, maxTime);
+            if (showInfoArea)
+            {
+                DrawInfoPanel(infoRect, configNode, ratedBurnTime, testedBurnTime, hasTestedBurnTime,
+                    cycleReliabilityStart, cycleReliabilityEnd, hasCurrentData, cycleReliabilityCurrent,
+                    ignitionReliabilityStart, ignitionReliabilityEnd, ignitionReliabilityCurrent,
+                    dataPercentage, currentDataValue, maxDataValue, realCurrentData, realMaxData,
+                    cycleCurve, ref sliderTime, maxTime);
+            }
 
             // Sync back slider time input for consistency
             _sliderTimeInput = $"{sliderTime:F1}";

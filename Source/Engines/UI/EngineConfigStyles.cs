@@ -6,10 +6,21 @@ namespace RealFuels
     /// <summary>
     /// Cached GUIStyle objects to prevent allocation every frame.
     /// Styles are initialized once and reused across all GUI rendering.
+    /// Set FontScale before calling Initialize() (or after calling Reset()).
     /// </summary>
     public static class EngineConfigStyles
     {
         private static bool _initialized = false;
+
+        /// <summary>
+        /// Global font scale multiplier. Change this, then call Reset() + Initialize()
+        /// (or just Reset() — Initialize() is called lazily on next use).
+        /// Valid range: 0.7 – 1.5. Default 1.0.
+        /// </summary>
+        public static float FontScale = 1.0f;
+
+        /// <summary>Scale a base font size by FontScale, clamping to a minimum of 8.</summary>
+        private static int SF(int size) => Mathf.Max(8, Mathf.RoundToInt(size * FontScale));
 
         // Header styles
         public static GUIStyle HeaderCell { get; private set; }
@@ -20,10 +31,18 @@ namespace RealFuels
         public static GUIStyle RowPrimaryHover { get; private set; }
         public static GUIStyle RowPrimaryLocked { get; private set; }
         public static GUIStyle RowSecondary { get; private set; }
+        // Centered variant for boolean/symbol columns (Igns, Ullage, PFed).
+        public static GUIStyle RowSecondaryCenter { get; private set; }
+        // Tech column variant: smaller font so long tech names fit; always hard-clips.
+        public static GUIStyle TechCell { get; private set; }
 
         // Button styles
         public static GUIStyle SmallButton { get; private set; }
         public static GUIStyle CompactButton { get; private set; }
+        // KSP-native action-cell buttons with colour coding
+        public static GUIStyle ActionButton { get; private set; }
+        public static GUIStyle ActionButtonPurchase { get; private set; }
+        public static GUIStyle ActionButtonOwned { get; private set; }
 
         // Label styles
         public static GUIStyle TimeLabel { get; private set; }
@@ -72,7 +91,8 @@ namespace RealFuels
         public static GUIStyle TLStatValue   { get; private set; }
 
         /// <summary>
-        /// Initialize all cached styles. Called once on first use.
+        /// Initialize all cached styles. Called once on first use (or after Reset()).
+        /// FontScale must be set before this is called.
         /// </summary>
         public static void Initialize()
         {
@@ -81,7 +101,7 @@ namespace RealFuels
             // Header styles
             HeaderCell = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize = SF(14),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.9f, 0.9f, 0.9f) },
                 alignment = TextAnchor.LowerLeft,
@@ -90,23 +110,25 @@ namespace RealFuels
 
             HeaderCellHover = new GUIStyle(HeaderCell)
             {
-                fontSize = 15
+                fontSize = SF(15)
             };
 
             // Row styles
             RowPrimary = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize = SF(14),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.85f, 0.85f, 0.85f) },
                 alignment = TextAnchor.MiddleLeft,
                 richText = true,
+                wordWrap = false,
+                clipping = TextClipping.Clip,
                 padding = new RectOffset(5, 0, 0, 0)
             };
 
             RowPrimaryHover = new GUIStyle(RowPrimary)
             {
-                fontSize = 15
+                fontSize = SF(15)
             };
 
             RowPrimaryLocked = new GUIStyle(RowPrimary)
@@ -119,36 +141,68 @@ namespace RealFuels
                 normal = { textColor = new Color(0.7f, 0.7f, 0.7f) }
             };
 
+            RowSecondaryCenter = new GUIStyle(RowSecondary)
+            {
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            // Tech column cell: slightly smaller text so long tech names fit within the
+            // 110 px column cap without wrapping.  Always hard-clips horizontally.
+            TechCell = new GUIStyle(RowSecondary)
+            {
+                fontSize = SF(11),
+                wordWrap = false,
+                clipping = TextClipping.Clip
+            };
+
             // Button styles
             SmallButton = new GUIStyle(HighLogic.Skin.button)
             {
-                fontSize = 11,
+                fontSize = SF(11),
                 padding = new RectOffset(2, 2, 2, 2)
             };
 
-            CompactButton = new GUIStyle(GUI.skin.button)
+            // CompactButton uses the KSP skin so it matches the rest of the editor UI.
+            CompactButton = new GUIStyle(HighLogic.Skin.button)
             {
-                fontSize = 12,
+                fontSize = SF(12),
                 fontStyle = FontStyle.Bold
             };
+
+            // Action-cell buttons — KSP-native look, colour-coded by state.
+            // fontStyle is set explicitly so all three variants render identically
+            // regardless of what HighLogic.Skin.button inherits.
+            ActionButton = new GUIStyle(HighLogic.Skin.button)
+            {
+                fontSize  = SF(12),
+                fontStyle = FontStyle.Normal,
+                padding   = new RectOffset(3, 3, 2, 2)
+            };
+            // Purchase button: golden text to hint at a cost action.
+            ActionButtonPurchase = new GUIStyle(ActionButton);
+            ActionButtonPurchase.normal.textColor = new Color(1.00f, 0.85f, 0.30f);
+            ActionButtonPurchase.hover.textColor  = new Color(1.00f, 0.95f, 0.50f);
+            // Owned / free button: green text to indicate already unlocked.
+            ActionButtonOwned = new GUIStyle(ActionButton);
+            ActionButtonOwned.normal.textColor = new Color(0.50f, 0.85f, 0.50f);
 
             // Label styles
             TimeLabel = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
+                fontSize = SF(13),
                 normal = { textColor = Color.grey },
                 alignment = TextAnchor.UpperCenter
             };
 
             GridLabel = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
+                fontSize = SF(13),
                 normal = { textColor = Color.grey }
             };
 
             ChartTitle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 16,
+                fontSize = SF(16),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white },
                 alignment = TextAnchor.MiddleCenter
@@ -156,7 +210,7 @@ namespace RealFuels
 
             Legend = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
+                fontSize = SF(13),
                 normal = { textColor = Color.white },
                 alignment = TextAnchor.UpperLeft
             };
@@ -164,7 +218,7 @@ namespace RealFuels
             // Info panel styles
             InfoText = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 15,
+                fontSize = SF(15),
                 normal = { textColor = Color.white },
                 wordWrap = true,
                 richText = true,
@@ -173,7 +227,7 @@ namespace RealFuels
 
             InfoHeader = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 17,
+                fontSize = SF(17),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.9f, 0.9f, 0.9f) },
                 wordWrap = true,
@@ -183,7 +237,7 @@ namespace RealFuels
 
             InfoSection = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 16,
+                fontSize = SF(16),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white },
                 wordWrap = true,
@@ -193,7 +247,7 @@ namespace RealFuels
 
             Bullet = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize = SF(14),
                 normal = { textColor = Color.white },
                 wordWrap = false,
                 richText = true,
@@ -207,14 +261,14 @@ namespace RealFuels
 
             Footer = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 11,
+                fontSize = SF(11),
                 normal = { textColor = new Color(0.6f, 0.6f, 0.6f) },
                 padding = new RectOffset(8, 8, 1, 1)
             };
 
             Control = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 12,
+                fontSize = SF(12),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.8f, 0.8f, 0.8f) },
                 padding = new RectOffset(8, 8, 2, 2)
@@ -222,7 +276,7 @@ namespace RealFuels
 
             FailureRate = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
+                fontSize = SF(18),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white },
                 alignment = TextAnchor.MiddleCenter,
@@ -232,7 +286,7 @@ namespace RealFuels
             // Tooltip style
             ChartTooltip = new GUIStyle(GUI.skin.box)
             {
-                fontSize = 15,
+                fontSize = SF(15),
                 normal = { textColor = Color.white },
                 padding = new RectOffset(8, 8, 6, 6),
                 alignment = TextAnchor.MiddleLeft,
@@ -243,23 +297,27 @@ namespace RealFuels
             // Menu styles
             MenuHeader = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
+                fontSize = SF(13),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white }
             };
 
             MenuLabel = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 12,
+                fontSize = SF(12),
                 normal = { textColor = Color.white }
             };
 
-            // Main window styles
+            // Main window styles — richText enabled so EngineManagerGUI can render
+            // the composite "Configure [part]: [description]" label with inline markup.
             DescriptionLabel = new GUIStyle(GUI.skin.label)
             {
+                fontSize = SF(13),
                 padding = new RectOffset(0, 0, 0, 0),
                 margin = new RectOffset(0, 0, 0, 0),
-                normal = { textColor = Color.white }
+                normal = { textColor = Color.white },
+                richText = true,
+                wordWrap = false
             };
 
             CloseButton = new GUIStyle(GUI.skin.button)
@@ -267,7 +325,7 @@ namespace RealFuels
                 normal = { textColor = new Color(1f, 0.4f, 0.4f) },
                 hover = { textColor = new Color(1f, 0.2f, 0.2f) },
                 fontStyle = FontStyle.Bold,
-                fontSize = 14
+                fontSize = SF(14)
             };
 
             // Table layout styles
@@ -284,22 +342,22 @@ namespace RealFuels
 
             CellMeasure = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize = SF(14),
                 fontStyle = FontStyle.Bold,
                 padding = new RectOffset(5, 0, 0, 0)
             };
 
-            // Column settings menu styles
+            // Column settings menu styles — sized to match the main window's secondary text.
             ColumnMenuHeader = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 11,
+                fontSize = SF(13),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
             };
 
             ColumnMenuLabel = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 11,
+                fontSize = SF(12),
                 normal = { textColor = new Color(0.85f, 0.85f, 0.85f) }
             };
 
@@ -308,13 +366,13 @@ namespace RealFuels
                 alignment = TextAnchor.MiddleCenter,
                 normal = { textColor = new Color(0.55f, 0.55f, 0.55f) },
                 wordWrap = true,
-                fontSize = 13
+                fontSize = SF(13)
             };
 
             // Tech Level panel
             TLAlertBanner = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
+                fontSize = SF(13),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(1f, 0.78f, 0.3f) },
                 richText = true,
@@ -324,7 +382,7 @@ namespace RealFuels
 
             TLBadgeLabel = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
+                fontSize = SF(18),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white },
                 alignment = TextAnchor.MiddleCenter,
@@ -333,7 +391,7 @@ namespace RealFuels
 
             TLSubLabel = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 11,
+                fontSize = SF(11),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white },
                 alignment = TextAnchor.UpperCenter,
@@ -342,7 +400,7 @@ namespace RealFuels
 
             TLStatHeader = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
+                fontSize = SF(13),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white },
                 richText = true,
@@ -351,7 +409,7 @@ namespace RealFuels
 
             TLStatValue = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
+                fontSize = SF(13),
                 normal = { textColor = new Color(0.85f, 0.85f, 0.85f) },
                 richText = true,
                 padding = new RectOffset(4, 4, 1, 1)
@@ -361,7 +419,8 @@ namespace RealFuels
         }
 
         /// <summary>
-        /// Reset all styles. Call this if you need to reinitialize (e.g., after skin change).
+        /// Reset all styles. Set FontScale to the new value, then let Initialize() be called
+        /// lazily (via EnsureTexturesAndStyles) to apply the new scale.
         /// </summary>
         public static void Reset()
         {
