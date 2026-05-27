@@ -8,40 +8,33 @@ namespace RealFuels.Tanks
 {
     public partial class ModuleFuelTanks : IAnalyticTemperatureModifier, IAnalyticPreview
     {
-        public const string BoiloffGroupName = "RFBoiloffDebug";
-        public const string BoiloffGroupDisplayName = "#RF_FuelTankRF_Boiloff"; // "RF Boiloff"
-        protected double totalTankArea;
-        private double analyticSkinTemp;
-        private double analyticInternalTemp;
-        public bool SupportsBoiloff => cryoTanks.Count > 0;
-        private readonly Dictionary<string, double> boiloffProducts = new Dictionary<string, double>();
+        public const string CryogenicGroupName = "RFCryogenics";
+        public const string CryogenicsGroupDisplayName = "#RF_FuelTankRF_Cryogenics"; // "RF Cryogenics"
 
-        public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
+        [KSPField(guiActiveEditor = true, guiName = "#RF_FuelTankRF_HighlyPressurized", groupName = guiGroupName)] // Highly Pressurized?
+        public bool highlyPressurized = false;
 
-        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "#RF_FuelTankRF_MLILayers", guiUnits = "#", guiFormat = "F0"), // MLI Layers
+        [KSPField(isPersistant = true, guiActive= true, guiActiveEditor = true, guiName = "#RF_FuelTankRF_MLILayers",
+            groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName, guiFormat = "F0"), // MLI Layers
         UI_FloatRange(minValue = 0, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
         public float _numberOfAddedMLILayers = 0; // This is the number of layers added by the player.
-        public int numberOfAddedMLILayers { get => (int)_numberOfAddedMLILayers; }
+        public int numberOfAddedMLILayers => (int)_numberOfAddedMLILayers;
 
         public int totalMLILayers => numberOfMLILayers + numberOfAddedMLILayers;
 
-        // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
-        [NonSerialized]
-        public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool>();
+        [KSPField(isPersistant = true)]
+        protected double totalTankArea;
 
-        [KSPField(guiActiveEditor = true, guiName = "#RF_FuelTankRF_HighlyPressurized")] // Highly Pressurized?
-        public bool highlyPressurized = false;
-
-        [KSPField(guiName = "#RF_FuelTankRF_WallTemp", groupName = BoiloffGroupName, groupDisplayName = BoiloffGroupDisplayName, groupStartCollapsed = true)] // Wall Temp
+        [KSPField(guiName = "#RF_FuelTankRF_WallTemp", groupName = CryogenicGroupName)] // Wall Temp
         public string sWallTemp;
 
-        [KSPField(guiName = "#RF_FuelTankRF_HeatPenetration", groupName = BoiloffGroupName)] // Heat Penetration
+        [KSPField(guiName = "#RF_FuelTankRF_HeatPenetration", groupName = CryogenicGroupName)] // Heat Penetration
         public string sHeatPenetration;
 
-        [KSPField(guiName = "#RF_FuelTankRF_BoiloffLoss", groupName = BoiloffGroupName)] // Boil-off Loss
+        [KSPField(guiName = "#RF_FuelTankRF_BoiloffLoss", groupName = CryogenicGroupName)] // Boil-off Loss
         public string sBoiloffLoss;
 
-        [KSPField(guiName = "#RF_FuelTankRF_AnalyticCooling", groupName = BoiloffGroupName)] // Analytic Cooling
+        [KSPField(guiName = "#RF_FuelTankRF_AnalyticCooling", groupName = CryogenicGroupName)] // Analytic Cooling
         public string sAnalyticCooling;
 
         private double cooling = 0;
@@ -55,19 +48,53 @@ namespace RealFuels.Tanks
         [KSPField]
         public float MLIArealDensity = 0.000015f;
 
-        private static double ConductionFactors => RFSettings.Instance.globalConductionCompensation ? Math.Max(1.0d, PhysicsGlobals.ConductionFactor) : 1d;
+        private double analyticSkinTemp;
+        private double analyticInternalTemp;
+        private readonly Dictionary<string, double> boiloffProducts = new Dictionary<string, double>();
 
-        public double BoiloffMassRate => boiloffMass;
-        private double boiloffMass = 0d;
-        private readonly List<FuelTank> cryoTanks = new List<FuelTank>();
+        public int numberOfMLILayers = 0; // base number of layers taken from TANK_DEFINITION configs
+
+        private double boiloffMassT = 0d;
+        public double BoiloffMassRate => boiloffMassT;
+
+        private readonly List<FuelTank> cryoTanks = new List<FuelTank>();   // anything with maxAmount > 0 && vsp > 0
         private readonly List<double> lossInfo = new List<double>();
         private readonly List<double> fluxInfo = new List<double>();
+
+        // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
+        [NonSerialized]
+        public Dictionary<string, bool> pressurizedFuels = new Dictionary<string, bool>();
 
         private FlightIntegrator _flightIntegrator;
 
         double lowestTankTemperature = 300d;
 
-        partial void OnLoadRF(ConfigNode _) {}
+        private static double ConductionFactors => RFSettings.Instance.globalConductionCompensation ? Math.Max(1.0d, PhysicsGlobals.ConductionFactor) : 1d;
+        public bool SupportsBoiloff => cryoTanks.Count > 0;
+        private bool IsProcedural => part.Modules.Contains("SSTUModularPart") || part.Modules.Contains("WingProcedural");
+
+        partial void OnLoadRF(ConfigNode _) { }
+
+        partial void OnAwakeRF()
+        {
+            if (!HighLogic.LoadedSceneIsEditor) return;
+
+            // KSP orders PAW fields by Type.GetFields() reflection order. Because ModuleFuelTanks.cs
+            // compiles before ModuleFuelTanksRF.cs, showUI lands before highlyPressurized. Swap them.
+            int showUIIdx = -1, pressurizedIdx = -1;
+            for (int i = 0; i < Fields.Count; i++)
+            {
+                if (Fields[i].name == nameof(showUI)) showUIIdx = i;
+                else if (Fields[i].name == nameof(highlyPressurized)) pressurizedIdx = i;
+            }
+
+            if (showUIIdx >= 0 && pressurizedIdx >= 0 && showUIIdx < pressurizedIdx)
+            {
+                BaseField tmp = Fields[showUIIdx];
+                Fields[showUIIdx] = Fields[pressurizedIdx];
+                Fields[pressurizedIdx] = tmp;
+            }
+        }
 
         partial void OnStartRF(StartState _)
         {
@@ -102,8 +129,6 @@ namespace RealFuels.Tanks
             GameEvents.onPartResourceListChange.Add(OnPartResourceListChange);
             GameEvents.onPartDestroyed.Add(OnPartDestroyed);
         }
-
-        private bool IsProcedural => part.Modules.Contains("SSTUModularPart") || part.Modules.Contains("WingProcedural");
 
         private void CalculateInsulation()
         {
@@ -150,8 +175,8 @@ namespace RealFuels.Tanks
             if (HighLogic.LoadedSceneIsFlight && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW) && SupportsBoiloff &&
                 UIPartActionController.Instance.GetItem(part) != null)
             {
-                string MLIText = totalMLILayers > 0 ? $"{GetMLITransferRate(part.skinTemperature, part.temperature):F4}" : Localizer.GetStringByTag("#RF_FuelTankRF_NoMLI"); // "No MLI"
-                sWallTemp = $"{part.temperature:F4} ({MLIText} * {part.radiativeArea:F2} m2)"; // 
+                string MLIText = totalMLILayers > 0 ? $"{GetMLITransferRate(part.skinTemperature, part.temperature):F2} W/m²" : Localizer.GetStringByTag("#RF_FuelTankRF_NoMLI"); // "No MLI"
+                sWallTemp = $"{part.temperature:F2} ({MLIText} * {part.radiativeArea:F2} m²)"; // 
                 sAnalyticCooling = Utilities.FormatFlux(cooling);
 
                 sHeatPenetration = "";
@@ -227,7 +252,7 @@ namespace RealFuels.Tanks
                 return;
             }
 
-            boiloffMass = 0d;
+            boiloffMassT = 0d;
             lossInfo.Clear();
             fluxInfo.Clear();
 
@@ -311,7 +336,7 @@ namespace RealFuels.Tanks
                             }
                         }
 
-                        boiloffMass += massLost;
+                        boiloffMassT += massLost;
 
                         // subtract heat from boiloff
                         // subtracting heat in analytic mode is tricky: Analytic flux handling is 'cheaty' and tricky to predict.
@@ -336,7 +361,7 @@ namespace RealFuels.Tanks
                             double lossAmount = tank.maxAmount * tank.loss_rate * deltaTemp * deltaTime;
                             lossAmount = Math.Min(lossAmount, tankAmount);
                             tank.resource.amount -= lossAmount;
-                            boiloffMass += lossAmount * tank.density;
+                            boiloffMassT += lossAmount * tank.density;
                         }
                     }
                 }
