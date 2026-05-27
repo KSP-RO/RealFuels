@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using KSP.Localization;
+using ClickThroughFix;
 
 namespace RealFuels.Tanks
 {
@@ -14,6 +15,11 @@ namespace RealFuels.Tanks
         private Rect guiWindowRect = new Rect(300, 300, 0, 0);
         private Rect guiTooltipRect = new Rect(0, 0, 0, 0);
         private static readonly int _tooltipWindowId = "MFTTooltipID".GetHashCode();
+
+        // Editor input lock — prevent the editor from picking/deselecting parts while
+        // the mouse is over this window.  Uses the same mechanism as EngineConfigGUI.
+        private bool _editorLocked = false;
+        private const string LockID = "TankDefinitionSelectionGUI_Lock";
         private GUILayoutOption expandWidth, expandHeight;
         private GUIStyle windowStyle, tooltipStyle;
 
@@ -45,12 +51,58 @@ namespace RealFuels.Tanks
         }
         public void OnGUI()
         {
+            // Only render in the Parts tab.  If the player switches to Action Groups
+            // (or any other tab) while this window is open, close it immediately.
+            if (!HighLogic.LoadedSceneIsEditor || EditorLogic.fetch == null
+                || EditorLogic.fetch.editorScreen != EditorScreen.Parts)
+            {
+                EditorUnlock();
+                Destroy(this);
+                return;
+            }
+
             if (!string.IsNullOrWhiteSpace(tooltip))
             {
-                guiTooltipRect = GUILayout.Window(_tooltipWindowId, guiTooltipRect, GUITooltipWindow, "", tooltipStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(false));
+                // ClickThruBlocker ensures the uGUI overlay panel is present over the tooltip
+                // so that EventSystem.current.IsPointerOverGameObject() returns true, which
+                // prevents EditorActionPartSelector from deselecting the part on click-through.
+                guiTooltipRect = ClickThruBlocker.GUILayoutWindow(_tooltipWindowId, guiTooltipRect, GUITooltipWindow, "", tooltipStyle, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(false));
                 GUI.BringWindowToFront(_tooltipWindowId);
             }
-            guiWindowRect = GUILayout.Window(GetInstanceID(), guiWindowRect, GUIWindow, Localizer.GetStringByTag("#RF_TankDefineSelection_TankDefinitions"), windowStyle, expandWidth, expandHeight); // "Tank Definitions"
+            guiWindowRect = ClickThruBlocker.GUILayoutWindow(GetInstanceID(), guiWindowRect, GUIWindow, Localizer.GetStringByTag("#RF_TankDefineSelection_TankDefinitions"), windowStyle, expandWidth, expandHeight); // "Tank Definitions"
+
+            // Lock the editor while the mouse is over our window so part-picking and
+            // part-deselection raycasts are suppressed.
+            Vector3 mp = Input.mousePosition;
+            mp.y = Screen.height - mp.y;
+            bool over = guiWindowRect.Contains(mp) || guiTooltipRect.Contains(mp);
+            if (over)
+                EditorLock();
+            else
+                EditorUnlock();
+        }
+
+        private void OnDestroy()
+        {
+            EditorUnlock();
+        }
+
+        private void EditorLock()
+        {
+            if (!_editorLocked && HighLogic.LoadedSceneIsEditor && EditorLogic.fetch != null)
+            {
+                EditorLogic.fetch.Lock(false, false, false, LockID);
+                _editorLocked = true;
+            }
+        }
+
+        private void EditorUnlock()
+        {
+            if (_editorLocked && EditorLogic.fetch != null)
+            {
+                EditorLogic.fetch.Unlock(LockID);
+                _editorLocked = false;
+            }
         }
 
         private class Filter

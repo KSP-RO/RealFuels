@@ -164,8 +164,28 @@ namespace RealFuels.Tanks
 
         // ── Constants ────────────────────────────────────────────────────────
         private const string LockID = "RFWindowLock";
-        private const int WindowID = 0x52465748; // "RFWH" — unique across KSP addons
-        private const float WindowW = 480f;   // +18px for wider vol field (F4), +2px extra margin
+        private const int WindowID         = 0x52465748; // "RFWH" — unique across KSP addons
+        private const int SettingsWindowID = 0x52465753; // "RFWS"
+        private const int LsPopupWindowID  = 0x52465750; // "RFWP"
+        private const float MinWindowW = 480f;
+        private const float MaxWindowW = 720f;
+        private const float MinScale   = 0.7f;
+        private const float MaxScale   = 1.5f;
+
+        // WindowW behaves like the old const but reads the player-configured value.
+        // All existing Draw* code that references WindowW continues to work unchanged.
+        private float WindowW => _windowW;
+
+        // User-configurable display settings — persisted to PluginData, static so they
+        // survive part/module switches within the same editor session.
+        private static float _windowW = MinWindowW;
+        private static float _uiScale = 1.0f;
+
+        // Scale a font size; always clamps to a readable minimum.
+        private int FS(int size) => Mathf.Max(7, Mathf.RoundToInt(size * _uiScale));
+        // Row-Height scaling: proportionally scale pixel heights with _uiScale.
+        // Used for GetRect heights, button/field heights inside rows, and y-offsets.
+        private float RH(float h) => Mathf.Round(h * _uiScale);
 
         // Life Support — daily resource requirements per crew member in RF units/day.
         // Physical litres consumed = rfUnits / tank.utilization (e.g. Oxygen util = 200,
@@ -174,6 +194,52 @@ namespace RealFuels.Tanks
         private const double LsFoodPerCrewDay = 5.84928;
         private const double LsWaterPerCrewDay = 3.87072;
         private const double LsOxygenPerCrewDay = 591.84;
+
+        // ── Settings ─────────────────────────────────────────────────────────
+        // Persisted to PluginData/RealFuels/RealFuelsWindowSettings.cfg.
+        private bool _settingsOpen;
+        private Rect _settingsWinRect = new Rect(0, 0, 280f, 0);
+
+        private static readonly string SettingsPath =
+            System.IO.Path.Combine(KSPUtil.ApplicationRootPath,
+                "GameData", "RealFuels", "PluginData", "RealFuelsWindowSettings.cfg");
+
+        private static void LoadSettings()
+        {
+            if (!System.IO.File.Exists(SettingsPath)) return;
+            try
+            {
+                ConfigNode root = ConfigNode.Load(SettingsPath);
+                if (root?.GetNode("SETTINGS") is ConfigNode node)
+                {
+                    if (float.TryParse(node.GetValue("windowWidth"), out float w))
+                        _windowW = Mathf.Clamp(w, MinWindowW, MaxWindowW);
+                    if (float.TryParse(node.GetValue("uiScale"), out float s))
+                        _uiScale = Mathf.Clamp(s, MinScale, MaxScale);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[RFWindow] Could not load settings: {ex.Message}");
+            }
+        }
+
+        private static void SaveSettings()
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SettingsPath));
+                ConfigNode root = new ConfigNode();
+                ConfigNode node = root.AddNode("SETTINGS");
+                node.AddValue("windowWidth", _windowW.ToString("F0"));
+                node.AddValue("uiScale",     _uiScale.ToString("F2"));
+                root.Save(SettingsPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[RFWindow] Could not save settings: {ex.Message}");
+            }
+        }
 
         // ── Favourites ───────────────────────────────────────────────────────
         // Persisted to PluginData/RealFuels/RealFuelsWindowFavorites.cfg so
@@ -220,7 +286,7 @@ namespace RealFuels.Tanks
         // ── Instance fields ─────────────────────────────────────────────────
         private ModuleFuelTanks _module;
         private bool _visible;
-        private Rect _winRect = new Rect(120, 80, WindowW, 10);
+        private Rect _winRect = new Rect(120, 80, MinWindowW, 10);
         private float _targetH = 600f;   // computed each frame in OnGUI
         private Vector2 _availScroll;
         private bool _overWindow;
@@ -259,6 +325,11 @@ namespace RealFuels.Tanks
         private bool _lifeSupportExpanded = false;
         private string _lsCrewBuf = "1";
         private string _lsDaysBuf = "1.0";
+
+        // Life Support "not enough space" popup.
+        private bool _lsPopupOpen;
+        private string _lsPopupMsg = "";
+        private Rect _lsPopupRect = new Rect(0, 0, 340f, 0);
 
         // Cached quick-fill presets; rebuilt whenever the window opens or the
         // vessel's engine list changes (via onEditorShipModified).
@@ -320,6 +391,14 @@ namespace RealFuels.Tanks
         private GUIStyle _sSearch, _sSearchPlaceholder, _sSearchClear;
         private GUIStyle _sLsCommit, _sLsHeaderLbl;
         private GUIStyle _sBtnLock, _sBtnLockOn;  // lock toggle: dim when off, amber when on
+        private GUIStyle _sGearBtn;         // settings toggle in header
+        private GUIStyle _sSettingsValue;   // slider value readout
+        private GUIStyle _sSettingsClose;   // Close button in settings window
+        private Texture2D _txSettingsIcon;  // programmatic three-sliders icon
+        private GUIStyle _sTooltip;         // floating tooltip label
+
+        // Tooltip text set each frame by SetTooltip(); rendered at end of DrawWindow.
+        private string _tooltipText = "";
 
         // ── Lifecycle ────────────────────────────────────────────────────────
 
@@ -333,6 +412,7 @@ namespace RealFuels.Tanks
         private void Start()
         {
             GameEvents.onEditorShipModified.Add(OnShipModified);
+            LoadSettings();
             LoadFavorites();
         }
 
@@ -464,13 +544,37 @@ namespace RealFuels.Tanks
                                         GUILayout.Width(WindowW),
                                         GUILayout.Height(_targetH));
 
+            // ── Settings window — drawn as a separate draggable window ────────
+            if (_settingsOpen)
+            {
+                _settingsWinRect = ClickThruBlocker.GUILayoutWindow(SettingsWindowID,
+                    _settingsWinRect, DrawSettingsWindow, GUIContent.none, _sWindow,
+                    GUILayout.Width(280f));
+
+                // Lock editor while mouse is over the settings window too.
+                if (_settingsWinRect.Contains(Event.current.mousePosition))
+                    EditorLogic.fetch?.Lock(true, true, true, LockID);
+            }
+
+            // ── Life Support "not enough space" popup ─────────────────────────
+            if (_lsPopupOpen)
+            {
+                _lsPopupRect = ClickThruBlocker.GUILayoutWindow(LsPopupWindowID,
+                    _lsPopupRect, DrawLsPopup, GUIContent.none, _sWindow,
+                    GUILayout.Width(Mathf.Round(340f * _uiScale)));
+
+                if (_lsPopupRect.Contains(Event.current.mousePosition))
+                    EditorLogic.fetch?.Lock(true, true, true, LockID);
+            }
+
             // Keep the ClickThruBlocker rect in sync with the window every frame.
             _ctbRect = _winRect;
 
             // Editor cursor lock: prevent part-picking while mouse is over window.
             _overWindow = _winRect.Contains(Event.current.mousePosition);
             if (_overWindow) EditorLogic.fetch?.Lock(true, true, true, LockID);
-            else EditorLogic.fetch?.Unlock(LockID);
+            else if (!_settingsOpen || !_settingsWinRect.Contains(Event.current.mousePosition))
+                EditorLogic.fetch?.Unlock(LockID);
 
             // Auto-select all text when a text field gains focus.
             // GUIUtility.keyboardControl holds the control ID of the focused field;
@@ -492,6 +596,8 @@ namespace RealFuels.Tanks
 
         private void DrawWindow(int id)
         {
+            _tooltipText = "";  // reset every pass so only the current hover is shown
+
             // Live snapshot from RF each frame — no stale cache.
             var activeTanks = ActiveTanks();
             double filled = activeTanks.Sum(t => t.Volume);           // litres
@@ -519,6 +625,7 @@ namespace RealFuels.Tanks
             DrawQuickFill(remForFill);  // Quick Fill only fills non-reserved space
             DrawLifeSupport();
             DrawFooter();
+            DrawTooltip();  // render floating tooltip on top of all other content
 
             GUI.DragWindow(new Rect(0, 0, WindowW, 64));
         }
@@ -527,37 +634,177 @@ namespace RealFuels.Tanks
 
         private void DrawHeader()
         {
-            Rect r = GUILayoutUtility.GetRect(WindowW, 64);
+            Rect r = GUILayoutUtility.GetRect(WindowW, RH(64));
             GUI.DrawTexture(r, _txHeader);
             GUI.DrawTexture(new Rect(r.x + 50, r.yMax - 2, r.width - 100, 2), _txAccent);
-            GUI.Label(new Rect(r.x + 16, r.y + 10, r.width - 32, 22),
+
+            // Leave 48px on the right for the gear button.
+            float titleH    = RH(22);
+            float subtitleH = RH(20);
+            float titleY    = r.y + RH(10);
+            float subtitleY = titleY + titleH + RH(4);
+            GUI.Label(new Rect(r.x + 16, titleY, r.width - 64, titleH),
                 _module.part.partInfo.title.ToUpper(), _sTitle);
-            GUI.Label(new Rect(r.x + 16, r.y + 36, r.width - 32, 20),
+            GUI.Label(new Rect(r.x + 16, subtitleY, r.width - 64, subtitleH),
                 (_module.type ?? "PROPELLANT CONFIGURATION").ToUpper(), _sSubtitle);
+
+            // Settings toggle button — top-right of header, vertically centred.
+            float gearSz = RH(30);
+            Rect gearR = new Rect(r.xMax - 44f, r.y + (r.height - gearSz) * 0.5f, gearSz, gearSz);
+            if (GUI.Button(gearR, GUIContent.none, _sGearBtn))
+            {
+                _settingsOpen = !_settingsOpen;
+                if (_settingsOpen)
+                {
+                    // Position settings window to the right of the main window.
+                    _settingsWinRect = new Rect(
+                        _winRect.xMax + 8f,
+                        _winRect.y,
+                        280f, 0f);
+                }
+            }
+            SetTooltip(gearR, "Window settings — adjust width and font scale.");
+            // Draw the settings icon texture — tinted gold when active.
+            if (_txSettingsIcon != null)
+            {
+                float iconSz = RH(16);
+                GUI.color = _settingsOpen ? new Color(1f, 0.84f, 0f) : new Color(0.78f, 0.85f, 1f);
+                GUI.DrawTexture(new Rect(gearR.x + (gearSz - iconSz) * 0.5f,
+                                        gearR.y + (gearSz - iconSz) * 0.5f,
+                                        iconSz, iconSz),
+                    _txSettingsIcon, ScaleMode.StretchToFill);
+                GUI.color = Color.white;
+            }
+        }
+
+        // ── Settings window (separate draggable window) ───────────────────────
+        // Changes apply live — the main window reacts in real time as sliders move.
+        // Settings are saved to disk when the player closes this window.
+
+        private void DrawSettingsWindow(int id)
+        {
+            const float W = 280f;
+            const float px = 14f;
+            const float pw = W - 28f;
+
+            // ── Title bar ─────────────────────────────────────────────────────
+            Rect hdr = GUILayoutUtility.GetRect(W, 36f);
+            GUI.DrawTexture(hdr, _txHeader);
+            GUI.DrawTexture(new Rect(hdr.x, hdr.yMax - 1, hdr.width, 1), _txAccent);
+            GUI.Label(new Rect(hdr.x + px, hdr.y + 8f, W - 60f, 20f),
+                "WINDOW SETTINGS", _sSectionLbl);
+
+            // X close button (top-right)
+            if (GUI.Button(new Rect(hdr.xMax - 32f, hdr.y + 6f, 24f, 24f), "✕", _sBtnRemove))
+            {
+                SaveSettings();
+                _settingsOpen = false;
+            }
+
+            GUILayout.Space(6);
+
+            // ── Width slider ──────────────────────────────────────────────────
+            Rect widthPanel = GUILayoutUtility.GetRect(W, 52f);
+            GUI.DrawTexture(widthPanel, _txDark);
+            GUI.DrawTexture(new Rect(widthPanel.x, widthPanel.yMax - 1, widthPanel.width, 1), _txDivider);
+
+            GUI.Label(new Rect(widthPanel.x + px, widthPanel.y + 6f, 120f, 16f),
+                "WINDOW WIDTH", _sSectionLbl);
+            GUI.Label(new Rect(widthPanel.xMax - px - 68f, widthPanel.y + 6f, 68f, 16f),
+                _windowW.ToString("F0") + " px", _sSettingsValue);
+
+            float newW = GUI.HorizontalSlider(
+                new Rect(widthPanel.x + px, widthPanel.y + 28f, pw, 14f),
+                _windowW, MinWindowW, MaxWindowW,
+                HighLogic.Skin.horizontalSlider, HighLogic.Skin.horizontalSliderThumb);
+            if (!Mathf.Approximately(newW, _windowW))
+                _windowW = Mathf.Round(newW);   // snap to whole pixels
+
+            GUILayout.Space(4);
+
+            // ── Scale slider ──────────────────────────────────────────────────
+            Rect scalePanel = GUILayoutUtility.GetRect(W, 52f);
+            GUI.DrawTexture(scalePanel, _txDark);
+            GUI.DrawTexture(new Rect(scalePanel.x, scalePanel.yMax - 1, scalePanel.width, 1), _txDivider);
+
+            GUI.Label(new Rect(scalePanel.x + px, scalePanel.y + 6f, 120f, 16f),
+                "UI SCALE", _sSectionLbl);
+            GUI.Label(new Rect(scalePanel.xMax - px - 68f, scalePanel.y + 6f, 68f, 16f),
+                _uiScale.ToString("F2") + "×", _sSettingsValue);
+
+            float newS = GUI.HorizontalSlider(
+                new Rect(scalePanel.x + px, scalePanel.y + 28f, pw, 14f),
+                _uiScale, MinScale, MaxScale,
+                HighLogic.Skin.horizontalSlider, HighLogic.Skin.horizontalSliderThumb);
+            if (!Mathf.Approximately(newS, _uiScale))
+            {
+                _uiScale = (float)Math.Round(newS, 2);
+                _stylesReady = false;   // rebuild fonts at new scale next frame
+            }
+
+            GUILayout.Space(4);
+
+            // ── Note ─────────────────────────────────────────────────────────
+            Rect notePanel = GUILayoutUtility.GetRect(W, 28f);
+            GUI.DrawTexture(notePanel, _txDark);
+            var noteStyle = new GUIStyle(_sSettingsValue)
+                { alignment = TextAnchor.MiddleCenter, fontSize = FS(9), wordWrap = true };
+            GUI.Label(new Rect(notePanel.x + px, notePanel.y + 2f, pw, 24f),
+                "Scale affects font sizes and row heights.", noteStyle);
+
+            GUILayout.Space(6);
+
+            // ── Reset / Close ─────────────────────────────────────────────────
+            Rect btnRow = GUILayoutUtility.GetRect(W, 44f);
+            GUI.DrawTexture(btnRow, _txDark);
+            GUI.DrawTexture(new Rect(btnRow.x, btnRow.y, btnRow.width, 1), _txDivider);
+
+            float bw = (btnRow.width - 44f) * 0.5f;
+            float bx = btnRow.x + px;
+            float by = btnRow.y + 8f;
+
+            if (GUI.Button(new Rect(bx, by, bw, 28f), "RESET", _sSettingsClose))
+            {
+                _windowW = MinWindowW;
+                _uiScale = 1.0f;
+                _stylesReady = false;
+                SaveSettings();
+            }
+            if (GUI.Button(new Rect(bx + bw + 16f, by, bw, 28f), "CLOSE", _sSettingsClose))
+            {
+                SaveSettings();
+                _settingsOpen = false;
+            }
+
+            GUI.DragWindow(new Rect(0, 0, W, 36f));
         }
 
         // ── Volume bar ───────────────────────────────────────────────────────
 
         private void DrawVolumeBar(double remaining, double total, float usedFrac)
         {
-            Rect panel = GUILayoutUtility.GetRect(WindowW, 56);   // extra 10 px for text headroom
+            Rect panel = GUILayoutUtility.GetRect(WindowW, RH(56));
             GUI.DrawTexture(panel, _txDark);
 
             float px = panel.x + 16, pw = panel.width - 32;
 
-            GUI.Label(new Rect(px, panel.y + 8, 110, 20), "TANK VOLUME", _sSectionLbl);
+            float lblH  = RH(20);
+            float lblY  = panel.y + RH(8);
+            float barH  = RH(8);
+            float barY  = lblY + lblH + RH(10);
+            GUI.Label(new Rect(px, lblY, 110, lblH), "TANK VOLUME", _sSectionLbl);
 
             var remStyle = new GUIStyle(_sSectionLbl)
             {
                 fontStyle = FontStyle.Normal,
-                fontSize = 12,
+                fontSize  = FS(12),
             };
             remStyle.normal.textColor = C("#72e0a0");   // 7.2:1 on dark bg
-            GUI.Label(new Rect(px + 112, panel.y + 7, pw - 112, 20),   // height 20 avoids clip
+            GUI.Label(new Rect(px + 112, lblY, pw - 112, lblH),
                 remaining.ToString("F1") + " / " + total.ToString("F1") + " L remaining",
                 remStyle);
 
-            Rect track = new Rect(px, panel.y + 38, pw, 8);   // bar moved down to match taller panel
+            Rect track = new Rect(px, barY, pw, barH);
             GUI.DrawTexture(track, _txBarTrack);
             if (usedFrac > 0f)
                 GUI.DrawTexture(
@@ -580,7 +827,7 @@ namespace RealFuels.Tanks
             float wet = _module.part.mass + _module.part.GetResourceMass();
             float dry = _module.part.mass; // part.mass is dry in editor context
 
-            Rect panel = GUILayoutUtility.GetRect(WindowW, 46);
+            Rect panel = GUILayoutUtility.GetRect(WindowW, RH(46));
             GUI.DrawTexture(panel, _txDark);
 
             float cw = panel.width / 3f;
@@ -591,29 +838,41 @@ namespace RealFuels.Tanks
             MassCell(new Rect(panel.x + cw * 2, panel.y, cw, panel.height),
                 "PROPELLANT", (wet - dry).ToString("F3") + " t");
 
-            GUI.DrawTexture(new Rect(panel.x + cw, panel.y + 6, 1, panel.height - 12), _txDivider);
-            GUI.DrawTexture(new Rect(panel.x + cw * 2, panel.y + 6, 1, panel.height - 12), _txDivider);
+            float divPad = RH(6);
+            GUI.DrawTexture(new Rect(panel.x + cw,       panel.y + divPad, 1, panel.height - divPad * 2), _txDivider);
+            GUI.DrawTexture(new Rect(panel.x + cw * 2,   panel.y + divPad, 1, panel.height - divPad * 2), _txDivider);
             GUI.DrawTexture(new Rect(panel.x, panel.yMax - 1, panel.width, 1), _txDivider);
         }
 
         private void MassCell(Rect r, string label, string value)
         {
-            GUI.Label(new Rect(r.x + 16, r.y + 6, r.width - 20, 16), label, _sMassLbl);
-            GUI.Label(new Rect(r.x + 16, r.y + 22, r.width - 20, 20), value, _sMassVal);
+            float lblH = RH(16);
+            float valH = RH(20);
+            // Stack label + value centred within the cell.
+            float totalH  = lblH + RH(4) + valH;
+            float startY  = r.y + (r.height - totalH) * 0.5f;
+            GUI.Label(new Rect(r.x + 16, startY,           r.width - 20, lblH), label, _sMassLbl);
+            GUI.Label(new Rect(r.x + 16, startY + lblH + RH(4), r.width - 20, valH), value, _sMassVal);
         }
 
         // ── Section header ───────────────────────────────────────────────────
 
         private void DrawSectionHeader(string label, string badge)
         {
-            Rect r = GUILayoutUtility.GetRect(WindowW, 26);
-            GUI.Label(new Rect(r.x + 16, r.y + 5, 80, 16), label, _sSectionLbl);
+            Rect r = GUILayoutUtility.GetRect(WindowW, RH(26));
+            float lblH = RH(16);
+            float lblY = r.y + (r.height - lblH) * 0.5f;
+            GUI.Label(new Rect(r.x + 16, lblY, 80, lblH), label, _sSectionLbl);
 
             float lineW = badge != null ? r.width - 210 : r.width - 116;
-            GUI.DrawTexture(new Rect(r.x + 100, r.y + 12, lineW, 1), _txDivider);
+            GUI.DrawTexture(new Rect(r.x + 100, r.y + r.height * 0.5f, lineW, 1), _txDivider);
 
             if (badge != null)
-                GUI.Label(new Rect(r.x + r.width - 106, r.y + 4, 90, 18), badge, _sCountBadge);
+            {
+                float badgeH = RH(18);
+                float badgeY = r.y + (r.height - badgeH) * 0.5f;
+                GUI.Label(new Rect(r.x + r.width - 106, badgeY, 90, badgeH), badge, _sCountBadge);
+            }
         }
 
         // ── Current row ──────────────────────────────────────────────────────
@@ -641,39 +900,55 @@ namespace RealFuels.Tanks
             if (!_pctBuf.ContainsKey(tank.name))
                 _pctBuf[tank.name] = pctOfTotal.ToString("F2");
 
-            Rect r = GUILayoutUtility.GetRect(WindowW, 44);
+            Rect r = GUILayoutUtility.GetRect(WindowW, RH(44));
             GUI.DrawTexture(r, _txRow);
             GUI.DrawTexture(new Rect(r.x, r.yMax - 1, r.width, 1), _txDivider);
 
+            // Scaled element heights and vertical offsets within the row.
+            float fh  = RH(26);  // text-field height
+            float bh  = RH(28);  // small-button height
+            float lh  = RH(22);  // label height
+            float fyO = r.y + (r.height - fh) * 0.5f;   // field y (vertically centred)
+            float byO = r.y + (r.height - bh) * 0.5f;   // button y
+            float lyO = r.y + (r.height - lh) * 0.5f;   // label y
+
             float cx = r.x + 16f;
 
-            // ── Name ──
-            GUI.Label(new Rect(cx, r.y + 11f, 80f, 22f), tank.name, _sPropName);
-            cx += 84f;
+            // ── Name — width absorbs any extra space when window is wider than 480px ──
+            // Fixed controls after the name slot consume 364px + 16px right margin = 380px.
+            // At 480px: nameW = 80px.  At 600px: nameW = 200px — no truncation.
+            float nameW = Mathf.Max(40f, r.width - 396f);
+            GUI.Label(new Rect(cx, lyO, nameW, lh), tank.name, _sPropName);
+            cx += nameW + 4f;
 
             // ── Percentage field ──
-            GUI.DrawTexture(new Rect(cx, r.y + 8f, 44f, 26f), _txInput);
+            GUI.DrawTexture(new Rect(cx, fyO, 44f, fh), _txInput);
             string newPct = GUI.TextField(
-                new Rect(cx, r.y + 8f, 44f, 26f), _pctBuf[tank.name], _sField);
+                new Rect(cx, fyO, 44f, fh), _pctBuf[tank.name], _sField);
             if (newPct != _pctBuf[tank.name])
                 _pctBuf[tank.name] = newPct;
+            SetTooltip(new Rect(cx, fyO, 44f, fh),
+                "Percentage of total tank capacity.\nEdit and press ✓ to apply.");
             cx += 46f;
 
-            GUI.Label(new Rect(cx, r.y + 13f, 14f, 18f), "%", _sUnitLbl);
+            GUI.Label(new Rect(cx, lyO, 14f, lh), "%", _sUnitLbl);
             cx += 16f;
 
             // ── Volume field (RF units — maxAmount, not physical litres) ──
             // Wider than before (90px): high-utilization values like Oxygen's 591.84
             // need more room.  No "L" suffix — these are game resource units, not litres.
-            GUI.DrawTexture(new Rect(cx, r.y + 8f, 90f, 26f), _txInput);
+            GUI.DrawTexture(new Rect(cx, fyO, 90f, fh), _txInput);
             string newVol = GUI.TextField(
-                new Rect(cx, r.y + 8f, 90f, 26f), _editBuf[tank.name], _sField);
+                new Rect(cx, fyO, 90f, fh), _editBuf[tank.name], _sField);
             if (newVol != _editBuf[tank.name])
                 _editBuf[tank.name] = newVol;
+            if (tank.utilization > 1.0f)
+                SetTooltip(new Rect(cx, fyO, 90f, fh),
+                    $"RF game units — not physical litres.\n{tank.name} has utilization {tank.utilization:F0}×:\n1 RF unit = {(1.0 / tank.utilization):F4} L of tank space.");
             cx += 94f;  // 90 field + 4 gap
 
             // ── Apply ✓ (green) ──
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "✓", _sBtnApply))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "✓", _sBtnApply))
             {
                 // Prefer percentage if it differs from the live value; else use volume.
                 if (double.TryParse(_pctBuf[tank.name], out double pctIn) &&
@@ -682,10 +957,12 @@ namespace RealFuels.Tanks
                 else
                     ApplyVolume(tank);
             }
+            SetTooltip(new Rect(cx, byO, 24f, bh),
+                "Apply the typed value.\n% field takes priority if edited;\notherwise the volume field is used.\nOther resources scale down only if needed.");
             cx += 28f;
 
             // ── Remove ✕ (red) ──
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "✕", _sBtnRemove))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "✕", _sBtnRemove))
                 RemoveTank(tank);
             cx += 28f;
 
@@ -693,7 +970,7 @@ namespace RealFuels.Tanks
             // Closed padlock (amber) = amount snapshotted; re-asserted on any external change.
             // Open padlock   (dim)   = participates in normal scaling.
             bool isLocked = _lockedAmounts.ContainsKey(tank.name);
-            Rect lockR = new Rect(cx, r.y + 8f, 24f, 28f);
+            Rect lockR = new Rect(cx, byO, 24f, bh);
 
             // Hover highlight (same background used by all other small buttons)
             if (lockR.Contains(Event.current.mousePosition))
@@ -704,7 +981,7 @@ namespace RealFuels.Tanks
             GUI.color = isLocked ? _sBtnLockOn.normal.textColor
                                  : _sBtnLock.normal.textColor;
             GUI.DrawTexture(
-                new Rect(lockR.x + 5f, lockR.y + 5f, 14f, 18f),
+                new Rect(lockR.x + (lockR.width - RH(14)) * 0.5f, lockR.y + (lockR.height - RH(18)) * 0.5f, RH(14), RH(18)),
                 isLocked ? _txIconLockClosed : _txIconLockOpen,
                 ScaleMode.StretchToFill);
             GUI.color = Color.white;  // restore before any further draws
@@ -717,20 +994,26 @@ namespace RealFuels.Tanks
                 else
                     _lockedAmounts[tank.name] = tank.maxAmount;  // snapshot current RF units
             }
+            SetTooltip(lockR, isLocked
+                ? "Locked — amount is snapshotted.\nScale All and tank resize will not change this resource.\nClick to unlock."
+                : "Lock this resource's amount.\nWhile locked, Scale All and tank resize\nwill not affect it.\nClick to lock.");
             cx += 28f;
 
             // ── Half 1/2 ──
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "1/2", _sBtnHalf))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "1/2", _sBtnHalf))
                 HalfTank(tank);
+            SetTooltip(new Rect(cx, byO, 24f, bh), "Halve this resource's volume.");
             cx += 28f;
 
             // ── Double 2× ──
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "2×", _sBtnHalf))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "2×", _sBtnHalf))
                 DoubleTank(tank);
+            SetTooltip(new Rect(cx, byO, 24f, bh),
+                "Double this resource's volume.\nCapped at available space; reserve is respected.");
             cx += 28f;
 
             // ── Mass ──
-            GUI.Label(new Rect(cx, r.y + 11f, 68f, 22f),
+            GUI.Label(new Rect(cx, lyO, 68f, lh),
                 (tank.maxAmount * tank.density).ToString("F3") + " t", _sMassRow);
         }
 
@@ -750,45 +1033,54 @@ namespace RealFuels.Tanks
             if (!_pctBuf.ContainsKey(ReserveKey))
                 _pctBuf[ReserveKey] = ullPct.ToString("F2");
 
-            Rect r = GUILayoutUtility.GetRect(WindowW, 44f);
+            Rect r = GUILayoutUtility.GetRect(WindowW, RH(44));
             GUI.DrawTexture(r, _txReserveRow);
             // Thin blue top border ties reserve back to the tank system visually
             GUI.DrawTexture(new Rect(r.x, r.y, r.width, 1), _txAccent);
             GUI.DrawTexture(new Rect(r.x, r.yMax - 1, r.width, 1), _txDivider);
 
+            float fh  = RH(26);
+            float bh  = RH(28);
+            float lh  = RH(22);
+            float fyO = r.y + (r.height - fh) * 0.5f;
+            float byO = r.y + (r.height - bh) * 0.5f;
+            float lyO = r.y + (r.height - lh) * 0.5f;
+
             float cx = r.x + 16f;
 
             // Name (italic style to distinguish from real resources)
-            GUI.Label(new Rect(cx, r.y + 11f, 108f, 22f), "RESERVE", _sPropNameReserve);
+            GUI.Label(new Rect(cx, lyO, 108f, lh), "RESERVE", _sPropNameReserve);
+            SetTooltip(new Rect(cx, lyO, 108f, lh),
+                "Reserve empty space in the tank.\n\nQuick Fill and Scale All will not fill past this point. Nothing is written to RF — this is a window-side soft cap.\n\nUseful for ullage gas or keeping room for future propellant additions.");
             cx += 112f;
 
             // Percentage field
-            GUI.DrawTexture(new Rect(cx, r.y + 8f, 44f, 26f), _txInput);
+            GUI.DrawTexture(new Rect(cx, fyO, 44f, fh), _txInput);
             string newPct = GUI.TextField(
-                new Rect(cx, r.y + 8f, 44f, 26f), _pctBuf[ReserveKey], _sField);
+                new Rect(cx, fyO, 44f, fh), _pctBuf[ReserveKey], _sField);
             if (newPct != _pctBuf[ReserveKey]) _pctBuf[ReserveKey] = newPct;
             cx += 46f;
 
-            GUI.Label(new Rect(cx, r.y + 13f, 14f, 18f), "%", _sUnitLbl);
+            GUI.Label(new Rect(cx, lyO, 14f, lh), "%", _sUnitLbl);
             cx += 16f;
 
             // Volume field
-            GUI.DrawTexture(new Rect(cx, r.y + 8f, 76f, 26f), _txInput);
+            GUI.DrawTexture(new Rect(cx, fyO, 76f, fh), _txInput);
             string newVol = GUI.TextField(
-                new Rect(cx, r.y + 8f, 76f, 26f), _editBuf[ReserveKey], _sField);
+                new Rect(cx, fyO, 76f, fh), _editBuf[ReserveKey], _sField);
             if (newVol != _editBuf[ReserveKey]) _editBuf[ReserveKey] = newVol;
             cx += 78f;
 
-            GUI.Label(new Rect(cx, r.y + 13f, 14f, 18f), "L", _sUnitLbl);
+            GUI.Label(new Rect(cx, lyO, 14f, lh), "L", _sUnitLbl);
             cx += 16f;
 
             // Apply ✓
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "✓", _sBtnApply))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "✓", _sBtnApply))
                 ApplyReserve();
             cx += 28f;
 
             // Clear ✕ — zeros out reserve (row stays, just at 0)
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "✕", _sBtnRemove))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "✕", _sBtnRemove))
             {
                 _reserveVolume = 0d;
                 _editBuf[ReserveKey] = "0.0000";
@@ -797,7 +1089,7 @@ namespace RealFuels.Tanks
             cx += 28f;
 
             // 1/2
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "1/2", _sBtnHalf))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "1/2", _sBtnHalf))
             {
                 _reserveVolume = _reserveVolume * 0.5d;
                 _editBuf[ReserveKey] = _reserveVolume.ToString("F4");
@@ -807,7 +1099,7 @@ namespace RealFuels.Tanks
             cx += 28f;
 
             // 2×
-            if (GUI.Button(new Rect(cx, r.y + 8f, 24f, 28f), "2×", _sBtnHalf))
+            if (GUI.Button(new Rect(cx, byO, 24f, bh), "2×", _sBtnHalf))
             {
                 double maxUll = Math.Max(0d, _module.AvailableVolume);
                 _reserveVolume = Math.Min(_reserveVolume * 2d, maxUll);
@@ -863,29 +1155,31 @@ namespace RealFuels.Tanks
             var favs = available.Where(t => Favourites.Contains(t.name)).ToList();
             var others = available.Where(t => !Favourites.Contains(t.name)).ToList();
 
-            float rowH = 34f;
+            float rowH = RH(34);
 
             // ── Scroll height: remaining space inside the fixed-height window ──
-            //   Header          54
-            //   Volume bar      46
-            //   Mass row        46
-            //   CURRENT header  26
-            //   Current rows     n × 44
+            //   Header          RH(64)
+            //   Volume bar      RH(56)
+            //   Mass row        RH(46)
+            //   CURRENT header  RH(26)
+            //   Current rows     n × RH(44)
+            //   Reserve row     RH(44)
             //   Space             4
-            //   AVAILABLE header 26
-            //   Search bar       30
-            //   Quick Fill       34 + presets × 50  (or 0 if no presets)
-            //   Footer           38
+            //   Scale-all bar   RH(44)
+            //   AVAILABLE header RH(26)
+            //   Search bar      RH(30)
+            //   Quick Fill       RH(34) + presets × RH(50)  (or 0 if no presets)
+            //   Footer          RH(38)
             //   Window chrome    12  (GUILayout internal padding)
 
             int nActive = _module.tanksDict.Values.Count(t => t.maxAmount > 0d);
-            float qfPanelH = _presets.Count > 0 ? 34f + _presets.Count * 50f + 10f : 0f;
+            float qfPanelH = _presets.Count > 0 ? RH(34) + _presets.Count * RH(50) + 10f : 0f;
             // Life Support panel: only present when the tank type supports Food.
-            // 36px header; when expanded adds inputs(44) + 3 rows(34ea) + commit(38)
+            // header RH(44); when expanded adds inputs(RH(44)) + 3 rows(RH(34)ea) + commit(RH(38))
             FuelTank _lsFoodCheck;
             bool lsAvail = _module.tanksDict.TryGetValue("Food", out _lsFoodCheck) && _lsFoodCheck.canHave;
-            float lsH = lsAvail ? 36f + (_lifeSupportExpanded ? 44f + 3f * 34f + 38f : 0f) : 0f;
-            float fixedH = 64 + 56 + 46 + 26 + (nActive * 44f) + 44 + 4 + 44 + 26 + 30 + qfPanelH + lsH + 38 + 12;
+            float lsH = lsAvail ? RH(36) + (_lifeSupportExpanded ? RH(44) + 3f * RH(34) + RH(38) : 0f) : 0f;
+            float fixedH = RH(64) + RH(56) + RH(46) + RH(26) + (nActive * RH(44)) + RH(44) + 4 + RH(44) + RH(26) + RH(30) + qfPanelH + lsH + RH(38) + 12;
             float scrollH = Mathf.Max(rowH, _targetH - fixedH);
 
             float contentH = (available.Count + (favs.Count > 0 && others.Count > 0 ? 1 : 0)) * rowH + 4f;
@@ -900,7 +1194,7 @@ namespace RealFuels.Tanks
 
             if (favs.Count > 0 && others.Count > 0)
             {
-                Rect dr = GUILayoutUtility.GetRect(WindowW, 10f);
+                Rect dr = GUILayoutUtility.GetRect(WindowW, RH(10));
                 GUI.DrawTexture(new Rect(dr.x, dr.y + 5, dr.width, 1), _txDivider);
             }
 
@@ -909,7 +1203,7 @@ namespace RealFuels.Tanks
             // Empty-state message when nothing matches
             if (available.Count == 0)
             {
-                Rect er = GUILayoutUtility.GetRect(WindowW, 34f);
+                Rect er = GUILayoutUtility.GetRect(WindowW, RH(34));
                 var es = new GUIStyle(_sSectionLbl) { alignment = TextAnchor.MiddleCenter };
                 GUI.Label(er, q.Length > 0 ? "No matches for \"" + _searchQuery + "\"" : "All resources active", es);
             }
@@ -920,24 +1214,26 @@ namespace RealFuels.Tanks
         private void DrawSearchBar()
         {
             // Full-width bar sitting flush between the section header and the scroll list.
-            Rect bar = GUILayoutUtility.GetRect(WindowW, 30f);
+            Rect bar = GUILayoutUtility.GetRect(WindowW, RH(30));
             GUI.DrawTexture(bar, _txDark);
             GUI.DrawTexture(new Rect(bar.x, bar.yMax - 1, bar.width, 1), _txDivider);
 
             float clearW = _searchQuery.Length > 0 ? 24f : 0f;
             float fieldX = bar.x + 16f;
             float fieldW = bar.width - 32f - clearW;
+            float sfh = RH(20);  // search field height
+            float sfyO = bar.y + (bar.height - sfh) * 0.5f;
 
             // Text field
-            GUI.DrawTexture(new Rect(fieldX - 2, bar.y + 5f, fieldW + 4, 20f), _txInput);
+            GUI.DrawTexture(new Rect(fieldX - 2, sfyO - 1, fieldW + 4, sfh + 2), _txInput);
             GUI.SetNextControlName("RFSearch");
             string newQ = GUI.TextField(
-                new Rect(fieldX, bar.y + 6f, fieldW, 18f),
+                new Rect(fieldX, sfyO, fieldW, sfh),
                 _searchQuery, _sSearch);
 
             // Placeholder text when empty and unfocused
             if (_searchQuery.Length == 0 && GUI.GetNameOfFocusedControl() != "RFSearch")
-                GUI.Label(new Rect(fieldX, bar.y + 6f, fieldW, 18f),
+                GUI.Label(new Rect(fieldX, sfyO, fieldW, sfh),
                     "Search propellants…", _sSearchPlaceholder);
 
             if (newQ != _searchQuery)
@@ -949,7 +1245,9 @@ namespace RealFuels.Tanks
             // ✕ clear button — only visible when there is text
             if (_searchQuery.Length > 0)
             {
-                if (GUI.Button(new Rect(bar.xMax - 16f - clearW, bar.y + 5f, clearW, 20f),
+                float cbh = RH(20);
+                float cby = bar.y + (bar.height - cbh) * 0.5f;
+                if (GUI.Button(new Rect(bar.xMax - 16f - clearW, cby, clearW, cbh),
                                "✕", _sSearchClear))
                 {
                     _searchQuery = "";
@@ -962,8 +1260,14 @@ namespace RealFuels.Tanks
         private void DrawAvailRow(FuelTank tank)
         {
             bool isFav = Favourites.Contains(tank.name);
-            Rect r = GUILayoutUtility.GetRect(WindowW, 34f);
+            Rect r = GUILayoutUtility.GetRect(WindowW, RH(34));
             GUI.DrawTexture(new Rect(r.x, r.yMax - 1, r.width, 1), _txAvailRowDivider);
+            float abh = RH(24);  // +ADD button height
+            float afh = RH(24);  // input field height in avail row
+            float aly = r.y + (r.height - RH(22)) * 0.5f;    // label y (vertically centred)
+            float afy = r.y + (r.height - afh) * 0.5f;       // field y
+            float aby = r.y + (r.height - abh) * 0.5f;       // button y
+            float asby = r.y + (r.height - RH(24)) * 0.5f;   // star button y
 
             // Right-side controls:
             // [kg/L 70][gap 6][pct field 44][% 16][gap 6][amt field 64][L 14][gap 6][+ADD 54][rMargin 10]
@@ -983,18 +1287,19 @@ namespace RealFuels.Tanks
             float cx = r.x + 14;
 
             // Star toggle
-            if (GUI.Button(new Rect(cx, r.y + 5, 24, 24), "★",
+            if (GUI.Button(new Rect(cx, asby, 24, RH(24)), "★",
                            isFav ? _sStarOn : _sStar))
             {
                 if (isFav) Favourites.Remove(tank.name);
                 else Favourites.Add(tank.name);
                 SaveFavorites();
             }
+            SetTooltip(new Rect(cx, asby, 24, RH(24)), "Favourite — pins to the top of the list.");
             cx += 30;
 
             // Name — fills the remaining left space before the right-side controls
             float nameW = r.xMax - cx - rightW;
-            GUI.Label(new Rect(cx, r.y + 6, nameW, 22), tank.name, _sAvailName);
+            GUI.Label(new Rect(cx, aly, nameW, RH(22)), tank.name, _sAvailName);
 
             // kg/L — stored density accounting for RF utilization.
             // Formula: (density t/u × 1000 kg/t × utilization u/L) ÷ volume L/u
@@ -1005,12 +1310,18 @@ namespace RealFuels.Tanks
                                     / Math.Max(resDef.volume, 0.001);
                 float kgLX = r.xMax - rMargin - btnW - btnGap - amtLblW - amtFieldW
                              - amtGap - pctLblW - pctFieldW - kgLGap - kgLW;
-                GUI.Label(new Rect(kgLX, r.y + 6, kgLW, 22),
+                GUI.Label(new Rect(kgLX, aly, kgLW, RH(22)),
                     kgPerLitre.ToString("G3") + " kg/L", _sQfRatio);
+                if (tank.utilization > 1.0f)
+                    SetTooltip(new Rect(kgLX, aly, kgLW, RH(22)),
+                        $"{tank.name} has utilization {tank.utilization:F0}×.\nHigh-pressure storage: {tank.utilization:F0} RF units fit in 1 L.\nThis is why the kg/L figure is elevated vs. base density.");
             }
 
             double physAvail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
-            double maxRfUnits = physAvail * tank.utilization; // RF units at 100%
+            // Percentage fields are relative to the total tank capacity so that setting
+            // two resources to 5% each always yields 5% of the total for each — even
+            // when clicked sequentially.  The actual add is still capped at physAvail.
+            double maxRfUnits = _module.volume * tank.utilization; // RF units at 100% of total capacity
             bool canAdd = physAvail >= 0.001d;
 
             // Initialise pct buffer on first appearance
@@ -1033,12 +1344,12 @@ namespace RealFuels.Tanks
                        - amtGap - pctLblW - pctFieldW;
 
             GUI.SetNextControlName("availPct_" + tank.name);
-            GUI.DrawTexture(new Rect(rx, r.y + 5f, pctFieldW, 24f), _txInput);
+            GUI.DrawTexture(new Rect(rx, afy, pctFieldW, afh), _txInput);
             string newPct = GUI.TextField(
-                new Rect(rx, r.y + 5f, pctFieldW, 24f), oldPctText, _sField);
+                new Rect(rx, afy, pctFieldW, afh), oldPctText, _sField);
             rx += pctFieldW;
 
-            GUI.Label(new Rect(rx, r.y + 5, pctLblW, 24), "%", _sUnitLbl);
+            GUI.Label(new Rect(rx, aly, pctLblW, RH(22)), "%", _sUnitLbl);
             rx += pctLblW + amtGap;
 
             // ── Amount input field ────────────────────────────────────────────
@@ -1047,12 +1358,12 @@ namespace RealFuels.Tanks
             GUIStyle amtStyle = tank.utilization > 1.0 ? _sFieldHighUtil : _sField;
 
             GUI.SetNextControlName("availAmt_" + tank.name);
-            GUI.DrawTexture(new Rect(rx, r.y + 5f, amtFieldW, 24f), _txInput);
+            GUI.DrawTexture(new Rect(rx, afy, amtFieldW, afh), _txInput);
             string newAmt = GUI.TextField(
-                new Rect(rx, r.y + 5f, amtFieldW, 24f), oldAmtText, amtStyle);
+                new Rect(rx, afy, amtFieldW, afh), oldAmtText, amtStyle);
             rx += amtFieldW;
 
-            GUI.Label(new Rect(rx, r.y + 5, amtLblW, 24), "L", _sUnitLbl);
+            GUI.Label(new Rect(rx, aly, amtLblW, RH(22)), "L", _sUnitLbl);
             rx += amtLblW + btnGap;
 
             // ── Sync: whichever field changed drives the other ────────────────
@@ -1091,10 +1402,13 @@ namespace RealFuels.Tanks
             double fillFrac = Math.Max(0d, Math.Min(100d, fillPct)) / 100d;
 
             // ── +ADD / FULL ───────────────────────────────────────────────────
-            if (canAdd && GUI.Button(new Rect(rx, r.y + 5, btnW, 24), "+ADD", _sBtnAdd))
+            if (canAdd && GUI.Button(new Rect(rx, aby, btnW, abh), "+ADD", _sBtnAdd))
                 AddTank(tank, fillFrac);
             else if (!canAdd)
-                GUI.Label(new Rect(rx, r.y + 5, btnW, 24), "FULL", _sAvailFull);
+                GUI.Label(new Rect(rx, aby, btnW, abh), "FULL", _sAvailFull);
+            if (canAdd)
+                SetTooltip(new Rect(rx, aby, btnW, abh),
+                    "Add this resource at the specified % of total tank capacity.\nCapped at currently available space.");
         }
 
         // ── Quick Fill ratio status ──────────────────────────────────────────
@@ -1176,16 +1490,18 @@ namespace RealFuels.Tanks
         {
             if (_presets.Count == 0) return;
 
-            // Each row is now 46px (top line 26px + status line 20px).
-            float rowH = 46f;
+            // Each row: top line + status line; total height scales with UI scale.
+            float rowH = RH(46);
             float panelH = 14f + 10f + _presets.Count * (rowH + 4f) + 10f;
             Rect panel = GUILayoutUtility.GetRect(WindowW, panelH);
             GUI.DrawTexture(panel, _txDark);
             GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 1), _txDivider);
-            GUI.Label(new Rect(panel.x + 16, panel.y + 8, panel.width - 32, 16),
+            float qfLblH = RH(16);
+            float qfLblY = panel.y + RH(8);
+            GUI.Label(new Rect(panel.x + 16, qfLblY, panel.width - 32, qfLblH),
                 "⚡  QUICK FILL — CONSUMER RATIOS", _sSectionLbl);
 
-            float ry = panel.y + 28f;
+            float ry = qfLblY + qfLblH + RH(4);
             foreach (var p in _presets)
             {
                 DrawQuickFillRow(new Rect(panel.x + 16, ry, panel.width - 32, rowH), p, remaining);
@@ -1198,7 +1514,7 @@ namespace RealFuels.Tanks
             GUI.DrawTexture(r, _txQfNorm);
 
             float tagW = 80f;
-            float topH = 26f;
+            float topH = RH(26);
             float botH = r.height - topH;
 
             // Right-side fill controls: [pct field 44][% 16][gap 6][liters 64] = 130px
@@ -1245,6 +1561,8 @@ namespace RealFuels.Tanks
                 new Rect(rx, r.y + 1f, pctFieldW, topH - 2f),
                 _qfFillPctBuf[p.Key], _sField);
             if (newPct != _qfFillPctBuf[p.Key]) _qfFillPctBuf[p.Key] = newPct;
+            SetTooltip(new Rect(rx, r.y + 1f, pctFieldW, topH - 2f),
+                "Percentage of currently available non-reserved space to fill.\n100% fills every free litre with this engine's ratio.");
             rx += pctFieldW;
 
             GUI.Label(new Rect(rx, r.y, pctLblW, topH), "%", _sUnitLbl);
@@ -1270,6 +1588,8 @@ namespace RealFuels.Tanks
 
             GUI.Label(new Rect(r.x + tagW + 40f, r.y + topH, r.width - tagW - 44f, botH),
                 rs.ActualLabel, statusStyle);
+            SetTooltip(new Rect(r.x + tagW + 8f, r.y + topH, r.width - tagW - 8f, botH),
+                "Ratio match for propellants currently in the tank:\n  ✓ Within 1% of target\n  ⚠ Within 5% of target\n  ✗ More than 5% off target\n\nOnly this engine's own propellants are compared.");
 
             if (rs.Icon.Length > 0)
                 GUI.Label(new Rect(r.xMax - 26f, r.y + topH, 22f, botH), rs.Icon, statusStyle);
@@ -1285,7 +1605,7 @@ namespace RealFuels.Tanks
                 return;
 
             // ── Toggle header ────────────────────────────────────────────────
-            Rect hdr = GUILayoutUtility.GetRect(WindowW, 44f);
+            Rect hdr = GUILayoutUtility.GetRect(WindowW, RH(36));
             GUI.DrawTexture(hdr, _txLsHeaderBg);
             if (hdr.Contains(Event.current.mousePosition))
                 GUI.DrawTexture(hdr, _txLsHov);
@@ -1293,31 +1613,37 @@ namespace RealFuels.Tanks
                 (_lifeSupportExpanded ? "▼" : "▶") + "  LIFE SUPPORT PLANNER", _sLsHeaderLbl);
             if (GUI.Button(hdr, GUIContent.none, GUIStyle.none))
                 _lifeSupportExpanded = !_lifeSupportExpanded;
+            SetTooltip(hdr,
+                "Life Support Planner\n\nCalculates tank volume needed for Food, Water, and Oxygen based on crew size and mission duration.\n\nValues are added manually using the ADD TO TANK button.");
 
             if (!_lifeSupportExpanded) return;
 
             // ── Input row ────────────────────────────────────────────────────
-            Rect inputs = GUILayoutUtility.GetRect(WindowW, 44f);
+            Rect inputs = GUILayoutUtility.GetRect(WindowW, RH(44));
             GUI.DrawTexture(inputs, _txDark);
             GUI.DrawTexture(new Rect(inputs.x, inputs.yMax - 1, inputs.width, 1), _txDivider);
 
             float cx = inputs.x + 16f;
+            float lsfh = RH(26);  // field height
+            float lslh = RH(18);  // label height
+            float lsfyO = inputs.y + (inputs.height - lsfh) * 0.5f;
+            float lslyO = inputs.y + (inputs.height - lslh) * 0.5f;
 
-            GUI.Label(new Rect(cx, inputs.y + 13f, 38f, 18f), "Crew", _sUnitLbl);
+            GUI.Label(new Rect(cx, lslyO, 38f, lslh), "Crew", _sUnitLbl);
             cx += 42f;
-            GUI.DrawTexture(new Rect(cx, inputs.y + 8f, 38f, 26f), _txInput);
+            GUI.DrawTexture(new Rect(cx, lsfyO, 38f, lsfh), _txInput);
             string nc = GUI.TextField(
-                new Rect(cx, inputs.y + 8f, 38f, 26f), _lsCrewBuf, _sField);
+                new Rect(cx, lsfyO, 38f, lsfh), _lsCrewBuf, _sField);
             if (nc != _lsCrewBuf) _lsCrewBuf = nc;
             cx += 46f;
 
             cx += 18f; // gap between crew and days
 
-            GUI.Label(new Rect(cx, inputs.y + 13f, 38f, 18f), "Days", _sUnitLbl);
+            GUI.Label(new Rect(cx, lslyO, 38f, lslh), "Days", _sUnitLbl);
             cx += 42f;
-            GUI.DrawTexture(new Rect(cx, inputs.y + 8f, 54f, 26f), _txInput);
+            GUI.DrawTexture(new Rect(cx, lsfyO, 54f, lsfh), _txInput);
             string nd = GUI.TextField(
-                new Rect(cx, inputs.y + 8f, 54f, 26f), _lsDaysBuf, _sField);
+                new Rect(cx, lsfyO, 54f, lsfh), _lsDaysBuf, _sField);
             if (nd != _lsDaysBuf) _lsDaysBuf = nd;
 
             // ── Parse inputs ─────────────────────────────────────────────────
@@ -1350,27 +1676,33 @@ namespace RealFuels.Tanks
             DrawLsResultRow("Oxygen", oxygen);
 
             // ── Commit row ───────────────────────────────────────────────────
-            Rect commit = GUILayoutUtility.GetRect(WindowW, 38f);
+            Rect commit = GUILayoutUtility.GetRect(WindowW, RH(38));
             GUI.DrawTexture(commit, _txDark);
             GUI.DrawTexture(new Rect(commit.x, commit.y, commit.width, 1), _txDivider);
             GUI.DrawTexture(new Rect(commit.x, commit.yMax - 1, commit.width, 1), _txDivider);
 
-            float btnW = 120f;
+            // Button width tracks the scaled text so it never clips at any font scale.
+            float btnW = Mathf.Max(RH(120f), _sLsCommit.CalcSize(new GUIContent("✓  ADD TO TANK")).x + RH(20f));
+            float commitBh = RH(28);
             Rect btn = new Rect(commit.x + (commit.width - btnW) * 0.5f,
-                                  commit.y + 5f, btnW, 28f);
+                                  commit.y + (commit.height - commitBh) * 0.5f, btnW, commitBh);
             if (GUI.Button(btn, "✓  ADD TO TANK", _sLsCommit))
                 CommitLifeSupport(food, water, oxygen);
+            SetTooltip(btn,
+                "Add the calculated Food, Water, and Oxygen volumes to the tank.\n\nIf the total exceeds available space, nothing is added and an error is shown.");
         }
 
         private void DrawLsResultRow(string resourceName, double litres)
         {
-            Rect r = GUILayoutUtility.GetRect(WindowW, 34f);
+            Rect r = GUILayoutUtility.GetRect(WindowW, RH(34));
             GUI.DrawTexture(r, _txRow);
             GUI.DrawTexture(new Rect(r.x, r.yMax - 1, r.width, 1), _txDivider);
+            float lh = RH(20);
+            float lyO = r.y + (r.height - lh) * 0.5f;
 
-            GUI.Label(new Rect(r.x + 16f, r.y + 7f, 110f, 20f), resourceName, _sPropName);
+            GUI.Label(new Rect(r.x + 16f, lyO, 110f, lh), resourceName, _sPropName);
             // Amount right-aligned to match the mass column style
-            GUI.Label(new Rect(r.x + 130f, r.y + 7f, r.width - 146f, 20f),
+            GUI.Label(new Rect(r.x + 130f, lyO, r.width - 146f, lh),
                 litres.ToString("F4") + " L", _sMassRow);
         }
 
@@ -1380,9 +1712,34 @@ namespace RealFuels.Tanks
         /// </summary>
         private void CommitLifeSupport(double food, double water, double oxygen)
         {
+            // Pre-check total space before touching anything.  AvailableVolume can
+            // produce stale reads between sequential CommitLsResource calls (the
+            // PartResource system may defer accounting until the next event), so we
+            // must guard up-front rather than relying on per-call capping.
+            double avail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
+            double totalNeeded = food + water + oxygen;
+
+            if (totalNeeded > avail + 0.0001d)
+            {
+                _lsPopupMsg =
+                    $"Not enough space in the tank.\n\n" +
+                    $"Required:  {totalNeeded:F2} L\n" +
+                    $"Available: {avail:F2} L\n\n" +
+                    $"Reduce crew count, mission duration, or free up tank volume.";
+                _lsPopupOpen = true;
+                // Centre the popup over the main window (dimensions scale with _uiScale).
+                float popW = Mathf.Round(340f * _uiScale);
+                float popH = Mathf.Round(220f * _uiScale);  // generous estimate; GUILayout auto-fits height
+                _lsPopupRect = new Rect(
+                    _winRect.x + (_winRect.width  - popW) * 0.5f,
+                    _winRect.y + (_winRect.height - popH) * 0.5f,
+                    popW, 0f);
+                return;
+            }
+
             bool any = false;
-            if (food > 0.0001d) { CommitLsResource("Food", food); any = true; }
-            if (water > 0.0001d) { CommitLsResource("Water", water); any = true; }
+            if (food   > 0.0001d) { CommitLsResource("Food",   food);   any = true; }
+            if (water  > 0.0001d) { CommitLsResource("Water",  water);  any = true; }
             if (oxygen > 0.0001d) { CommitLsResource("Oxygen", oxygen); any = true; }
             if (!any) return;
 
@@ -1410,11 +1767,64 @@ namespace RealFuels.Tanks
             tank.amount = tank.maxAmount;
         }
 
+        // ── Life Support "not enough space" popup ────────────────────────────
+
+        private void DrawLsPopup(int id)
+        {
+            float W  = Mathf.Round(340f * _uiScale);   // matches GUILayout.Width(…) above
+            float px = RH(16f);
+
+            // ── Title bar ────────────────────────────────────────────────────
+            float popupHdrH = RH(44f);
+            Rect hdr = GUILayoutUtility.GetRect(W, popupHdrH);
+            GUI.DrawTexture(hdr, _txHeader);
+            GUI.DrawTexture(new Rect(hdr.x, hdr.yMax - 1, hdr.width, 1), _txAccent);
+            float hdrLblH = RH(20f);
+            GUI.Label(new Rect(hdr.x + px, hdr.y + (hdr.height - hdrLblH) * 0.5f, W - 40f, hdrLblH),
+                "LIFE SUPPORT — NOT ENOUGH SPACE", _sSectionLbl);
+
+            GUILayout.Space(6f);
+
+            // ── Message ───────────────────────────────────────────────────────
+            float popupMsgH = RH(96f);
+            Rect msg = GUILayoutUtility.GetRect(W, popupMsgH);
+            GUI.DrawTexture(msg, _txDark);
+            var msgStyle = new GUIStyle(_sSectionLbl)
+            {
+                fontStyle = FontStyle.Normal,
+                fontSize  = FS(11),
+                wordWrap  = true,
+                alignment = TextAnchor.UpperLeft,
+            };
+            msgStyle.normal.textColor = new Color(0.78f, 0.71f, 0.71f, 1f); // soft red-white
+            GUI.Label(new Rect(msg.x + px, msg.y + RH(10f), W - px * 2f, msg.height - RH(14f)),
+                _lsPopupMsg, msgStyle);
+
+            GUILayout.Space(4f);
+
+            // ── OK button ─────────────────────────────────────────────────────
+            float popupBtnRowH = RH(42f);
+            Rect btnRow = GUILayoutUtility.GetRect(W, popupBtnRowH);
+            GUI.DrawTexture(btnRow, _txDark);
+            GUI.DrawTexture(new Rect(btnRow.x, btnRow.y, btnRow.width, 1), _txDivider);
+            float bw  = Mathf.Max(RH(80f), _sBtnApply.CalcSize(new GUIContent("OK")).x + RH(20f));
+            float bh  = RH(28f);
+            float by  = btnRow.y + (btnRow.height - bh) * 0.5f;
+            if (GUI.Button(
+                new Rect(btnRow.x + (btnRow.width - bw) * 0.5f, by, bw, bh),
+                "OK", _sBtnApply))
+                _lsPopupOpen = false;
+
+            GUILayout.Space(4f);
+
+            GUI.DragWindow(new Rect(0, 0, W, popupHdrH));
+        }
+
         // ── Footer ───────────────────────────────────────────────────────────
 
         private void DrawFooter()
         {
-            Rect r = GUILayoutUtility.GetRect(WindowW, 38f);
+            Rect r = GUILayoutUtility.GetRect(WindowW, RH(38));
             GUI.DrawTexture(r, _txFooter);
             GUI.DrawTexture(new Rect(r.x, r.y, r.width, 1), _txDivider);
 
@@ -1431,7 +1841,7 @@ namespace RealFuels.Tanks
 
         private void DrawScaleAllBar()
         {
-            Rect panel = GUILayoutUtility.GetRect(WindowW, 44f);
+            Rect panel = GUILayoutUtility.GetRect(WindowW, RH(44));
             GUI.DrawTexture(panel, _txDark);
             GUI.DrawTexture(new Rect(panel.x, panel.y, panel.width, 1), _txDivider);
             GUI.DrawTexture(new Rect(panel.x, panel.yMax - 1, panel.width, 1), _txDivider);
@@ -1439,14 +1849,22 @@ namespace RealFuels.Tanks
             float px = panel.x + 16f;
             float pw = panel.width - 32f;    // usable width between padding
             float bw = (pw - 3f * 4f) / 4f; // four equal buttons, three 4px gaps
-            float by = panel.y + 8f;
-            float bh = 28f;
+            float bh = RH(28);
+            float by = panel.y + (panel.height - bh) * 0.5f;
             float gap = 4f;
 
             if (GUI.Button(new Rect(px, by, bw, bh), "1/4", _sBtnScale)) ScaleAll(0.25d);
+            SetTooltip(new Rect(px, by, bw, bh),
+                "Set all unlocked resources to ¼ of their current volume.");
             if (GUI.Button(new Rect(px + (bw + gap), by, bw, bh), "1/2", _sBtnScale)) ScaleAll(0.5d);
+            SetTooltip(new Rect(px + (bw + gap), by, bw, bh),
+                "Set all unlocked resources to ½ of their current volume.");
             if (GUI.Button(new Rect(px + 2f * (bw + gap), by, bw, bh), "2×", _sBtnScale)) ScaleAll(2.0d);
+            SetTooltip(new Rect(px + 2f * (bw + gap), by, bw, bh),
+                "Double the volume of all unlocked resources, capped at available space.");
             if (GUI.Button(new Rect(px + 3f * (bw + gap), by, bw, bh), "FILL", _sBtnScale)) ScaleAll(1e9d);
+            SetTooltip(new Rect(px + 3f * (bw + gap), by, bw, bh),
+                "Fill all unlocked resources proportionally to capacity.\nLocked resources are untouched.\nReserve space is respected.");
         }
 
         // ── RF write-back actions ────────────────────────────────────────────
@@ -1552,7 +1970,10 @@ namespace RealFuels.Tanks
         {
             double avail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
             if (avail < 0.001d) return;
-            double fill = avail * Math.Max(0d, Math.Min(1d, fillFrac));
+            // fillFrac is relative to total tank capacity (same basis as the pct field in
+            // DrawAvailRow), so two resources set to 5% each always contribute 5% of the
+            // total regardless of add order.  Cap at physAvail to prevent overfill.
+            double fill = Math.Min(_module.volume * Math.Max(0d, Math.Min(1d, fillFrac)), avail);
             tank.maxAmount = fill * tank.utilization;
             tank.amount = tank.fillable ? tank.maxAmount : 0d;
             // Store RF units in the edit buffer — consistent with DrawCurrentRow display.
@@ -1744,6 +2165,55 @@ namespace RealFuels.Tanks
             _pendingNotify = true;
         }
 
+        // ── Tooltip helpers ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Set the pending tooltip text if the mouse is currently inside <paramref name="r"/>.
+        /// Call once per control, after drawing it.  The last caller whose rect contains the
+        /// mouse pointer wins, which naturally gives topmost/last-drawn controls priority.
+        /// </summary>
+        private void SetTooltip(Rect r, string text)
+        {
+            if (r.Contains(Event.current.mousePosition))
+                _tooltipText = text;
+        }
+
+        /// <summary>
+        /// Render a floating tooltip near the cursor using whatever text was set this frame
+        /// by <see cref="SetTooltip"/>.  Called at the very end of DrawWindow so it draws
+        /// on top of every other element.  Automatically clamps to the window bounds.
+        /// </summary>
+        private void DrawTooltip()
+        {
+            if (string.IsNullOrEmpty(_tooltipText) || _sTooltip == null) return;
+
+            GUIContent content = new GUIContent(_tooltipText);
+            float maxW = RH(280);
+            float w = Mathf.Min(maxW, _sTooltip.CalcSize(content).x + 16f);
+            float h = _sTooltip.CalcHeight(content, w - 12f) + 14f;
+
+            Vector2 mp = Event.current.mousePosition;
+            float tx = mp.x + 16f;
+            float ty = mp.y + 16f;
+
+            // Flip to keep within the window bounds.
+            if (tx + w > WindowW - 4f) tx = mp.x - w - 4f;
+            if (ty + h > _targetH - 4f) ty = mp.y - h - 4f;
+            tx = Mathf.Clamp(tx, 2f, WindowW - w - 2f);
+            ty = Mathf.Clamp(ty, 2f, _targetH - h - 2f);
+
+            Rect tip = new Rect(tx, ty, w, h);
+
+            GUI.DrawTexture(tip, _txDark);
+            // Accent-colour border on all four sides.
+            GUI.DrawTexture(new Rect(tip.x,         tip.y,         tip.width, 1f), _txAccent);
+            GUI.DrawTexture(new Rect(tip.x,         tip.yMax - 1f, tip.width, 1f), _txAccent);
+            GUI.DrawTexture(new Rect(tip.x,         tip.y,         1f, tip.height), _txAccent);
+            GUI.DrawTexture(new Rect(tip.xMax - 1f, tip.y,         1f, tip.height), _txAccent);
+
+            GUI.Label(new Rect(tip.x + 6f, tip.y + 6f, w - 12f, h - 12f), _tooltipText, _sTooltip);
+        }
+
         // ── Style / texture initialisation ───────────────────────────────────
 
         private void EnsureStyles()
@@ -1805,35 +2275,35 @@ namespace RealFuels.Tanks
             _sWindow.contentOffset = Vector2.zero;
             SetBg(_sWindow, _txBg);
 
-            _sTitle = Lbl(14, FontStyle.Bold, cText);
-            _sSubtitle = Lbl(12, FontStyle.Bold, cTextSec);
+            _sTitle = Lbl(FS(14), FontStyle.Bold, cText);
+            _sSubtitle = Lbl(FS(12), FontStyle.Bold, cTextSec);
 
-            _sSectionLbl = Lbl(10, FontStyle.Bold, cTextSec);
+            _sSectionLbl = Lbl(FS(10), FontStyle.Bold, cTextSec);
             _sSectionLbl.normal.textColor = cTextSec;
 
-            _sCountBadge = Lbl(10, FontStyle.Bold, cBlue);
+            _sCountBadge = Lbl(FS(10), FontStyle.Bold, cBlue);
             _sCountBadge.alignment = TextAnchor.MiddleCenter;
 
-            _sMassLbl = Lbl(10, FontStyle.Normal, cTextSec);
-            _sMassVal = Lbl(13, FontStyle.Bold, cText);
-            _sMassRow = Lbl(11, FontStyle.Normal, cTextSec);
+            _sMassLbl = Lbl(FS(10), FontStyle.Normal, cTextSec);
+            _sMassVal = Lbl(FS(13), FontStyle.Bold, cText);
+            _sMassRow = Lbl(FS(11), FontStyle.Normal, cTextSec);
             _sMassRow.alignment = TextAnchor.MiddleRight;
 
-            _sPropName = Lbl(13, FontStyle.Bold, cText);
+            _sPropName = Lbl(FS(13), FontStyle.Bold, cText);
             _sPropName.alignment = TextAnchor.MiddleLeft;
 
             // Reserve row name — italic to visually signal it's a virtual/reserved entry
-            _sPropNameReserve = Lbl(13, FontStyle.Italic, cTextSec);
+            _sPropNameReserve = Lbl(FS(13), FontStyle.Italic, cTextSec);
             _sPropNameReserve.alignment = TextAnchor.MiddleLeft;
 
-            _sPctLbl = Lbl(11, FontStyle.Normal, cBlue);
+            _sPctLbl = Lbl(FS(11), FontStyle.Normal, cBlue);
             _sPctLbl.alignment = TextAnchor.MiddleRight;
 
-            _sUnitLbl = Lbl(11, FontStyle.Normal, cTextSec);
+            _sUnitLbl = Lbl(FS(11), FontStyle.Normal, cTextSec);
             _sUnitLbl.alignment = TextAnchor.MiddleLeft;
 
             _sField = Sty(GUI.skin.textField);
-            _sField.fontSize = 12;
+            _sField.fontSize = FS(12);
             _sField.alignment = TextAnchor.MiddleRight;
             _sField.normal.textColor = cBlueT;
             _sField.focused.textColor = cBlueT;
@@ -1841,7 +2311,7 @@ namespace RealFuels.Tanks
             // Amount field variant for high-utilization resources — bold green text
             // matches the visual signal used for the kg/L label on the same row.
             _sFieldHighUtil = Sty(GUI.skin.textField);
-            _sFieldHighUtil.fontSize = 12;
+            _sFieldHighUtil.fontSize = FS(12);
             _sFieldHighUtil.fontStyle = FontStyle.Bold;
             _sFieldHighUtil.alignment = TextAnchor.MiddleRight;
             _sFieldHighUtil.normal.textColor = C("#72e0a0");
@@ -1850,72 +2320,72 @@ namespace RealFuels.Tanks
             _sField.focused.background = _txInput;
             _sField.hover.background = _txInput;
 
-            _sBtnApply = Btn(C("#72e0a0"), cBlueT, _txBorder, _txBtnHov, 14, 24, 28); // green ✓
-            _sBtnRemove = Btn(cRedT, cRedT, _txBorder, _txBtnRed, 14, 24, 28); // red ✕
-            _sBtnHalf = Btn(cTextSec, cText, _txBorder, _txBtnHov, 11, 24, 28); // 1/2 / 2×
+            _sBtnApply = Btn(C("#72e0a0"), cBlueT, _txBorder, _txBtnHov, FS(14), 24, 28); // green ✓
+            _sBtnRemove = Btn(cRedT, cRedT, _txBorder, _txBtnRed, FS(14), 24, 28); // red ✕
+            _sBtnHalf = Btn(cTextSec, cText, _txBorder, _txBtnHov, FS(11), 24, 28); // 1/2 / 2×
             // Life Support commit — same green as ✓ but no fixed width (explicit Rect controls size)
-            _sLsCommit = Btn(C("#72e0a0"), cBlueT, _txBorder, _txBtnHov, 13, -1, 28);
+            _sLsCommit = Btn(C("#72e0a0"), cBlueT, _txBorder, _txBtnHov, FS(14), -1, 28);
             _sLsCommit.fontStyle = FontStyle.Bold;
 
             // Life Support header label — dark forest green on the bright green header background.
             // #0f1a12 gives ~12:1 contrast against #72e0a0.
-            _sLsHeaderLbl = Lbl(12, FontStyle.Bold, C("#0f1a12"));
+            _sLsHeaderLbl = Lbl(FS(14), FontStyle.Bold, C("#0f1a12"));
             _sLsHeaderLbl.normal.textColor = C("#0f1a12");
 
             // Lock toggle — ○ (unlocked, dim) / ● (locked, amber)
-            _sBtnLock = Btn(cTextSec, cGold, _txBorder, _txBtnHov, 14, 24, 28);
-            _sBtnLockOn = Btn(cGold, cGold, _txBorder, _txBtnHov, 14, 24, 28);
+            _sBtnLock = Btn(cTextSec, cGold, _txBorder, _txBtnHov, FS(14), 24, 28);
+            _sBtnLockOn = Btn(cGold, cGold, _txBorder, _txBtnHov, FS(14), 24, 28);
             _sBtnLockOn.fontStyle = FontStyle.Bold;
             _sBtnHalf.fontStyle = FontStyle.Bold;
-            _sBtnScale = Btn(cTextSec, cText, _txBorder, _txBtnHov, 11, -1, 28); // bulk scale
+            _sBtnScale = Btn(cTextSec, cText, _txBorder, _txBtnHov, FS(11), -1, 28); // bulk scale
             _sBtnScale.fontStyle = FontStyle.Bold;
 
-            _sStar = Btn(cTextSec, cGold, _txClear, _txClear, 16, 24, 24);  // was cTextDim
-            _sStarOn = Btn(cGold, new Color(cGold.r, cGold.g, cGold.b, 0.7f), _txClear, _txClear, 16, 24, 24);
+            _sStar = Btn(cTextSec, cGold, _txClear, _txClear, FS(16), 24, 24);
+            _sStarOn = Btn(cGold, new Color(cGold.r, cGold.g, cGold.b, 0.7f), _txClear, _txClear, FS(16), 24, 24);
 
-            _sAvailName = Lbl(13, FontStyle.Bold, cText);
+            _sAvailName = Lbl(FS(13), FontStyle.Bold, cText);
             _sAvailName.alignment = TextAnchor.MiddleLeft;
 
-            _sFavBadge = Lbl(9, FontStyle.Bold, cGold);
+            _sFavBadge = Lbl(FS(9), FontStyle.Bold, cGold);
             _sFavBadge.alignment = TextAnchor.MiddleCenter;
 
-            _sBtnAdd = Btn(cBlue, cBlueT, _txAddNorm, _txAddHov, 11, 54, 24);
+            _sBtnAdd = Btn(cBlue, cBlueT, _txAddNorm, _txAddHov, FS(11), 54, 24);
             _sBtnAdd.fontStyle = FontStyle.Bold;
 
-            _sQfEngine = Lbl(10, FontStyle.Bold, cBlue);
+            _sQfEngine = Lbl(FS(10), FontStyle.Bold, cBlue);
             _sQfEngine.alignment = TextAnchor.MiddleCenter;
 
-            _sQfName = Lbl(12, FontStyle.Bold, cText);
+            _sQfName = Lbl(FS(12), FontStyle.Bold, cText);
             _sQfName.alignment = TextAnchor.MiddleLeft;
 
-            _sQfRatio = Lbl(11, FontStyle.Normal, cTextSec);
+            _sQfRatio = Lbl(FS(11), FontStyle.Normal, cTextSec);
             _sQfRatio.alignment = TextAnchor.MiddleRight;
 
             // Variant used when the resource has utilization > 1 (e.g. gases stored at
             // high pressure): bold green to signal the litre figure is especially favourable.
-            _sQfRatioHighUtil = Lbl(11, FontStyle.Bold, C("#72e0a0"));
+            _sQfRatioHighUtil = Lbl(FS(11), FontStyle.Bold, C("#72e0a0"));
             _sQfRatioHighUtil.alignment = TextAnchor.MiddleRight;
 
-            _sQfMain = Btn(cTextSec, cText, _txQfNorm, _txQfHov, 12, -1, 32);
+            _sQfMain = Btn(cTextSec, cText, _txQfNorm, _txQfHov, FS(12), -1, 32);
             _sQfMain.alignment = TextAnchor.MiddleLeft;
             _sQfMain.padding = new RectOffset(8, 8, 0, 0);
 
             // Quick Fill status line styles
-            _sQfStatusGood = Lbl(10, FontStyle.Bold, C("#72e0a0")); // green  — 7.2:1 (was #4caf7d @ 4.5:1)
-            _sQfStatusWarn = Lbl(10, FontStyle.Bold, C("#f8c848")); // amber  — 7.4:1 (was #f0b830 @ 6.5:1)
-            _sQfStatusBad = Lbl(10, FontStyle.Bold, C("#ffb8b8")); // red    — 7.4:1 (was #e05858 @ 3.3:1)
-            _sQfStatusDim = Lbl(10, FontStyle.Normal, cTextSec);
+            _sQfStatusGood = Lbl(FS(10), FontStyle.Bold, C("#72e0a0"));
+            _sQfStatusWarn = Lbl(FS(10), FontStyle.Bold, C("#f8c848"));
+            _sQfStatusBad  = Lbl(FS(10), FontStyle.Bold, C("#ffb8b8"));
+            _sQfStatusDim  = Lbl(FS(10), FontStyle.Normal, cTextSec);
 
             // "FULL" indicator in the Available list — amber, bold, centred so it
             // sits at the same visual baseline as the pct field and liters readout.
-            _sAvailFull = Lbl(10, FontStyle.Bold, C("#f8c848"));
+            _sAvailFull = Lbl(FS(10), FontStyle.Bold, C("#f8c848"));
             _sAvailFull.alignment = TextAnchor.MiddleCenter;
 
             // Footer label styles — backgrounds are drawn manually in DrawFooter so
             // that the invisible GUIStyle.none hit buttons work reliably.
             _sFooter = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 12,
+                fontSize = FS(12),
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
             };
@@ -1926,7 +2396,7 @@ namespace RealFuels.Tanks
 
             // Search bar
             _sSearch = Sty(GUI.skin.textField);
-            _sSearch.fontSize = 12;
+            _sSearch.fontSize = FS(12);
             _sSearch.alignment = TextAnchor.MiddleLeft;
             _sSearch.normal.textColor = cText;
             _sSearch.focused.textColor = cText;
@@ -1935,11 +2405,43 @@ namespace RealFuels.Tanks
             _sSearch.hover.background = _txClear;
             _sSearch.padding = new RectOffset(2, 2, 0, 0);
 
-            _sSearchPlaceholder = Lbl(12, FontStyle.Normal, cTextSec);
+            _sSearchPlaceholder = Lbl(FS(12), FontStyle.Normal, cTextSec);
             _sSearchPlaceholder.alignment = TextAnchor.MiddleLeft;
 
-            _sSearchClear = Btn(cTextDim, cRedT, _txClear, _txClear, 12, 24, 20);
-            _sSearchClear.fontSize = 11;
+            _sSearchClear = Btn(cTextDim, cRedT, _txClear, _txClear, FS(12), 24, 20);
+            _sSearchClear.fontSize = FS(11);
+
+            // ── Settings panel styles ──────────────────────────────────────────
+            _sGearBtn = new GUIStyle(GUI.skin.button)
+            {
+                fontSize    = FS(16),
+                fontStyle   = FontStyle.Normal,
+                alignment   = TextAnchor.MiddleCenter,
+                fixedWidth  = 30f,
+                fixedHeight = 30f,
+            };
+            _sGearBtn.normal.background  = _txClear;
+            _sGearBtn.hover.background   = _txBtnHov;
+            _sGearBtn.active.background  = _txBtnHov;
+            _sGearBtn.normal.textColor   = C("#c8d0e0");
+            _sGearBtn.hover.textColor    = Color.white;
+            _sGearBtn.active.textColor   = Color.white;
+
+            _sSettingsValue = Lbl(FS(11), FontStyle.Bold, C("#a8ccf4"));
+            _sSettingsValue.alignment = TextAnchor.MiddleRight;
+
+            _sSettingsClose = Btn(C("#c8d0e0"), Color.white, _txBorder, _txBtnHov, FS(12), -1, 28);
+
+            _txSettingsIcon = MakeSettingsIcon();
+
+            _sTooltip = new GUIStyle(GUI.skin.label)
+            {
+                fontSize  = FS(14),
+                fontStyle = FontStyle.Normal,
+                wordWrap  = true,
+                alignment = TextAnchor.UpperLeft,
+            };
+            _sTooltip.normal.textColor = C("#c8d0e0");
         }
 
         private void DestroyTextures()
@@ -1953,7 +2455,8 @@ namespace RealFuels.Tanks
                 _txAvailRowDivider, _txQfTagBg,
                 _txReserveRow, _txBarReserve,
                 _txIconLockClosed, _txIconLockOpen,
-                _txLsHeaderBg, _txLsHov
+                _txLsHeaderBg, _txLsHov,
+                _txSettingsIcon
             };
             foreach (var t in textures) if (t != null) Destroy(t);
         }
@@ -2048,6 +2551,40 @@ namespace RealFuels.Tanks
             var tex = new Texture2D(W, H, TextureFormat.ARGB32, false);
             tex.filterMode = FilterMode.Point;   // keep pixels crisp, no blur
             tex.wrapMode = TextureWrapMode.Clamp;
+            tex.SetPixels(px);
+            tex.Apply();
+            return tex;
+        }
+
+        /// <summary>
+        /// Generates a 16×16 "three sliders" settings icon as a white-on-transparent
+        /// Texture2D.  Tint at draw time via GUI.color.
+        /// Layout (y=0 is bottom row):
+        ///   Row  2– 3 : full-width bar; knob (4×4 square) at left (x 1–4)
+        ///   Row  7– 8 : full-width bar; knob at centre (x 6–9)
+        ///   Row 12–13 : full-width bar; knob at right (x 11–14)
+        /// </summary>
+        private static Texture2D MakeSettingsIcon()
+        {
+            const int W = 16, H = 16;
+            var px = new Color[W * H];
+
+            void Bar(int y0, int y1, int x0 = 0, int x1 = W - 1)
+            {
+                for (int x = x0; x <= x1; x++)
+                    for (int y = y0; y <= y1; y++)
+                        if (x >= 0 && x < W && y >= 0 && y < H)
+                            px[y * W + x] = Color.white;
+            }
+
+            // Three horizontal bars with square knobs at different x positions
+            Bar(2, 3);  Bar(1, 4, 1, 4);    // top bar + left knob
+            Bar(7, 8);  Bar(6, 9, 6, 9);    // middle bar + centre knob
+            Bar(12, 13); Bar(11, 14, 11, 14); // bottom bar + right knob
+
+            var tex = new Texture2D(W, H, TextureFormat.ARGB32, false);
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode   = TextureWrapMode.Clamp;
             tex.SetPixels(px);
             tex.Apply();
             return tex;

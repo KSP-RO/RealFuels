@@ -48,6 +48,10 @@ namespace RealFuels.Tanks
         [KSPEvent(active = true, guiActiveEditor = true, guiName = "#RF_FuelTank_ChooseTankType", groupName = guiGroupName)] // Choose Tank Type
         public void ChooseTankDefinition()
         {
+            // Tank definition selection is only meaningful in the Parts tab.
+            if (EditorLogic.fetch == null || EditorLogic.fetch.editorScreen != EditorScreen.Parts)
+                return;
+
             if (tankDefinitionSelectionGUI == null)
             {
                 tankDefinitionSelectionGUI = gameObject.AddComponent<TankDefinitionSelectionGUI>();
@@ -359,10 +363,8 @@ namespace RealFuels.Tanks
                 UpdateTankType(true);
                 CalculateMass();
 
-                bool inEditorActionsScreen = (EditorLogic.fetch?.editorScreen == EditorScreen.Actions);
-                bool partIsSelectedInActionsScreen = inEditorActionsScreen && (EditorActionGroups.Instance?.GetSelectedParts().Contains(part) ?? false);
-
-                if (partIsSelectedInActionsScreen || showUI)
+                // Only show the fuel tank window in the Parts tab, not in Action Groups.
+                if (showUI && EditorLogic.fetch?.editorScreen == EditorScreen.Parts)
                     RealFuelsWindow.ShowGUI(this);
                 else
                     RealFuelsWindow.HideGUIForModule(this);
