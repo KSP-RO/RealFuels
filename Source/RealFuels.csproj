@@ -9,6 +9,7 @@
     <AssemblyName>RealFuels</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <TargetFrameworkProfile />
+    <LangVersion>8.0</LangVersion>
     <ReleaseVersion>10.8.0</ReleaseVersion>
     <BaseIntermediateOutputPath>..\Build\RealFuels\obj</BaseIntermediateOutputPath>
   </PropertyGroup>
