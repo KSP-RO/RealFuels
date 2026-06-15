@@ -10,13 +10,10 @@
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <LangVersion>8.0</LangVersion>
-    <ReleaseVersion>10.8.0</ReleaseVersion>
-    <BaseIntermediateOutputPath>..\Build\RealFuels\obj</BaseIntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>portable</DebugType>
     <Optimize>False</Optimize>
-    <BaseIntermediateOutputPath>..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
     <OutputPath>..\RealFuels\Plugins\</OutputPath>
     <DefineConstants>DEBUG;ENABLE_PROFILER</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -29,7 +26,6 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
     <Optimize>True</Optimize>
-    <BaseIntermediateOutputPath>..\Build\RealFuels\obj\</BaseIntermediateOutputPath>
     <OutputPath>..\RealFuels\Plugins\</OutputPath>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
