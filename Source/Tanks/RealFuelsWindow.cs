@@ -468,17 +468,25 @@ namespace RealFuels.Tanks
         private void ReassertLocks()
         {
             double capacity = _module.volume;
-            bool anyReasserted = false;
 
             // ── Collect all valid locked entries ─────────────────────────────
             var entries = new List<(FuelTank tank, string key, double lockedAmt)>();
             foreach (var kv in _lockedAmounts)
             {
                 FuelTank t;
-                if (_module.tanksDict.TryGetValue(kv.Key, out t))
+                if (_module.tanksDict.TryGetValue(kv.Key, out t) && t.maxAmount != kv.Value) // only consider if the value is actually different
                     entries.Add((t, kv.Key, kv.Value));
             }
             if (entries.Count == 0) return;
+
+            double unlockedVolume = 0;
+            foreach (var kv in _module.tanksDict)
+            {
+                if (!_lockedAmounts.ContainsKey(kv.Key))
+                {
+                    unlockedVolume += kv.Value.Volume;
+                }
+            }
 
             // ── Total locked physical volume ──────────────────────────────────
             // If the tank shrank so much that even the locked resources alone
@@ -491,6 +499,9 @@ namespace RealFuels.Tanks
             double shrinkScale = (totalLockedLitres > capacity && totalLockedLitres > 0d)
                 ? capacity / totalLockedLitres
                 : 1d;
+
+            // Re-scale unlocked resources so total volume remains unchanged
+            double unlockedScale = Math.Max(0, (capacity - totalLockedLitres) / unlockedVolume);
 
             // ── Re-assert each locked resource ────────────────────────────────
             foreach (var (tank, key, lockedAmt) in entries)
@@ -512,7 +523,6 @@ namespace RealFuels.Tanks
                 {
                     tank.maxAmount = targetAmt;
                     tank.amount = tank.fillable ? tank.maxAmount : 0d;
-                    anyReasserted = true;
                 }
 
                 // Always keep edit and pct buffers current for locked resources.
@@ -522,9 +532,22 @@ namespace RealFuels.Tanks
                 double pct = capacity > 0d ? (targetLitres / capacity) * 100d : 0d;
                 _pctBuf[key] = pct.ToString("F2");
             }
+            foreach (var kv in _module.tanksDict)
+            {
+                if (!_lockedAmounts.ContainsKey(kv.Key))
+                {
+                    var tank = kv.Value;
+                    tank.maxAmount *= unlockedScale;
+                    tank.amount = tank.fillable ? tank.maxAmount : 0d;
+                    if (unlockedScale == 0)
+                        RemoveTank(tank);
+                    _editBuf[kv.Key] = tank.maxAmount.ToString("F4");
+                    double pct = capacity > 0d ? (tank.maxAmount / capacity) * 100d : 0d;
+                    _pctBuf[kv.Key] = pct.ToString("F2");
+                }
+            }
 
-            if (anyReasserted)
-                _pendingNotify = true;   // tell the editor the part changed
+            _pendingNotify = true; // The part always changes if we reach this part.
         }
 
         // ── Main OnGUI ───────────────────────────────────────────────────────
@@ -1929,7 +1952,10 @@ namespace RealFuels.Tanks
                     {
                         double scale = Math.Max(0d, remaining) / totalOther;
                         foreach (var o in others)
+                        {
                             o.maxAmount = o.Volume * scale * o.utilization;
+                            _lockedAmounts[o.name] = o.maxAmount; // reset locked amount
+                        }
                     }
                 }
                 else if (unlockedSum > 0d)
@@ -1945,6 +1971,8 @@ namespace RealFuels.Tanks
             // Write the target tank last (RF setter may trigger events).
             tank.maxAmount = newLitres * tank.utilization;
             tank.amount = tank.fillable ? tank.maxAmount : 0d;
+            if (_lockedAmounts.ContainsKey(tank.name))
+                _lockedAmounts[tank.name] = tank.maxAmount;
 
             SyncEditBuffers();
             _module.MarkWindowDirty();
