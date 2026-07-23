@@ -1416,20 +1416,17 @@ namespace RealFuels.Tanks
             // so we don't clobber text the player is actively editing.
             else if (GUI.GetNameOfFocusedControl() != "availAmt_" + tank.name)
             {
-                double pct;
-                double.TryParse(_availFillPctBuf[tank.name], out pct);
-                _availAmountBuf[tank.name] =
-                    (maxRfUnits * Math.Max(0d, Math.Min(100d, pct)) / 100d).ToString("F1");
+                double.TryParse(_availAmountBuf[tank.name], out double amt); 
+                _availFillPctBuf[tank.name] =
+                    Math.Min(100d, amt / maxRfUnits * 100d).ToString("F1");
             }
 
-            // fillFrac is always derived from the pct buffer (source of truth)
-            double fillPct;
-            double.TryParse(_availFillPctBuf[tank.name], out fillPct);
-            double fillFrac = Math.Max(0d, Math.Min(100d, fillPct)) / 100d;
+            // fillFrac is always derived from the volume buffer (source of truth)
+            double.TryParse(_availAmountBuf[tank.name], out double fillAmt);
 
             // ── +ADD / FULL ───────────────────────────────────────────────────
             if (canAdd && GUI.Button(new Rect(rx, aby, btnW, abh), "+ADD", _sBtnAdd))
-                AddTank(tank, fillFrac);
+                AddTank(tank, fillAmt);
             else if (!canAdd)
                 GUI.Label(new Rect(rx, aby, btnW, abh), "FULL", _sAvailFull);
             if (canAdd)
@@ -1994,18 +1991,14 @@ namespace RealFuels.Tanks
         }
 
         /// <summary>
-        /// Activate a previously-empty tank, filling <paramref name="fillFrac"/> of the
-        /// remaining available volume (1.0 = 100%).  Defaults to full fill.
+        /// Activate a previously-empty tank, filling <paramref name="amount"/> L
         /// </summary>
-        private void AddTank(FuelTank tank, double fillFrac = 1.0)
+        private void AddTank(FuelTank tank, double amount)
         {
             double avail = Math.Max(0d, _module.AvailableVolume - _reserveVolume);
             if (avail < 0.001d) return;
-            // fillFrac is relative to total tank capacity (same basis as the pct field in
-            // DrawAvailRow), so two resources set to 5% each always contribute 5% of the
-            // total regardless of add order.  Cap at physAvail to prevent overfill.
-            double fill = Math.Min(_module.volume * Math.Max(0d, Math.Min(1d, fillFrac)), avail);
-            tank.maxAmount = fill * tank.utilization;
+            if (avail * tank.utilization < amount) amount = avail * tank.utilization;
+            tank.maxAmount = amount;
             tank.amount = tank.fillable ? tank.maxAmount : 0d;
             // Store RF units in the edit buffer — consistent with DrawCurrentRow display.
             _editBuf[tank.name] = tank.maxAmount.ToString("F4");
