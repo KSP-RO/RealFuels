@@ -351,6 +351,9 @@ namespace RealFuels.Tanks
             if (p == part)
             {
                 showUI = false;
+                foreach (var sym in p.symmetryCounterparts)
+                    foreach (var mft in sym.FindModulesImplementing<ModuleFuelTanks>())
+                        mft.showUI = false;
                 if (tankDefinitionSelectionGUI != null)
                     Destroy(tankDefinitionSelectionGUI);
             }
@@ -365,7 +368,10 @@ namespace RealFuels.Tanks
 
                 // Only show the fuel tank window in the Parts tab, not in Action Groups.
                 if (showUI && EditorLogic.fetch?.editorScreen == EditorScreen.Parts)
-                    RealFuelsWindow.ShowGUI(this);
+                {
+                    if (part.PartActionWindow != null)
+                        RealFuelsWindow.ShowGUI(this);
+                }
                 else
                     RealFuelsWindow.HideGUIForModule(this);
             }

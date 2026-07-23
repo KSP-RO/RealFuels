@@ -72,6 +72,9 @@ namespace RealFuels.Tanks
         public static void ShowGUI(ModuleFuelTanks module)
         {
             if (_instance == null) return;
+            if (_instance._module?.part?.symmetryCounterparts?.Contains(module.part) == true)
+                return;
+            // prevent thrashing if we attempt to swap between symmetry counterparts
 
             // Switching to a different module: discard stale edit buffers and cancel
             // any deferred notification that belongs to the old module.  Firing
