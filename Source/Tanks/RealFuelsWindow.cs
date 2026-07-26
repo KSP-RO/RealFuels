@@ -48,7 +48,7 @@ namespace RealFuels.Tanks
             // Combined label embeds each propellant's volume percentage inline.
             CombinedLabel = string.Join(" / ", props.Select(kv =>
                 kv.Key.displayName + " (" +
-                (kv.Key.ratio * kv.Value / fi.efficiency * 100d).ToString("F1") + "%)"));
+                (kv.Key.ratio * kv.Value / fi.efficiency * 100d).ToString("F2") + "%)"));
         }
     }
 
@@ -474,22 +474,20 @@ namespace RealFuels.Tanks
 
             // ── Collect all valid locked entries ─────────────────────────────
             var entries = new List<(FuelTank tank, string key, double lockedAmt)>();
+            bool anyChanged = false;
+            double scaledLockedVolume = 0;
             foreach (var kv in _lockedAmounts)
             {
                 FuelTank t;
-                if (_module.tanksDict.TryGetValue(kv.Key, out t) && t.maxAmount != kv.Value) // only consider if the value is actually different
-                    entries.Add((t, kv.Key, kv.Value));
-            }
-            if (entries.Count == 0) return;
-
-            double unlockedVolume = 0;
-            foreach (var kv in _module.tanksDict)
-            {
-                if (!_lockedAmounts.ContainsKey(kv.Key))
+                if (_module.tanksDict.TryGetValue(kv.Key, out t)) // only consider if the value is actually different
                 {
-                    unlockedVolume += kv.Value.Volume;
+                    entries.Add((t, kv.Key, kv.Value));
+                    scaledLockedVolume += t.Volume;
+                    if (Math.Abs(t.maxAmount - kv.Value) > 0.0001d)
+                        anyChanged = true;
                 }
             }
+            if (!anyChanged) return;
 
             // ── Total locked physical volume ──────────────────────────────────
             // If the tank shrank so much that even the locked resources alone
@@ -504,7 +502,7 @@ namespace RealFuels.Tanks
                 : 1d;
 
             // Re-scale unlocked resources so total volume remains unchanged
-            double unlockedScale = Math.Max(0, (capacity - totalLockedLitres) / unlockedVolume);
+            double unlockedScale = Math.Max(0, (capacity - totalLockedLitres) / (capacity - scaledLockedVolume));
 
             // ── Re-assert each locked resource ────────────────────────────────
             foreach (var (tank, key, lockedAmt) in entries)
@@ -535,21 +533,24 @@ namespace RealFuels.Tanks
                 double pct = capacity > 0d ? (targetLitres / capacity) * 100d : 0d;
                 _pctBuf[key] = pct.ToString("F2");
             }
-            foreach (var kv in _module.tanksDict)
+
+            if (scaledLockedVolume != capacity)
             {
-                if (!_lockedAmounts.ContainsKey(kv.Key))
+                foreach (var kv in _module.tanksDict)
                 {
-                    var tank = kv.Value;
-                    tank.maxAmount *= unlockedScale;
-                    tank.amount = tank.fillable ? tank.maxAmount : 0d;
-                    if (unlockedScale == 0)
-                        RemoveTank(tank);
-                    _editBuf[kv.Key] = tank.maxAmount.ToString("F4");
-                    double pct = capacity > 0d ? (tank.maxAmount / capacity) * 100d : 0d;
-                    _pctBuf[kv.Key] = pct.ToString("F2");
+                    if (!_lockedAmounts.ContainsKey(kv.Key) && kv.Value.maxAmount != 0)
+                    {
+                        var tank = kv.Value;
+                        tank.maxAmount *= unlockedScale;
+                        tank.amount = tank.fillable ? tank.maxAmount : 0d;
+                        if (unlockedScale == 0)
+                            RemoveTank(tank);
+                        _editBuf[kv.Key] = tank.maxAmount.ToString("F4");
+                        double pct = capacity > 0d ? (tank.maxAmount / capacity) * 100d : 0d;
+                        _pctBuf[kv.Key] = pct.ToString("F2");
+                    }
                 }
             }
-
             _pendingNotify = true; // The part always changes if we reach this part.
         }
 
@@ -1359,7 +1360,7 @@ namespace RealFuels.Tanks
                 double initPct;
                 double.TryParse(_availFillPctBuf[tank.name], out initPct);
                 _availAmountBuf[tank.name] =
-                    (maxRfUnits * Math.Max(0d, Math.Min(100d, initPct)) / 100d).ToString("F1");
+                    (maxRfUnits * Math.Max(0d, Math.Min(100d, initPct)) / 100d).ToString("F2");
             }
 
             string oldPctText = _availFillPctBuf[tank.name];
@@ -1400,29 +1401,34 @@ namespace RealFuels.Tanks
                 double amt;
                 if (double.TryParse(newAmt, out amt) && maxRfUnits > 0.001d)
                     _availFillPctBuf[tank.name] =
-                        Math.Min(100d, amt / maxRfUnits * 100d).ToString("F1");
+                        Math.Min(100d, amt / maxRfUnits * 100d).ToString("F2");
             }
             // Percentage field changed — recompute amount
             else if (newPct != oldPctText)
             {
                 _availFillPctBuf[tank.name] = newPct;
-                double pct;
-                double.TryParse(newPct, out pct);
+                double.TryParse(newPct, out double fillPct);
                 _availAmountBuf[tank.name] =
-                    (maxRfUnits * Math.Max(0d, Math.Min(100d, pct)) / 100d).ToString("F1");
+                    (maxRfUnits * Math.Max(0d, Math.Min(100d, fillPct)) / 100d).ToString("F2");
             }
-            // Neither changed — passive sync so amount reflects current physAvail
-            // (e.g. after another resource is added).  Skip if amount field is focused
-            // so we don't clobber text the player is actively editing.
-            else if (GUI.GetNameOfFocusedControl() != "availAmt_" + tank.name)
+            // Neither changed. If percentage is still default, sync amount to match. Otherwise, respect the user-entered value
+            double.TryParse(_availFillPctBuf[tank.name], out double pct);
+            double fillAmt;
+            if (pct >= 100d)
             {
-                double.TryParse(_availAmountBuf[tank.name], out double amt); 
-                _availFillPctBuf[tank.name] =
-                    Math.Min(100d, amt / maxRfUnits * 100d).ToString("F1");
+                fillAmt = maxRfUnits;
+                if (GUI.GetNameOfFocusedControl() != "availAmt_" + tank.name)
+                    _availAmountBuf[tank.name] =
+                        (maxRfUnits * Math.Max(0d, Math.Min(100d, pct)) / 100d).ToString("F2");
+            }
+            else if (GUI.GetNameOfFocusedControl() != "availPct_" + tank.name)
+            {
+                double.TryParse(_availAmountBuf[tank.name], out fillAmt);
+                _availFillPctBuf[tank.name] = 
+                    Math.Min(100d, fillAmt / maxRfUnits * 100d).ToString("F2");
             }
 
-            // fillFrac is always derived from the volume buffer (source of truth)
-            double.TryParse(_availAmountBuf[tank.name], out double fillAmt);
+            // fillFrac is always derived from the (updated) volume buffer (source of truth)
 
             // ── +ADD / FULL ───────────────────────────────────────────────────
             if (canAdd && GUI.Button(new Rect(rx, aby, btnW, abh), "+ADD", _sBtnAdd))
@@ -1431,7 +1437,7 @@ namespace RealFuels.Tanks
                 GUI.Label(new Rect(rx, aby, btnW, abh), "FULL", _sAvailFull);
             if (canAdd)
                 SetTooltip(new Rect(rx, aby, btnW, abh),
-                    "Add this resource at the specified % of total tank capacity.\nCapped at currently available space.");
+                    "Add the specified amount of this resource.\nCapped at currently available space.");
         }
 
         // ── Quick Fill ratio status ──────────────────────────────────────────
@@ -1497,7 +1503,7 @@ namespace RealFuels.Tanks
                 double actual = (loaded[i].Volume / mixTotal) * 100d;
                 double target = p.PropTargets[i].targetPct;
                 maxDev = Math.Max(maxDev, Math.Abs(actual - target));
-                parts.Add(actual.ToString("F1") + "%");
+                parts.Add(actual.ToString("F2") + "%");
             }
 
             string label = string.Join(" / ", parts);
@@ -1596,7 +1602,7 @@ namespace RealFuels.Tanks
             double.TryParse(_qfFillPctBuf[p.Key], out fillPct);
             double fillLitres = remaining * Math.Max(0d, Math.Min(100d, fillPct)) / 100d;
             GUI.Label(new Rect(rx, r.y, litW, topH),
-                fillLitres.ToString("F1") + " L", _sQfRatio);
+                fillLitres.ToString("F2") + " L", _sQfRatio);
 
             // ── Status line (bottom) ────────────────────────────────────────
             var rs = GetRatioStatus(p);
@@ -1954,7 +1960,7 @@ namespace RealFuels.Tanks
                         foreach (var o in others)
                         {
                             o.maxAmount = o.Volume * scale * o.utilization;
-                            _lockedAmounts[o.name] = o.maxAmount; // reset locked amount
+                            SyncLockedTank(o);
                         }
                     }
                 }
@@ -1971,8 +1977,7 @@ namespace RealFuels.Tanks
             // Write the target tank last (RF setter may trigger events).
             tank.maxAmount = newLitres * tank.utilization;
             tank.amount = tank.fillable ? tank.maxAmount : 0d;
-            if (_lockedAmounts.ContainsKey(tank.name))
-                _lockedAmounts[tank.name] = tank.maxAmount;
+            SyncLockedTank(tank);
 
             SyncEditBuffers();
             _module.MarkWindowDirty();
@@ -2004,6 +2009,19 @@ namespace RealFuels.Tanks
             _editBuf[tank.name] = tank.maxAmount.ToString("F4");
             _module.MarkWindowDirty();
             NotifyEditor();
+        }
+        /// <summary>
+        /// Updates the contents of _lockedAmounts to match the current fill level of the tank, if it was locked before.
+        /// </summary>
+        /// <param name="tank"></param>
+        private void SyncLockedTank(FuelTank o)
+        {
+            if (_lockedAmounts.ContainsKey(o.name))
+            {
+                _lockedAmounts[o.name] = o.maxAmount;
+                if (o.maxAmount == 0) 
+                    _lockedAmounts.Remove(o.name);
+            }
         }
 
         /// <summary>
