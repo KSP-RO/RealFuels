@@ -1413,7 +1413,7 @@ namespace RealFuels.Tanks
             }
             // Neither changed. If percentage is still default, sync amount to match. Otherwise, respect the user-entered value
             double.TryParse(_availFillPctBuf[tank.name], out double pct);
-            double fillAmt;
+            double.TryParse(_availAmountBuf[tank.name], out double fillAmt);
             if (pct >= 100d)
             {
                 fillAmt = maxRfUnits;
@@ -1423,7 +1423,6 @@ namespace RealFuels.Tanks
             }
             else if (GUI.GetNameOfFocusedControl() != "availPct_" + tank.name)
             {
-                double.TryParse(_availAmountBuf[tank.name], out fillAmt);
                 _availFillPctBuf[tank.name] = 
                     Math.Min(100d, fillAmt / maxRfUnits * 100d).ToString("F2");
             }
