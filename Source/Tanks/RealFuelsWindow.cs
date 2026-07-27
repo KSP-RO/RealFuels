@@ -74,9 +74,8 @@ namespace RealFuels.Tanks
             if (_instance == null) return;
             // prevent thrashing if we attempt to swap between symmetry counterparts
             // null-conditional is forbidden so you get this stack!
-            if (_instance._module != null && 
+            if (_instance._module != null &&
                 _instance._module.part != null &&
-                _instance._module.part.symmetryCounterparts != null &&
                 _instance._module.part.symmetryCounterparts.Contains(module.part))
                 return;
 
@@ -1430,7 +1429,7 @@ namespace RealFuels.Tanks
             }
             else if (GUI.GetNameOfFocusedControl() != "availPct_" + tank.name && maxRfUnits >= 0.0001)
             {
-                _availFillPctBuf[tank.name] = 
+                _availFillPctBuf[tank.name] =
                     Math.Min(100d, fillAmt / maxRfUnits * 100d).ToString("F2");
             }
 
@@ -2026,7 +2025,7 @@ namespace RealFuels.Tanks
             if (_lockedAmounts.ContainsKey(tank.name))
             {
                 _lockedAmounts[tank.name] = tank.maxAmount;
-                if (tank.maxAmount == 0) 
+                if (tank.maxAmount == 0)
                     _lockedAmounts.Remove(tank.name);
             }
         }
