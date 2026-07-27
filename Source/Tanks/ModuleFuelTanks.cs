@@ -369,6 +369,7 @@ namespace RealFuels.Tanks
                 // Only show the fuel tank window in the Parts tab, not in Action Groups.
                 if (showUI && EditorLogic.fetch?.editorScreen == EditorScreen.Parts)
                 {
+                    // intentionally no-op if the PAW is not open. covers the symmetry case where a tank in symmetry can have showUI = true bc a symmetry counterpart had Show GUI clicked
                     if (part.PartActionWindow != null)
                         RealFuelsWindow.ShowGUI(this);
                 }

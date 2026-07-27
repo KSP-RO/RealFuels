@@ -210,7 +210,7 @@ namespace RealFuels.Tanks
 				RaiseResourceInitialChanged(partResource.part, partResource, newAmount);
 			}
 			if (partResource.part.PartActionWindow?.ListItems.FirstOrDefault(r => r is UIPartActionResourceEditor e && partResource == e.Resource) is UIPartActionResourceEditor resItem && resItem != null)
-				resItem.resourceAmnt.text = KSPUtil.LocalizeNumber(newAmount, "F2");
+				resItem.resourceAmnt.text = KSPUtil.LocalizeNumber(newAmount, "F1");
 		}
 
 		private void UpdateMaxAmount(PartResource partResource, double newAmount)
@@ -218,7 +218,7 @@ namespace RealFuels.Tanks
 			partResource.maxAmount = newAmount;
 			RaiseResourceMaxChanged(partResource.part, partResource, newAmount);
 			if (partResource.part.PartActionWindow?.ListItems.FirstOrDefault(r => r is UIPartActionResourceEditor e && partResource == e.Resource) is UIPartActionResourceEditor resItem && resItem != null)
-				resItem.resourceMax.text = KSPUtil.LocalizeNumber(newAmount, "F2");
+				resItem.resourceMax.text = KSPUtil.LocalizeNumber(newAmount, "F1");
 		}
 
 		void AddTank(double value)
