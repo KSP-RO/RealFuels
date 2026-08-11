@@ -105,6 +105,7 @@
     <Compile Include="Engines\RFSettings.cs" />
     <Compile Include="Engines\ModuleEnginesRF.cs" />
     <Compile Include="Engines\SolverRF.cs" />
+    <Compile Include="Engines\ThrottleFloorHandler.cs" />
     <Compile Include="EntryCosts\TLUpgrade.cs" />
     <Compile Include="EntryCosts\Initializer.cs" />
     <Compile Include="EntryCosts\UpgradeManager.cs" />
