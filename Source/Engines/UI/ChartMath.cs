@@ -11,6 +11,12 @@ namespace RealFuels
     {
         private const int CurvePoints = 100;
 
+        /// <summary>
+        /// Upper bound for survival-time solving. Deliberately independent of any chart's
+        /// display range so that every caller gets the same answer for the same engine.
+        /// </summary>
+        public const float MaxSearchTime = 100000f;
+
         #region Data Structures
 
         public struct SurvivalCurveData
@@ -228,38 +234,45 @@ namespace RealFuels
 
         /// <summary>
         /// Find the time at which survival probability reaches a target percentage.
-        /// Uses binary search to find the time that gives the desired survival probability.
+        /// Solved analytically below the rated burn time, by bisection above it.
+        /// The result does not depend on any display range, so all callers agree.
         /// </summary>
         public static float FindTimeForSurvivalProb(float targetSurvivalProb, float ratedBurnTime,
-            float cycleReliability, FloatCurve cycleCurve, float maxTime, int maxIterations = 50)
+            float cycleReliability, FloatCurve cycleCurve, int maxIterations = 40)
         {
             if (targetSurvivalProb >= 1f) return 0f;
-            if (targetSurvivalProb <= 0f) return maxTime;
+            if (targetSurvivalProb <= 0f) return MaxSearchTime;
+            if (cycleReliability <= 0f) return 0f;
+            if (cycleReliability >= 1f) return MaxSearchTime;
 
+            // Below the rated burn time the cycle curve does not apply, so the survival
+            // function S(t) = R^(t/rated) inverts exactly.
+            if (targetSurvivalProb >= cycleReliability)
+                return ratedBurnTime * Mathf.Log(targetSurvivalProb) / Mathf.Log(cycleReliability);
+
+            // Above the rated burn time the cycle curve has to be integrated, so bisect.
+            // The bracket is narrowed on time and never on probability: an early exit once
+            // the probability is "close enough" would make the answer depend on the
+            // starting bracket, because the survival curve is flat enough that a small
+            // probability window covers a wide span of times.
             float baseRate = -Mathf.Log(cycleReliability) / ratedBurnTime;
-            
-            // Binary search for the time that gives us the target survival probability
-            float minTime = 0f;
-            float maxSearchTime = maxTime;
-            float tolerance = 0.01f; // 1% tolerance
-            
+            float minTime = ratedBurnTime;
+            float maxTime = MaxSearchTime;
+
             for (int i = 0; i < maxIterations; i++)
             {
-                float midTime = (minTime + maxSearchTime) / 2f;
-                float survivalProb = CalculateSurvivalProbAtTime(midTime, ratedBurnTime, cycleReliability, baseRate, cycleCurve);
-                
-                // If we're close enough, return
-                if (Mathf.Abs(survivalProb - targetSurvivalProb) < tolerance * targetSurvivalProb)
-                    return midTime;
-                
-                // Survival probability decreases with time, so if current is too high, we need more time
-                if (survivalProb > targetSurvivalProb)
+                float midTime = (minTime + maxTime) * 0.5f;
+
+                // Float precision exhausted; the bracket cannot be split any further.
+                if (midTime <= minTime || midTime >= maxTime) break;
+
+                if (CalculateSurvivalProbAtTime(midTime, ratedBurnTime, cycleReliability, baseRate, cycleCurve) > targetSurvivalProb)
                     minTime = midTime;
                 else
-                    maxSearchTime = midTime;
+                    maxTime = midTime;
             }
-            
-            return (minTime + maxSearchTime) / 2f;
+
+            return (minTime + maxTime) * 0.5f;
         }
 
         #endregion

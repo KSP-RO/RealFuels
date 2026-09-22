@@ -1510,6 +1510,11 @@ namespace RealFuels
             node.TryGetValue("overburnPenalty", ref overburnPenalty);
             FloatCurve cycleCurve = ChartMath.BuildTestFlightCycleCurve(ratedBurnTime, testedBurnTime, overburnPenalty, hasTestedBurnTime);
 
+            float ignitionReliabilityStart = 1f;
+            float ignitionReliabilityEnd = 1f;
+            node.TryGetValue("ignitionReliabilityStart", ref ignitionReliabilityStart);
+            node.TryGetValue("ignitionReliabilityEnd", ref ignitionReliabilityEnd);
+
             // Current reliability — mirrors the chart's data logic so the table and chart are
             // always consistent: simulated data when the user has overridden it, real TestFlight
             // data otherwise.  Reflection handles are cached by TestFlightWrapper so this is cheap.
@@ -1525,6 +1530,10 @@ namespace RealFuels
             // Guard against log(0) if reliability somehow hits zero.
             if (cycleReliabilityCurrent <= 0f) cycleReliabilityCurrent = cycleReliabilityStart;
 
+            float ignitionReliabilityCurrent = hasCurrentData
+                ? ChartMath.EvaluateReliabilityAtData(currentDataValue, ignitionReliabilityStart, ignitionReliabilityEnd)
+                : 1f;
+
             // Color palette — matches the chart's own curve colours.
             const string colStart   = "#FFB380"; // faded orange — Start (new engine)
             const string colCurrent = "#80D9FF"; // light blue   — Current (matches chart)
@@ -1533,13 +1542,33 @@ namespace RealFuels
             if (sliderModeIsPercentage)
             {
                 // Percentage mode: show TIME to reach the selected survival percentage.
-                float targetProb  = sliderPercentage / 100f;
-                float timeStart   = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityStart,   cycleCurve, 10000f);
-                float timeEnd     = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityEnd,     cycleCurve, 10000f);
+                // Cluster and ignition are reversed out of the target in the same order the
+                // info panel uses, so the two readouts agree.
+                float targetProb = sliderPercentage / 100f;
+                float tStart   = targetProb;
+                float tEnd     = targetProb;
+                float tCurrent = targetProb;
+
+                if (clusterSize > 1)
+                {
+                    float inv = 1f / clusterSize;
+                    tStart   = Mathf.Pow(tStart,   inv);
+                    tEnd     = Mathf.Pow(tEnd,     inv);
+                    tCurrent = Mathf.Pow(tCurrent, inv);
+                }
+                if (includeIgnition)
+                {
+                    tStart   /= ignitionReliabilityStart;
+                    tEnd     /= ignitionReliabilityEnd;
+                    tCurrent /= ignitionReliabilityCurrent;
+                }
+
+                float timeStart = ChartMath.FindTimeForSurvivalProb(tStart, ratedBurnTime, cycleReliabilityStart, cycleCurve);
+                float timeEnd   = ChartMath.FindTimeForSurvivalProb(tEnd,   ratedBurnTime, cycleReliabilityEnd,   cycleCurve);
 
                 if (hasCurrentData)
                 {
-                    float timeCurrent = ChartMath.FindTimeForSurvivalProb(targetProb, ratedBurnTime, cycleReliabilityCurrent, cycleCurve, 10000f);
+                    float timeCurrent = ChartMath.FindTimeForSurvivalProb(tCurrent, ratedBurnTime, cycleReliabilityCurrent, cycleCurve);
                     return $"<color={colStart}>{ChartMath.FormatTime(timeStart)}</color> / " +
                            $"<color={colCurrent}>{ChartMath.FormatTime(timeCurrent)}</color> / " +
                            $"<color={colEnd}>{ChartMath.FormatTime(timeEnd)}</color>";
@@ -1556,10 +1585,24 @@ namespace RealFuels
                 float surviveStart = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityStart, baseRateStart, cycleCurve);
                 float surviveEnd   = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityEnd,   baseRateEnd,   cycleCurve);
 
+                if (includeIgnition)
+                {
+                    surviveStart *= ignitionReliabilityStart;
+                    surviveEnd   *= ignitionReliabilityEnd;
+                }
+                if (clusterSize > 1)
+                {
+                    surviveStart = Mathf.Pow(surviveStart, clusterSize);
+                    surviveEnd   = Mathf.Pow(surviveEnd,   clusterSize);
+                }
+
                 if (hasCurrentData)
                 {
                     float baseRateCurrent = -Mathf.Log(cycleReliabilityCurrent) / ratedBurnTime;
                     float surviveCurrent  = ChartMath.CalculateSurvivalProbAtTime(sliderTime, ratedBurnTime, cycleReliabilityCurrent, baseRateCurrent, cycleCurve);
+                    if (includeIgnition) surviveCurrent *= ignitionReliabilityCurrent;
+                    if (clusterSize > 1) surviveCurrent = Mathf.Pow(surviveCurrent, clusterSize);
+
                     return $"<color={colStart}>{FormatSurvival(surviveStart * 100)}</color> / " +
                            $"<color={colCurrent}>{FormatSurvival(surviveCurrent * 100)}</color> / " +
                            $"<color={colEnd}>{FormatSurvival(surviveEnd * 100)} %</color>";

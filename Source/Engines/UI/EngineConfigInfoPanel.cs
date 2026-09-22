@@ -51,7 +51,7 @@ namespace RealFuels
                 cycleReliabilityStart, cycleReliabilityEnd, cycleReliabilityCurrent,
                 ignitionReliabilityStart, ignitionReliabilityEnd, ignitionReliabilityCurrent,
                 hasCurrentData, cycleCurve, clusterSize, sliderTime, includeIgnition,
-                sliderModeIsPercentage, sliderPercentage, maxGraphTime);
+                sliderModeIsPercentage, sliderPercentage);
 
             // Right: simulation controls (mode toggle, sliders, data & cluster inputs)
             DrawSimulationControls(rightRect.x, rightRect.width, rect.y + 4f,
@@ -73,7 +73,7 @@ namespace RealFuels
             float ignitionReliabilityStart, float ignitionReliabilityEnd, float ignitionReliabilityCurrent,
             bool hasCurrentData, FloatCurve cycleCurve,
             int clusterSize, float sliderTime, bool includeIgnition,
-            bool sliderModeIsPercentage, float sliderPercentage, float maxGraphTime)
+            bool sliderModeIsPercentage, float sliderPercentage)
         {
             string orangeColor = "#FF8033";
             string blueColor   = "#7DD9FF";
@@ -111,10 +111,10 @@ namespace RealFuels
                     if (hasCurrentData) tCurrent /= ignitionReliabilityCurrent;
                 }
 
-                displayValueStart = ChartMath.FindTimeForSurvivalProb(tStart, ratedBurnTime, cycleReliabilityStart, cycleCurve, maxGraphTime);
-                displayValueEnd   = ChartMath.FindTimeForSurvivalProb(tEnd,   ratedBurnTime, cycleReliabilityEnd,   cycleCurve, maxGraphTime);
+                displayValueStart = ChartMath.FindTimeForSurvivalProb(tStart, ratedBurnTime, cycleReliabilityStart, cycleCurve);
+                displayValueEnd   = ChartMath.FindTimeForSurvivalProb(tEnd,   ratedBurnTime, cycleReliabilityEnd,   cycleCurve);
                 displayValueCurrent = hasCurrentData
-                    ? ChartMath.FindTimeForSurvivalProb(tCurrent, ratedBurnTime, cycleReliabilityCurrent, cycleCurve, maxGraphTime)
+                    ? ChartMath.FindTimeForSurvivalProb(tCurrent, ratedBurnTime, cycleReliabilityCurrent, cycleCurve)
                     : 0f;
                 if (!hasCurrentData) surviveCurrent = 0f;
             }
