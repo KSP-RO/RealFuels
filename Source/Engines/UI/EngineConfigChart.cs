@@ -494,23 +494,31 @@ namespace RealFuels
             float y = ChartMath.SurvivalProbToYPosition(targetSurvivalProb, yAxisMin, plotArea.y, plotArea.height, _useLogScaleY);
             if (y < plotArea.y || y > plotArea.y + plotArea.height) return;
 
-            // Calculate the times for each curve to reach the target survival probability
-            // Need to account for ignition if it's included
-            float targetCycleProbStart = _includeIgnition ? targetSurvivalProb / ignitionReliabilityStart : targetSurvivalProb;
-            float targetCycleProbEnd = _includeIgnition ? targetSurvivalProb / ignitionReliabilityEnd : targetSurvivalProb;
-            float targetCycleProbCurrent = _includeIgnition && hasCurrentData ? targetSurvivalProb / ignitionReliabilityCurrent : targetSurvivalProb;
+            // Reverse the forward model P = (cycle * ignition) ^ clusterSize to get the
+            // per-engine cycle probability. Cluster first, then ignition — the other order
+            // gives a different answer.
+            float targetCycleProbStart = targetSurvivalProb;
+            float targetCycleProbEnd = targetSurvivalProb;
+            float targetCycleProbCurrent = targetSurvivalProb;
 
-            // Apply cluster math (need to reverse it)
             if (_clusterSize > 1)
             {
-                targetCycleProbStart = Mathf.Pow(targetCycleProbStart, 1f / _clusterSize);
-                targetCycleProbEnd = Mathf.Pow(targetCycleProbEnd, 1f / _clusterSize);
-                if (hasCurrentData) targetCycleProbCurrent = Mathf.Pow(targetCycleProbCurrent, 1f / _clusterSize);
+                float inv = 1f / _clusterSize;
+                targetCycleProbStart = Mathf.Pow(targetCycleProbStart, inv);
+                targetCycleProbEnd = Mathf.Pow(targetCycleProbEnd, inv);
+                if (hasCurrentData) targetCycleProbCurrent = Mathf.Pow(targetCycleProbCurrent, inv);
+            }
+
+            if (_includeIgnition)
+            {
+                targetCycleProbStart /= ignitionReliabilityStart;
+                targetCycleProbEnd /= ignitionReliabilityEnd;
+                if (hasCurrentData) targetCycleProbCurrent /= ignitionReliabilityCurrent;
             }
 
             // Find times for each curve
-            float timeStart = ChartMath.FindTimeForSurvivalProb(targetCycleProbStart, ratedBurnTime, cycleReliabilityStart, cycleCurve, maxTime);
-            float timeEnd = ChartMath.FindTimeForSurvivalProb(targetCycleProbEnd, ratedBurnTime, cycleReliabilityEnd, cycleCurve, maxTime);
+            float timeStart = ChartMath.FindTimeForSurvivalProb(targetCycleProbStart, ratedBurnTime, cycleReliabilityStart, cycleCurve);
+            float timeEnd = ChartMath.FindTimeForSurvivalProb(targetCycleProbEnd, ratedBurnTime, cycleReliabilityEnd, cycleCurve);
 
             // Draw orange dot for start curve
             float xStart = ChartMath.TimeToXPosition(timeStart, maxTime, plotArea.x, plotArea.width, _useLogScaleX);
@@ -525,7 +533,7 @@ namespace RealFuels
             // Draw blue dot for current curve if available
             if (hasCurrentData)
             {
-                float timeCurrent = ChartMath.FindTimeForSurvivalProb(targetCycleProbCurrent, ratedBurnTime, cycleReliabilityCurrent, cycleCurve, maxTime);
+                float timeCurrent = ChartMath.FindTimeForSurvivalProb(targetCycleProbCurrent, ratedBurnTime, cycleReliabilityCurrent, cycleCurve);
                 float xCurrent = ChartMath.TimeToXPosition(timeCurrent, maxTime, plotArea.x, plotArea.width, _useLogScaleX);
                 if (xCurrent >= plotArea.x && xCurrent <= plotArea.x + plotArea.width)
                     DrawDot(new Vector2(xCurrent, y), new Color(0.5f, 0.85f, 1.0f, 1f), 6f);
@@ -664,7 +672,7 @@ namespace RealFuels
                             }
                             
                             // Find time to reach this probability
-                            float timeToReach = ChartMath.FindTimeForSurvivalProb(targetCycleProb, ratedBurnTime, cycleReliability, cycleCurve, maxTime);
+                            float timeToReach = ChartMath.FindTimeForSurvivalProb(targetCycleProb, ratedBurnTime, cycleReliability, cycleCurve);
                             
                             // Map time to color (green = short time, red = long time)
                             Color cellColor = GetTimeHeatmapColor(timeToReach, maxTime);
