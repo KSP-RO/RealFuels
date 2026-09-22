@@ -83,6 +83,40 @@ namespace RealFuels
         private const int ConfigMaxVisibleRows = 16;
         private float[] ConfigColumnWidths = new float[18];
 
+        // ── Row cache ────────────────────────────────────────────────────────
+        // Every cell string, column width and action-cell state is resolved once per
+        // rebuild instead of once per row per IMGUI pass.  Without this the table
+        // evaluates all 17 formatters four times per row per frame (measure + draw,
+        // times the Layout and Repaint passes), and several of those formatters
+        // allocate TechLevel/FloatCurve objects internally.
+        private List<CachedRow> _cachedRows;
+        private string[] _headerLabels = new string[0];
+        private string[] _headerTooltips = new string[0];
+        private readonly GUIContent _measureContent = new GUIContent();
+
+        // Cache invalidation signature — every input that can change a cell string,
+        // a measured width or the row set itself.
+        private float _cacheBuiltAt = float.MinValue;
+        private uint _cacheSigPartId;
+        private string _cacheSigConfiguration;
+        private string _cacheSigPatchName;
+        private int _cacheSigTechLevel;
+        private float _cacheSigScale;
+        private bool _cacheSigMinSec;
+        private bool _cacheSigPctMode;
+        private float _cacheSigSliderTime;
+        private float _cacheSigSliderPct;
+        private bool _cacheSigUseSimData;
+        private float _cacheSigSimData;
+        private float _cacheSigFontScale;
+
+        /// <summary>
+        /// Periodic refresh interval. Picks up external state that isn't part of the
+        /// signature: funds and RP-1 credits (Buy labels), R&D unlocks (locked rows)
+        /// and TestFlight flight data (survival column).
+        /// </summary>
+        private const float RowCacheMaxAge = 0.5f;
+
         private int toolTipWidth => EditorLogic.fetch.editorScreen == EditorScreen.Parts ? 320 : 380;
 
         // Window IDs — XOR with a RealFuels-specific magic constant so our windows never collide
@@ -538,15 +572,17 @@ namespace RealFuels
             _module.DrawConfigSelectors(availableConfigNodes);
 
             // Then draw the standard config table
-            DrawConfigTable(_module.BuildConfigRows());
+            DrawConfigTable();
         }
 
-        protected void DrawConfigTable(IEnumerable<ModuleEngineConfigsBase.ConfigRowDefinition> rows)
+        protected void DrawConfigTable()
         {
             EnsureTexturesAndStyles();
 
-            var rowList = rows.ToList();
-            CalculateColumnWidths(rowList);
+            // Cell strings, column widths and action-cell state come from the row cache;
+            // it only rebuilds when something that feeds them actually changed.
+            EnsureRowCache();
+            List<CachedRow> rowList = _cachedRows;
 
             float totalWidth = 0f;
             for (int i = 0; i < ConfigColumnWidths.Length; i++)
@@ -576,14 +612,15 @@ namespace RealFuels
             configScrollPos = GUILayout.BeginScrollView(configScrollPos, false, false, GUIStyle.none, GUI.skin.verticalScrollbar, EngineConfigStyles.TableScrollView, GUILayout.Height(scrollViewHeight));
 
             int rowIndex = 0;
-            foreach (var row in rowList)
+            foreach (var cached in rowList)
             {
+                var row = cached.Row;
                 Rect rowRect = GUILayoutUtility.GetRect(GUIContent.none, EngineConfigStyles.TableRowLayout, GUILayout.Height(ConfigRowHeight));
                 float rowStartX = rowRect.x;
                 Rect tableRowRect = new Rect(rowStartX, rowRect.y, totalWidth, rowRect.height);
                 bool isHovered = tableRowRect.Contains(Event.current.mousePosition);
 
-                bool isLocked = !EngineConfigTechLevels.CanConfig(row.Node);
+                bool isLocked = cached.IsLocked;
                 if (Event.current.type == EventType.Repaint)
                 {
                     if (!row.IsSelected && !isLocked && !isHovered && rowIndex % 2 == 1)
@@ -599,18 +636,19 @@ namespace RealFuels
                         GUI.DrawTexture(tableRowRect, _textures.RowHover);
                 }
 
-                string tooltip = GetRowTooltip(row.Node);
+                // Only the hovered row can show a tooltip, so only that row pays for
+                // building one — and it is kept for as long as the cache lives.
                 if (configGuiContent == null)
                     configGuiContent = new GUIContent();
                 configGuiContent.text = string.Empty;
-                configGuiContent.tooltip = tooltip;
+                configGuiContent.tooltip = isHovered ? GetCachedTooltip(cached) : string.Empty;
                 GUI.Label(tableRowRect, configGuiContent, GUIStyle.none);
 
                 // Call DrawSelectButton as a hook point for external mod compatibility (RP-1)
                 // Pass null callback - we don't want to invoke anything during rendering, only during button clicks
                 _module.DrawSelectButton(row.Node, row.IsSelected, null);
 
-                DrawConfigRow(tableRowRect, row, isHovered, isLocked);
+                DrawConfigRow(tableRowRect, cached, isHovered);
 
                 if (Event.current.type == EventType.Repaint)
                 {
@@ -627,6 +665,23 @@ namespace RealFuels
         {
             float currentX = headerRect.x;
 
+            // Labels and tooltips are built with the row cache (BuildHeaderStrings).
+            for (int i = 0; i < _headerLabels.Length; i++)
+            {
+                if (IsColumnVisible(i))
+                {
+                    DrawHeaderCell(new Rect(currentX, headerRect.y, ConfigColumnWidths[i], headerRect.height), _headerLabels[i], _headerTooltips[i]);
+                    currentX += ConfigColumnWidths[i];
+                }
+            }
+        }
+
+        /// <summary>
+        /// Builds the header labels and their tooltips. Only the survival column depends
+        /// on live state (slider mode/value), and that state is part of the cache signature.
+        /// </summary>
+        private void BuildHeaderStrings()
+        {
             // Abbreviated display labels shown directly in the header row.
             // Full descriptive text is supplied as the tooltip (shown via the
             // [BTN]-prefixed tooltip system so it appears near the cursor).
@@ -639,7 +694,7 @@ namespace RealFuels
                 : Localizer.Format("#RF_Engine_TipSurvivalAtTime", ChartMath.FormatTime(sliderTime));
 
             // Short labels — full text is in the tooltip so nothing is lost.
-            string[] shortLabels = {
+            _headerLabels = new[] {
                 "Name", "Thrust", "Min%", "ISP", "Mass", "Gim",
                 "Igns", "Ullg", "PFed",
                 "Rated", "Tested", "Ignition %", "0-DU", "Max-DU",
@@ -647,7 +702,7 @@ namespace RealFuels
                 "Tech", "Cost", ""
             };
 
-            string[] tooltips = {
+            _headerTooltips = new[] {
                 Localizer.GetStringByTag("#RF_Engine_TipName"),
                 Localizer.GetStringByTag("#RF_Engine_TipThrust"),
                 Localizer.GetStringByTag("#RF_Engine_TipMinThrottle"),
@@ -668,13 +723,13 @@ namespace RealFuels
                 Localizer.GetStringByTag("#RF_Engine_TipActions")
             };
 
-            for (int i = 0; i < shortLabels.Length; i++)
+            // Prefix with [BTN] once here so the tooltip appears near the cursor (not at
+            // the fixed row offset) without concatenating a string per column per pass.
+            for (int i = 0; i < _headerTooltips.Length; i++)
             {
-                if (IsColumnVisible(i))
-                {
-                    DrawHeaderCell(new Rect(currentX, headerRect.y, ConfigColumnWidths[i], headerRect.height), shortLabels[i], tooltips[i]);
-                    currentX += ConfigColumnWidths[i];
-                }
+                _headerTooltips[i] = string.IsNullOrEmpty(_headerTooltips[i])
+                    ? string.Empty
+                    : "[BTN]" + _headerTooltips[i];
             }
         }
 
@@ -686,17 +741,16 @@ namespace RealFuels
             if (configGuiContent == null)
                 configGuiContent = new GUIContent();
             configGuiContent.text = text;
-            // Prefix with [BTN] so the tooltip appears near the cursor (not at the fixed row offset).
-            configGuiContent.tooltip = string.IsNullOrEmpty(tooltip) ? string.Empty : $"[BTN]{tooltip}";
+            configGuiContent.tooltip = tooltip;
 
             // Simple horizontal label — no rotation matrix needed.
             GUI.Label(new Rect(rect.x + 2, rect.y, rect.width - 2, rect.height), configGuiContent, headerStyle);
         }
 
-        private void DrawConfigRow(Rect rowRect, ModuleEngineConfigsBase.ConfigRowDefinition row, bool isHovered, bool isLocked)
+        private void DrawConfigRow(Rect rowRect, CachedRow cached, bool isHovered)
         {
             GUIStyle primaryStyle;
-            if (isLocked)
+            if (cached.IsLocked)
                 primaryStyle = EngineConfigStyles.RowPrimaryLocked;
             else if (isHovered)
                 primaryStyle = EngineConfigStyles.RowPrimaryHover;
@@ -706,103 +760,54 @@ namespace RealFuels
             GUIStyle secondaryStyle = EngineConfigStyles.RowSecondary;
 
             float currentX = rowRect.x;
-            string nameText = row.DisplayName;
-            if (row.Indent) nameText = "    ↳ " + nameText;
+            string[] cells = cached.Cells;
 
-            Action<int, string> drawCell = (index, text) =>
+            // Columns 0-16 are plain labels; 17 is the action cell.
+            for (int i = 0; i < 17; i++)
             {
-                if (IsColumnVisible(index))
-                {
-                    GUIStyle cellStyle = (index == 0)  ? primaryStyle
-                                       : (index == 15) ? EngineConfigStyles.TechCell
-                                       // Ignitions(6), Ullage(7), PFed(8): center-aligned boolean/symbol columns
-                                       : (index == 6 || index == 7 || index == 8) ? EngineConfigStyles.RowSecondaryCenter
-                                       : secondaryStyle;
-                    GUI.Label(new Rect(currentX, rowRect.y, ConfigColumnWidths[index], rowRect.height), text, cellStyle);
-                    currentX += ConfigColumnWidths[index];
-                }
-            };
+                if (!IsColumnVisible(i))
+                    continue;
 
-            drawCell(0, nameText);
-            drawCell(1, GetThrustString(row.Node));
-            drawCell(2, GetMinThrottleString(row.Node));
-            drawCell(3, GetIspString(row.Node));
-            drawCell(4, GetMassString(row.Node));
-            drawCell(5, GetGimbalString(row.Node));
-            drawCell(6, GetIgnitionsString(row.Node));
-            drawCell(7, GetUllageSymbol(row.Node));
-            drawCell(8, GetPressureFedSymbol(row.Node));
-            drawCell(9, GetRatedBurnTimeString(row.Node));
-            drawCell(10, GetTestedBurnTimeString(row.Node));
-            drawCell(11, GetIgnitionReliabilityString(row.Node));
-            drawCell(12, GetCycleReliabilityStartString(row.Node));
-            drawCell(13, GetCycleReliabilityEndString(row.Node));
-            drawCell(14, GetSurvivalAtTimeString(row.Node));
-            drawCell(15, GetTechString(row.Node));
-            drawCell(16, GetCostDeltaString(row.Node));
+                GUIStyle cellStyle = (i == 0)  ? primaryStyle
+                                   : (i == 15) ? EngineConfigStyles.TechCell
+                                   // Ignitions(6), Ullage(7), PFed(8): center-aligned boolean/symbol columns
+                                   : (i == 6 || i == 7 || i == 8) ? EngineConfigStyles.RowSecondaryCenter
+                                   : secondaryStyle;
+                GUI.Label(new Rect(currentX, rowRect.y, ConfigColumnWidths[i], rowRect.height), cells[i], cellStyle);
+                currentX += ConfigColumnWidths[i];
+            }
 
             if (IsColumnVisible(17))
             {
-                DrawActionCell(new Rect(currentX, rowRect.y + 1, ConfigColumnWidths[17], rowRect.height - 2), row.Node, row.IsSelected, row.Apply);
+                DrawActionCell(new Rect(currentX, rowRect.y + 1, ConfigColumnWidths[17], rowRect.height - 2), cached);
             }
         }
 
-        private void DrawActionCell(Rect rect, ConfigNode node, bool isSelected, Action apply)
+        private void DrawActionCell(Rect rect, CachedRow cached)
         {
-            string configName = node.GetValue("name");
-            bool canUse = EngineConfigTechLevels.CanConfig(node);
-            bool unlocked = EngineConfigTechLevels.UnlockedConfig(node, _module.part);
-            double cost = EntryCostManager.Instance.ConfigEntryCost(configName);
-
-            if (cost <= 0 && !unlocked && canUse)
-                EntryCostManager.Instance.PurchaseConfig(configName, node.GetValue("techRequired"));
+            ConfigNode node = cached.Row.Node;
+            bool isSelected = cached.Row.IsSelected;
+            Action apply = cached.Row.Apply;
 
             // Switch button style: standard KSP action button.
             GUIStyle switchStyle = EngineConfigStyles.ActionButton;
 
             string switchLabel = isSelected ? "Active" : "Switch";
-            // Fix the switch button width to the wider of "Switch"/"Active" so the action
-            // column doesn't shift when the selected config changes (issue 4).
-            float switchWidth = Mathf.Max(
-                switchStyle.CalcSize(new GUIContent("Switch")).x,
-                switchStyle.CalcSize(new GUIContent("Active")).x
-            ) + 10f;
-
-            GUI.enabled = canUse && !unlocked && cost > 0;
-            string purchaseLabel;
-            string purchaseTooltip = string.Empty;
-
-            if (cost > 0)
-            {
-                double displayCost = cost;
-                if (!unlocked && EngineConfigRP1Integration.TryGetCreditAdjustedCost(cost, out double creditsAvailable, out double costAfterCredits))
-                {
-                    displayCost = costAfterCredits;
-                    double creditsUsed = cost - costAfterCredits;
-                    purchaseTooltip = $"[BTN]Entry Cost: {cost:N0}√\n" +
-                                    $"<color=#FFEB3B>Credits Available: {creditsAvailable:N0}</color>\n" +
-                                    $"<color=#FFEB3B>Credits Used: {creditsUsed:N0}</color>\n" +
-                                    $"<b>Final Cost: {costAfterCredits:N0}√</b>";
-                }
-                purchaseLabel = unlocked ? "Owned" : $"Buy ({displayCost:N0}√)";
-            }
-            else
-                purchaseLabel = unlocked ? "Owned" : "Free";
+            // The switch button width is fixed to the wider of "Switch"/"Active" so the
+            // action column doesn't shift when the selected config changes (issue 4).
+            float switchWidth = cached.SwitchWidth;
 
             // Purchase button colour: golden when there's a cost, green when free/owned.
-            GUIStyle purchaseStyle = (cost > 0 && !unlocked)
+            GUIStyle purchaseStyle = (cached.Cost > 0 && !cached.Unlocked)
                 ? EngineConfigStyles.ActionButtonPurchase
                 : EngineConfigStyles.ActionButtonOwned;
 
             // Purchase button fills all remaining column space so every row has identical
             // widths regardless of label text ("Owned", "Free", "Buy (12345√)").
             // The column is pre-sized to the widest possible row in CalculateColumnWidths,
-            // so clamping to at least the CalcSize minimum keeps the layout valid when the
+            // so clamping to at least the measured minimum keeps the layout valid when the
             // column is unexpectedly narrower than the label.
-            float purchaseWidth = Mathf.Max(
-                rect.width - switchWidth - 4f,
-                purchaseStyle.CalcSize(new GUIContent(purchaseLabel)).x + 10f
-            );
+            float purchaseWidth = Mathf.Max(rect.width - switchWidth - 4f, cached.PurchaseMinWidth);
 
             Rect switchRect   = new Rect(rect.x, rect.y, switchWidth, rect.height);
             Rect purchaseRect = new Rect(rect.x + switchWidth + 4f, rect.y, purchaseWidth, rect.height);
@@ -810,7 +815,7 @@ namespace RealFuels
             GUI.enabled = !isSelected;
             if (GUI.Button(switchRect, switchLabel, switchStyle))
             {
-                if (!unlocked && cost <= 0)
+                if (!cached.Unlocked && cached.Cost <= 0)
                 {
                     _module.DrawSelectButton(node, isSelected, (cfgName) =>
                     {
@@ -818,10 +823,11 @@ namespace RealFuels
                     });
                 }
                 apply?.Invoke();
+                InvalidateRowCache();
             }
 
-            GUI.enabled = canUse && !unlocked && cost > 0;
-            if (GUI.Button(purchaseRect, new GUIContent(purchaseLabel, purchaseTooltip), purchaseStyle))
+            GUI.enabled = cached.CanUse && !cached.Unlocked && cached.Cost > 0;
+            if (GUI.Button(purchaseRect, cached.PurchaseContent, purchaseStyle))
             {
                 // Call DrawSelectButton with PurchaseConfig as the callback
                 // This ensures PurchaseConfig runs INSIDE DrawSelectButton (before RP-1's postfix clears techNode)
@@ -831,6 +837,7 @@ namespace RealFuels
                     if (EntryCostManager.Instance.PurchaseConfig(cfgName, node.GetValue("techRequired")))
                         apply?.Invoke();
                 });
+                InvalidateRowCache();
             }
 
             GUI.enabled = true;
@@ -964,7 +971,7 @@ namespace RealFuels
             return compactView ? columnsVisibleCompact[columnIndex] : columnsVisibleFull[columnIndex];
         }
 
-        private void CalculateColumnWidths(List<ModuleEngineConfigsBase.ConfigRowDefinition> rows)
+        private void CalculateColumnWidths()
         {
             GUIStyle cellStyle = EngineConfigStyles.CellMeasure;
             GUIStyle techStyle = EngineConfigStyles.TechCell;
@@ -972,40 +979,16 @@ namespace RealFuels
             for (int i = 0; i < ConfigColumnWidths.Length; i++)
                 ConfigColumnWidths[i] = 30f;
 
-            foreach (var row in rows)
+            foreach (var cached in _cachedRows)
             {
-                string nameText = row.DisplayName;
-                if (row.Indent) nameText = "    ↳ " + nameText;
-
-                string[] cellValues = new string[]
-                {
-                    nameText,
-                    GetThrustString(row.Node),
-                    GetMinThrottleString(row.Node),
-                    GetIspString(row.Node),
-                    GetMassString(row.Node),
-                    GetGimbalString(row.Node),
-                    GetIgnitionsString(row.Node),
-                    GetUllageSymbol(row.Node),
-                    GetPressureFedSymbol(row.Node),
-                    GetRatedBurnTimeString(row.Node),
-                    GetTestedBurnTimeString(row.Node),
-                    GetIgnitionReliabilityString(row.Node),
-                    GetCycleReliabilityStartString(row.Node),
-                    GetCycleReliabilityEndString(row.Node),
-                    GetSurvivalAtTimeString(row.Node),
-                    GetTechString(row.Node),   // measured with TechCell (SF(11))
-                    GetCostDeltaString(row.Node),
-                    ""
-                };
-
+                string[] cellValues = cached.Cells;
                 for (int i = 0; i < cellValues.Length; i++)
                 {
                     if (!string.IsNullOrEmpty(cellValues[i]))
                     {
                         // Tech column (15) uses TechCell style (SF(11)) so measure with it.
                         GUIStyle measureStyle = (i == 15) ? techStyle : cellStyle;
-                        float width = measureStyle.CalcSize(new GUIContent(cellValues[i])).x + 10f;
+                        float width = MeasureWidth(measureStyle, cellValues[i]) + 10f;
                         if (width > ConfigColumnWidths[i])
                             ConfigColumnWidths[i] = width;
                     }
@@ -1014,64 +997,23 @@ namespace RealFuels
 
             // ── Ensure every column is at least as wide as its header label ──────────
             // This prevents truncated headers when content happens to be narrow.
-            string survivalHeader = sliderModeIsPercentage
-                ? $"T@{sliderPercentage:F0}%"
-                : $"Surv@{FormatBurnTimeDisplay(sliderTime)}";
-
-            string[] headerLabels = {
-                "Name", "Thrust", "Min%", "ISP", "Mass", "Gim",
-                "Igns", "Ullg", "PFed",
-                "Rated", "Tested", "Ignition %", "0-DU", "Max-DU",
-                survivalHeader, "Tech", "Cost", ""
-            };
-
             GUIStyle hStyle = EngineConfigStyles.HeaderCell;
-            for (int i = 0; i < headerLabels.Length && i < ConfigColumnWidths.Length; i++)
+            for (int i = 0; i < _headerLabels.Length && i < ConfigColumnWidths.Length; i++)
             {
-                if (!string.IsNullOrEmpty(headerLabels[i]))
+                if (!string.IsNullOrEmpty(_headerLabels[i]))
                 {
-                    float hw = hStyle.CalcSize(new GUIContent(headerLabels[i])).x + 16f;
+                    float hw = MeasureWidth(hStyle, _headerLabels[i]) + 16f;
                     if (hw > ConfigColumnWidths[i])
                         ConfigColumnWidths[i] = hw;
                 }
             }
 
-            // Calculate dynamic width for Actions column (index 17) based on button labels.
-            // Use the same styles as DrawActionCell so widths match exactly.
+            // Dynamic width for the Actions column (index 17). The per-row button widths
+            // were measured with the same styles DrawActionCell uses, so they match exactly.
             float maxActionWidth = 0f;
-            GUIStyle switchMeasureStyle   = EngineConfigStyles.ActionButton;
-            GUIStyle purchaseMeasureStyle = EngineConfigStyles.ActionButtonPurchase;
-            GUIStyle ownedMeasureStyle    = EngineConfigStyles.ActionButtonOwned;
-            foreach (var row in rows)
+            foreach (var cached in _cachedRows)
             {
-                string configName = row.Node.GetValue("name");
-                bool unlocked = EngineConfigTechLevels.UnlockedConfig(row.Node, _module.part);
-                double cost = EntryCostManager.Instance.ConfigEntryCost(configName);
-
-                // Measure both states so the column width doesn't change when selection changes.
-                float switchWidth = Mathf.Max(
-                    switchMeasureStyle.CalcSize(new GUIContent("Switch")).x,
-                    switchMeasureStyle.CalcSize(new GUIContent("Active")).x
-                ) + 10f;
-
-                string purchaseLabel;
-                GUIStyle pStyle;
-                if (cost > 0)
-                {
-                    double displayCost = cost;
-                    if (!unlocked && EngineConfigRP1Integration.TryGetCreditAdjustedCost(cost, out _, out double costAfterCredits))
-                        displayCost = costAfterCredits;
-                    purchaseLabel = unlocked ? "Owned" : $"Buy ({displayCost:N0}√)";
-                    pStyle = (cost > 0 && !unlocked) ? purchaseMeasureStyle : ownedMeasureStyle;
-                }
-                else
-                {
-                    purchaseLabel = unlocked ? "Owned" : "Free";
-                    pStyle = ownedMeasureStyle;
-                }
-                float purchaseWidth = pStyle.CalcSize(new GUIContent(purchaseLabel)).x + 10f;
-
-                float totalWidth = switchWidth + purchaseWidth + 4f;
+                float totalWidth = cached.SwitchWidth + cached.PurchaseMinWidth + 4f;
                 if (totalWidth > maxActionWidth)
                     maxActionWidth = totalWidth;
             }
@@ -1089,9 +1031,217 @@ namespace RealFuels
             // resize every time the slider moves.  Reference strings cover both display modes:
             //   • Time mode   — "99.9 / 99.9 / 99.9 %"  (3 decimals; "100" drops the decimal)
             //   • % mode      — time strings like "10m 0s / 10m 0s / 10m 0s"
-            float survivalPctW  = cellStyle.CalcSize(new GUIContent("99.9 / 99.9 / 99.9 %")).x + 10f;
-            float survivalTimeW = cellStyle.CalcSize(new GUIContent("10m 0s / 10m 0s / 10m 0s")).x + 10f;
+            float survivalPctW  = MeasureWidth(cellStyle, "99.9 / 99.9 / 99.9 %") + 10f;
+            float survivalTimeW = MeasureWidth(cellStyle, "10m 0s / 10m 0s / 10m 0s") + 10f;
             ConfigColumnWidths[14] = Mathf.Max(survivalPctW, survivalTimeW);
+        }
+
+        /// <summary>
+        /// Measures text with a reusable GUIContent instead of allocating one per call.
+        /// </summary>
+        private float MeasureWidth(GUIStyle style, string text)
+        {
+            _measureContent.text = text;
+            return style.CalcSize(_measureContent).x;
+        }
+
+        #endregion
+
+        #region Row Cache
+
+        /// <summary>
+        /// One table row with every cell string, its action-cell state and (on first hover)
+        /// its tooltip resolved up front. Drawing a cached row is pure layout — no formatter,
+        /// TechLevel or FloatCurve allocation happens during a normal frame.
+        /// </summary>
+        private class CachedRow
+        {
+            public ModuleEngineConfigsBase.ConfigRowDefinition Row;
+
+            /// <summary>Cell text per column, index-aligned with ConfigColumnWidths.</summary>
+            public readonly string[] Cells = new string[18];
+
+            public bool IsLocked;
+
+            // Action cell state
+            public bool CanUse;
+            public bool Unlocked;
+            public double Cost;
+            public float SwitchWidth;
+            public float PurchaseMinWidth;
+            public readonly GUIContent PurchaseContent = new GUIContent();
+
+            // Hover tooltip — built on first hover, not for every row every pass.
+            public string Tooltip;
+            public bool TooltipBuilt;
+        }
+
+        /// <summary>
+        /// Rebuilds the row cache when anything feeding it has changed. Rebuilds only
+        /// happen on Layout events so the row count can never change between a frame's
+        /// Layout and Repaint passes, which would corrupt Unity's layout pool.
+        /// </summary>
+        private void EnsureRowCache()
+        {
+            if (_cachedRows != null && !(Event.current.type == EventType.Layout && IsRowCacheStale()))
+                return;
+
+            BuildRowCache();
+        }
+
+        private bool IsRowCacheStale()
+        {
+            if (Time.realtimeSinceStartup - _cacheBuiltAt > RowCacheMaxAge)
+                return true;
+
+            return _cacheSigPartId != _module.part.persistentId
+                || _cacheSigConfiguration != _module.configuration
+                || _cacheSigPatchName != _module.ActiveRowKey
+                || _cacheSigTechLevel != _module.techLevel
+                || _cacheSigScale != _module.scale
+                || _cacheSigMinSec != _showTimeAsMinSec
+                || _cacheSigPctMode != sliderModeIsPercentage
+                || _cacheSigSliderTime != sliderTime
+                || _cacheSigSliderPct != sliderPercentage
+                || _cacheSigUseSimData != useSimulatedData
+                || _cacheSigSimData != simulatedDataValue
+                || _cacheSigFontScale != _fontScale;
+        }
+
+        /// <summary>
+        /// Forces a rebuild on the next Layout pass. Used after the user switches or buys
+        /// a config, which changes selection, unlock state and entry costs at once.
+        /// </summary>
+        internal void InvalidateRowCache() => _cacheBuiltAt = float.MinValue;
+
+        private void BuildRowCache()
+        {
+            EnsureTexturesAndStyles();
+
+            if (_cachedRows == null)
+                _cachedRows = new List<CachedRow>();
+            else
+                _cachedRows.Clear();
+
+            foreach (var row in _module.BuildConfigRows())
+            {
+                var cached = new CachedRow { Row = row };
+                ConfigNode node = row.Node;
+                string[] cells = cached.Cells;
+
+                string nameText = row.DisplayName;
+                if (row.Indent) nameText = "    ↳ " + nameText;
+
+                cells[0]  = nameText;
+                cells[1]  = GetThrustString(node);
+                cells[2]  = GetMinThrottleString(node);
+                cells[3]  = GetIspString(node);
+                cells[4]  = GetMassString(node);
+                cells[5]  = GetGimbalString(node);
+                cells[6]  = GetIgnitionsString(node);
+                cells[7]  = GetUllageSymbol(node);
+                cells[8]  = GetPressureFedSymbol(node);
+                cells[9]  = GetRatedBurnTimeString(node);
+                cells[10] = GetTestedBurnTimeString(node);
+                cells[11] = GetIgnitionReliabilityString(node);
+                cells[12] = GetCycleReliabilityStartString(node);
+                cells[13] = GetCycleReliabilityEndString(node);
+                cells[14] = GetSurvivalAtTimeString(node);
+                cells[15] = GetTechString(node);   // measured with TechCell (SF(11))
+                cells[16] = GetCostDeltaString(node);
+                cells[17] = string.Empty;          // action cell — drawn as buttons
+
+                cached.IsLocked = !EngineConfigTechLevels.CanConfig(node);
+                BuildActionCellState(cached);
+
+                _cachedRows.Add(cached);
+            }
+
+            BuildHeaderStrings();
+            CalculateColumnWidths();
+
+            _cacheBuiltAt = Time.realtimeSinceStartup;
+            _cacheSigPartId = _module.part.persistentId;
+            _cacheSigConfiguration = _module.configuration;
+            _cacheSigPatchName = _module.ActiveRowKey;
+            _cacheSigTechLevel = _module.techLevel;
+            _cacheSigScale = _module.scale;
+            _cacheSigMinSec = _showTimeAsMinSec;
+            _cacheSigPctMode = sliderModeIsPercentage;
+            _cacheSigSliderTime = sliderTime;
+            _cacheSigSliderPct = sliderPercentage;
+            _cacheSigUseSimData = useSimulatedData;
+            _cacheSigSimData = simulatedDataValue;
+            _cacheSigFontScale = _fontScale;
+        }
+
+        /// <summary>
+        /// Resolves unlock state, entry cost, button labels and button widths for one row.
+        /// </summary>
+        private void BuildActionCellState(CachedRow cached)
+        {
+            ConfigNode node = cached.Row.Node;
+            string configName = node.GetValue("name");
+
+            cached.CanUse = EngineConfigTechLevels.CanConfig(node);
+            bool unlocked = EngineConfigTechLevels.UnlockedConfig(node, _module.part);
+            double cost = EntryCostManager.Instance.ConfigEntryCost(configName);
+
+            if (cost <= 0 && !unlocked && cached.CanUse)
+            {
+                EntryCostManager.Instance.PurchaseConfig(configName, node.GetValue("techRequired"));
+                unlocked = EngineConfigTechLevels.UnlockedConfig(node, _module.part);
+            }
+
+            cached.Unlocked = unlocked;
+            cached.Cost = cost;
+
+            string purchaseLabel;
+            string purchaseTooltip = string.Empty;
+            if (cost > 0)
+            {
+                double displayCost = cost;
+                if (!unlocked && EngineConfigRP1Integration.TryGetCreditAdjustedCost(cost, out double creditsAvailable, out double costAfterCredits))
+                {
+                    displayCost = costAfterCredits;
+                    double creditsUsed = cost - costAfterCredits;
+                    purchaseTooltip = $"[BTN]Entry Cost: {cost:N0}√\n" +
+                                    $"<color=#FFEB3B>Credits Available: {creditsAvailable:N0}</color>\n" +
+                                    $"<color=#FFEB3B>Credits Used: {creditsUsed:N0}</color>\n" +
+                                    $"<b>Final Cost: {costAfterCredits:N0}√</b>";
+                }
+                purchaseLabel = unlocked ? "Owned" : $"Buy ({displayCost:N0}√)";
+            }
+            else
+                purchaseLabel = unlocked ? "Owned" : "Free";
+
+            cached.PurchaseContent.text = purchaseLabel;
+            cached.PurchaseContent.tooltip = purchaseTooltip;
+
+            // Measure both switch states so the column width doesn't change with selection.
+            GUIStyle switchStyle = EngineConfigStyles.ActionButton;
+            cached.SwitchWidth = Mathf.Max(
+                MeasureWidth(switchStyle, "Switch"),
+                MeasureWidth(switchStyle, "Active")
+            ) + 10f;
+
+            GUIStyle purchaseStyle = (cost > 0 && !unlocked)
+                ? EngineConfigStyles.ActionButtonPurchase
+                : EngineConfigStyles.ActionButtonOwned;
+            cached.PurchaseMinWidth = MeasureWidth(purchaseStyle, purchaseLabel) + 10f;
+        }
+
+        /// <summary>
+        /// Builds the hover tooltip for a row the first time it is actually hovered.
+        /// </summary>
+        private string GetCachedTooltip(CachedRow cached)
+        {
+            if (!cached.TooltipBuilt)
+            {
+                cached.Tooltip = GetRowTooltip(cached.Row.Node);
+                cached.TooltipBuilt = true;
+            }
+            return cached.Tooltip;
         }
 
         #endregion
@@ -1577,6 +1727,7 @@ namespace RealFuels
         internal void MarkWindowDirty()
         {
             lastPartId = 0;
+            InvalidateRowCache();
         }
 
         private void EditorLock()

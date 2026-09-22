@@ -159,6 +159,8 @@ namespace RealFuels
             return node.GetValue(PatchNameKey); // Just show subconfig name without parent prefix
         }
 
+        internal override string ActiveRowKey => activePatchName;
+
         public override IEnumerable<ConfigRowDefinition> BuildConfigRows()
         {
             foreach (var node in FilteredDisplayConfigs(false))
@@ -1224,6 +1226,13 @@ namespace RealFuels
             public bool Indent;
             public Action Apply;
         }
+
+        /// <summary>
+        /// Secondary selection key (the active SUBCONFIG patch) folded into the GUI's
+        /// row-cache signature so switching patch/mode rebuilds the table. Empty for
+        /// modules that have no patch concept.
+        /// </summary>
+        internal virtual string ActiveRowKey => string.Empty;
 
         /// <summary>
         /// Builds the list of configuration rows to display in the GUI.
