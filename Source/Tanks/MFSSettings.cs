@@ -14,7 +14,6 @@ namespace RealFuels
         public static bool partUtilizationTweakable = false;
         public static string unitLabel = "u";
         public static bool basemassUseTotalVolume = false;
-        public static double radiatorMinTempMult = 0.99d;
 
         // Move all possible tank upgrades into the preview list in OnStart
         // It requires an external mod to be responsible for calling the Validate() method.
@@ -25,6 +24,7 @@ namespace RealFuels
 
         public static readonly Dictionary<string, double> resourceVsps = new Dictionary<string, double>();
         public static readonly Dictionary<string, double> resourceConductivities = new Dictionary<string, double>();
+        public static readonly Dictionary<string, double> resourceHsps = new Dictionary<string, double>();
 
         private static readonly Dictionary<string, ConfigNode[]> overrides = new Dictionary<string, ConfigNode[]>();
 
@@ -72,8 +72,9 @@ namespace RealFuels
         {
             resourceVsps.Clear();
             resourceConductivities.Clear();
+            resourceHsps.Clear();
 
-            // fill vsps & conductivities
+            // fill vsps, conductivities & heat capacities
             foreach (ConfigNode n in GameDatabase.Instance.GetConfigNodes("RESOURCE_DEFINITION"))
             {
                 string nm = n.GetValue("name");
@@ -82,6 +83,8 @@ namespace RealFuels
                     resourceVsps[nm] = dtmp;
                 if (n.TryGetValue("conductivity", ref dtmp))
                     resourceConductivities[nm] = dtmp;
+                if (n.TryGetValue("hsp", ref dtmp))
+                    resourceHsps[nm] = dtmp;
             }
 
             ConfigNode node = GameDatabase.Instance.GetConfigNodes("MFSSETTINGS").LastOrDefault();
@@ -95,7 +98,6 @@ namespace RealFuels
                 node.TryGetValue("partUtilizationTweakable", ref partUtilizationTweakable);
                 node.TryGetValue("unitLabel", ref unitLabel);
                 node.TryGetValue("basemassUseTotalVolume", ref basemassUseTotalVolume);
-                node.TryGetValue("radiatorMinTempMult", ref radiatorMinTempMult);
                 node.TryGetValue("previewAllLockedTypes", ref previewAllLockedTypes);
 
                 ignoreFuelsForFill.Clear();
