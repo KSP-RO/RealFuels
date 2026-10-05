@@ -90,9 +90,9 @@ namespace RealFuels
             patch.CopyTo(patchedNode);
 
             // Apply cost offset
-            int costOffset = 0;
+            float costOffset = 0;
             patch.TryGetValue("costOffset", ref costOffset);
-            int cost = 0;
+            float cost = 0;
             patchedNode.TryGetValue("cost", ref cost);
             cost += costOffset;
             patchedNode.SetValue("cost", cost, true);
