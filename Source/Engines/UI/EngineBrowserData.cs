@@ -29,7 +29,11 @@ namespace RealFuels
         public string Family;
         public string Config;
         public EngineKind Kind;
-        public float Thrust = -1f;       // kN
+        public int EngineCount = 1;      // engineTypeMult: chambers/engines in one part
+        public float Thrust = -1f;       // kN, vacuum
+        public float ThrustSL = -1f;     // kN, sea level
+        public float TwrVac = -1f;
+        public float TwrSL = -1f;
         public float MinThrottle = -1f;  // fraction of max
         public float IspVac = -1f;
         public float IspSL = -1f;
@@ -60,24 +64,82 @@ namespace RealFuels
         public bool Unlocked;
         public bool PartAvailable;
         public double EntryCost;
+        public float StructFactor = float.NaN;   // for the selected tank family
+        public string StructNote;               // tank used, or why there is no value
+
+        // Propellants that need tank volume, and a key for caching structural factors
+        public EngineBrowserTanks.TankProp[] TankProps;
+        public string TankKey;
 
         // Display text per column, see EngineBrowser.Col
         public string[] Cells;
         public string Tooltip;
     }
 
+    /// <summary>
+    /// Invalidates the browser caches on GameDatabase reloads, which usually happen outside the
+    /// editor. Lives for the whole session; KSP's EventVoid can't take a static method.
+    /// </summary>
+    [KSPAddon(KSPAddon.Startup.Instantly, true)]
+    internal class EngineBrowserReloadHook : MonoBehaviour
+    {
+        private void Awake()
+        {
+            DontDestroyOnLoad(this);
+            GameEvents.OnGameDatabaseLoaded.Add(OnDatabaseLoaded);
+        }
+
+        private void OnDestroy() => GameEvents.OnGameDatabaseLoaded.Remove(OnDatabaseLoaded);
+
+        private void OnDatabaseLoaded() => EngineBrowserDatabase.Invalidate();
+    }
+
     internal static class EngineBrowserDatabase
     {
         private static List<EngineBrowserEntry> _entries;
         private static HashSet<string> _nonStorable;
+        private static string _builtForSave;
 
-        public static List<EngineBrowserEntry> Entries => _entries ?? (_entries = Build());
+        /// <summary>Bumped on every rebuild so the browser knows to redo cells and widths.</summary>
+        public static int Version { get; private set; }
+
+        /// <summary>
+        /// All entries. Rebuilt when a different save is loaded (config display filters and the
+        /// tech tree can differ per save) or after a GameDatabase reload.
+        /// </summary>
+        public static List<EngineBrowserEntry> Entries
+        {
+            get
+            {
+                string save = HighLogic.SaveFolder ?? string.Empty;
+                // Destroyed prefabs mean the parts were reloaded without the reload event reaching us.
+                bool stale = _entries != null && _entries.Count > 0 && _entries[0].Part.partPrefab == null;
+                if (_entries == null || stale || _builtForSave != save)
+                {
+                    // Whatever triggered the rebuild, derived caches may be from the old database too.
+                    _nonStorable = null;
+                    EngineBrowserTanks.Invalidate();
+                    _builtForSave = save;
+                    _entries = Build();
+                    Version++;
+                }
+                return _entries;
+            }
+        }
+
+        /// <summary>Drops the cached entries and tank data; see EngineBrowserReloadHook.</summary>
+        internal static void Invalidate()
+        {
+            _entries = null;
+            _nonStorable = null;
+            EngineBrowserTanks.Invalidate();
+        }
 
         public static bool IsStorable(string resource) => !NonStorable.Contains(resource);
 
         /// <summary>
         /// Resources that boil off: they have a boil-off model in RF (vsp or a tank loss_rate)
-        /// and boil below room temperature in every tank type that can hold them.
+        /// and boil below room temperature in at least one tank type that can hold them.
         /// MM-patchable via RF_ENGINE_BROWSER { storableTemperature, storable, nonStorable }.
         /// </summary>
         private static HashSet<string> NonStorable
@@ -150,8 +212,18 @@ namespace RealFuels
                     try
                     {
                         mec.CheckConfigs();
+                        var ctx = new ModuleContext
+                        {
+                            Part = ap,
+                            Module = mec,
+                            ModuleIndex = i,
+                            TechLevels = new EngineConfigTechLevels(mec),
+                            Gimbals = ap.partPrefab.Modules.OfType<ModuleGimbal>().ToList(),
+                            Target = ModuleEngineConfigsBase.GetSpecifiedModules(ap.partPrefab, mec.engineID, mec.moduleIndex, mec.type, mec.useWeakType).FirstOrDefault(),
+                            EngineCount = GetEngineCount(ap)
+                        };
                         foreach (var v in mec.BrowserVariants())
-                            list.Add(BuildEntry(ap, mec, i, v));
+                            list.Add(BuildEntry(ctx, v));
                     }
                     catch (Exception ex)
                     {
@@ -170,19 +242,43 @@ namespace RealFuels
             return s != null && float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out float f) ? f : fallback;
         }
 
-        private static EngineBrowserEntry BuildEntry(AvailablePart ap, ModuleEngineConfigsBase m, int moduleIndex, ModuleEngineConfigsBase.BrowserVariant v)
+        /// <summary>Per-module data shared by all of that module's variants.</summary>
+        private class ModuleContext
+        {
+            public AvailablePart Part;
+            public ModuleEngineConfigsBase Module;
+            public int ModuleIndex;
+            public EngineConfigTechLevels TechLevels;
+            public List<ModuleGimbal> Gimbals;
+            public PartModule Target;
+            public int EngineCount;
+        }
+
+        /// <summary>RO's engineTypeMult: how many engines/chambers one part represents.</summary>
+        private static int GetEngineCount(AvailablePart ap)
+        {
+            string s = ap.partConfig?.GetValue("engineTypeMult");
+            if (s != null && float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out float f))
+                return Mathf.Max(1, Mathf.RoundToInt(f));
+            return 1;
+        }
+
+        private static EngineBrowserEntry BuildEntry(ModuleContext ctx, ModuleEngineConfigsBase.BrowserVariant v)
         {
             ConfigNode node = v.Node;
-            var tl = new EngineConfigTechLevels(m);
+            AvailablePart ap = ctx.Part;
+            ModuleEngineConfigsBase m = ctx.Module;
+            EngineConfigTechLevels tl = ctx.TechLevels;
             var e = new EngineBrowserEntry
             {
                 Part = ap,
                 Module = m,
-                ModuleIndex = moduleIndex,
+                ModuleIndex = ctx.ModuleIndex,
                 Node = node,
                 ConfigName = v.ConfigName,
                 PatchName = v.PatchName,
-                Family = ap.title,
+                Family = ctx.EngineCount > 1 ? $"{ap.title} x{ctx.EngineCount}" : ap.title,
+                EngineCount = ctx.EngineCount,
                 Config = v.DisplayName,
                 Tech = node.GetValue("techRequired") ?? string.Empty,
                 Spec = node.GetValue("specLevel") ?? string.Empty,
@@ -210,13 +306,22 @@ namespace RealFuels
             }
 
             if (m.origMass > 0f)
+            {
                 e.Mass = m.scale * m.origMass * RFSettings.Instance.EngineMassMultiplier * GetFloat(node, "massMult", 1f);
+                // ModuleEngineConfigs.DoConfig also scales TL engines' mass by the TL mass ratio.
+                if (m.techLevel != -1 && node.HasValue(m.thrustRating))
+                    e.Mass *= (float)Math.Round(tl.MassTL(node), 6);
+            }
             else
                 e.Mass = ap.partPrefab.mass;
 
-            e.Cost = ap.cost + m.scale * GetFloat(node, "cost", 0f);
+            // Same delta as the engine config window: TL engines scale config cost with the TL.
+            float configCost = m.scale * GetFloat(node, "cost", 0f);
+            if (m.techLevel != -1)
+                configCost = tl.CostTL(configCost, node) - tl.CostTL(0f, node);
+            e.Cost = ap.cost + configCost;
 
-            BuildGimbal(e, m, ap);
+            BuildGimbal(e, m, ctx.Gimbals);
             BuildIgnitions(e, m, tl);
 
             e.Ullage = node.GetValue("ullage")?.ToLower() == "true";
@@ -230,6 +335,8 @@ namespace RealFuels
                 .ToArray();
             e.PropellantText = e.Propellants.Length > 0 ? string.Join(" / ", e.Propellants) : "-";
             e.Storable = e.Propellants.Length > 0 && e.Propellants.All(IsStorable);
+            e.TankProps = EngineBrowserTanks.TankProps(node);
+            e.TankKey = (e.PressureFed ? "HP|" : "|") + string.Join(";", e.TankProps.Select(p => $"{p.Name}:{p.Ratio.ToString("R", CultureInfo.InvariantCulture)}"));
 
             e.Rated = GetFloat(node, "ratedBurnTime");
             e.RatedContinuous = GetFloat(node, "ratedContinuousBurnTime");
@@ -239,16 +346,26 @@ namespace RealFuels
             e.CycleStart = GetFloat(node, "cycleReliabilityStart");
             e.CycleEnd = GetFloat(node, "cycleReliabilityEnd");
 
-            e.Kind = Classify(m, ap, e);
+            e.Kind = Classify(m, ctx.Target, e);
+
+            // Rocket rated thrust is vacuum thrust, and at constant mass flow SL thrust scales with
+            // Isp. Air-breathing engines don't work that way, so they get no SL figure.
+            if (e.Kind != EngineKind.Plane && e.Thrust >= 0f && e.IspVac > 0f && e.IspSL > 0f)
+                e.ThrustSL = e.Thrust * e.IspSL / e.IspVac;
+            const float g0 = 9.80665f;
+            if (e.Mass > 0f)
+            {
+                if (e.Thrust >= 0f) e.TwrVac = e.Thrust / (e.Mass * g0);
+                if (e.ThrustSL >= 0f) e.TwrSL = e.ThrustSL / (e.Mass * g0);
+            }
 
             e.SearchText = string.Join("\n", e.Family, e.Config, ap.name, e.PropellantText, e.Tech, e.TechTitle, e.Spec, e.Kind.ToString())
                 .ToLowerInvariant();
             return e;
         }
 
-        private static void BuildGimbal(EngineBrowserEntry e, ModuleEngineConfigsBase m, AvailablePart ap)
+        private static void BuildGimbal(EngineBrowserEntry e, ModuleEngineConfigsBase m, List<ModuleGimbal> prefabGimbals)
         {
-            var prefabGimbals = ap.partPrefab.Modules.OfType<ModuleGimbal>().ToList();
             if (prefabGimbals.Count == 0)
                 return;
 
@@ -293,12 +410,11 @@ namespace RealFuels
         private static bool IsSolidPropellant(string res)
             => !IsNuclearFuel(res) && PartResourceLibrary.Instance.GetDefinition(res)?.resourceFlowMode == ResourceFlowMode.NO_FLOW;
 
-        private static EngineKind Classify(ModuleEngineConfigsBase m, AvailablePart ap, EngineBrowserEntry e)
+        private static EngineKind Classify(ModuleEngineConfigsBase m, PartModule target, EngineBrowserEntry e)
         {
             if (m.type.Contains("ModuleRCS"))
                 return EngineKind.RCS;
 
-            PartModule target = ModuleEngineConfigsBase.GetSpecifiedModules(ap.partPrefab, m.engineID, m.moduleIndex, m.type, m.useWeakType).FirstOrDefault();
             EngineType et = (target as ModuleEngines)?.engineType ?? EngineType.Generic;
             string targetType = target != null ? target.GetType().Name : m.type;
             string[] props = e.Propellants;

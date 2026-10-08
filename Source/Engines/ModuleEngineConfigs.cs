@@ -1297,7 +1297,7 @@ namespace RealFuels
         /// </summary>
         internal virtual IEnumerable<BrowserVariant> BrowserVariants()
         {
-            foreach (var node in FilteredDisplayConfigs(false))
+            foreach (var node in FilteredDisplayConfigs(true))
             {
                 yield return new BrowserVariant
                 {

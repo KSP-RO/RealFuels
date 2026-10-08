@@ -94,6 +94,7 @@
     <Compile Include="Engines\UI\ChartMath.cs" />
     <Compile Include="Engines\UI\EngineBrowser.cs" />
     <Compile Include="Engines\UI\EngineBrowserData.cs" />
+    <Compile Include="Engines\UI\EngineBrowserTanks.cs" />
     <Compile Include="Engines\UI\EngineConfigChart.cs" />
     <Compile Include="Engines\UI\EngineConfigGUI.cs" />
     <Compile Include="Engines\UI\EngineConfigInfoPanel.cs" />

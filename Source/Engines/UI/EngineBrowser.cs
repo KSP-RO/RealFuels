@@ -19,24 +19,43 @@ namespace RealFuels
     {
         private enum Col
         {
-            Family, Config, Type, Thrust, MinThrottle, IspVac, IspSL, Mass, Gimbal, Igns, Ullage, PFed,
+            Family, Config, Type, Thrust, ThrustSL, MinThrottle, IspVac, IspSL, Mass, TwrVac, TwrSL, StructFactor, Gimbal, Igns, Ullage, PFed,
             Propellants, Store, Rated, Tested, IgnRel, DU0, DUMax, Tech, Spec, Cost, Entry, Pick
         }
-        private const int ColCount = 24;
+        private const int ColCount = 28;
 
         private static readonly string[] ColNames = {
-            "Engine Family", "Config", "Type", "Thrust", "Min%", "ISP (Vac)", "ISP (SL)", "Mass", "Gimbal", "Igns", "Ullg", "PFed",
+            "Engine Family", "Config", "Type", "Thrust (Vac)", "Thrust (SL)", "Min%", "ISP (Vac)", "ISP (SL)", "Mass",
+            "TWR (Vac)", "TWR (SL)", "Tank SF", "Gimbal", "Igns", "Ullg", "PFed",
             "Propellants", "Store", "Rated", "Tested", "Ign%", "0-DU", "Max-DU", "Tech", "Spec", "Cost", "Entry Cost", ""
         };
 
         private static readonly string[] ColTips = {
-            "Part title", "Engine configuration", "Engine type", "Maximum thrust (vacuum)", "Minimum throttle",
-            "Vacuum specific impulse", "Sea-level specific impulse", "Engine mass", "Gimbal range", "Ignitions (Gnd = ground-lit only)",
+            "Part title (xN = engines/chambers in one part)", "Engine configuration", "Engine type",
+            "Maximum thrust in vacuum", "Maximum thrust at sea level (vacuum thrust scaled by ISP)", "Minimum throttle",
+            "Vacuum specific impulse", "Sea-level specific impulse", "Engine mass",
+            "Vacuum thrust-to-weight ratio (1 g)", "Sea-level thrust-to-weight ratio (1 g)",
+            "Tank structural factor: tank dry mass / (tank + propellant) for this engine's propellant mix, in the selected tank " +
+                "type and material at max utilization (Best researched = lightest researched material). Pressure-fed engines use " +
+                "the highly pressurized version. Lower is better.",
+            "Gimbal range", "Ignitions (Gnd = ground-lit only)",
             "Requires ullage", "Pressure-fed", "Propellants", "Storable: no cryogenic (boil-off) propellants",
             "Rated burn time (continuous / cumulative)", "Tested burn time", "Ignition reliability (0 data / max data)",
             "Cycle reliability at 0 data", "Cycle reliability at max data", "Tech node required", "Specification level",
             "Part cost with this config", "Config entry cost. Click twice to buy.", "Spawn this part with this config"
         };
+
+        /// <summary>
+        /// Unit shown in the range filter popup; null = column can't be range-filtered.
+        /// Percent columns are filtered in percent, matching what the cells show.
+        /// </summary>
+        private static readonly string[] ColUnits = {
+            null, null, null, "kN", "kN", "%", "s", "s", "t",
+            "", "", "%", "°", "", null, null,
+            null, null, "s", "s", "% (max data)", "%", "%", null, null, "√", "√", null
+        };
+
+        private static bool IsNumeric(int col) => ColUnits[col] != null;
 
         private static readonly int[] DefaultHidden = { (int)Col.Type };
 
@@ -55,7 +74,7 @@ namespace RealFuels
         };
         private const int KindCount = 7;
 
-        // ── Persistent settings (static so they survive VAB/SPH switches) ──
+        // -- Persistent settings (static so they survive VAB/SPH switches) --
         private static readonly string SettingsPath = System.IO.Path.Combine(
             KSPUtil.ApplicationRootPath, "GameData", "RealFuels", "PluginData", "EngineBrowserSettings.cfg");
         private static bool _settingsLoaded;
@@ -69,17 +88,23 @@ namespace RealFuels
         private static AvailFilter _avail = AvailFilter.Any;
         private static TriState _storable = TriState.Any;
         private static TriState _groundLit = TriState.Any;
-        private static string _thrustMin = "", _thrustMax = "", _ispMin = "", _ispMax = "";
+        // Per-column range filters set from the header right-click popup: col -> {min, max} text.
+        private static readonly Dictionary<int, string[]> _ranges = new Dictionary<int, string[]>();
         private static readonly HashSet<string> _excludedProps = new HashSet<string>();
         private static readonly HashSet<string> _excludedTechs = new HashSet<string>();
         private static bool _closeOnPick = true;
+        private static TankFamily _tankFamily = TankFamily.Isogrid; // tank type for the Tank SF column
+        // Material picked per tank type (base TANK_DEFINITION name); "" = best researched.
+        private static readonly string[] _tankMaterial = { "", "", "" };
 
-        // ── Window state ──
+        // -- Window state --
         private const int WindowId = 0x52464542; // "RFEB"
         private const int PropsWindowId = WindowId + 1;
         private const int TechsWindowId = WindowId + 2;
         private const int CfgWindowId = WindowId + 3;
         private const int TooltipWindowId = WindowId + 4;
+        private const int RangeWindowId = WindowId + 5;
+        private const int MaterialsWindowId = WindowId + 6;
         private const string LockId = "RFEngineBrowserLock";
         private const string FieldPrefix = "RFEB_";
 
@@ -88,7 +113,15 @@ namespace RealFuels
         private bool _show;
         private bool _showProps, _showTechs, _showCfg;
         private Rect _propsRect, _techsRect, _cfgRect;
-        private Rect _propsBtnRect, _techsBtnRect, _cfgBtnRect;
+        private Rect _cfgBtnRect;
+        private Vector2 _listAnchor;         // screen point the propellant/tech popup opens at
+        private bool _showMaterials;
+        private Rect _materialsRect;
+        private Vector2 _matAnchor;          // below the material button, in screen coordinates
+        private bool _matClosedByClick;      // the click that closed the popup must not reopen it
+        private int _rangeCol = -1;          // column whose range popup is open
+        private Rect _rangeRect;
+        private bool _rangeFocusPending;
         private Vector2 _tableScroll, _propsScroll, _techsScroll, _cfgScroll;
         private string _search = "";
         private string _rowsInput;
@@ -98,7 +131,14 @@ namespace RealFuels
         private bool _settingsDirty;
         private float _settingsDirtyAt;
 
-        // ── Data state ──
+        // Inputs the window size was last computed from; see the resize check in OnGUI.
+        private int _sizeRows = -1;
+        private float _sizeScale = -1f, _sizeTableW = -1f;
+        private int _sizeScreenW = -1, _sizeScreenH = -1;
+        private bool _resizeRequested;
+        private int _dataVersion = -1;
+
+        // -- Data state --
         private readonly List<EngineBrowserEntry> _filtered = new List<EngineBrowserEntry>();
         private bool _filterDirty = true;
         private float _lastStateRefresh = float.MinValue;
@@ -108,14 +148,20 @@ namespace RealFuels
         private string[] _allProps, _allTechs;
         private readonly Dictionary<string, int> _propCounts = new Dictionary<string, int>();
         private readonly Dictionary<string, int> _techCounts = new Dictionary<string, int>();
+        private readonly Dictionary<string, double> _costCache = new Dictionary<string, double>();
+        private readonly Dictionary<string, string> _techTitles = new Dictionary<string, string>();
+        private readonly string[] _headerLabels = new string[ColCount];
+        private readonly string[] _headerTips = new string[ColCount];
+        // Active column filters in column order: (col, "Name text"), shown after the tank options.
+        private readonly List<(int col, string text)> _activeFilters = new List<(int col, string text)>();
         private EngineBrowserEntry _confirmBuy;
         private float _confirmBuyUntil;
         private bool _picking;
 
-        // ── Styles ──
+        // -- Styles --
         private float _stylesScale = -1f;
-        private GUIStyle _cell, _cellCenter, _name, _nameLocked, _header, _btn, _btnOn, _btnOff,
-            _btnBuy, _btnOwned, _label, _title, _field, _tooltipStyle, _toggle, _dim;
+        private GUIStyle _cell, _cellCenter, _name, _nameLocked, _header, _btn, _btnOn,
+            _btnBuy, _btnOwned, _label, _title, _field, _fieldBad, _tooltipStyle, _toggle, _dim, _link, _popupPanel;
         private readonly GUIContent _content = new GUIContent();
 
         private float RowHeight => Mathf.Round(20f * _fontScale);
@@ -126,6 +172,7 @@ namespace RealFuels
         {
             EnsureSettings();
             GameEvents.onGUIApplicationLauncherReady.Add(AddButton);
+            GameEvents.OnTechnologyResearched.Add(OnTechResearched);
             GameEvents.onGUIApplicationLauncherUnreadifying.Add(RemoveButton);
             if (ApplicationLauncher.Ready)
                 AddButton();
@@ -134,6 +181,7 @@ namespace RealFuels
         private void OnDestroy()
         {
             GameEvents.onGUIApplicationLauncherReady.Remove(AddButton);
+            GameEvents.OnTechnologyResearched.Remove(OnTechResearched);
             GameEvents.onGUIApplicationLauncherUnreadifying.Remove(RemoveButton);
             RemoveButton(GameScenes.EDITOR);
             EditorUnlock();
@@ -141,6 +189,8 @@ namespace RealFuels
                 SaveSettings();
             if (_ownIcon != null)
                 Destroy(_ownIcon);
+            if (_popupPanel?.normal.background != null)
+                Destroy(_popupPanel.normal.background);
         }
 
         private void AddButton()
@@ -215,19 +265,62 @@ namespace RealFuels
 
             if (Event.current.type == EventType.Layout)
             {
+                // A rebuilt database (new save or GameDatabase reload) invalidates everything
+                // derived from the old entries.
+                _ = EngineBrowserDatabase.Entries;
+                if (EngineBrowserDatabase.Version != _dataVersion)
+                {
+                    _dataVersion = EngineBrowserDatabase.Version;
+                    _tankDirty = true;
+                    _widthsDirty = true;
+                    _filterDirty = true;
+                    _lastStateRefresh = float.MinValue;
+                    _confirmBuy = null;
+                    _filtered.Clear();
+                }
                 if (_widthsDirty)
                     BuildCellsAndWidths();
                 if (Time.realtimeSinceStartup - _lastStateRefresh > StateRefreshInterval)
                     RefreshState();
                 if (_filterDirty)
                     ApplyFilter();
+
+                // Resize only when something that affects the size changed. Resetting the rect
+                // on every event makes GUILayout re-grow it each pass, which flickers.
+                float tableW = TableWidth();
+                if (_resizeRequested || _sizeRows != _visibleRows || _sizeScale != _fontScale || _sizeTableW != tableW
+                    || _sizeScreenW != Screen.width || _sizeScreenH != Screen.height)
+                {
+                    _resizeRequested = false;
+                    _sizeRows = _visibleRows;
+                    _sizeScale = _fontScale;
+                    _sizeTableW = tableW;
+                    _sizeScreenW = Screen.width;
+                    _sizeScreenH = Screen.height;
+                    _windowRect.width = WindowWidth();
+                    _windowRect.height = 50f; // GUILayout grows it to fit the content
+                }
+
+                // Tooltip collected during the previous Repaint; switching it here keeps the
+                // tooltip window identical between this frame's Layout and Repaint passes.
+                _tooltip = _collectedTooltip;
             }
 
             if (Event.current.type == EventType.Repaint)
                 _collectedTooltip = string.Empty;
 
-            _windowRect.width = WindowWidth();
-            _windowRect.height = 50f; // GUILayout grows it to fit the content
+            // Clicking anywhere outside a header filter popup closes it. Checked before the
+            // windows run and not Use()d, so a right-click on another header reopens one there.
+            if (Event.current.type == EventType.MouseDown)
+            {
+                Vector2 m = Event.current.mousePosition;
+                if (_rangeCol >= 0 && !_rangeRect.Contains(m)) _rangeCol = -1;
+                if (_showProps && !_propsRect.Contains(m)) _showProps = false;
+                if (_showTechs && !_techsRect.Contains(m)) _showTechs = false;
+                _matClosedByClick = _showMaterials && !_materialsRect.Contains(m);
+                if (_matClosedByClick) _showMaterials = false;
+            }
+
             Rect prev = _windowRect;
             _windowRect = ClickThruBlocker.GUILayoutWindow(WindowId, _windowRect, DrawWindow, "", Styles.styleEditorPanel);
             _windowRect.x = Mathf.Clamp(_windowRect.x, 0, Mathf.Max(0, Screen.width - 100));
@@ -236,14 +329,23 @@ namespace RealFuels
                 MarkSettingsDirty();
 
             if (_showProps)
-                _propsRect = DrawPopup(PropsWindowId, _propsRect, _propsBtnRect, DrawPropsWindow);
+                _propsRect = DrawPopup(PropsWindowId, _listAnchor, DrawPropsWindow);
             if (_showTechs)
-                _techsRect = DrawPopup(TechsWindowId, _techsRect, _techsBtnRect, DrawTechsWindow);
+                _techsRect = DrawPopup(TechsWindowId, _listAnchor, DrawTechsWindow);
             if (_showCfg)
-                _cfgRect = DrawPopup(CfgWindowId, _cfgRect, _cfgBtnRect, DrawCfgWindow);
+                _cfgRect = DrawPopup(CfgWindowId, _windowRect.position + new Vector2(_cfgBtnRect.x, _cfgBtnRect.yMax), DrawCfgWindow);
+            if (_showMaterials)
+                _materialsRect = DrawPopup(MaterialsWindowId, _matAnchor, DrawMaterialsWindow, MaterialsPopupHeight());
 
-            if (Event.current.type == EventType.Repaint)
-                _tooltip = _collectedTooltip;
+            if (_rangeCol >= 0)
+            {
+                EnsurePopupPanel();
+                _rangeRect = ClickThruBlocker.GUILayoutWindow(RangeWindowId, _rangeRect, DrawRangeWindow, "", _popupPanel);
+                GUI.BringWindowToFront(RangeWindowId);
+                if (_rangeFocusPending)
+                    GUI.FocusWindow(RangeWindowId);
+            }
+
             DrawTooltip();
 
             UpdateEditorLock();
@@ -252,13 +354,30 @@ namespace RealFuels
                 SaveSettings();
         }
 
-        private Rect DrawPopup(int id, Rect rect, Rect anchor, GUI.WindowFunction fn)
+        /// <summary>Where a list popup anchored at a screen point (its top-left) is drawn.</summary>
+        private Rect PopupRect(Vector2 anchor, float height = 460f)
         {
             float w = Mathf.Round(280f * _fontScale);
-            float h = Mathf.Min(Mathf.Round(460f * _fontScale), Screen.height - 40f);
-            float x = Mathf.Clamp(_windowRect.x + anchor.x, 0, Screen.width - w);
-            float y = Mathf.Clamp(_windowRect.y + anchor.yMax + 2f, 0, Screen.height - h);
-            return ClickThruBlocker.GUIWindow(id, new Rect(x, y, w, h), fn, "", Styles.styleEditorPanel);
+            float h = Mathf.Min(Mathf.Round(height * _fontScale), Screen.height - 40f);
+            return new Rect(Mathf.Clamp(anchor.x, 0, Screen.width - w), Mathf.Clamp(anchor.y + 2f, 0, Screen.height - h), w, h);
+        }
+
+        private Rect DrawPopup(int id, Vector2 anchor, GUI.WindowFunction fn, float height = 460f)
+        {
+            EnsurePopupPanel();
+            Rect result = ClickThruBlocker.GUIWindow(id, PopupRect(anchor, height), fn, "", _popupPanel);
+            // Keep the popup above the main window so clicks on it never reach the table.
+            GUI.BringWindowToFront(id);
+            return result;
+        }
+
+        private void EnsurePopupPanel()
+        {
+            if (_popupPanel == null || _popupPanel.normal.background == null)
+            {
+                _popupPanel = new GUIStyle(Styles.styleEditorPanel);
+                _popupPanel.normal.background = Styles.CreateColorPixel(new Color32(32, 32, 32, 250));
+            }
         }
 
         private void CollectTooltip()
@@ -288,6 +407,7 @@ namespace RealFuels
             GUIStyle style = _tooltipStyle;
             ClickThruBlocker.GUIWindow(TooltipWindowId, new Rect(x, y, w, h),
                 _ => GUI.Box(new Rect(0, 0, w, h), text, style), GUIContent.none, GUIStyle.none);
+            GUI.BringWindowToFront(TooltipWindowId);
         }
 
         #endregion
@@ -305,8 +425,9 @@ namespace RealFuels
 
         private float WindowWidth()
         {
-            float w = TableWidth() + 16f + 12f;
-            return Mathf.Clamp(w, 900f * _fontScale, Screen.width - 20f);
+            float w = Mathf.Max(TableWidth() + 16f + 12f, 900f * _fontScale);
+            // Screen limit last: Mathf.Clamp returns the minimum when min > max.
+            return Mathf.Min(w, Screen.width - 20f);
         }
 
         private void DrawWindow(int id)
@@ -314,7 +435,7 @@ namespace RealFuels
             var entries = EngineBrowserDatabase.Entries;
             bool changed = false;
 
-            // ── Title row ──
+            // -- Title row --
             GUILayout.BeginHorizontal();
             GUILayout.Label("Engine Browser", _title);
             GUILayout.FlexibleSpace();
@@ -345,7 +466,7 @@ namespace RealFuels
             }
             GUILayout.EndHorizontal();
 
-            // ── Filter row ──
+            // -- Filter row --
             GUILayout.BeginHorizontal();
             GUILayout.Label("Search", _label);
             GUI.SetNextControlName(FieldPrefix + "search");
@@ -355,7 +476,7 @@ namespace RealFuels
 
             GUILayout.Label("Type", _label);
             bool all = _kindEnabled.All(k => k);
-            if (GUILayout.Button(new GUIContent("All", "Show every engine type"), all ? _btnOn : _btnOff))
+            if (GUILayout.Button(new GUIContent("All", "Show every engine type"), all ? _btnOn : _btn))
             {
                 for (int k = 0; k < KindCount; k++) _kindEnabled[k] = true;
                 changed = true;
@@ -364,7 +485,7 @@ namespace RealFuels
             {
                 _content.text = KindLabels[k];
                 _content.tooltip = KindTips[k] + (all ? "\nClick to show only this type." : "\nClick to toggle.");
-                if (GUILayout.Button(_content, _kindEnabled[k] && !all ? _btnOn : (all ? _btn : _btnOff)))
+                if (GUILayout.Button(_content, _kindEnabled[k] && !all ? _btnOn : _btn))
                 {
                     if (all)
                     {
@@ -383,71 +504,108 @@ namespace RealFuels
 
             string availLabel = _avail == AvailFilter.Any ? "Any Status" : (_avail == AvailFilter.Researched ? "Researched" : "Unlocked");
             if (GUILayout.Button(new GUIContent(availLabel,
-                "Cycle: any / tech researched / researched and entry cost paid (or free)"), _avail == AvailFilter.Any ? _btnOff : _btnOn))
+                "Cycle: any / tech researched / researched and entry cost paid (or free)"), _avail == AvailFilter.Any ? _btn : _btnOn))
             {
                 _avail = (AvailFilter)(((int)_avail + 1) % 3);
                 changed = true;
             }
             if (GUILayout.Button(new GUIContent(TriLabel(_storable, "Storable", "Storable", "Cryogenic"),
-                "Cycle: don't care / storable only (no boil-off) / cryogenic only"), _storable == TriState.Any ? _btnOff : _btnOn))
+                "Cycle: don't care / storable only (no boil-off) / cryogenic only"), _storable == TriState.Any ? _btn : _btnOn))
             {
                 _storable = Cycle(_storable);
                 changed = true;
             }
             if (GUILayout.Button(new GUIContent(TriLabel(_groundLit, "Gnd Lit", "Gnd Lit", "Air Lit"),
-                "Cycle: don't care / ground-lit only (pad ignition, no in-flight ignitions) / not ground-lit"), _groundLit == TriState.Any ? _btnOff : _btnOn))
+                "Cycle: don't care / ground-lit only (pad ignition, no in-flight ignitions) / not ground-lit"), _groundLit == TriState.Any ? _btn : _btnOn))
             {
                 _groundLit = Cycle(_groundLit);
                 changed = true;
             }
-            GUILayout.FlexibleSpace();
-            GUILayout.EndHorizontal();
 
-            // ── Range / dropdown row ──
-            GUILayout.BeginHorizontal();
-            changed |= RangeFields("Thrust", "kN", ref _thrustMin, ref _thrustMax, "thrust");
+            // Reset, tank type and the filter summary share the row: it has room to spare.
             GUILayout.Space(12);
-            changed |= RangeFields("Vac ISP", "s", ref _ispMin, ref _ispMax, "isp");
-            GUILayout.Space(16);
-
-            string propLabel = _excludedProps.Count > 0 ? $"Propellants ({_allProps.Length - _excludedProps.Count}/{_allProps.Length}) ▾" : "Propellants ▾";
-            if (GUILayout.Button(new GUIContent(propLabel, "Choose which propellants engines may use"),
-                _excludedProps.Count > 0 || _showProps ? _btnOn : _btn, GUILayout.Width(170 * _fontScale)))
-            {
-                _showProps = !_showProps;
-                _showTechs = false;
-            }
-            if (Event.current.type == EventType.Repaint)
-                _propsBtnRect = GUILayoutUtility.GetLastRect();
-
-            string techLabel = _excludedTechs.Count > 0 ? $"Tech Required ({_allTechs.Length - _excludedTechs.Count}/{_allTechs.Length}) ▾" : "Tech Required ▾";
-            if (GUILayout.Button(new GUIContent(techLabel, "Choose which tech nodes to include"),
-                _excludedTechs.Count > 0 || _showTechs ? _btnOn : _btn, GUILayout.Width(190 * _fontScale)))
-            {
-                _showTechs = !_showTechs;
-                _showProps = false;
-            }
-            if (Event.current.type == EventType.Repaint)
-                _techsBtnRect = GUILayoutUtility.GetLastRect();
-
-            GUILayout.Space(12);
-            if (GUILayout.Button(new GUIContent("Reset Filters", "Clear search and all filters"), _btn))
+            if (GUILayout.Button(new GUIContent("Reset Filters", "Clear search, all filters and column filters"), _btn))
             {
                 ResetFilters();
                 changed = true;
             }
+            GUILayout.Space(12);
+            GUILayout.Label("Tank SF", _label);
+            TankFamily family = EngineBrowserTanks.Effective(_tankFamily);
+            for (int f = 0; f < EngineBrowserTanks.FamilyCount; f++)
+            {
+                bool has = EngineBrowserTanks.HasFamily((TankFamily)f);
+                _content.text = EngineBrowserTanks.FamilyLabels[f];
+                _content.tooltip = has ? $"Compute the Tank SF column for {EngineBrowserTanks.FamilyLabels[f]} tanks" : "No tank types of this kind installed";
+                GUI.enabled = has;
+                if (GUILayout.Button(_content, (int)family == f ? _btnOn : _btn) && (int)family != f)
+                {
+                    _tankFamily = (TankFamily)f;
+                    _tankDirty = true; // recompute structural factors
+                    _lastStateRefresh = float.MinValue;
+                    _showMaterials = false;
+                    _resizeRequested = true; // the material button label changes
+                    MarkSettingsDirty();
+                }
+                GUI.enabled = true;
+            }
+            string matTitle = MaterialTitle(family, CurrentMaterial(family));
+            _content.text = $"{matTitle} ▾";
+            _content.tooltip = "Tank material for the Tank SF column. Best researched picks the lightest researched one; " +
+                               "pressure-fed engines use the material's highly pressurized version.";
+            if (GUILayout.Button(_content, _showMaterials ? _btnOn : _btn))
+            {
+                // A click on the button while the popup is open already closed it (outside-click
+                // check); don't reopen it on the same click.
+                if (_matClosedByClick)
+                    _matClosedByClick = false;
+                else
+                {
+                    CloseHeaderPopups();
+                    _showMaterials = true;
+                    _materialsRect = PopupRect(_matAnchor, MaterialsPopupHeight());
+                }
+            }
+            if (Event.current.type == EventType.Repaint)
+            {
+                Rect r = GUILayoutUtility.GetLastRect();
+                _matAnchor = _windowRect.position + new Vector2(r.x, r.yMax);
+            }
+            if (_activeFilters.Count > 0)
+            {
+                // Each entry opens its column's filter popup, so filters on hidden columns stay editable.
+                GUILayout.Space(12);
+                for (int i = 0; i < _activeFilters.Count; i++)
+                {
+                    var (col, text) = _activeFilters[i];
+                    _content.text = text;
+                    _content.tooltip = "Click to edit this filter";
+                    if (GUILayout.Button(_content, _link))
+                    {
+                        Rect r = GUILayoutUtility.GetLastRect();
+                        OpenColumnFilter(col, GUIUtility.GUIToScreenPoint(new Vector2(r.x, r.yMax)));
+                    }
+                }
+            }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            // -- Hint row --
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("<color=#FFA726>Right click on a column header to set filters.</color>", _label);
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
 
             if (changed)
             {
                 _filterDirty = true;
+                _resizeRequested = true; // button labels change width, let the window shrink back
                 MarkSettingsDirty();
             }
 
             GUILayout.Space(4);
 
-            // ── Table ──
+            // -- Table --
             float rowH = RowHeight;
             float headerH = rowH + 4f;
             float bodyW = _windowRect.width - 12f;
@@ -466,19 +624,250 @@ namespace RealFuels
 
         private static TriState Cycle(TriState t) => (TriState)(((int)t + 1) % 3);
 
-        private bool RangeFields(string label, string unit, ref string min, ref string max, string name)
+        /// <summary>
+        /// "100-450 kN", ">=100 kN" or "<=450 kN" for a column range, using only bounds that parse
+        /// (the same ones ApplyFilter uses); null when no bound parses.
+        /// </summary>
+        private static string RangeText(int col)
         {
-            bool changed = false;
-            GUILayout.Label(label, _label);
-            GUI.SetNextControlName(FieldPrefix + name + "Min");
-            string a = GUILayout.TextField(min, 10, _field, GUILayout.Width(64 * _fontScale));
+            if (!_ranges.TryGetValue(col, out string[] r))
+                return null;
+            string lo = r[0].Trim(), hi = r[1].Trim();
+            bool hasLo = !float.IsNaN(ParseOrNaN(lo)), hasHi = !float.IsNaN(ParseOrNaN(hi));
+            string unit = ColUnits[col].Length > 0 && ColUnits[col] != "√" ? " " + ColUnits[col].Split(' ')[0] : string.Empty;
+            if (hasLo && hasHi) return $"{lo}-{hi}{unit}";
+            if (hasLo) return $"≥{lo}{unit}";
+            if (hasHi) return $"≤{hi}{unit}";
+            return null;
+        }
+
+        private static bool IsFilterable(int col) => IsNumeric(col) || col == (int)Col.Propellants || col == (int)Col.Tech;
+
+        /// <summary>"allowed/total" for a checklist filter, or null when nothing in this install is excluded.</summary>
+        private static string ListFilterText(string[] all, HashSet<string> excluded)
+        {
+            // Saved exclusions can name things this save doesn't list; they are kept but not counted.
+            int ex = 0;
+            foreach (string s in all)
+                if (excluded.Contains(s))
+                    ex++;
+            return ex > 0 ? $"{all.Length - ex}/{all.Length}" : null;
+        }
+
+        /// <summary>Short description of a column's active filter, or null if it has none.</summary>
+        private string ColumnFilterText(int col)
+        {
+            if (col == (int)Col.Propellants)
+                return ListFilterText(_allProps, _excludedProps);
+            if (col == (int)Col.Tech)
+                return ListFilterText(_allTechs, _excludedTechs);
+            return RangeText(col);
+        }
+
+        /// <summary>
+        /// Rebuilds the cached header labels/tooltips and the filter summary. Called whenever the
+        /// filter or sort changes, so drawing the header allocates nothing per GUI event.
+        /// </summary>
+        private void RebuildHeaderTexts()
+        {
+            var summary = new List<(int col, string text)>();
+            for (int c = 0; c < ColCount; c++)
+            {
+                bool filterable = IsFilterable(c);
+                string filterText = filterable && _allProps != null ? ColumnFilterText(c) : null;
+                string label = ColNames[c];
+                if (c == _sortCol)
+                    label += _sortAsc ? " ↑" : " ↓";
+                _headerLabels[c] = filterText != null ? $"<color=#FFD54F>{label}</color>" : label;
+                _headerTips[c] = c == (int)Col.Pick ? ColTips[c]
+                    : ColTips[c] + "\nClick to sort."
+                      + (!filterable ? string.Empty
+                         : filterText != null ? $"\nFiltered: {filterText}. Right-click to change."
+                         : "\nRight-click to filter.");
+                if (filterText != null)
+                    summary.Add((c, $"<color=#FFD54F>{ColNames[c]} {filterText}</color>"));
+            }
+            // Summary entries are drawn one by one so each can be clicked to edit its filter.
+            _activeFilters.Clear();
+            _activeFilters.AddRange(summary);
+        }
+
+        private void CloseHeaderPopups()
+        {
+            _rangeCol = -1;
+            _showProps = _showTechs = _showMaterials = false;
+        }
+
+        // -- Tank SF material picker --
+
+        /// <summary>The picked material for a family if it is still installed, else "" (best researched).</summary>
+        private static string CurrentMaterial(TankFamily family)
+        {
+            string id = _tankMaterial[(int)family];
+            if (string.IsNullOrEmpty(id))
+                return string.Empty;
+            foreach (var m in EngineBrowserTanks.Materials(family))
+                if (m.Id == id)
+                    return id;
+            return string.Empty;
+        }
+
+        private static string MaterialTitle(TankFamily family, string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                return "Best researched";
+            foreach (var m in EngineBrowserTanks.Materials(family))
+                if (m.Id == id)
+                    return m.Title;
+            return id;
+        }
+
+        private static bool IsTechResearched(string tech)
+        {
+            if (string.IsNullOrEmpty(tech) || HighLogic.CurrentGame == null || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX
+                || ResearchAndDevelopment.Instance == null)
+                return true;
+            return ResearchAndDevelopment.GetTechnologyState(tech) == RDTech.State.Available;
+        }
+
+        private float MaterialsPopupHeight()
+            => Mathf.Min(460f, 70f + 24f * (EngineBrowserTanks.Materials(EngineBrowserTanks.Effective(_tankFamily)).Count + 1));
+
+        private void DrawMaterialsWindow(int id)
+        {
+            TankFamily family = EngineBrowserTanks.Effective(_tankFamily);
+            PopupHeader($"{EngineBrowserTanks.FamilyLabels[(int)family]} Material", ref _showMaterials);
+            string current = CurrentMaterial(family);
+
+            _content.text = "Best researched";
+            _content.tooltip = "Lightest researched material that can hold the engine's propellants";
+            bool pick = GUILayout.Toggle(current.Length == 0, _content, _toggle) && current.Length != 0;
+            string chosen = pick ? string.Empty : null;
+
+            foreach (var m in EngineBrowserTanks.Materials(family))
+            {
+                bool researched = IsTechResearched(m.Tech);
+                _content.text = researched ? m.Title : $"<color=#FFA040>{m.Title}</color>";
+                _content.tooltip = $"{m.Id}{(researched ? string.Empty : $"\nNot researched yet ({TechTitle(m.Tech)})")}";
+                if (GUILayout.Toggle(m.Id == current, _content, _toggle) && m.Id != current)
+                    chosen = m.Id;
+            }
+
+            if (chosen != null)
+            {
+                _tankMaterial[(int)family] = chosen;
+                _tankDirty = true;                  // recompute structural factors
+                _lastStateRefresh = float.MinValue;
+                _resizeRequested = true;            // the material button label changes
+                _showMaterials = false;
+                MarkSettingsDirty();
+            }
+            CollectTooltip();
+        }
+
+        /// <summary>Opens the filter popup for a header: range box or propellant/tech checklist.</summary>
+        private void OpenColumnFilter(int col, Vector2 screenPos)
+        {
+            CloseHeaderPopups();
+            if (col == (int)Col.Propellants || col == (int)Col.Tech)
+            {
+                _listAnchor = screenPos;
+                // Set the rect now so the outside-click check is right before the first draw.
+                if (col == (int)Col.Propellants) { _showProps = true; _propsRect = PopupRect(screenPos); }
+                else { _showTechs = true; _techsRect = PopupRect(screenPos); }
+            }
+            else if (IsNumeric(col))
+                OpenRange(col, screenPos);
+        }
+
+        private void OpenRange(int col, Vector2 screenPos)
+        {
+            _rangeCol = col;
+            float w = Mathf.Round(270f * _fontScale);
+            _rangeRect = new Rect(Mathf.Clamp(screenPos.x, 0, Screen.width - w), Mathf.Clamp(screenPos.y + 2f, 0, Screen.height - 100f), w, 10f);
+            _rangeFocusPending = true;
+        }
+
+        /// <summary>
+        /// Keeps only characters a number can contain. Also keeps the saved "Col:lo:hi;..." range
+        /// format unambiguous, since ':' and ';' can never be typed.
+        /// </summary>
+        private static string NumericChars(string s)
+        {
+            if (string.IsNullOrEmpty(s))
+                return string.Empty;
+            var sb = new System.Text.StringBuilder(s.Length);
+            foreach (char ch in s)
+                if (char.IsDigit(ch) || ch == '.' || ch == ',' || ch == '-' || ch == '+' || ch == 'e' || ch == 'E')
+                    sb.Append(ch);
+            return sb.Length == s.Length ? s : sb.ToString();
+        }
+
+        /// <summary>Red text for a bound that won't parse, so it's clear it isn't filtering.</summary>
+        private GUIStyle BoundStyle(string s)
+            => s.Trim().Length > 0 && float.IsNaN(ParseOrNaN(s.Trim())) ? _fieldBad : _field;
+
+        private void DrawRangeWindow(int id)
+        {
+            int col = _rangeCol;
+            if (col < 0)
+                return;
+            string[] r = _ranges.TryGetValue(col, out string[] cur) ? cur : new[] { string.Empty, string.Empty };
+
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"Filter {ColNames[col]}", _title);
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("✕", EngineConfigStyles.CloseButton, GUILayout.Width(26)))
+            {
+                _rangeCol = -1;
+                GUIUtility.ExitGUI();
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            GUI.SetNextControlName(FieldPrefix + "rangeMin");
+            string a = GUILayout.TextField(r[0], 12, BoundStyle(r[0]), GUILayout.Width(80 * _fontScale));
             GUILayout.Label("–", _label);
-            GUI.SetNextControlName(FieldPrefix + name + "Max");
-            string b = GUILayout.TextField(max, 10, _field, GUILayout.Width(64 * _fontScale));
-            GUILayout.Label(unit, _dim);
-            if (a != min) { min = a; changed = true; }
-            if (b != max) { max = b; changed = true; }
-            return changed;
+            GUI.SetNextControlName(FieldPrefix + "rangeMax");
+            string b = GUILayout.TextField(r[1], 12, BoundStyle(r[1]), GUILayout.Width(80 * _fontScale));
+            if (ColUnits[col].Length > 0)
+                GUILayout.Label(ColUnits[col], _dim);
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Clear", _btn))
+                a = b = string.Empty;
+            GUILayout.FlexibleSpace();
+            GUILayout.Label("Blank = no limit. Enter to close.", _dim);
+            GUILayout.EndHorizontal();
+
+            a = NumericChars(a);
+            b = NumericChars(b);
+            if (a != r[0] || b != r[1])
+            {
+                if (a.Trim().Length == 0 && b.Trim().Length == 0)
+                    _ranges.Remove(col);
+                else
+                    _ranges[col] = new[] { a, b };
+                _filterDirty = true;
+                _resizeRequested = true; // the active-range summary label changes width
+                MarkSettingsDirty();
+            }
+
+            if (_rangeFocusPending && Event.current.type == EventType.Repaint)
+            {
+                GUI.FocusControl(FieldPrefix + "rangeMin");
+                _rangeFocusPending = false;
+            }
+            Event ev = Event.current;
+            if (ev.type == EventType.KeyDown && (ev.keyCode == KeyCode.Return || ev.keyCode == KeyCode.KeypadEnter || ev.keyCode == KeyCode.Escape))
+            {
+                _rangeCol = -1;
+                GUIUtility.keyboardControl = 0;
+                ev.Use();
+            }
+            CollectTooltip();
         }
 
         private void ResetFilters()
@@ -487,7 +876,9 @@ namespace RealFuels
             for (int k = 0; k < KindCount; k++) _kindEnabled[k] = true;
             _avail = AvailFilter.Any;
             _storable = _groundLit = TriState.Any;
-            _thrustMin = _thrustMax = _ispMin = _ispMax = "";
+            _ranges.Clear();
+            _rangeCol = -1;
+            _showProps = _showTechs = false;
             _excludedProps.Clear();
             _excludedTechs.Clear();
         }
@@ -510,12 +901,23 @@ namespace RealFuels
                 if (!_colVisible[c])
                     continue;
                 float w = _colWidths[c];
-                string label = ColNames[c];
-                if (c == _sortCol)
-                    label += _sortAsc ? " ↑" : " ↓";
-                _content.text = label;
-                _content.tooltip = ColTips[c] + (c == (int)Col.Pick ? string.Empty : "\nClick to sort.");
-                if (GUI.Button(new Rect(x, 0, w, headerH), _content, _header) && c != (int)Col.Pick)
+                Rect cell = new Rect(x, 0, w, headerH);
+                bool filterable = IsFilterable(c);
+
+                // Right-click opens the column's filter popup. IMGUI buttons react to any mouse
+                // button, so non-left clicks are Use()d on every header: on columns without a
+                // filter a right-click then does nothing instead of sorting.
+                Event ev = Event.current;
+                if (ev.type == EventType.MouseDown && ev.button != 0 && cell.Contains(ev.mousePosition))
+                {
+                    if (filterable && ev.button == 1)
+                        OpenColumnFilter(c, GUIUtility.GUIToScreenPoint(new Vector2(cell.x, cell.yMax)));
+                    ev.Use();
+                }
+
+                _content.text = _headerLabels[c] ?? ColNames[c];
+                _content.tooltip = _headerTips[c] ?? ColTips[c];
+                if (GUI.Button(cell, _content, _header) && c != (int)Col.Pick)
                 {
                     if (_sortCol == c)
                         _sortAsc = !_sortAsc;
@@ -533,6 +935,10 @@ namespace RealFuels
 
             if (Event.current.type == EventType.Repaint)
                 GUI.DrawTexture(new Rect(area.x, area.y + headerH - 1f, area.width, 1f), EngineConfigTextures.Instance.ChartSeparator);
+
+            // Only left clicks act on rows (IMGUI buttons would otherwise Pick or Buy on a right-click).
+            if (Event.current.type == EventType.MouseDown && Event.current.button != 0 && bodyRect.Contains(Event.current.mousePosition))
+                Event.current.Use();
 
             Rect view = new Rect(0, 0, contentW, Mathf.Max(_filtered.Count * rowH, 1f));
             _tableScroll = GUI.BeginScrollView(bodyRect, _tableScroll, view, false, true);
@@ -665,11 +1071,16 @@ namespace RealFuels
             sb.Append($"<b>{e.Family}</b>  <color=#9E9E9E>({e.Part.name})</color>\n");
             sb.Append($"<color=#FFA726>Config:</color> {e.Config}   <color=#FFA726>Type:</color> {KindLabels[(int)e.Kind]}\n");
             if (e.Tech.Length > 0)
-                sb.Append($"<color=#FFA726>Requires:</color> {e.TechTitle}{(e.Researched ? "" : " <color=#FF8A65>(not researched)</color>")}\n");
+                sb.Append($"<color=#FFA726>Requires:</color> {e.TechTitle}{(e.TechTitle != e.Tech ? $" <color=#9E9E9E>({e.Tech})</color>" : "")}{(e.Researched ? "" : " <color=#FF8A65>(not researched)</color>")}\n");
             if (e.Propellants.Length > 0)
             {
                 var props = e.Propellants.Select(p => EngineBrowserDatabase.IsStorable(p) ? p : $"{p} <color=#80D9FF>(cryo)</color>");
                 sb.Append($"<color=#FFA726>Propellants:</color> {string.Join(", ", props)}\n");
+            }
+            if (!string.IsNullOrEmpty(e.StructNote))
+            {
+                string sf = float.IsNaN(e.StructFactor) ? string.Empty : $"{e.StructFactor * 100f:F1} %, ";
+                sb.Append($"<color=#FFA726>Tank SF ({EngineBrowserTanks.FamilyLabels[(int)EngineBrowserTanks.Effective(_tankFamily)]}):</color> {sf}{e.StructNote}\n");
             }
             if (e.GroundLit)
                 sb.Append("<color=#FFEB3B>Ground-lit only: cannot be ignited in flight</color>\n");
@@ -743,12 +1154,38 @@ namespace RealFuels
             _lastStateRefresh = Time.realtimeSinceStartup;
             bool sandbox = HighLogic.CurrentGame == null || HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX;
             bool changed = false;
+            // Entries of one part are contiguous and variants share config names, so cache the
+            // per-part and per-config lookups instead of repeating them for every row.
+            AvailablePart lastPart = null;
+            bool partAvailable = false;
+            _costCache.Clear();
+            // Structural factors only change with the tank type/material and with research, so they
+            // are recomputed on those events rather than every refresh.
+            bool updateTanks = _tankDirty;
+            _tankDirty = false;
+            TankFamily family = EngineBrowserTanks.Effective(_tankFamily);
+            string material = CurrentMaterial(family);
+            Func<string, bool> techAvailable = null;
+            if (updateTanks)
+            {
+                _tankCache.Clear();
+                _techStateCache.Clear();
+                techAvailable = TechResearchedCached;
+            }
             foreach (var e in EngineBrowserDatabase.Entries)
             {
+                if (e.Part != lastPart)
+                {
+                    lastPart = e.Part;
+                    partAvailable = sandbox || ResearchAndDevelopment.PartModelPurchased(e.Part) || ResearchAndDevelopment.IsExperimentalPart(e.Part);
+                }
+                if (!_costCache.TryGetValue(e.ConfigName ?? string.Empty, out double cost))
+                {
+                    cost = EntryCostManager.Instance != null ? EntryCostManager.Instance.ConfigEntryCost(e.ConfigName) : 0d;
+                    _costCache[e.ConfigName ?? string.Empty] = cost;
+                }
                 bool researched = EngineConfigTechLevels.CanConfig(e.Node);
                 bool unlocked = EngineConfigTechLevels.UnlockedConfig(e.Node, e.Part.partPrefab);
-                double cost = EntryCostManager.Instance != null ? EntryCostManager.Instance.ConfigEntryCost(e.ConfigName) : 0d;
-                bool partAvailable = sandbox || ResearchAndDevelopment.PartModelPurchased(e.Part) || ResearchAndDevelopment.IsExperimentalPart(e.Part);
                 if (researched != e.Researched || unlocked != e.Unlocked || cost != e.EntryCost || partAvailable != e.PartAvailable)
                 {
                     e.Researched = researched;
@@ -758,21 +1195,119 @@ namespace RealFuels
                     e.Tooltip = null;
                     changed = true;
                 }
+
+                if (!updateTanks)
+                    continue;
+
+                // Structural factor depends on researched tank types and the selected family;
+                // engines with the same propellant mix and pressure-fed flag share one result.
+                if (!_tankCache.TryGetValue(e.TankKey, out var tank))
+                {
+                    tank = EngineBrowserTanks.Evaluate(e.TankProps, e.PressureFed, family, material, techAvailable);
+                    _tankCache[e.TankKey] = tank;
+                }
+                string note = float.IsNaN(tank.SF) ? tank.Note
+                    : $"{tank.TankTitle}, mix density {tank.MixDensity:F3} kg/L";
+                if (!SameFloat(tank.SF, e.StructFactor) || note != e.StructNote)
+                {
+                    e.StructFactor = tank.SF;
+                    e.StructNote = note;
+                    if (e.Cells != null)
+                        e.Cells[(int)Col.StructFactor] = float.IsNaN(tank.SF) ? "-" : $"{tank.SF * 100f:F1} %";
+                    e.Tooltip = null;
+                    changed = true;
+                }
             }
             if (changed)
                 _filterDirty = true;
         }
 
+        private static bool SameFloat(float a, float b) => a == b || (float.IsNaN(a) && float.IsNaN(b));
+
+        /// <summary>IsTechResearched with a per-recompute cache: many tank types share a tech.</summary>
+        private bool TechResearchedCached(string tech)
+        {
+            if (string.IsNullOrEmpty(tech))
+                return true;
+            if (!_techStateCache.TryGetValue(tech, out bool ok))
+                _techStateCache[tech] = ok = IsTechResearched(tech);
+            return ok;
+        }
+
+        private bool _tankDirty = true;
+
+        private void OnTechResearched(GameEvents.HostTargetAction<RDTech, RDTech.OperationResult> _)
+        {
+            _tankDirty = true;
+            _lastStateRefresh = float.MinValue;
+        }
+
+        private readonly Dictionary<string, EngineBrowserTanks.Result> _tankCache = new Dictionary<string, EngineBrowserTanks.Result>();
+        private readonly Dictionary<string, bool> _techStateCache = new Dictionary<string, bool>();
+
         private static float ParseOrNaN(string s)
             => float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out float f)
                || float.TryParse(s, NumberStyles.Float, CultureInfo.CurrentCulture, out f) ? f : float.NaN;
+
+        /// <summary>
+        /// Value a range filter compares against, in the units the column shows (percent
+        /// columns in percent). NaN = no value, which fails any active bound.
+        /// </summary>
+        private static float NumericValue(EngineBrowserEntry e, int col)
+        {
+            float Pos(float v) => v >= 0f ? v : float.NaN;
+            float Pct(float v) => v >= 0f ? v * 100f : float.NaN;
+            switch ((Col)col)
+            {
+                case Col.Thrust: return Pos(e.Thrust);
+                case Col.ThrustSL: return Pos(e.ThrustSL);
+                case Col.MinThrottle: return Pct(e.MinThrottle);
+                case Col.IspVac: return e.IspVac > 0f ? e.IspVac : float.NaN;
+                case Col.IspSL: return e.IspSL > 0f ? e.IspSL : float.NaN;
+                case Col.Mass: return Pos(e.Mass);
+                case Col.TwrVac: return Pos(e.TwrVac);
+                case Col.TwrSL: return Pos(e.TwrSL);
+                case Col.StructFactor: return float.IsNaN(e.StructFactor) ? float.NaN : e.StructFactor * 100f;
+                case Col.Gimbal: return Mathf.Max(e.Gimbal, 0f); // no gimbal = 0 deg
+                case Col.Igns:
+                    if (e.Ignitions == EngineBrowserEntry.IgnNone) return float.NaN;
+                    return e.Ignitions == EngineBrowserEntry.IgnUnlimited ? float.PositiveInfinity : e.Ignitions;
+                case Col.Rated:
+                    if (e.Rated >= 0f) return e.Rated;
+                    return e.RatedContinuous >= 0f ? e.RatedContinuous : float.PositiveInfinity; // shown as "inf"
+                case Col.Tested: return e.Tested > 0f ? e.Tested : float.NaN;
+                case Col.IgnRel: return Pct(e.IgnEnd);
+                case Col.DU0: return Pct(e.CycleStart);
+                case Col.DUMax: return Pct(e.CycleEnd);
+                case Col.Cost: return e.Cost;
+                case Col.Entry: return e.Unlocked ? 0f : (float)e.EntryCost;
+                default: return float.NaN;
+            }
+        }
+
+        private static bool InRanges(EngineBrowserEntry e, List<(int col, float lo, float hi)> ranges)
+        {
+            foreach (var (col, lo, hi) in ranges)
+            {
+                float v = NumericValue(e, col);
+                if (float.IsNaN(v)) return false;
+                if (!float.IsNaN(lo) && v < lo) return false;
+                if (!float.IsNaN(hi) && v > hi) return false;
+            }
+            return true;
+        }
 
         private void ApplyFilter()
         {
             _filterDirty = false;
             string[] terms = _search.ToLowerInvariant().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            float tMin = ParseOrNaN(_thrustMin), tMax = ParseOrNaN(_thrustMax);
-            float iMin = ParseOrNaN(_ispMin), iMax = ParseOrNaN(_ispMax);
+            var ranges = new List<(int col, float lo, float hi)>();
+            foreach (var kv in _ranges)
+            {
+                float lo = ParseOrNaN(kv.Value[0]), hi = ParseOrNaN(kv.Value[1]);
+                if (!float.IsNaN(lo) || !float.IsNaN(hi))
+                    ranges.Add((kv.Key, lo, hi));
+            }
 
             _filtered.Clear();
             foreach (var e in EngineBrowserDatabase.Entries)
@@ -787,10 +1322,8 @@ namespace RealFuels
                     continue;
                 if (_groundLit != TriState.Any && e.GroundLit != (_groundLit == TriState.Yes))
                     continue;
-                if (!float.IsNaN(tMin) && !(e.Thrust >= tMin)) continue;
-                if (!float.IsNaN(tMax) && !(e.Thrust >= 0 && e.Thrust <= tMax)) continue;
-                if (!float.IsNaN(iMin) && !(e.IspVac >= iMin)) continue;
-                if (!float.IsNaN(iMax) && !(e.IspVac >= 0 && e.IspVac <= iMax)) continue;
+                if (!InRanges(e, ranges))
+                    continue;
                 if (_excludedProps.Count > 0 && e.Propellants.Any(_excludedProps.Contains))
                     continue;
                 if (_excludedTechs.Count > 0 && _excludedTechs.Contains(e.Tech))
@@ -814,13 +1347,25 @@ namespace RealFuels
         {
             int col = _sortCol;
             int dir = _sortAsc ? 1 : -1;
+            bool numeric = IsNumeric(col);
             _filtered.Sort((a, b) =>
             {
-                int r = Compare(a, b, col) * dir;
+                int r;
+                if (numeric)
+                {
+                    // Same values the range filters use; rows without a value ("-") sort last
+                    // in both directions.
+                    float va = NumericValue(a, col), vb = NumericValue(b, col);
+                    bool ma = float.IsNaN(va), mb = float.IsNaN(vb);
+                    r = ma || mb ? (ma == mb ? 0 : (ma ? 1 : -1)) : va.CompareTo(vb) * dir;
+                }
+                else
+                    r = Compare(a, b, col) * dir;
                 if (r == 0) r = string.Compare(a.Family, b.Family, StringComparison.OrdinalIgnoreCase);
                 if (r == 0) r = string.Compare(a.Config, b.Config, StringComparison.OrdinalIgnoreCase);
                 return r;
             });
+            RebuildHeaderTexts();
         }
 
         private static int SpecRank(string spec)
@@ -836,8 +1381,7 @@ namespace RealFuels
             }
         }
 
-        private static int IgnKey(int ign) => ign == EngineBrowserEntry.IgnUnlimited ? int.MaxValue : ign;
-
+        /// <summary>Sort order of the non-numeric columns; numeric ones sort on NumericValue.</summary>
         private static int Compare(EngineBrowserEntry a, EngineBrowserEntry b, int col)
         {
             switch ((Col)col)
@@ -845,26 +1389,12 @@ namespace RealFuels
                 case Col.Family: return string.Compare(a.Family, b.Family, StringComparison.OrdinalIgnoreCase);
                 case Col.Config: return string.Compare(a.Config, b.Config, StringComparison.OrdinalIgnoreCase);
                 case Col.Type: return a.Kind.CompareTo(b.Kind);
-                case Col.Thrust: return a.Thrust.CompareTo(b.Thrust);
-                case Col.MinThrottle: return a.MinThrottle.CompareTo(b.MinThrottle);
-                case Col.IspVac: return a.IspVac.CompareTo(b.IspVac);
-                case Col.IspSL: return a.IspSL.CompareTo(b.IspSL);
-                case Col.Mass: return a.Mass.CompareTo(b.Mass);
-                case Col.Gimbal: return a.Gimbal.CompareTo(b.Gimbal);
-                case Col.Igns: return IgnKey(a.Ignitions).CompareTo(IgnKey(b.Ignitions));
                 case Col.Ullage: return a.Ullage.CompareTo(b.Ullage);
                 case Col.PFed: return a.PressureFed.CompareTo(b.PressureFed);
                 case Col.Propellants: return string.Compare(a.PropellantText, b.PropellantText, StringComparison.OrdinalIgnoreCase);
                 case Col.Store: return a.Storable.CompareTo(b.Storable);
-                case Col.Rated: return a.Rated.CompareTo(b.Rated);
-                case Col.Tested: return a.Tested.CompareTo(b.Tested);
-                case Col.IgnRel: return a.IgnEnd.CompareTo(b.IgnEnd);
-                case Col.DU0: return a.CycleStart.CompareTo(b.CycleStart);
-                case Col.DUMax: return a.CycleEnd.CompareTo(b.CycleEnd);
-                case Col.Tech: return string.Compare(a.Tech, b.Tech, StringComparison.OrdinalIgnoreCase);
+                case Col.Tech: return string.Compare(a.TechTitle, b.TechTitle, StringComparison.OrdinalIgnoreCase);
                 case Col.Spec: return SpecRank(a.Spec).CompareTo(SpecRank(b.Spec));
-                case Col.Cost: return a.Cost.CompareTo(b.Cost);
-                case Col.Entry: return (a.Unlocked ? -1d : a.EntryCost).CompareTo(b.Unlocked ? -1d : b.EntryCost);
                 default: return 0;
             }
         }
@@ -880,6 +1410,7 @@ namespace RealFuels
 
             _propCounts.Clear();
             _techCounts.Clear();
+            _techTitles.Clear();
             foreach (var e in entries)
             {
                 if (e.Cells == null)
@@ -888,9 +1419,10 @@ namespace RealFuels
                     _propCounts[p] = _propCounts.TryGetValue(p, out int n) ? n + 1 : 1;
                 string tech = e.Tech;
                 _techCounts[tech] = _techCounts.TryGetValue(tech, out int m) ? m + 1 : 1;
+                _techTitles[tech] = e.TechTitle;
             }
             _allProps = _propCounts.Keys.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToArray();
-            _allTechs = _techCounts.Keys.OrderBy(t => t, StringComparer.OrdinalIgnoreCase).ToArray();
+            _allTechs = _techCounts.Keys.OrderBy(TechTitle, StringComparer.OrdinalIgnoreCase).ToArray();
 
             for (int c = 0; c < ColCount; c++)
             {
@@ -919,6 +1451,9 @@ namespace RealFuels
             _colWidths[(int)Col.Gimbal] = Mathf.Min(_colWidths[(int)Col.Gimbal], 120f * sc);
             _colWidths[(int)Col.Tech] = Mathf.Min(_colWidths[(int)Col.Tech], 170f * sc);
             _colWidths[(int)Col.Rated] = Mathf.Min(_colWidths[(int)Col.Rated], 140f * sc);
+            // Tank SF cells change with research and the tank type, so size for the widest value.
+            _content.text = "100.0 %";
+            _colWidths[(int)Col.StructFactor] = Mathf.Max(_colWidths[(int)Col.StructFactor], _cell.CalcSize(_content).x + 6f);
             _content.text = "Unlocked";
             float entryW = Mathf.Max(_btnBuy.CalcSize(_content).x, 80f * sc) + 8f;
             _colWidths[(int)Col.Entry] = Mathf.Max(_colWidths[(int)Col.Entry], entryW);
@@ -978,10 +1513,14 @@ namespace RealFuels
             c[(int)Col.Config] = e.Config;
             c[(int)Col.Type] = KindLabels[(int)e.Kind];
             c[(int)Col.Thrust] = FormatThrust(e.Thrust);
+            c[(int)Col.ThrustSL] = FormatThrust(e.ThrustSL);
             c[(int)Col.MinThrottle] = e.MinThrottle >= 0f ? $"{e.MinThrottle * 100f:0} %" : "-";
             c[(int)Col.IspVac] = e.IspVac > 0f ? $"{e.IspVac:N0} s" : "-";
             c[(int)Col.IspSL] = e.IspSL > 0f ? $"{e.IspSL:N0} s" : "-";
             c[(int)Col.Mass] = e.Mass >= 0f ? $"{e.Mass:N3} t" : "-";
+            c[(int)Col.TwrVac] = e.TwrVac >= 0f ? $"{e.TwrVac:0.00}" : "-";
+            c[(int)Col.TwrSL] = e.TwrSL >= 0f ? $"{e.TwrSL:0.00}" : "-";
+            c[(int)Col.StructFactor] = float.IsNaN(e.StructFactor) ? "-" : $"{e.StructFactor * 100f:F1} %";
             c[(int)Col.Gimbal] = e.Gimbal > 0f ? e.GimbalText : Cross;
             c[(int)Col.Igns] = BuildIgns(e);
             c[(int)Col.Ullage] = e.Ullage ? "✓" : Cross;
@@ -993,7 +1532,7 @@ namespace RealFuels
             c[(int)Col.IgnRel] = e.IgnStart >= 0f && e.IgnEnd >= 0f ? $"{e.IgnStart * 100f:F1} / {e.IgnEnd * 100f:F1} %" : "-";
             c[(int)Col.DU0] = e.CycleStart >= 0f ? $"{e.CycleStart * 100f:F1} %" : "-";
             c[(int)Col.DUMax] = e.CycleEnd >= 0f ? $"{e.CycleEnd * 100f:F1} %" : "-";
-            c[(int)Col.Tech] = e.Tech.Length > 0 ? e.Tech : "-";
+            c[(int)Col.Tech] = e.Tech.Length > 0 ? e.TechTitle : "-";
             c[(int)Col.Spec] = e.Spec.Length > 0 ? $"<color={SpecColor(e.Spec)}>{e.Spec}</color>" : "-";
             c[(int)Col.Cost] = e.Cost.ToString("N0");
             c[(int)Col.Entry] = string.Empty;
@@ -1041,14 +1580,16 @@ namespace RealFuels
             _techsScroll = GUILayout.BeginScrollView(_techsScroll, GUILayout.ExpandHeight(true));
             foreach (string t in _allTechs)
             {
-                string name = t.Length > 0 ? t : "(none)";
-                string title = t.Length > 0 && ModuleEngineConfigsBase.techNameToTitle.TryGetValue(t, out string tt) ? tt : null;
-                if (SetToggle(_excludedTechs, t, $"{name} ({_techCounts[t]})", title))
+                string title = t.Length > 0 ? TechTitle(t) : "(none)";
+                if (SetToggle(_excludedTechs, t, $"{title} ({_techCounts[t]})", t.Length > 0 && title != t ? t : null))
                     _filterDirty = true;
             }
             GUILayout.EndScrollView();
             CollectTooltip();
         }
+
+        /// <summary>Tech title as resolved for the entries (EngineBrowserEntry.TechTitle).</summary>
+        private string TechTitle(string id) => _techTitles.TryGetValue(id, out string title) ? title : id;
 
         /// <summary>All / None / Invert buttons for an exclusion set.</summary>
         private bool SetButtons(HashSet<string> excluded, string[] all)
@@ -1066,7 +1607,10 @@ namespace RealFuels
             }
             GUILayout.EndHorizontal();
             if (changed)
+            {
+                _resizeRequested = true; // the column filter summary changes width
                 MarkSettingsDirty();
+            }
             return changed;
         }
 
@@ -1079,6 +1623,7 @@ namespace RealFuels
             if (now == on)
                 return false;
             if (now) excluded.Remove(key); else excluded.Add(key);
+            _resizeRequested = true;
             MarkSettingsDirty();
             return true;
         }
@@ -1097,7 +1642,6 @@ namespace RealFuels
             if (!Mathf.Approximately(scale, _fontScale))
             {
                 _fontScale = scale;
-                _stylesScale = -1f; // rebuilt next frame
                 MarkSettingsDirty();
             }
 
@@ -1126,7 +1670,7 @@ namespace RealFuels
         {
             if (_stylesScale == _fontScale && _cell != null)
                 return;
-            bool rescale = _stylesScale > 0f;
+            bool rescale = _cell != null; // styles existed: a font change, so re-measure columns
             _stylesScale = _fontScale;
             int F(int size) => Mathf.Max(8, Mathf.RoundToInt(size * _fontScale));
 
@@ -1160,10 +1704,17 @@ namespace RealFuels
                 margin = new RectOffset(2, 2, 2, 2),
                 wordWrap = false
             };
+            // Toggled-on buttons use the skin's pressed look plus green text; off buttons keep the
+            // skin's normal light text (dimmed grey text on the grey button was hard to read).
             _btnOn = new GUIStyle(_btn);
+            Texture2D pressed = _btn.onNormal.background ?? _btn.active.background;
+            Texture2D pressedHover = _btn.onHover.background ?? pressed;
+            if (pressed != null)
+            {
+                _btnOn.normal.background = pressed;
+                _btnOn.hover.background = pressedHover;
+            }
             _btnOn.normal.textColor = _btnOn.hover.textColor = new Color(0.45f, 1f, 0.45f);
-            _btnOff = new GUIStyle(_btn);
-            _btnOff.normal.textColor = new Color(0.65f, 0.65f, 0.65f);
             _btnBuy = new GUIStyle(_btn) { margin = new RectOffset(0, 0, 0, 0), padding = new RectOffset(3, 3, 1, 1) };
             _btnBuy.normal.textColor = _btnBuy.hover.textColor = new Color(1f, 0.85f, 0.3f);
             _btnOwned = new GUIStyle(_btnBuy);
@@ -1178,8 +1729,13 @@ namespace RealFuels
                 normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
             };
             _dim = new GUIStyle(_label) { normal = { textColor = new Color(0.65f, 0.65f, 0.65f) } };
+            // Clickable text (filter summary entries): looks like a label, highlights on hover.
+            _link = new GUIStyle(_label) { margin = new RectOffset(2, 6, 2, 2), padding = new RectOffset(2, 2, 1, 1) };
+            _link.hover.background = EngineConfigTextures.Instance.RowHover;
             _title = new GUIStyle(_label) { fontSize = F(14), fontStyle = FontStyle.Bold, normal = { textColor = Color.white } };
             _field = new GUIStyle(HighLogic.Skin.textField) { fontSize = F(12) };
+            _fieldBad = new GUIStyle(_field);
+            _fieldBad.normal.textColor = _fieldBad.focused.textColor = _fieldBad.hover.textColor = new Color(1f, 0.45f, 0.45f);
             _toggle = new GUIStyle(HighLogic.Skin.toggle) { fontSize = F(12), richText = true, wordWrap = false };
             _tooltipStyle = new GUIStyle(GUI.skin.box)
             {
@@ -1206,7 +1762,9 @@ namespace RealFuels
             bool over = _windowRect.Contains(mouse)
                 || (_showProps && _propsRect.Contains(mouse))
                 || (_showTechs && _techsRect.Contains(mouse))
-                || (_showCfg && _cfgRect.Contains(mouse));
+                || (_showCfg && _cfgRect.Contains(mouse))
+                || (_rangeCol >= 0 && _rangeRect.Contains(mouse))
+                || (_showMaterials && _materialsRect.Contains(mouse));
             bool typing = GUI.GetNameOfFocusedControl().StartsWith(FieldPrefix);
             if (over || typing)
                 EditorLock();
@@ -1264,18 +1822,57 @@ namespace RealFuels
                 if (node.TryGetValue("fontScale", ref f)) _fontScale = Mathf.Clamp(f, 0.7f, 1.5f);
                 int i = 0;
                 if (node.TryGetValue("rows", ref i)) _visibleRows = Mathf.Clamp(i, 5, 200);
-                if (node.TryGetValue("sortCol", ref i) && i >= 0 && i < ColCount) _sortCol = i;
+                string sortName = node.GetValue("sortCol");
+                if (sortName != null)
+                {
+                    if (TryParseCol(sortName, out int sc))
+                        _sortCol = sc;
+                    else if (int.TryParse(sortName, out i) && i >= 0 && i < OldColOrder.Length && TryParseCol(OldColOrder[i], out sc))
+                        _sortCol = sc; // pre-1.1 settings stored the column index
+                }
                 node.TryGetValue("sortAsc", ref _sortAsc);
                 node.TryGetValue("closeOnPick", ref _closeOnPick);
+                string tf = node.GetValue("tankFamily");
+                if (tf != null && Enum.IsDefined(typeof(TankFamily), tf)) _tankFamily = (TankFamily)Enum.Parse(typeof(TankFamily), tf);
+                if (node.GetValue("tankMaterials") is string tms)
+                    foreach (string part in tms.Split(';'))
+                    {
+                        string[] kv = part.Split(':');
+                        if (kv.Length == 2 && Enum.IsDefined(typeof(TankFamily), kv[0].Trim()))
+                            _tankMaterial[(int)(TankFamily)Enum.Parse(typeof(TankFamily), kv[0].Trim())] = kv[1].Trim();
+                    }
                 string s = null;
                 if (node.TryGetValue("avail", ref s) && Enum.IsDefined(typeof(AvailFilter), s)) _avail = (AvailFilter)Enum.Parse(typeof(AvailFilter), s);
                 if (node.TryGetValue("storable", ref s) && Enum.IsDefined(typeof(TriState), s)) _storable = (TriState)Enum.Parse(typeof(TriState), s);
                 if (node.TryGetValue("groundLit", ref s) && Enum.IsDefined(typeof(TriState), s)) _groundLit = (TriState)Enum.Parse(typeof(TriState), s);
-                _thrustMin = node.GetValue("thrustMin") ?? "";
-                _thrustMax = node.GetValue("thrustMax") ?? "";
-                _ispMin = node.GetValue("ispMin") ?? "";
-                _ispMax = node.GetValue("ispMax") ?? "";
-                ParseBools(node.GetValue("columns"), _colVisible);
+                ParseRanges(node.GetValue("ranges"));
+                // Older settings had fixed thrust / vacuum ISP range boxes.
+                MigrateRange(node, "thrustMin", "thrustMax", (int)Col.Thrust);
+                MigrateRange(node, "ispMin", "ispMax", (int)Col.IspVac);
+
+                string hidden = node.GetValue("hiddenColumns");
+                if (hidden != null)
+                {
+                    for (int c = 0; c < ColCount; c++)
+                        _colVisible[c] = true;
+                    foreach (string name in hidden.Split(','))
+                        if (TryParseCol(name.Trim(), out int hc))
+                            _colVisible[hc] = false;
+                }
+                else
+                {
+                    // Older settings: one bool per column in the old column order.
+                    var old = new bool[OldColOrder.Length];
+                    for (int c = 0; c < old.Length; c++)
+                        old[c] = true;
+                    if (node.GetValue("columns") is string cols)
+                    {
+                        ParseBools(cols, old);
+                        for (int c = 0; c < old.Length; c++)
+                            if (TryParseCol(OldColOrder[c], out int oc))
+                                _colVisible[oc] = old[c];
+                    }
+                }
                 ParseBools(node.GetValue("kinds"), _kindEnabled);
                 if (!_kindEnabled.Any(k => k))
                     for (int k = 0; k < KindCount; k++) _kindEnabled[k] = true;
@@ -1301,17 +1898,16 @@ namespace RealFuels
                 node.AddValue("windowY", _windowRect.y.ToString(ic));
                 node.AddValue("fontScale", _fontScale.ToString(ic));
                 node.AddValue("rows", _visibleRows);
-                node.AddValue("sortCol", _sortCol);
+                node.AddValue("sortCol", ((Col)_sortCol).ToString());
                 node.AddValue("sortAsc", _sortAsc);
                 node.AddValue("closeOnPick", _closeOnPick);
+                node.AddValue("tankFamily", _tankFamily.ToString());
+                node.AddValue("tankMaterials", string.Join(";", Enumerable.Range(0, EngineBrowserTanks.FamilyCount).Select(i => $"{(TankFamily)i}:{_tankMaterial[i]}")));
                 node.AddValue("avail", _avail.ToString());
                 node.AddValue("storable", _storable.ToString());
                 node.AddValue("groundLit", _groundLit.ToString());
-                node.AddValue("thrustMin", _thrustMin);
-                node.AddValue("thrustMax", _thrustMax);
-                node.AddValue("ispMin", _ispMin);
-                node.AddValue("ispMax", _ispMax);
-                node.AddValue("columns", string.Join(",", _colVisible));
+                node.AddValue("hiddenColumns", string.Join(",", Enumerable.Range(0, ColCount).Where(c => !_colVisible[c]).Select(c => ((Col)c).ToString())));
+                node.AddValue("ranges", string.Join(";", _ranges.Select(kv => $"{(Col)kv.Key}:{kv.Value[0].Trim()}:{kv.Value[1].Trim()}")));
                 node.AddValue("kinds", string.Join(",", _kindEnabled));
                 node.AddValue("excludedProps", string.Join(",", _excludedProps));
                 node.AddValue("excludedTechs", string.Join(",", _excludedTechs));
@@ -1321,6 +1917,43 @@ namespace RealFuels
             {
                 Debug.LogWarning($"[RFEngineBrowser] Could not save settings: {ex.Message}");
             }
+        }
+
+        /// <summary>Column order of settings files written before columns were saved by name.</summary>
+        private static readonly string[] OldColOrder = {
+            "Family", "Config", "Type", "Thrust", "MinThrottle", "IspVac", "IspSL", "Mass", "Gimbal", "Igns", "Ullage", "PFed",
+            "Propellants", "Store", "Rated", "Tested", "IgnRel", "DU0", "DUMax", "Tech", "Spec", "Cost", "Entry", "Pick"
+        };
+
+        private static bool TryParseCol(string name, out int col)
+        {
+            col = -1;
+            if (string.IsNullOrEmpty(name) || !Enum.IsDefined(typeof(Col), name))
+                return false;
+            col = (int)(Col)Enum.Parse(typeof(Col), name);
+            return true;
+        }
+
+        /// <summary>Parses "Thrust:100:;IspVac::450" into column ranges.</summary>
+        private static void ParseRanges(string s)
+        {
+            _ranges.Clear();
+            if (string.IsNullOrEmpty(s))
+                return;
+            foreach (string part in s.Split(';'))
+            {
+                string[] f = part.Split(':');
+                if (f.Length == 3 && TryParseCol(f[0].Trim(), out int col) && IsNumeric(col) && (f[1].Trim().Length > 0 || f[2].Trim().Length > 0))
+                    _ranges[col] = new[] { f[1].Trim(), f[2].Trim() };
+            }
+        }
+
+        private static void MigrateRange(ConfigNode node, string minKey, string maxKey, int col)
+        {
+            string lo = node.GetValue(minKey)?.Trim() ?? string.Empty;
+            string hi = node.GetValue(maxKey)?.Trim() ?? string.Empty;
+            if ((lo.Length > 0 || hi.Length > 0) && !_ranges.ContainsKey(col))
+                _ranges[col] = new[] { lo, hi };
         }
 
         private static void ParseBools(string s, bool[] target)

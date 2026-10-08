@@ -119,7 +119,7 @@ namespace RealFuels.Tanks
 
         public double AvailableVolume => volume - UsedVolume;
 
-        private static double MassMult => MFSSettings.useRealisticMass ? 1.0 : MFSSettings.tankMassMultiplier;
+        internal static double MassMult => MFSSettings.useRealisticMass ? 1.0 : MFSSettings.tankMassMultiplier;
 
         private static float DefaultBaseCostPV => MFSSettings.baseCostPV;
 
@@ -742,16 +742,35 @@ namespace RealFuels.Tanks
 
         private void ParseBaseMass (string baseMass)
         {
-            if (baseMass.Contains ("*") && baseMass.Contains ("volume")) {
-                if (float.TryParse (baseMass.Replace ("volume", "").Replace ("*", "").Trim (), out basemassPV)) {
+            // A failed parse still zeroes the field it was parsing into, as before; only a
+            // successful one clears the other field.
+            bool ok = TryParseBaseMass (baseMass, out float pv, out float constant);
+            if (IsPerVolumeBaseMass (baseMass)) {
+                basemassPV = pv;
+                if (ok)
                     basemassConst = 0;
-                    return;
-                }
-            } else if (float.TryParse (baseMass.Trim (), out basemassConst)) {
-                basemassPV = 0f;
-                return;
+            } else {
+                basemassConst = constant;
+                if (ok)
+                    basemassPV = 0f;
             }
-            Debug.LogWarning ("[MFT] Unable to parse basemass \"" + baseMass + "\"");
+            if (!ok)
+                Debug.LogWarning ("[MFT] Unable to parse basemass \"" + baseMass + "\"");
+        }
+
+        private static bool IsPerVolumeBaseMass (string baseMass)
+            => baseMass != null && baseMass.Contains ("*") && baseMass.Contains ("volume");
+
+        /// <summary>
+        /// Parses a TANK_DEFINITION basemass: "x * volume" gives a per-volume mass, a bare number a
+        /// constant mass. Exactly one of the outputs can be non-zero.
+        /// </summary>
+        internal static bool TryParseBaseMass (string baseMass, out float perVolume, out float constant)
+        {
+            perVolume = constant = 0f;
+            if (IsPerVolumeBaseMass (baseMass))
+                return float.TryParse (baseMass.Replace ("volume", "").Replace ("*", "").Trim (), out perVolume);
+            return baseMass != null && float.TryParse (baseMass.Trim (), out constant);
         }
 
         private void ParseBaseCost (ConfigNode node)
