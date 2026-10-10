@@ -1,9 +1,11 @@
 using KSP.Localization;
+using RealFuels.Harmony;
 using ROUtils;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Profiling;
 
@@ -17,13 +19,14 @@ namespace RealFuels.Tanks
         [KSPField(guiActiveEditor = true, guiName = "#RF_FuelTankRF_HighlyPressurized", groupName = guiGroupName)] // Highly Pressurized?
         public bool highlyPressurized = false;
 
-        [KSPField(isPersistant = true, guiActive= true, guiActiveEditor = true, guiName = "#RF_FuelTankRF_MLILayers",
-            groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName, guiFormat = "F0"), // MLI Layers
+        [KSPField(isPersistant = true, guiActiveEditor = true, guiName = "#RF_FuelTankRF_AddedMLILayers",
+            groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName, guiFormat = "F0"), // Added MLI Layers
         UI_FloatRange(minValue = 0, maxValue = 100, stepIncrement = 1, scene = UI_Scene.Editor)]
         public float _numberOfAddedMLILayers = 0; // This is the number of layers added by the player.
         public int numberOfAddedMLILayers => (int)_numberOfAddedMLILayers;
 
-        [KSPField(isPersistant = true)]
+        [KSPField(isPersistant = true, guiActive = true, guiName = "#RF_FuelTankRF_MLILayers",
+            groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName, guiFormat = "F0")] // MLI Layers
         public int totalMLILayers = 0;
 
         [KSPField(isPersistant = true)]
@@ -119,7 +122,7 @@ namespace RealFuels.Tanks
         private readonly Dictionary<FuelTank, double> _perTankLift = new Dictionary<FuelTank, double>();
 
         // Pre-parsed tank boiloff data for background processing.
-        private static readonly ConditionalWeakTable<ProtoPartModuleSnapshot, BgBoiloffCache> _bgCache
+        internal static readonly ConditionalWeakTable<ProtoPartModuleSnapshot, BgBoiloffCache> bgCache
             = new ConditionalWeakTable<ProtoPartModuleSnapshot, BgBoiloffCache>();
 
         // for EngineIgnitor integration: store a public dictionary of all pressurized propellants
@@ -130,6 +133,9 @@ namespace RealFuels.Tanks
 
         double lowestTankTemperature = 300d;
 
+        static readonly ProfilerMarker _profileBgUpdt = new ProfilerMarker("RF.BackgroundUpdate");
+        static readonly ProfilerMarker _profileBgUpdtCache = new ProfilerMarker("RF.BackgroundUpdateCache");
+
         public bool SupportsBoiloff => cryoTanks.Count > 0;
         public bool SupportCryoCooler => maxCoolerInputKW > 0f;
         public bool HasCryoCooler => coolerInputKW > 0f;
@@ -139,6 +145,17 @@ namespace RealFuels.Tanks
 
         partial void OnAwakeRF()
         {
+            // HermiteCurve is not [Serializable], so Unity's Instantiate leaves these fields null
+            // on copied instances. BaseFieldList.Load silently skips null IConfigNode fields, so
+            // the curves would never get populated. Restore them from the prefab before Load runs.
+            //if (HighLogic.LoadedSceneIsFlight || HighLogic.LoadedSceneIsEditor)
+            //{
+            //    var prefab = part.FetchModuleFromPrefab(this);
+            //    coolerMassPerKWInput = prefab?.coolerMassPerKWInput ?? new HermiteCurve();
+            //    coolerCostPerKWInput = prefab?.coolerCostPerKWInput ?? new HermiteCurve();
+            //    cryoCoolerEfficiency = prefab?.cryoCoolerEfficiency ?? new HermiteCurve();
+            //}
+
             if (!HighLogic.LoadedSceneIsEditor) return;
 
             // KSP orders PAW fields by Type.GetFields() reflection order. Because ModuleFuelTanks.cs
@@ -181,9 +198,9 @@ namespace RealFuels.Tanks
                     conductWPerK = tank.totalArea / Math.Max(double.Epsilon, wallF + insulF + resF);
                 }
 
-                entries.Add(string.Format(CultureInfo.InvariantCulture, "{0},{1:R},{2:R},{3:R},{4},{5:R},{6:R}",
+                entries.Add(string.Format(CultureInfo.InvariantCulture, "{0},{1:R},{2:R},{3:R},{4},{5:R},{6:R},{7:R}",
                     tank.name, tank.temperature, tankAreaM2, conductWPerK, isDewar,
-                    tank.hsp, structuralThermalMass * tank.tankRatio));
+                    tank.hsp, structuralThermalMass * tank.tankRatio, tank.Volume));
             }
 
             bgBoiloffData = entries.Count > 0 ? string.Join(";", entries) : "";
@@ -207,7 +224,11 @@ namespace RealFuels.Tanks
         partial void OnStartRF(StartState _)
         {
             if (HighLogic.LoadedSceneIsFlight)
+            {
                 _flightIntegrator = vessel.vesselModules.Find(x => x is FlightIntegrator) as FlightIntegrator;
+                // SupportsBoiloff only becomes known below, after the cache may already have been built
+                PatchFlightIntegrator.Invalidate(vessel);
+            }
 
             foreach (var tank in tanksDict.Values)
             {
@@ -228,6 +249,7 @@ namespace RealFuels.Tanks
                 Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor.onFieldChanged = delegate (BaseField field, object value)
                 {
                     totalMLILayers = numberOfMLILayers + numberOfAddedMLILayers;
+                    UpdateMLILayersDisplay();
                     massDirty = true;
                     CalculateMass();
                 };
@@ -244,6 +266,8 @@ namespace RealFuels.Tanks
                     };
                 }
             }
+
+            UpdateMLILayersDisplay();
 
             bool debugBoilActive = SupportsBoiloff && (RFSettings.Instance.debugBoilOff || RFSettings.Instance.debugBoilOffPAW);
             Fields[nameof(sWallTemp)].guiActive = debugBoilActive;
@@ -287,8 +311,6 @@ namespace RealFuels.Tanks
                     sWallTemp += $"{tank.internalTemp:F2} | ";
                 if (!string.IsNullOrEmpty(sWallTemp))
                     sWallTemp = sWallTemp.Remove(sWallTemp.Length - 3);
-                string MLIText = totalMLILayers > 0 ? $"{GetMLITransferRate(part.skinTemperature, lowestTankTemperature):F2} W/m²" : Localizer.GetStringByTag("#RF_FuelTankRF_NoMLI"); // "No MLI"
-                sWallTemp += $" ({MLIText} * {part.radiativeArea:F2} m²)";
 
                 sHeatPenetration = "";
                 sBoiloffLoss = "";
@@ -321,6 +343,17 @@ namespace RealFuels.Tanks
             }
         }
 
+        private void UpdateMLILayersDisplay()
+        {
+            // Editor slider: clarify the number is additional when a base exists
+            Fields[nameof(_numberOfAddedMLILayers)].guiUnits = numberOfMLILayers > 0
+                ? " " + Localizer.Format("#RF_FuelTankRF_MLILayersTotal", totalMLILayers)
+                : string.Empty;
+
+            // Flight: show total only when non-zero; the added-layers slider is editor-only
+            Fields[nameof(totalMLILayers)].guiActive = HighLogic.LoadedSceneIsFlight && totalMLILayers > 0;
+        }
+
         private double GetCoolerTargetTemp()
         {
             double lowest = 300d;
@@ -340,24 +373,35 @@ namespace RealFuels.Tanks
         private double GetIncomingFlux(double skinTemp, FuelTank tank)
         {
             if (tank.isDewar)
-                return GetDewarTransferRate(skinTemp, tank.internalTemp, tank.totalArea);
+                return GetDewarTransferRate(skinTemp, tank.internalTemp, tank.totalArea, tank.Volume, totalMLILayers);
 
             if (totalMLILayers > 0)
-                return GetMLITransferRate(skinTemp, tank.internalTemp) * tank.totalArea;
+                return GetMLITransferRate(skinTemp, tank.internalTemp, tank.totalArea, tank.Volume, totalMLILayers, vessel.staticPressurekPa);
 
             return GetBoiloffTransferRate(skinTemp, tank.internalTemp, tank.totalArea, tank);
         }
 
         /// <summary>
-        /// Returns the structural thermal mass of the part (kJ/K), i.e. part.thermalMass
-        /// minus the thermal contribution of all resources using KSP's standard specific heat.
+        /// Returns the structural thermal mass of the part (kJ/K): dry mass only, without resources and skin.
+        /// Same terms KSP uses for part.thermalMass.
         /// </summary>
         private double ComputeStructuralThermalMass()
+            => Math.Max(0d, part.mass * PhysicsGlobals.StandardSpecificHeatCapacity * part.thermalMassModifier - part.skinThermalMass);
+
+        /// <summary>
+        /// Returns the thermal mass (kJ/K) that KSP adds to part.thermalMass for resources in boiloff tanks.
+        /// Uses the resource definition hsp, same as KSP.
+        /// </summary>
+        internal double GetBoiloffResourceThermalMass()
         {
-            double resourceThermalMass = 0;
-            foreach (PartResource res in part.Resources)
-                resourceThermalMass += res.amount * res.info.density * PhysicsGlobals.StandardSpecificHeatCapacity;
-            return Math.Max(0, part.thermalMass - resourceThermalMass);
+            double thermalMass = 0d;
+            for (int i = cryoTanks.Count; i-- > 0;)
+            {
+                PartResource res = cryoTanks[i].resource;
+                if (res != null)
+                    thermalMass += res.amount * res.info.density * res.info.specificHeatCapacity;
+            }
+            return thermalMass;
         }
 
         private double GetBoiloffTransferRate(double outerTemperature, double innerTemperature, double wettedArea, in FuelTank tank)
@@ -419,18 +463,17 @@ namespace RealFuels.Tanks
             }
 
             // TODO: structuralThermalMass should be split up per-tank
-            // TODO2: KSP will internally still assign a part.thermalMass value that includes resources
             double structuralThermalMass = ComputeStructuralThermalMass();
 
             // Pre-pass: compute per-tank incoming flux and tally what the cryocooler could usefully lift.
-            // Only at-boiling cryo tanks are coolable; sub-boiling tanks are left to warm normally
-            // (no subcooling), and non-cryo tanks aren't cooled.
+            // Only at-boiling tanks are coolable; sub-boiling tanks are left to warm normally (no subcooling).
+            // Non-cryo resources are not modelled here, their heat capacity stays in part.thermalMass.
             double totalCoolableKW = 0d;
-            foreach (FuelTank tank in tanksDict.Values)
+            foreach (FuelTank tank in cryoTanks)
             {
                 double q = GetIncomingFlux(skinTemp, tank) * 0.001d;
                 _perTankFlux[tank] = q;
-                if (tank.vsp > 0 && tank.amount > 0 && q > 0 && tank.internalTemp >= tank.temperature)
+                if (tank.amount > 0 && q > 0 && tank.internalTemp >= tank.temperature)
                     totalCoolableKW += q;
             }
 
@@ -439,7 +482,7 @@ namespace RealFuels.Tanks
                 ApplyCryocooling(deltaTime, skinTemp, totalCoolableKW, out totalLiftKW, out totalInputKW);
 
             double totalAbsorbedQ_kW = 0d;
-            foreach (FuelTank tank in tanksDict.Values)
+            foreach (FuelTank tank in cryoTanks)
             {
                 double qIn = _perTankFlux.TryGetValue(tank, out double qv) ? qv : 0d;
                 double lift = _perTankLift.TryGetValue(tank, out double lv) ? lv : 0d;
@@ -519,29 +562,13 @@ namespace RealFuels.Tanks
                                + tank.amount * tank.density * tank.hsp;
             thermalMass = Math.Max(thermalMass, 1.0);
 
-            if (tank.vsp <= 0 || tank.internalTemp < tank.temperature)
+            if (tank.internalTemp < tank.temperature)
             {
-                if (tank.vsp <= 0)
-                {
-                    // Non-cryo: clamp internalTemp at skinTemp to prevent overshoot.
-                    // At high warp the large deltaTime can push internalTemp past skinTemp in a
-                    // single step; the resulting oscillation with asymmetric flux handling bleeds
-                    // energy from the skin each cycle, eventually driving it to 0 K (or infinity).
-                    double skinTemp = part.skinTemperature;
-                    double prevTemp = tank.internalTemp;
-                    double newTemp = prevTemp + Q_kW * deltaTime / thermalMass;
-                    newTemp = Q_kW >= 0 ? Math.Min(newTemp, skinTemp) : Math.Max(newTemp, skinTemp);
-                    tank.internalTemp = newTemp;
-                    return (newTemp - prevTemp) * thermalMass / deltaTime;
-                }
-                else
-                {
-                    // Sub-boiling cryo: heat toward boiling point
-                    tank.internalTemp += Q_kW * deltaTime / thermalMass;
-                    if (tank.internalTemp > tank.temperature)
-                        tank.internalTemp = tank.temperature;
-                    return Q_kW > 0 ? Q_kW : 0d;
-                }
+                // Sub-boiling: heat toward boiling point
+                tank.internalTemp += Q_kW * deltaTime / thermalMass;
+                if (tank.internalTemp > tank.temperature)
+                    tank.internalTemp = tank.temperature;
+                return Q_kW > 0 ? Q_kW : 0d;
             }
             else
             {
@@ -600,6 +627,7 @@ namespace RealFuels.Tanks
                 ((UI_FloatRange)Fields[nameof(_numberOfAddedMLILayers)].uiControlEditor).maxValue = maxMLILayers;
             }
             totalMLILayers = numberOfMLILayers + numberOfAddedMLILayers;
+            if (started) UpdateMLILayersDisplay();
 
             InitUtilization();
 
@@ -737,39 +765,141 @@ namespace RealFuels.Tanks
         }
 
 #region Cryogenics
-        // TODO MLI convective coefficient needs some research. I chose a value that would allow MLI in-atmo to provide better insulation than a naked tank.
-        //      But it should probably be based on the gas composition of the planet involved?
+
+        // Heat leak into cryogenic tanks, in W:
+        //   Q = A * q_blanket(N) + A * q_gas(N, P) + G_struct(N, V) * (T_outer - T_inner)
+        // A is tank area (m^2), V tank volume (L), N the MLI layer count and P ambient pressure.
+        // N also stands for the overall thermal design of the tank: skirts, struts, plumbing and
+        // engine mounts improve together with the blanket. 1 layer is basic construction and
+        // 100 layers is the best known design.
+
+        private const int MaxDesignLayers = 100;
+
+        // Lockheed solid conduction term Nd^2.56 for a layer density Nd of 10.055 layers/cm
+        private static readonly double LayerDensityTerm = Math.Pow(10.055, 2.56);
 
         /// <summary>
-        /// Transfer rate through multilayer insulation in watts/m2 via radiation, conduction and convection (conduction through gas in the layers).
-        /// Can be called in real time substituting skin temp and internal temp for hot and cold.
+        /// Returns the heat leak in W into an MLI-insulated stage tank.
         /// </summary>
-        private double GetMLITransferRate(double outerTemperature, double innerTemperature)
-            => GetMLITransferRate(outerTemperature, innerTemperature, totalMLILayers, vessel.staticPressurekPa);
-
-        private static double GetMLITransferRate(double outerTemp, double innerTemp, int mliLayers, double pressureKPa = 0)
+        /// <remarks>
+        /// Blanket flux comes from <see cref="GetMLIBlanketFlux"/>. Gas conduction through the blanket
+        /// uses q_gas = Qv * P * (Th^0.5 - Tc^0.5) / N, with P in torr and Qv = RFSettings.QvCoefficient.
+        /// The gas term assumes free molecular flow (Knudsen number above 10), so pressure is capped at 0.1 kPa.
+        /// Structure uses the stage end points of <see cref="GetStructuralConductance"/>.
+        /// </remarks>
+        private static double GetMLITransferRate(double outerTemp, double innerTemp, double area, double volumeLiters, int mliLayers, double pressureKPa = 0)
         {
-            const double QrCoefficient = 0.0000000004944; // typical MLI radiation flux coefficient
-            const double QcCoefficient = 0.0000000895;    // typical MLI conductive flux coefficient
-            const double emissivity    = 0.03;            // typical reflective mylar emissivity
-            const double layerDensity  = 10.055;          // layer density (layers/cm)
+            int layers = Math.Max(mliLayers, 1);
 
-            double radiation  = QrCoefficient * emissivity * (Math.Pow(outerTemp, 4.67) - Math.Pow(innerTemp, 4.67)) / mliLayers;
-            double conduction = QcCoefficient * Math.Pow(layerDensity, 2.63) * ((outerTemp + innerTemp) / 2) / (mliLayers + 1) * (outerTemp - innerTemp);
-            double result = radiation + conduction;
+            double gasFlux = 0;
             if (pressureKPa > 0)
-                result += RFSettings.Instance.QvCoefficient * (pressureKPa * 7.500616851) * (Math.Pow(outerTemp, 0.52) - Math.Pow(innerTemp, 0.52)) / mliLayers;
-            return result;
+            {
+                double pressureTorr = Math.Min(pressureKPa, 0.1) * 7.500616851;
+                gasFlux = RFSettings.Instance.QvCoefficient * pressureTorr * (Math.Sqrt(outerTemp) - Math.Sqrt(innerTemp)) / layers; // [W/m^2]
+            }
+
+            double flux = GetMLIBlanketFlux(outerTemp, innerTemp, layers) + gasFlux; // [W/m^2]
+            double conductance = GetStructuralConductance(volumeLiters, layers,
+                RFSettings.Instance.stageStructuralConductanceBasic,
+                RFSettings.Instance.stageStructuralConductanceBest); // [W/K]
+
+            return flux * area + conductance * (outerTemp - innerTemp); // [W]
         }
 
         /// <summary>
-        /// Transfer rate through Dewar walls via radiation across the vacuum gap.
+        /// Returns the heat leak in W into a vacuum-jacketed (Dewar) tank.
         /// </summary>
-        private static double GetDewarTransferRate(double hot, double cold, double area)
+        /// <remarks>
+        /// The blanket sits inside a vacuum jacket. It performs as in hard vacuum at any ambient pressure,
+        /// so there is no gas conduction term. Without added layers the jacket wall still acts as one
+        /// reflective layer.
+        /// The tank hangs on struts instead of load-bearing skirts, so structure uses the Dewar end points
+        /// of <see cref="GetStructuralConductance"/>. These are 15x lower than for a stage tank at the same
+        /// layer count, which makes Dewars the choice for small cryogenic tanks.
+        /// </remarks>
+        private static double GetDewarTransferRate(double outerTemp, double innerTemp, double area, double volumeLiters, int mliLayers)
         {
-            // TODO Just radiation now; need to calculate conduction through piping/lid, etc
-            double emissivity = 0.005074871897; // corrected and rounded value for concentric surfaces, actual emissivity of each surface is assumed to be 0.01 for silvered or aluminized coating
-            return PhysicsGlobals.StefanBoltzmanConstant * emissivity * area * (Math.Pow(hot,4) - Math.Pow(cold,4));
+            int layers = Math.Max(mliLayers, 1);
+
+            double flux = GetMLIBlanketFlux(outerTemp, innerTemp, layers); // [W/m^2]
+            double conductance = GetStructuralConductance(volumeLiters, layers,
+                RFSettings.Instance.dewarStructuralConductanceBasic,
+                RFSettings.Instance.dewarStructuralConductanceBest); // [W/K]
+
+            return flux * area + conductance * (outerTemp - innerTemp); // [W]
+        }
+
+        /// <summary>
+        /// Returns the heat flux in W/m^2 through an installed MLI blanket in hard vacuum.
+        /// </summary>
+        /// <remarks>
+        /// Lockheed equation for double aluminized Mylar with silk net spacers, NASA CR-134477 Eq. 4-14:
+        ///   q = Cs * Nd^2.56 * Tm * (Th - Tc) / (N + 1) + Cr * e * (Th^4.67 - Tc^4.67) / N
+        /// Cs = 8.95e-8, Cr = 5.39e-10, e = 0.031, Nd = 10.055 layers/cm, Tm = (Th + Tc) / 2.
+        /// The coefficients are scaled from the original mW/m^2 to W/m^2.
+        ///
+        /// The equation was fitted for cold boundaries above 70 K but also holds for LH2. At 45 layers and
+        /// 305 K it gives 0.18 W/m^2, while the 18 m^3 MHTB LH2 tank measured 0.22 W/m^2 (NASA TM-2001-211089).
+        ///
+        /// The equation describes a bare blanket. Installed blankets lose more through seams, pins and
+        /// penetrations, so the result is multiplied by RFSettings.mliInstallationFactor (1.5):
+        /// - LZBO tank, 75 layers, 220 K (Johnson, NASA TFAWS MLI course): a Lockheed equation (CR-134477
+        ///   Eq. 4-56) predicted 0.66 W, measured was 2.6 W. Seams added 0.39 W, pins 0.30 W and
+        ///   penetrations 0.25 W.
+        /// - Titan/Centaur LH2 tank sidewall, 3 layers (AIAA 2007-5845): flight data 3.2-4.7 W/m^2,
+        ///   the equation gives 2.4 W/m^2.
+        /// </remarks>
+        private static double GetMLIBlanketFlux(double outerTemp, double innerTemp, int layers)
+        {
+            const double solidCoefficient = 8.95e-8;
+            const double radiationCoefficient = 5.39e-10;
+            const double emissivity = 0.031;
+
+            double meanTemp = (outerTemp + innerTemp) * 0.5;
+            double solid = solidCoefficient * LayerDensityTerm * meanTemp * (outerTemp - innerTemp) / (layers + 1);
+            double radiation = radiationCoefficient * emissivity * (Math.Pow(outerTemp, 4.67) - Math.Pow(innerTemp, 4.67)) / layers;
+
+            return RFSettings.Instance.mliInstallationFactor * (solid + radiation); // [W/m^2]
+        }
+
+        /// <summary>
+        /// Returns the thermal conductance in W/K through everything that is not MLI blanket:
+        /// skirts, struts, feedlines, wiring, engine mounts and common bulkheads.
+        /// </summary>
+        /// <remarks>
+        /// G = c(N) * V^(1/3), with V in liters and c in W/K per L^(1/3).
+        /// c(N) = c_basic * (c_best / c_basic)^(log10(N) / 2), N clamped to 1..100.
+        /// This is log-linear in N, from c_basic at 1 layer to c_best at 100 layers.
+        ///
+        /// A skirt conducts pi * D * t * integral(k dT) / L. With fixed wall thickness t and length L
+        /// it scales with tank diameter D, which is proportional to V^(1/3).
+        ///
+        /// Stage tanks (RFSettings.stageStructuralConductanceBasic/Best):
+        /// - 1 layer, c = 0.15: bare aluminium skirts and metal mounts. On SHIIVER (NASA TP-20205008233)
+        ///   an Al 6061 skirt, 4.76 mm thick and 1.52 m long, conducted 1100-1250 W into a 4 m diameter,
+        ///   31.1 m^3 LH2 tank. That is about 90 W per meter of circumference, or c = 0.12-0.14 per skirt.
+        /// - 3 layers, c = 0.059: Titan/Centaur as flown with 3-layer MLI (AIAA 2007-5845). The 53.5 m^3
+        ///   LH2 tank took 733-909 W, the 16.3 m^3 LO2 tank 381-615 W net. Without the blanket share
+        ///   (skin at 300 K) this gives c = 0.046-0.095. This lumps in the engine mounts, RCS and the
+        ///   common bulkhead.
+        /// - 100 layers, c = 0.003: ULA's long-term Centaur projection of about 0.1%/day system boiloff,
+        ///   with composite struts, vapor-cooled engine mount and forward bulkhead, a better common
+        ///   bulkhead and the RCS moved off the tanks. The model gives 0.07%/day for Centaur-size tanks.
+        ///
+        /// Dewar tanks (RFSettings.dewarStructuralConductanceBasic/Best), supported by struts:
+        /// - 1 layer, c = 0.01: plumbing and wiring of a flight tank without skirts. The Centaur G-prime
+        ///   LH2 tank penetrations took 108 W on 53.5 m^3 (NASA TM-89825).
+        /// - 100 layers, c = 0.0002: MHTB, an 18 m^3 LH2 test tank on 12 fiberglass struts. Struts,
+        ///   plumbing and instrumentation were 13-17% of its total heat input, about 1.2-1.6 W.
+        /// </remarks>
+        private static double GetStructuralConductance(double volumeLiters, int layers, double basic, double best)
+        {
+            if (basic <= 0 || best <= 0)
+                return 0d;
+
+            double n = Math.Min(Math.Max(layers, 1), MaxDesignLayers);
+            double c = basic * Math.Pow(best / basic, Math.Log10(n) / Math.Log10(MaxDesignLayers));
+            return c * Math.Pow(volumeLiters, 1d / 3); // [W/K]
         }
 
         #endregion
@@ -791,31 +921,30 @@ namespace RealFuels.Tanks
             List<KeyValuePair<string, double>> resourceChangeRequest,
             double elapsed_s)
         {
-
+            using var auto = _profileBgUpdt.Auto();
             bool hasGeometry = KerbalismInterface.TryGetThermalData(vessel, out double vesselTemp, out _);
-            if (!hasGeometry) return string.Empty;
+            if (!hasGeometry)
+                return string.Empty;
 
-            if (!_bgCache.TryGetValue(proto_module, out BgBoiloffCache cache))
+            if (!bgCache.TryGetValue(proto_module, out BgBoiloffCache cache))
             {
+                using var auto2 = _profileBgUpdtCache.Auto();
                 string data = proto_module.moduleValues.GetValue(nameof(bgBoiloffData));
-                if (string.IsNullOrEmpty(data)) return string.Empty;
+                if (string.IsNullOrEmpty(data))
+                    return string.Empty;
 
                 string coolerData = proto_module.moduleValues.GetValue(nameof(bgCoolerData)) ?? "";
                 int.TryParse(proto_module.moduleValues.GetValue(nameof(totalMLILayers)), out int mliLayers);
                 cache = BgBoiloffCache.Build(data, coolerData, mliLayers);
                 cache.InitTemps(proto_module);
 
-                _bgCache.Remove(proto_module);
-                _bgCache.Add(proto_module, cache);
+                bgCache.Remove(proto_module);
+                bgCache.Add(proto_module, cache);
             }
 
             double totalCoolableKW = ProcessBackgroundHeatLeakage(vesselTemp, cache);
             double liftFrac = ProcessBackgroundCryocooling(availableResources, resourceChangeRequest, elapsed_s, vesselTemp, cache, totalCoolableKW);
             bool anyBoiloff = ApplyBackgroundTankFlux(availableResources, resourceChangeRequest, elapsed_s, cache, liftFrac);
-            PersistBackgroundTankTemps(proto_module, cache);
-
-            proto_module.moduleValues.SetValue("bgBoiloffLastUpdate",
-                Planetarium.GetUniversalTime().ToString(CultureInfo.InvariantCulture));
 
             return anyBoiloff ? Localizer.GetStringByTag("#RF_FuelTankRF_kerbalismtips") : string.Empty;
         }
@@ -828,6 +957,7 @@ namespace RealFuels.Tanks
         /// <returns></returns>
         private static double ProcessBackgroundHeatLeakage(double vesselTemp, BgBoiloffCache cache)
         {
+            Profiler.BeginSample("ProcessBackgroundHeatLeakage");
             double totalCoolableKW = 0d;
             for (int i = 0; i < cache.Tanks.Length; i++)
             {
@@ -835,9 +965,9 @@ namespace RealFuels.Tanks
                 double internalTemp = cache.InternalTemps[i];
                 double q;
                 if (entry.IsDewar)
-                    q = GetDewarTransferRate(vesselTemp, internalTemp, entry.TankAreaM2) * 0.001;
+                    q = GetDewarTransferRate(vesselTemp, internalTemp, entry.TankAreaM2, entry.Volume, cache.MliLayers) * 0.001;
                 else if (cache.MliLayers > 0 && entry.TankAreaM2 > 0)
-                    q = GetMLITransferRate(vesselTemp, internalTemp, cache.MliLayers) * entry.TankAreaM2 * 0.001;
+                    q = GetMLITransferRate(vesselTemp, internalTemp, entry.TankAreaM2, entry.Volume, cache.MliLayers) * 0.001;
                 else if (entry.ConductWPerK > 0)
                     q = entry.ConductWPerK * (vesselTemp - internalTemp) * 0.001;
                 else
@@ -847,12 +977,14 @@ namespace RealFuels.Tanks
                 if (q > 0 && internalTemp >= entry.BoilingPointK)
                     totalCoolableKW += q;
             }
+            Profiler.EndSample();
 
             return totalCoolableKW;
         }
 
         private static double ProcessBackgroundCryocooling(Dictionary<string, double> availableResources, List<KeyValuePair<string, double>> resourceChangeRequest, double elapsed_s, double vesselTemp, BgBoiloffCache cache, double totalCoolableKW)
         {
+            Profiler.BeginSample("ProcessBackgroundCryocooling");
             double liftFrac = 0d;
             if (cache.CoolerInputKW > 0d && cache.CoolerFrac > 0d && totalCoolableKW > 0d
                 && vesselTemp > cache.CoolerLowestTempK)
@@ -876,12 +1008,14 @@ namespace RealFuels.Tanks
                         liftFrac = actualLiftKW / totalCoolableKW;
                 }
             }
+            Profiler.EndSample();
 
             return liftFrac;
         }
 
         private static bool ApplyBackgroundTankFlux(Dictionary<string, double> availableResources, List<KeyValuePair<string, double>> resourceChangeRequest, double elapsed_s, BgBoiloffCache cache, double liftFrac)
         {
+            Profiler.BeginSample("ApplyBackgroundTankFlux");
             bool anyRequest = false;
             for (int i = 0; i < cache.Tanks.Length; i++)
             {
@@ -910,12 +1044,14 @@ namespace RealFuels.Tanks
                     anyRequest = true;
                 }
             }
+            Profiler.EndSample();
 
             return anyRequest;
         }
 
-        private static void PersistBackgroundTankTemps(ProtoPartModuleSnapshot proto_module, BgBoiloffCache cache)
+        internal static void PersistBackgroundTankTemps(ProtoPartModuleSnapshot proto_module, BgBoiloffCache cache)
         {
+            Profiler.BeginSample("PersistBackgroundTankTemps");
             foreach (ConfigNode tankNode in proto_module.moduleValues.GetNodes("TANK"))
             {
                 string tName = tankNode.GetValue("name");
@@ -924,12 +1060,12 @@ namespace RealFuels.Tanks
                 {
                     if (cache.Tanks[i].Name == tName)
                     {
-                        var sTemp = cache.InternalTemps[i].ToString("R", CultureInfo.InvariantCulture);
-                        tankNode.SetValue("internalTemp", sTemp, true);
+                        tankNode.SetValue("internalTemp", cache.InternalTemps[i], true);
                         break;
                     }
                 }
             }
+            Profiler.EndSample();
         }
 
         /// <summary>

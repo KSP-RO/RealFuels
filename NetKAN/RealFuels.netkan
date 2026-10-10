@@ -19,6 +19,7 @@ install:
     filter: .DS_Store
 depends:
   - name: ModuleManager
+  - name: Harmony2
   - name: RealFuels-Engine-Configs
     suppress_recommendations: true
   - name: CommunityResourcePack

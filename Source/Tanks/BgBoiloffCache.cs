@@ -35,7 +35,7 @@ namespace RealFuels.Tanks
             {
                 if (string.IsNullOrEmpty(entry)) continue;
                 string[] split = entry.Split(',');
-                if (split.Length != 7) continue;
+                if (split.Length != 8) continue;
 
                 string resourceName = split[0];
                 if (!double.TryParse(split[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double boilingPointK)) continue;
@@ -44,6 +44,7 @@ namespace RealFuels.Tanks
                 if (!int.TryParse(split[4], out int isDewarInt)) continue;
                 if (!double.TryParse(split[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double hsp)) continue;
                 if (!double.TryParse(split[6], NumberStyles.Float, CultureInfo.InvariantCulture, out double structThermalMassKJ)) continue;
+                if (!double.TryParse(split[7], NumberStyles.Float, CultureInfo.InvariantCulture, out double volume)) continue;
 
                 PartResourceDefinition resDef = PartResourceLibrary.Instance.GetDefinition(resourceName);
                 if (resDef == null || resDef.density <= 0d) continue;
@@ -56,6 +57,7 @@ namespace RealFuels.Tanks
                     Density = resDef.density,
                     BoilingPointK = boilingPointK,
                     TankAreaM2 = tankAreaM2,
+                    Volume = volume,
                     ConductWPerK = conductWPerK,
                     IsDewar = isDewarInt != 0,
                     Hsp = hsp,
@@ -110,6 +112,7 @@ namespace RealFuels.Tanks
         internal double Density;             // t/unit
         internal double BoilingPointK;
         internal double TankAreaM2;          // per-tank surface area; used by MLI and Dewar formulas
+        internal double Volume;              // tank volume in liters; used for structural conductance in MLI/Dewar formulas
         internal double ConductWPerK;        // wall conductance for non-MLI tanks; 0 for MLI/Dewar
         internal bool IsDewar;
         internal double Hsp;                 // specific heat capacity, kJ/(t·K)
