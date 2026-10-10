@@ -36,6 +36,12 @@ namespace RealFuels
         [Persistent] public bool debugBoilOff = false;
         [Persistent] public bool debugBoilOffPAW = true;
         [Persistent] public double QvCoefficient = 0.0028466; // convective coefficient for Real Fuels MLI calculations
+        // Cryogenic heat leak tuning. Sources for the defaults are in ModuleFuelTanksRF.GetMLIBlanketFlux and GetStructuralConductance.
+        [Persistent] public double mliInstallationFactor = 1.5; // multiplier on the bare-blanket MLI equation for seams, pins and penetrations
+        [Persistent] public double stageStructuralConductanceBasic = 0.15; // W/K per L^(1/3) for MLI tanks at 1 layer
+        [Persistent] public double stageStructuralConductanceBest = 0.003; // W/K per L^(1/3) for MLI tanks at 100 layers
+        [Persistent] public double dewarStructuralConductanceBasic = 0.01; // W/K per L^(1/3) for Dewar tanks at 1 layer
+        [Persistent] public double dewarStructuralConductanceBest = 0.0002; // W/K per L^(1/3) for Dewar tanks at 100 layers
         [Persistent] public double analyticInsulationMultiplier = 1;
 
         public List<string> Pressurants;
