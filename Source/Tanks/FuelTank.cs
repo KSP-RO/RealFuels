@@ -43,6 +43,7 @@ namespace RealFuels.Tanks
 		public double totalArea = -1;
 		public double tankRatio = -1;
 
+		// wall thicknes and insulation values aren't applicable to MLI and dewar tanks
 		[Persistent]
 		public double wallThickness = 0.1;
 		[Persistent]
@@ -51,6 +52,7 @@ namespace RealFuels.Tanks
 		public double insulationThickness = 0.0;
 		[Persistent]
 		public double insulationConduction = 1.0;
+
 		[Persistent]
 		public bool isDewar;
 
