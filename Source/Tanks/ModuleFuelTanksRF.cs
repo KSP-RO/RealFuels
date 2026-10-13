@@ -42,11 +42,13 @@ namespace RealFuels.Tanks
         public string sBoiloffLoss;
 
         // Thermal data captured while loaded, used for processing boiloff BackgroundUpdate on unloaded vessels.
-        // Format per entry: "resourceName,boilingPointK,tankAreaM2,conductWPerK,isDewar"
+        // Format per entry: "resourceName,boilingPointK,tankAreaM2,conductWPerK,isDewar,hsp,volumeL"
         //   boilingPointK  — boiling point of the propellant (K)
         //   tankAreaM2     — per-tank surface area for MLI/Dewar formulas
         //   conductWPerK   — wall conductance W/K for non-MLI tanks (0 for MLI and Dewar)
         //   isDewar        — 1 for Dewar tanks, 0 otherwise
+        //   hsp            — specific heat capacity of the propellant, kJ/(t·K)
+        //   volumeL        — tank volume in liters for the structural conductance term
         [KSPField(isPersistant = true)]
         public string bgBoiloffData = "";
 
@@ -180,7 +182,6 @@ namespace RealFuels.Tanks
             if (!HighLogic.LoadedSceneIsFlight || !SupportsBoiloff)
                 return;
 
-            double structuralThermalMass = ComputeStructuralThermalMass();
             var entries = new List<string>(cryoTanks.Count);
             foreach (var tank in cryoTanks)
             {
@@ -198,9 +199,9 @@ namespace RealFuels.Tanks
                     conductWPerK = tank.totalArea / Math.Max(double.Epsilon, wallF + insulF + resF);
                 }
 
-                entries.Add(string.Format(CultureInfo.InvariantCulture, "{0},{1:R},{2:R},{3:R},{4},{5:R},{6:R},{7:R}",
+                entries.Add(string.Format(CultureInfo.InvariantCulture, "{0},{1:R},{2:R},{3:R},{4},{5:R},{6:R}",
                     tank.name, tank.temperature, tankAreaM2, conductWPerK, isDewar,
-                    tank.hsp, structuralThermalMass * tank.tankRatio, tank.Volume));
+                    tank.hsp, tank.Volume));
             }
 
             bgBoiloffData = entries.Count > 0 ? string.Join(";", entries) : "";
@@ -233,7 +234,7 @@ namespace RealFuels.Tanks
             foreach (var tank in tanksDict.Values)
             {
                 if (tank.internalTemp < 0)
-                    tank.internalTemp = tank.vsp > 0 ? tank.temperature : (double.IsNaN(part.temperature) ? 300d : part.temperature);
+                    tank.internalTemp = GetFillTemperature(tank);
 
                 if (tank.maxAmount > 0 && tank.vsp > 0)
                     cryoTanks.Add(tank);
@@ -382,11 +383,55 @@ namespace RealFuels.Tanks
         }
 
         /// <summary>
-        /// Returns the structural thermal mass of the part (kJ/K): dry mass only, without resources and skin.
-        /// Same terms KSP uses for part.thermalMass.
+        /// Returns the starting temperature of a freshly filled tank: the part temperature, capped at the boiling point.
         /// </summary>
-        private double ComputeStructuralThermalMass()
-            => Math.Max(0d, part.mass * PhysicsGlobals.StandardSpecificHeatCapacity * part.thermalMassModifier - part.skinThermalMass);
+        private double GetFillTemperature(FuelTank tank)
+        {
+            double ambient = double.IsNaN(part.temperature) || part.temperature <= 0d ? 300d : part.temperature;
+            return Math.Min(tank.temperature, ambient);
+        }
+
+        /// <summary>
+        /// Returns the thermal mass (kJ/K) of the propellant in a tank.
+        /// The tank structure stays in part.thermalMass and is not counted here.
+        /// </summary>
+        private static double GetTankThermalMass(double amount, double density, double hsp)
+            => Math.Max(amount * density * hsp, 1d);
+
+        /// <summary>
+        /// Heats or cools a tank by Q_kW over deltaTime. The temperature stays between the outer temperature and the boiling point.
+        /// Returns the part of deltaTime that the tank spends at the boiling point. Only that time produces boiloff.
+        /// </summary>
+        private static double AdvanceTankTemperature(ref double temp, double boilingPoint, double outerTemp,
+            double thermalMass, double Q_kW, double deltaTime)
+        {
+            if (temp > boilingPoint)
+                temp = boilingPoint;
+
+            if (Q_kW < 0d)
+            {
+                // Stop at the outer temperature so that long time steps do not overshoot
+                double floor = Math.Min(outerTemp, temp);
+                temp = Math.Max(temp + Q_kW * deltaTime / thermalMass, floor);
+                return 0d;
+            }
+
+            if (temp < boilingPoint)
+            {
+                double heatToBoil = (boilingPoint - temp) * thermalMass; // [kJ]
+                double heat = Q_kW * deltaTime; // [kJ]
+                if (heat < heatToBoil)
+                {
+                    temp += heat / thermalMass;
+                    return 0d;
+                }
+
+                temp = boilingPoint;
+                return deltaTime - heatToBoil / Q_kW;
+            }
+
+            return deltaTime;
+        }
 
         /// <summary>
         /// Returns the thermal mass (kJ/K) that KSP adds to part.thermalMass for resources in boiloff tanks.
@@ -446,7 +491,7 @@ namespace RealFuels.Tanks
                 if (hasCryoFuels)
                 {
                     foreach (var tank in cryoTanks)
-                        tank.internalTemp = tank.temperature;
+                        tank.internalTemp = GetFillTemperature(tank);
                 }
                 fueledByLaunchClamp = false;
                 currentCoolerLiftKW = 0d;
@@ -461,9 +506,6 @@ namespace RealFuels.Tanks
                 Profiler.EndSample();
                 return;
             }
-
-            // TODO: structuralThermalMass should be split up per-tank
-            double structuralThermalMass = ComputeStructuralThermalMass();
 
             // Pre-pass: compute per-tank incoming flux and tally what the cryocooler could usefully lift.
             // Only at-boiling tanks are coolable; sub-boiling tanks are left to warm normally (no subcooling).
@@ -486,7 +528,7 @@ namespace RealFuels.Tanks
             {
                 double qIn = _perTankFlux.TryGetValue(tank, out double qv) ? qv : 0d;
                 double lift = _perTankLift.TryGetValue(tank, out double lv) ? lv : 0d;
-                totalAbsorbedQ_kW += CalculateBoiloffForTank(tank, qIn - lift, deltaTime, structuralThermalMass);
+                totalAbsorbedQ_kW += CalculateBoiloffForTank(tank, qIn - lift, deltaTime, skinTemp);
             }
 
             currentCoolerLiftKW = totalLiftKW;
@@ -553,61 +595,51 @@ namespace RealFuels.Tanks
             }
         }
 
-        private double CalculateBoiloffForTank(FuelTank tank, double Q_kW, double deltaTime, double structuralThermalMass)
+        private double CalculateBoiloffForTank(FuelTank tank, double Q_kW, double deltaTime, double outerTemp)
         {
             if (tank.totalArea <= 0 || tank.tankRatio <= 0)
                 return 0d;
 
-            double thermalMass = structuralThermalMass * tank.tankRatio
-                               + tank.amount * tank.density * tank.hsp;
-            thermalMass = Math.Max(thermalMass, 1.0);
+            double tankAmount = tank.amount;
+            double thermalMass = GetTankThermalMass(tankAmount, tank.density, tank.hsp);
+            double boilTime = AdvanceTankTemperature(ref tank.internalTemp, tank.temperature, outerTemp, thermalMass, Q_kW, deltaTime);
 
-            if (tank.internalTemp < tank.temperature)
+            // Below boiling point the heat goes into the propellant temperature
+            if (boilTime <= 0d)
+                return Q_kW;
+
+            // At boiling point the phase transition holds the temperature and the heat boils off propellant
+            if (tankAmount <= 0 || Q_kW <= 0) return 0d;
+
+            double massLost = Q_kW / tank.vsp * boilTime;
+
+            lossInfo.Add(Q_kW / tank.vsp * 1000d * 3600d); // kg/hr for display
+            fluxInfo.Add(Q_kW);
+
+            double d = tank.density > 0 ? tank.density : 1;
+            double lossAmount = Math.Min(massLost / d, tankAmount);
+
+            if (lossAmount > 0)
             {
-                // Sub-boiling: heat toward boiling point
-                tank.internalTemp += Q_kW * deltaTime / thermalMass;
-                if (tank.internalTemp > tank.temperature)
-                    tank.internalTemp = tank.temperature;
-                return Q_kW > 0 ? Q_kW : 0d;
-            }
-            else
-            {
-                // At or above boiling point: phase transition holds temperature, all flux → boiloff
-                tank.internalTemp = tank.temperature;
+                tank.resource.amount -= lossAmount;
 
-                double tankAmount = tank.amount;
-                if (tankAmount <= 0 || Q_kW <= 0) return 0d;
-
-                double massLost = Q_kW / tank.vsp * deltaTime;
-
-                lossInfo.Add(Q_kW / tank.vsp * 1000d * 3600d); // kg/hr for display
-                fluxInfo.Add(Q_kW);
-
-                double d = tank.density > 0 ? tank.density : 1;
-                double lossAmount = Math.Min(massLost / d, tankAmount);
-
-                if (lossAmount > 0)
+                if (tank.boiloffProductResource != null)
                 {
-                    tank.resource.amount -= lossAmount;
+                    double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
+                    double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW, Utilities.KerbalismFound);
+                    massLost -= retainedAmount * tank.boiloffProductResource.density;
 
-                    if (tank.boiloffProductResource != null)
+                    if (Utilities.KerbalismFound)
                     {
-                        double boiloffProductAmount = -(massLost / tank.boiloffProductResource.density);
-                        double retainedAmount = part.RequestResource(tank.boiloffProductResource.id, boiloffProductAmount, ResourceFlowMode.STAGE_PRIORITY_FLOW, Utilities.KerbalismFound);
-                        massLost -= retainedAmount * tank.boiloffProductResource.density;
-
-                        if (Utilities.KerbalismFound)
-                        {
-                            string rName = tank.boiloffProductResource.name;
-                            retainedAmount /= deltaTime;
-                            boiloffProducts[rName] = boiloffProducts.TryGetValue(rName, out double v) ? v + retainedAmount : retainedAmount;
-                        }
+                        string rName = tank.boiloffProductResource.name;
+                        retainedAmount /= deltaTime;
+                        boiloffProducts[rName] = boiloffProducts.TryGetValue(rName, out double v) ? v + retainedAmount : retainedAmount;
                     }
                 }
-
-                boiloffMassT += massLost;
-                return Q_kW;
             }
+
+            boiloffMassT += massLost;
+            return Q_kW;
         }
 
         partial void UpdateTankTypeRF(TankDefinition def)
@@ -727,7 +759,7 @@ namespace RealFuels.Tanks
                 {
                     // Vessel is freshly spawned with cryogenic tanks — initialise per-tank state only
                     foreach (var tank in cryoTanks)
-                        tank.internalTemp = tank.temperature;
+                        tank.internalTemp = GetFillTemperature(tank);
                 }
             }
         }
@@ -944,7 +976,7 @@ namespace RealFuels.Tanks
 
             double totalCoolableKW = ProcessBackgroundHeatLeakage(vesselTemp, cache);
             double liftFrac = ProcessBackgroundCryocooling(availableResources, resourceChangeRequest, elapsed_s, vesselTemp, cache, totalCoolableKW);
-            bool anyBoiloff = ApplyBackgroundTankFlux(availableResources, resourceChangeRequest, elapsed_s, cache, liftFrac);
+            bool anyBoiloff = ApplyBackgroundTankFlux(availableResources, resourceChangeRequest, elapsed_s, vesselTemp, cache, liftFrac);
 
             return anyBoiloff ? Localizer.GetStringByTag("#RF_FuelTankRF_kerbalismtips") : string.Empty;
         }
@@ -1013,33 +1045,28 @@ namespace RealFuels.Tanks
             return liftFrac;
         }
 
-        private static bool ApplyBackgroundTankFlux(Dictionary<string, double> availableResources, List<KeyValuePair<string, double>> resourceChangeRequest, double elapsed_s, BgBoiloffCache cache, double liftFrac)
+        private static bool ApplyBackgroundTankFlux(Dictionary<string, double> availableResources, List<KeyValuePair<string, double>> resourceChangeRequest, double elapsed_s, double vesselTemp, BgBoiloffCache cache, double liftFrac)
         {
             Profiler.BeginSample("ApplyBackgroundTankFlux");
             bool anyRequest = false;
             for (int i = 0; i < cache.Tanks.Length; i++)
             {
                 BgTankEntry entry = cache.Tanks[i];
-                double internalTemp = cache.InternalTemps[i];
                 double Q_kW = cache.FluxScratch[i];
 
-                if (Q_kW > 0d && internalTemp >= entry.BoilingPointK && liftFrac > 0d)
+                if (Q_kW > 0d && cache.InternalTemps[i] >= entry.BoilingPointK && liftFrac > 0d)
                     Q_kW -= Q_kW * liftFrac;
 
-                if (Q_kW == 0d) continue;
+                if (Q_kW == 0d || elapsed_s <= 0d) continue;
 
-                if (internalTemp < entry.BoilingPointK)
+                double amount = availableResources.TryGetValue(entry.Name, out double a) ? a : 0d;
+                double thermalMass = GetTankThermalMass(amount, entry.Density, entry.Hsp);
+                double boilTime = AdvanceTankTemperature(ref cache.InternalTemps[i], entry.BoilingPointK, vesselTemp, thermalMass, Q_kW, elapsed_s);
+
+                if (boilTime > 0d && Q_kW > 0d)
                 {
-                    // Sub-boiling: advance internalTemp through thermal mass
-                    double amount = availableResources.TryGetValue(entry.Name, out double a) ? a : 0d;
-                    double thermalMass = entry.StructThermalMassKJ + amount * entry.Density * entry.Hsp;
-                    thermalMass = Math.Max(thermalMass, 1.0);
-                    cache.InternalTemps[i] = Math.Min(internalTemp + Q_kW * elapsed_s / thermalMass, entry.BoilingPointK);
-                }
-                else if (Q_kW > 0)
-                {
-                    // At boiling point: residual flux drives boiloff
-                    double rateKgS = Q_kW / entry.Vsp;
+                    // Kerbalism applies the rate over the whole step, so scale it by the time spent boiling
+                    double rateKgS = Q_kW / entry.Vsp * (boilTime / elapsed_s);
                     resourceChangeRequest.Add(new KeyValuePair<string, double>(entry.Name, -rateKgS / entry.Density));
                     anyRequest = true;
                 }

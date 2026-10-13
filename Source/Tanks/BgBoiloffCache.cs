@@ -35,7 +35,7 @@ namespace RealFuels.Tanks
             {
                 if (string.IsNullOrEmpty(entry)) continue;
                 string[] split = entry.Split(',');
-                if (split.Length != 8) continue;
+                if (split.Length != 7) continue;
 
                 string resourceName = split[0];
                 if (!double.TryParse(split[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double boilingPointK)) continue;
@@ -43,8 +43,7 @@ namespace RealFuels.Tanks
                 if (!double.TryParse(split[3], NumberStyles.Float, CultureInfo.InvariantCulture, out double conductWPerK)) continue;
                 if (!int.TryParse(split[4], out int isDewarInt)) continue;
                 if (!double.TryParse(split[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double hsp)) continue;
-                if (!double.TryParse(split[6], NumberStyles.Float, CultureInfo.InvariantCulture, out double structThermalMassKJ)) continue;
-                if (!double.TryParse(split[7], NumberStyles.Float, CultureInfo.InvariantCulture, out double volume)) continue;
+                if (!double.TryParse(split[6], NumberStyles.Float, CultureInfo.InvariantCulture, out double volume)) continue;
 
                 PartResourceDefinition resDef = PartResourceLibrary.Instance.GetDefinition(resourceName);
                 if (resDef == null || resDef.density <= 0d) continue;
@@ -61,7 +60,6 @@ namespace RealFuels.Tanks
                     ConductWPerK = conductWPerK,
                     IsDewar = isDewarInt != 0,
                     Hsp = hsp,
-                    StructThermalMassKJ = structThermalMassKJ,
                 });
             }
 
@@ -116,6 +114,5 @@ namespace RealFuels.Tanks
         internal double ConductWPerK;        // wall conductance for non-MLI tanks; 0 for MLI/Dewar
         internal bool IsDewar;
         internal double Hsp;                 // specific heat capacity, kJ/(t·K)
-        internal double StructThermalMassKJ; // structural thermal mass contribution for this tank, kJ/K
     }
 }
