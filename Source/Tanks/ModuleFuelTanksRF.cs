@@ -32,13 +32,13 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         protected double totalTankArea;
 
-        [KSPField(guiName = "#RF_FuelTankRF_WallTemp", groupName = CryogenicGroupName)] // Wall Temp
+        [KSPField(guiName = "#RF_FuelTankRF_WallTemp", groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName)] // Wall Temp
         public string sWallTemp;
 
-        [KSPField(guiName = "#RF_FuelTankRF_HeatPenetration", groupName = CryogenicGroupName)] // Heat Penetration
+        [KSPField(guiName = "#RF_FuelTankRF_HeatPenetration", groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName)] // Heat Penetration
         public string sHeatPenetration;
 
-        [KSPField(guiName = "#RF_FuelTankRF_BoiloffLoss", groupName = CryogenicGroupName)] // Boil-off Loss
+        [KSPField(guiName = "#RF_FuelTankRF_BoiloffLoss", groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName)] // Boil-off Loss
         public string sBoiloffLoss;
 
         // Thermal data captured while loaded, used for processing boiloff BackgroundUpdate on unloaded vessels.
@@ -91,18 +91,18 @@ namespace RealFuels.Tanks
 
         [KSPField(isPersistant = true, guiActiveEditor = true,
             guiName = "#RF_FuelTankRF_CryoCoolerInputPower", guiUnits = " kW", guiFormat = "F2",
-            groupName = CryogenicGroupName, groupDisplayName = CryogenicGroupName),
+            groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName),
          UI_FloatEdit(minValue = 0f, maxValue = 0f, incrementLarge = 1f, incrementSmall = 0.1f, incrementSlide = 0.01f, sigFigs = 2,
             unit = " kW", scene = UI_Scene.Editor)]
         public float coolerInputKW = 0f;
 
-        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerLift", groupName = CryogenicGroupName)]
+        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerLift", groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName)]
         public string sCoolerLift;
 
-        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerDraw", groupName = CryogenicGroupName)]
+        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerDraw", groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName)]
         public string sCoolerDraw;
 
-        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerCOP", groupName = CryogenicGroupName)]
+        [KSPField(guiName = "#RF_FuelTankRF_CryoCoolerCOP", groupName = CryogenicGroupName, groupDisplayName = CryogenicsGroupDisplayName)]
         public string sCoolerCOP;   // Coefficient of Performance, ratio of the useful cooling provided to the work (energy) required
 
         private double analyticSkinTemp;
