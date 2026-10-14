@@ -16,9 +16,6 @@ namespace RealFuels.Tanks
 	//              of tank installed for this resource type. Tons per
 	//              volume unit.
 	// temperature  the part temperature at which this tank's contents start boiling
-	// loss_rate    How quickly this resource type bleeds out of the tank. 
-	//              (TODO: instead of this unrealistic static loss_rate, all 
-	//              resources should have vsp (heat of vaporization) added and optionally conduction)
 	//
 
 	public class FuelTank : IConfigNode
@@ -37,11 +34,8 @@ namespace RealFuels.Tanks
 		public float mass = 0.0f;
 		[Persistent]
 		public float cost = 0.0f;
-		// TODO Retaining for fallback purposes but should be deprecated
-		[Persistent]
-		public double loss_rate = 0.0;
-
-		public double vsp;
+		public double hsp = 1000d; // specific heat capacity, kJ/(t·K), loaded from RESOURCE_DEFINITION
+		public double vsp;  // heat of vapourization, kJ/t, loaded from RESOURCE_DEFINITION
 
 		public double resourceConductivity = 10;
 
@@ -49,6 +43,7 @@ namespace RealFuels.Tanks
 		public double totalArea = -1;
 		public double tankRatio = -1;
 
+		// wall thicknes and insulation values aren't applicable to MLI and dewar tanks
 		[Persistent]
 		public double wallThickness = 0.1;
 		[Persistent]
@@ -57,11 +52,15 @@ namespace RealFuels.Tanks
 		public double insulationThickness = 0.0;
 		[Persistent]
 		public double insulationConduction = 1.0;
+
 		[Persistent]
 		public bool isDewar;
 
 		[Persistent]
 		public float temperature = 300.0f;
+		[Persistent]
+		public double internalTemp = -1d; // -1 = uninitialized; set on first OnStart
+
 		[Persistent]
 		public bool fillable = true;
 		[Persistent]
@@ -308,7 +307,7 @@ namespace RealFuels.Tanks
 			if (node.TryGetValue("boiloffProduct", ref boiloffRes))
 				boiloffProductResource = PartResourceLibrary.Instance.GetDefinition(boiloffRes);
 
-			GetDensity();
+			Init();
 		}
 
 		public void Save(ConfigNode node)
@@ -384,14 +383,17 @@ namespace RealFuels.Tanks
 			else
 				clone.amountExpression = clone.maxAmountExpression = null;
 
-			clone.GetDensity();
+			clone.Init();
 			return clone;
 		}
 
-		internal void GetDensity()
+		internal void Init()
 		{
 			PartResourceDefinition d = PartResourceLibrary.Instance.GetDefinition(name);
 			density = (d != null) ? d.density : 0;
+
+			if (!MFSSettings.resourceHsps.TryGetValue(name, out hsp) || hsp <= 0)
+				hsp = 1000d;
 		}
 	}
 }
