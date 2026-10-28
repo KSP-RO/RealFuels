@@ -270,7 +270,7 @@ namespace RealFuels.Tanks
             return info.ToStringAndRelease();
         }
 
-        public string GetPrimaryField () => $"{Localizer.GetStringByTag("#RF_FuelTank_MaxVolume")}: {KSPUtil.PrintSI(volume, MFSSettings.unitLabel)}, {type}{(typesAvailable.Count() > 1 ? "*" : "")}"; // Max Volume
+        public string GetPrimaryField() => $"{Localizer.GetStringByTag("#RF_FuelTank_MaxVolume")}: {KSPUtil.PrintSI(volume, MFSSettings.unitLabel)}, {type}{(typesAvailable.Count() > 1 ? "*" : "")}\n"; // Max Volume
 
         public Callback<Rect> GetDrawModulePanelCallback() => null;
 
