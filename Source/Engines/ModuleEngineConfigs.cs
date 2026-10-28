@@ -887,6 +887,31 @@ namespace RealFuels
                 mg.gimbalRangeYP = g.gimbalRangeYP;
                 mg.gimbalRangeYN = g.gimbalRangeYN;
             }
+
+            foreach (ModuleGimbal mg in part.Modules.OfType<ModuleGimbal>())
+                UpdateGimbalPAW(mg);
+            MonoUtilities.RefreshPartContextWindow(part);
+        }
+
+        private static readonly MethodInfo gimbalUpdatePAWUI = typeof(ModuleGimbal).GetMethod("UpdatePAWUI", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        /// <summary>
+        /// Show a gimbal's PAW controls and actions if it has any range, and hide them if it has none.
+        /// Stock ModuleGimbal only hides them when the module is disabled.
+        /// </summary>
+        public static void UpdateGimbalPAW(ModuleGimbal mg)
+        {
+            bool hasRange = mg.gimbalRange > 0 || mg.gimbalRangeXP > 0 || mg.gimbalRangeXN > 0 || mg.gimbalRangeYP > 0 || mg.gimbalRangeYN > 0;
+            bool oldEnabled = mg.moduleIsEnabled;
+            bool oldShowToggles = mg.showToggles;
+            if (!hasRange)
+            {
+                mg.moduleIsEnabled = false;
+                mg.showToggles = false;
+            }
+            gimbalUpdatePAWUI.Invoke(mg, null);
+            mg.moduleIsEnabled = oldEnabled;
+            mg.showToggles = oldShowToggles;
         }
 
         private void HandleEngineIgnitor(ConfigNode cfg)
