@@ -59,7 +59,7 @@ namespace RealFuels.TechLevels
 
         // LOADERS
         // Gets global node
-        protected bool LoadGlobals()
+        protected static bool LoadGlobals()
         {
             if (globalTechLevels == null)
             {
@@ -182,8 +182,7 @@ namespace RealFuels.TechLevels
         // loads from global techlevels
         public bool Load(string type, int level)
         {
-
-            if (globalTechLevels == null)
+            if (!LoadGlobals())
                 return false;
             foreach (ConfigNode node in globalTechLevels.GetNodes("ENGINETYPE"))
             {
@@ -291,7 +290,7 @@ namespace RealFuels.TechLevels
         public static int MaxTL(string type)
         {
             int max = -1;
-            if (globalTechLevels == null)
+            if (!LoadGlobals())
                 return max;
             foreach (ConfigNode node in globalTechLevels.GetNodes("ENGINETYPE"))
             {
@@ -320,7 +319,7 @@ namespace RealFuels.TechLevels
         public static int MinTL(string type)
         {
             int min = int.MaxValue;
-            if (globalTechLevels == null)
+            if (!LoadGlobals())
                 return min;
             foreach (ConfigNode node in globalTechLevels.GetNodes("ENGINETYPE"))
             {
