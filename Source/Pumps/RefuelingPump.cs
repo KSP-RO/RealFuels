@@ -103,10 +103,9 @@ namespace RealFuels
                 m.fueledByLaunchClamp = true;
 
             // Costs are summed and charged once per call
-            double availableFunds = 0;
+            bool chargeFunds = HighLogic.CurrentGame.Mode == Game.Modes.CAREER && Funding.Instance != null;
+            double availableFunds = chargeFunds ? Math.Max(Funding.Instance.Funds, 0) : 0;
             double totalCost = 0;
-            if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER && Funding.Instance != null)
-                availableFunds = Funding.Instance.Funds;
 
             foreach (var tank in tankDefs)
             {
@@ -117,8 +116,12 @@ namespace RealFuels
                 {
                     double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
 
-                    if (d.unitCost > 0 && availableFunds > 0)
+                    if (chargeFunds && d.unitCost > 0)
                     {
+                        // Pump only as much as the remaining funds can pay for
+                        if (availableFunds <= 0)
+                            continue;
+
                         double cost = amount * d.unitCost;
                         if (cost > availableFunds)
                         {
