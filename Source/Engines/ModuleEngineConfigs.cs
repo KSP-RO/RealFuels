@@ -161,6 +161,31 @@ namespace RealFuels
 
         internal override string ActiveRowKey => activePatchName;
 
+        internal override IEnumerable<BrowserVariant> BrowserVariants()
+        {
+            foreach (var v in base.BrowserVariants())
+            {
+                yield return v;
+                foreach (var patch in GetPatchesOfConfig(v.Node))
+                {
+                    string patchName = patch.GetValue("name");
+                    yield return new BrowserVariant
+                    {
+                        Node = PatchConfig(v.Node, patch, false),
+                        ConfigName = v.ConfigName,
+                        PatchName = patchName,
+                        DisplayName = $"{v.DisplayName} [{patchName}]"
+                    };
+                }
+            }
+        }
+
+        internal override void ApplyBrowserVariant(string configName, string patchName, bool started)
+        {
+            activePatchName = patchName ?? string.Empty;
+            base.ApplyBrowserVariant(configName, patchName, started);
+        }
+
         public override IEnumerable<ConfigRowDefinition> BuildConfigRows()
         {
             foreach (var node in FilteredDisplayConfigs(false))
@@ -1252,6 +1277,47 @@ namespace RealFuels
                     Apply = () => GUIApplyConfig(configName)
                 };
             }
+        }
+
+        /// <summary>
+        /// One selectable variant for the editor engine browser: a config, optionally
+        /// with a SUBCONFIG patch applied.
+        /// </summary>
+        internal struct BrowserVariant
+        {
+            public ConfigNode Node;
+            public string ConfigName;
+            public string PatchName;
+            public string DisplayName;
+        }
+
+        /// <summary>
+        /// Enumerates every variant the engine browser should list for this module.
+        /// Called on part prefabs, so it must not depend on started-module state.
+        /// </summary>
+        internal virtual IEnumerable<BrowserVariant> BrowserVariants()
+        {
+            foreach (var node in FilteredDisplayConfigs(true))
+            {
+                yield return new BrowserVariant
+                {
+                    Node = node,
+                    ConfigName = node.GetValue("name"),
+                    PatchName = string.Empty,
+                    DisplayName = GetConfigDisplayName(node)
+                };
+            }
+        }
+
+        /// <summary>
+        /// Selects a browser variant on a freshly spawned part. Sets the persistent
+        /// fields first so OnStart picks them up, then applies if already started.
+        /// </summary>
+        internal virtual void ApplyBrowserVariant(string configName, string patchName, bool started)
+        {
+            configuration = configName;
+            if (started)
+                GUIApplyConfig(configName);
         }
 
         /// <summary>
