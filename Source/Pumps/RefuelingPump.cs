@@ -102,6 +102,12 @@ namespace RealFuels
             foreach (var m in tanks)
                 m.fueledByLaunchClamp = true;
 
+            // Costs are summed and charged once per call
+            double availableFunds = 0;
+            double totalCost = 0;
+            if (HighLogic.CurrentGame.Mode == Game.Modes.CAREER && Funding.Instance != null)
+                availableFunds = Funding.Instance.Funds;
+
             foreach (var tank in tankDefs)
             {
                 if (tank.resource is PartResource r &&
@@ -111,19 +117,23 @@ namespace RealFuels
                 {
                     double amount = Math.Min(deltaTime * pump_rate * tank.utilization, tank.maxAmount - tank.amount);
 
-                    if (d.unitCost > 0 && HighLogic.CurrentGame.Mode == Game.Modes.CAREER && Funding.Instance?.Funds is double funds && funds > 0)
+                    if (d.unitCost > 0 && availableFunds > 0)
                     {
                         double cost = amount * d.unitCost;
-                        if (cost > funds)
+                        if (cost > availableFunds)
                         {
-                            amount = funds / d.unitCost;
-                            cost = funds;
+                            amount = availableFunds / d.unitCost;
+                            cost = availableFunds;
                         }
-                        Funding.Instance.AddFunds(-cost, TransactionReasons.VesselRollout);
+                        availableFunds -= cost;
+                        totalCost += cost;
                     }
                     tank.part.TransferResource(r, amount, part);
                 }
             }
+
+            if (totalCost > 0)
+                Funding.Instance.AddFunds(-totalCost, TransactionReasons.VesselRollout);
 
             foreach (var partResource in batteries)
             {
