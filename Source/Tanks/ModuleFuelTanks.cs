@@ -295,6 +295,7 @@ namespace RealFuels.Tanks
                 Fields[nameof(typeDisp)].uiControlEditor.onFieldChanged += OnTypeDispChanged;
                 Fields[nameof(typeDisp)].uiControlEditor.onSymmetryFieldChanged += OnTypeDispChanged;
                 EditorPartSetMaintainer.Instance.ScheduleUsedBySetsUpdate();
+                InitPill();
             }
 
             OnStartRF(state);
@@ -312,6 +313,7 @@ namespace RealFuels.Tanks
             GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
             GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
             RealFuelsWindow.HideGUI();
+            DisposePill();
         }
 
         public override void OnSave (ConfigNode node)
@@ -375,6 +377,7 @@ namespace RealFuels.Tanks
                 }
                 else
                     RealFuelsWindow.HideGUIForModule(this);
+                UpdatePill();
             }
             UpdateRF();
         }
@@ -600,7 +603,18 @@ namespace RealFuels.Tanks
         {
             if (data.Get<string>("volName").Equals("Tankage"))
             {
+                _pillEvents++;     // the shape changed: a new pill fit
                 double newTotalVolume = data.Get<double>("newTotalVolume") * tankVolumeConversion;
+                _partTotalVolume = newTotalVolume;
+                _partVolumeKnown = true;
+                // a pill tank's volume comes from its fit (ModuleFuelTanksPill), capped at the part's (now, from the fit
+                // it has); until the first fit lands (a new part, or one just made a pill tank), the part's
+                if (PillSizesTank && largestPillVolume >= 0)
+                {
+                    ApplyPill(PillTank);
+                    return;
+                }
+                largestPillVolume = -1;
                 ChangeTotalVolume(newTotalVolume);
             }
         }

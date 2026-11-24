@@ -19,6 +19,15 @@ namespace RealFuels
         // Move all possible tank upgrades into the preview list in OnStart
         // It requires an external mod to be responsible for calling the Validate() method.
         public static bool previewAllLockedTypes = false;
+        // "Pill tank fit" at the start of a game session: Off, Selected (the part whose PAW is open) or All
+        public static Tanks.PillTankView pillTankPreview = Tanks.PillTankView.Off;
+        // Parts whose tank is the largest pill that fits in them: ProceduralParts shapes (module names; a hollow shell
+        // - a shape with shellMode on - never), and parts with one of these modules.
+        private static readonly string[] pillTankShapesDefault =
+            { "ProceduralShapeCone", "ProceduralShapeBezierCone", "ProceduralShapePolygon", "ProceduralShapeSpine" };
+        private static readonly string[] pillTankModulesDefault = { "WingProcedural" };
+        public static readonly HashSet<string> pillTankShapes = new HashSet<string>(pillTankShapesDefault);
+        public static readonly HashSet<string> pillTankModules = new HashSet<string>(pillTankModulesDefault);
 
         public static readonly HashSet<string> ignoreFuelsForFill = new HashSet<string>();
         public static readonly Dictionary<string, Tanks.TankDefinition> tankDefinitions = new Dictionary<string, Tanks.TankDefinition>();
@@ -29,6 +38,15 @@ namespace RealFuels
         private static readonly Dictionary<string, ConfigNode[]> overrides = new Dictionary<string, ConfigNode[]>();
 
         static string version;
+        // A comma-separated list, when given, replaces the set; else it's the defaults (again, on a database reload).
+        private static void ReadSet(ConfigNode node, string key, HashSet<string> set, string[] defaults)
+        {
+            set.Clear();
+            string s = node?.GetValue(key);
+            if (s == null) { set.UnionWith(defaults); return; }
+            foreach (string n in s.Split(new[] { ',', ' ', ';' }, System.StringSplitOptions.RemoveEmptyEntries)) set.Add(n);
+        }
+
         public static string GetVersion ()
         {
             if (version != null) {
@@ -97,12 +115,21 @@ namespace RealFuels
                 node.TryGetValue("basemassUseTotalVolume", ref basemassUseTotalVolume);
                 node.TryGetValue("radiatorMinTempMult", ref radiatorMinTempMult);
                 node.TryGetValue("previewAllLockedTypes", ref previewAllLockedTypes);
+                string view = null;
+                if (node.TryGetValue("pillTankPreview", ref view))
+                {
+                    // also True / False (Selected / Off)
+                    if (bool.TryParse(view, out bool on)) pillTankPreview = on ? Tanks.PillTankView.Selected : Tanks.PillTankView.Off;
+                    else if (System.Enum.TryParse(view, true, out Tanks.PillTankView v)) pillTankPreview = v;
+                }
 
                 ignoreFuelsForFill.Clear();
                 if (node.GetNode("IgnoreFuelsForFill") is ConfigNode ignoreNode)
                     foreach (ConfigNode.Value v in ignoreNode.values)
                         ignoreFuelsForFill.Add(v.name);
             }
+            ReadSet(node, "pillTankShapes", pillTankShapes, pillTankShapesDefault);
+            ReadSet(node, "pillTankModules", pillTankModules, pillTankModulesDefault);
 
             tankDefinitions.Clear();
             foreach (ConfigNode defNode in GameDatabase.Instance.GetConfigNodes("TANK_DEFINITION")) {

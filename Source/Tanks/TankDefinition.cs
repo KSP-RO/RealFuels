@@ -23,6 +23,11 @@ namespace RealFuels.Tanks
         [Persistent]
         public bool highlyPressurized = false;
 
+        // On a pill tank's part (ModuleFuelTanksPill), the tank is the largest pill inside it. False for a type whose tank
+        // is the part's own structure (a wet wing): its volume stays the part's.
+        [Persistent]
+        public bool pillTank = true;
+
         [Persistent]
         public int numberOfMLILayers = 0;
 
