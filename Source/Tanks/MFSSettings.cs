@@ -29,6 +29,9 @@ namespace RealFuels
         // The steepest a pill may taper (its cone's half-angle, degrees): a conical part's tank narrows with it. 0: a
         // plain pill, one radius end to end.
         public static double pillTankMaxTaper = 15;
+        // A pill's end domes: their height over the radius. 1: hemispheres (highly pressurized types); less, flatter
+        // (ellipsoidal) domes. A tank type can set its own (TankDefinition.pillTankDome).
+        public static double pillTankDome = 0.70710678, pillTankDomeHP = 1;
         private static readonly string[] pillTankModulesDefault = { "WingProcedural" };
         public static readonly HashSet<string> pillTankShapes = new HashSet<string>(pillTankShapesDefault);
         public static readonly HashSet<string> pillTankModules = new HashSet<string>(pillTankModulesDefault);
@@ -127,6 +130,8 @@ namespace RealFuels
                     else if (System.Enum.TryParse(view, true, out Tanks.PillTankView v)) pillTankPreview = v;
                 }
                 node.TryGetValue("pillTankMaxTaper", ref pillTankMaxTaper);
+                node.TryGetValue("pillTankDome", ref pillTankDome);
+                node.TryGetValue("pillTankDomeHP", ref pillTankDomeHP);
 
                 ignoreFuelsForFill.Clear();
                 if (node.GetNode("IgnoreFuelsForFill") is ConfigNode ignoreNode)

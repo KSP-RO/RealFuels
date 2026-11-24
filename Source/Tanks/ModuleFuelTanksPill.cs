@@ -97,6 +97,9 @@ namespace RealFuels.Tanks
         private static bool TypeTakesPill(string type) =>
             type == null || !MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def) || def.pillTank;
 
+        // The pill's end domes' height over its radius, by the tank type (TankDefinition.PillDome).
+        internal double PillDome => type != null && MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def) ? def.PillDome : 1;
+
         // "Pill tank fit" is one setting for every tank, this session.
         private static PillTankView? _view;
         public static PillTankView PillTankView
@@ -203,9 +206,11 @@ namespace RealFuels.Tanks
                 _pill = new PillPreview(part, pillSkin, saved: largestPillVolume >= 0 && pillStack == _others.Count + 1);
                 _pill.Changed += OnPillSolved;
             }
-            if (_pill != null) _pill.Others = _others;
+            double dome = PillDome;
+            if (_pill != null) { _pill.Others = _others; _pill.Dome = dome; }
             // (the stack's make-up in the signature's extra: a tank joining or leaving is seen at once)
-            int extra = _pillEvents;
+            // (the domes too: a new tank type's may differ)
+            int extra = unchecked(_pillEvents * 31 + dome.GetHashCode());
             foreach (Part p in _others) extra = unchecked(extra * 31 + (int)p.persistentId);
             _pill?.Tick(solve, draw, pillTank && stackOpen, extra);
             if (pillTank && _pill != null && _pill.Pending) PillLaunchLock.PendingFrame = Time.frameCount;

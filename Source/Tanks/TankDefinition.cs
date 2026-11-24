@@ -28,6 +28,13 @@ namespace RealFuels.Tanks
         [Persistent]
         public bool pillTank = true;
 
+        // The pill's end domes' height over its radius (1: hemispheres). Unset (0): MFSSettings.pillTankDomeHP for a
+        // highly pressurized type, else MFSSettings.pillTankDome.
+        [Persistent]
+        public double pillTankDome = 0;
+
+        public double PillDome => System.Math.Max(0.1, System.Math.Min(1, pillTankDome > 0 ? pillTankDome : highlyPressurized ? MFSSettings.pillTankDomeHP : MFSSettings.pillTankDome));
+
         [Persistent]
         public int numberOfMLILayers = 0;
 

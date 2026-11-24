@@ -43,6 +43,19 @@ namespace RealFuels.Tanks.PillTank
         public PillFit Last { get; private set; }
         // Other parts whose skins join this one's (a stack of tanks sharing one pill), in a fixed order; empty: none.
         public IList<Part> Others { set => _skin.Others = value; }
+        // The pill's end domes' height over its radius (Solver.Dome; the tank type's). Set before Tick; a change is the
+        // caller's to fold into `extra`.
+        public double Dome
+        {
+            get => _dome;
+            set
+            {
+                if (value == _dome) return;
+                if (_any) _saved = false;     // a saved fit was for the old domes: the new one is pending
+                _dome = value;
+            }
+        }
+        private double _dome = 1;
         public bool Drawn => _go != null && _go.activeSelf;
         public bool Pending => _solved != _want && !_saved;
         public event Action Changed;               // a new result landed
@@ -128,7 +141,7 @@ namespace RealFuels.Tanks.PillTank
             double read = sw.Elapsed.TotalSeconds;
             _running = _want;
             // (the pieces' union on the worker too: it tests faces against other pieces)
-            var solver = new Solver(null) { Polish = false, MaxTaper = MaxTaper };
+            var solver = new Solver(null) { Polish = false, MaxTaper = MaxTaper, Dome = Dome };
             _solver = solver;
             _task = Task.Run(() =>
             {
@@ -188,6 +201,7 @@ namespace RealFuels.Tanks.PillTank
             r.B = new Vector3((float)c.B.x, (float)c.B.y, (float)c.B.z);
             r.R = (float)c.R;
             r.R2 = (float)c.R2;
+            r.E = (float)c.E;
             r.Volume = (float)c.Volume;
             V3 m = c.Centroid;
             r.Centroid = new Vector3((float)m.x, (float)m.y, (float)m.z);
@@ -227,7 +241,7 @@ namespace RealFuels.Tanks.PillTank
                 _renderer.receiveShadows = false;
             }
             Follow();
-            BuildCapsule(_mesh, r.A, r.B, r.R, r.R2, Tint);
+            BuildCapsule(_mesh, r.A, r.B, r.R, r.R2, r.E, Tint);
         }
 
         // The part's frame without scale (the one the solve ran in).
@@ -237,16 +251,18 @@ namespace RealFuels.Tanks.PillTank
             _go.transform.SetPositionAndRotation(pt.position, pt.rotation);
         }
 
-        // Capsule mesh (ra at a, rb at b: a tapered one's sides a cone touching both spheres) with simple baked shading
-        // (vertex colours; the shader multiplies them by _Color).
-        private static void BuildCapsule(Mesh mesh, Vector3 a, Vector3 b, float ra, float rb, Color col)
+        // Capsule mesh (ra at a, rb at b: a tapered one's sides a cone touching both spheres; domes e as high as round)
+        // with simple baked shading (vertex colours; the shader multiplies them by _Color). Flatter domes: the round pill
+        // len / e long, squashed along its axis by e.
+        private static void BuildCapsule(Mesh mesh, Vector3 a, Vector3 b, float ra, float rb, float e, Color col)
         {
             const int seg = 40, half = 10;       // around; rows per end (plus the tangent circle)
             Vector3 u = b - a;
             float len = u.magnitude;
             u = len > 1e-6f ? u / len : Vector3.up;
-            // the sides' latitude on both spheres (0 for a plain pill): sin = (ra - rb) / len
-            float alpha = Mathf.Asin(Mathf.Clamp(len > 1e-6f ? (ra - rb) / len : 0f, -0.99f, 0.99f));
+            e = Mathf.Clamp(e, 0.05f, 1f);
+            // the sides' latitude on both spheres (0 for a plain pill): sin = (ra - rb) / len (the round pill's)
+            float alpha = Mathf.Asin(Mathf.Clamp(len > 1e-6f ? (ra - rb) * e / len : 0f, -0.99f, 0.99f));
             Vector3 e1 = Vector3.Cross(u, Mathf.Abs(u.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
             Vector3 e2 = Vector3.Cross(u, e1);
             Vector3 light = new Vector3(0.35f, 0.55f, -0.75f).normalized;
@@ -262,9 +278,10 @@ namespace RealFuels.Tanks.PillTank
                 for (int j = 0; j <= seg; j++)
                 {
                     float th = 2f * Mathf.PI * j / seg;
-                    Vector3 n = Mathf.Sin(phi) * u + Mathf.Cos(phi) * (Mathf.Cos(th) * e1 + Mathf.Sin(th) * e2);
+                    Vector3 rad = Mathf.Cos(th) * e1 + Mathf.Sin(th) * e2;
                     int k = i * (seg + 1) + j;
-                    verts[k] = c + r * n;
+                    verts[k] = c + r * (e * Mathf.Sin(phi) * u + Mathf.Cos(phi) * rad);
+                    Vector3 n = (Mathf.Sin(phi) / e * u + Mathf.Cos(phi) * rad).normalized;     // (squashed: the normal less so)
                     float shade = 0.5f + 0.5f * Mathf.Max(0f, Vector3.Dot(n, light)) + 0.15f * Mathf.Pow(1f - Mathf.Abs(Vector3.Dot(n, u)), 4f);
                     cols[k] = new Color(col.r * shade, col.g * shade, col.b * shade, 1f);
                 }
@@ -312,6 +329,7 @@ namespace RealFuels.Tanks.PillTank
     {
         public Vector3 A, B;                  // axis ends
         public float R, R2;                   // m: the radius at A, at B (a tapered pill: between them linearly)
+        public float E = 1;                   // the end domes' height over the radius (1: hemispheres)
         public float Volume;                  // m^3
         public Vector3 Centroid;              // the pill's volume's
         public float PartVolume;              // m^3 enclosed by the skin it was fitted in
