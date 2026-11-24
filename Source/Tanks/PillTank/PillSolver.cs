@@ -219,6 +219,25 @@ namespace RealFuels.Tanks.PillTank
                 s += V3.Dot(v[t[i]], V3.Cross(v[t[i + 1]], v[t[i + 2]]));
             return Math.Abs(s / 6.0);
         }
+
+        // The enclosed volume's centroid (as Volume: the union's outer surface when there is one): each face's tetrahedron
+        // to the origin, by its signed volume.
+        public V3 Centroid()
+        {
+            V3[] v = SurfV; int[] t = SurfT;
+            double s = 0;
+            V3 c = default(V3);
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                V3 a = v[t[i]], b = v[t[i + 1]], d = v[t[i + 2]];
+                double w = V3.Dot(a, V3.Cross(b, d));
+                s += w;
+                c = c + (a + b + d) * w;
+            }
+            if (Math.Abs(s) > 1e-12) return c * (1 / (4 * s));
+            Bounds(out V3 lo, out V3 hi);
+            return (lo + hi) * 0.5;
+        }
     }
 
     internal static class Par
@@ -677,6 +696,10 @@ namespace RealFuels.Tanks.PillTank
                 tr.Checked = ExactFit(tr.Voxel.A, tr.Voxel.B, fine, stack, MaxTaper, Reach(r0), joint: tr.Voxel.J);
                 if (Dome < 1 && placed.Count == 0 && DomeSearch(tr.Voxel, stack) is Capsule dc && dc.Volume > tr.Checked.Volume)
                     tr.Checked = dc;
+                // the part's own axis, taken unless it holds clearly less (within 0.5%): the same axis at every size, so a
+                // part made a little longer doesn't come out with a little less
+                if (placed.Count == 0 && CenterLine(tr.Voxel, stack) is Capsule cl && cl.Volume >= 0.995 * tr.Checked.Volume)
+                    tr.Checked = cl;
                 tr.T.FinalOnly = sw.Elapsed.TotalSeconds;
 
                 if (Polish)
@@ -743,6 +766,41 @@ namespace RealFuels.Tanks.PillTank
                 double rv = v.MaxR;
                 Capsule c = ExactFit(back(v.A), back(v.B), Math.Min(0.002, rv / 100), stack, MaxTaper, Reach(rv), u, v.J);
                 if (c.MinR > 0 && (best == null || c.Volume > best.Volume)) best = c;
+            }
+            return best;
+        }
+
+        // The pill on the part's own axis: each hint's direction (a stack part's long axis) through the volume's centroid,
+        // where a solid of revolution's axis is (a prism's, a straight stack's), and where its best pill lies. The voxel
+        // search's axis falls a few mm off it, or a little askew: a different few at each size (the grid's cells land
+        // differently on the part), more than a slightly longer part adds. Its ends: the voxel pill's, onto this line
+        // (else as far as the line stays inside, less the radius). null: none (no hint, no exact volume, the centroid
+        // outside the part, or nothing fits).
+        Capsule CenterLine(Capsule round, int[] stack)
+        {
+            if (!mesh.ExactVolume || mesh.Hints.Count == 0) return null;
+            V3 c = mesh.Centroid();
+            if (!(grid.Sample(c) > 0)) return null;
+            double r0 = round.MaxR, L = round.Length, fine = Math.Min(0.002, r0 / 100);
+            V3 ru = L > 0 ? (round.B - round.A) * (1 / L) : default(V3);
+            Capsule best = null;
+            foreach (V3 hnt in mesh.Hints)
+            {
+                Check();
+                V3 u = hnt.Norm, A, B;
+                if (L > 0 && Math.Abs(V3.Dot(ru, u)) > 0.9)
+                {
+                    A = c + u * V3.Dot(round.A - c, u);
+                    B = c + u * V3.Dot(round.B - c, u);
+                }
+                else
+                {
+                    A = c - u * Math.Max(0, Exit(c, -u) - r0 * Dome);
+                    B = c + u * Math.Max(0, Exit(c, u) - r0 * Dome);
+                }
+                V3 dir = (B - A).Len > 0 ? (B - A).Norm : u;
+                Capsule cap = ExactFit(A, B, fine, stack, MaxTaper, Reach(r0), dir, round.J);
+                if (cap.MinR > 0 && (best == null || cap.Volume > best.Volume)) best = cap;
             }
             return best;
         }
@@ -1249,6 +1307,24 @@ namespace RealFuels.Tanks.PillTank
                 Refine();
             }
             if (fine.Fit(k1b, k2b, jb, false, lip, Margin, e) < 0) return new Capsule { A = A, B = B, R = -1, R2 = -1, E = e };
+            // the ends to the point, about the best of those tried (else the pill's length moves in steps of their spacing,
+            // a part made a little longer maybe coming out a step short)
+            int span = Math.Min(200, fine.EndSpacing);
+            fine.FitEnds(k1b, k2b, jb, span, lip, Margin, e);
+            // the slopes again about those, the ends to the point at each (with the ends in steps, the volume steps in the
+            // slope too, and the search above can stop on a step); a plain pill stays one
+            if (maxTaper > 0 && !(k1b == 0 && k2b == 0))
+            {
+                Func<double, double, double> Full = (k1, k2) => fine.Fit(k1, k2, jb, false, lip, Margin, e) < 0 ? -1 : fine.FitEnds(k1, k2, jb, span, lip, Margin, e);
+                double dk = maxTaper / 16;
+                if (k1b == k2b) k1b = k2b = Best(k => Full(k, k), k1b, out _, 4, 20, Math.Max(-maxTaper, k1b - dk), Math.Min(maxTaper, k1b + dk));
+                else
+                {
+                    k1b = Best(k => Full(k, k2b), k1b, out _, 4, 20, Math.Max(k2b, k1b - dk), Math.Min(maxTaper, k1b + dk));
+                    k2b = Best(k => Full(k1b, k), k2b, out _, 4, 20, Math.Max(-maxTaper, k2b - dk), Math.Min(k1b, k2b + dk));
+                }
+                Full(k1b, k2b);
+            }
             int bs = fine.BestStart, be = fine.BestEnd;
             double br = fine.BestR;
             double sA = s0 + h * bs, sB = s0 + h * be, sJb = s0 + h * jb;
@@ -1390,6 +1466,58 @@ namespace RealFuels.Tanks.PillTank
             // The most volume (-1: none) with slope k1 up to the joint (point iJ) and k2 on from it (k1 = k2: one
             // taper, the joint anywhere); its ends and r at the joint in BestStart / BestEnd / BestR. r(s) <= d_i less
             // the slope's part from the joint at each point. coarse: every other end tried.
+            // The widest gap between ends tried.
+            public int EndSpacing
+            {
+                get
+                {
+                    int w = 1;
+                    for (int i = 1; i < starts.Count; i++) w = Math.Max(w, starts[i - 1] - starts[i]);
+                    for (int i = 1; i < ends.Count; i++) w = Math.Max(w, ends[i] - ends[i - 1]);
+                    return w;
+                }
+            }
+
+            // Fit's best ends (from a Fit with these slopes and joint) tried again at every point within span of them: the
+            // most volume, its ends and r at the joint in BestStart / BestEnd / BestR.
+            public double FitEnds(double k1, double k2, int iJ, int span, double lip, double margin, double e)
+            {
+                int m = d.Length, lo = Lo, hi = Hi;
+                double h = H, sJ = s0 + h * iJ;
+                Func<int, double> G = i => { double s = s0 + h * i - sJ; return d[i] - (s < 0 ? k1 : k2) * s; };
+                double core = double.PositiveInfinity;
+                for (int i = lo; i <= hi; i++) core = Math.Min(core, G(i));
+                int a0 = Math.Max(0, BestStart - span), a1 = Math.Min(Math.Min(lo, iJ), BestStart + span);
+                int b0 = Math.Max(Math.Max(hi, iJ), BestEnd - span), b1 = Math.Min(m - 1, BestEnd + span);
+                // the least room from each start up to lo, and from hi on to each end
+                var lmin = new double[Math.Max(0, a1 - a0 + 1)];
+                double run = double.PositiveInfinity;
+                for (int i = lo - 1; i >= a0; i--) { run = Math.Min(run, G(i)); if (i <= a1) lmin[i - a0] = run; }
+                if (a1 == lo && lmin.Length > 0) lmin[a1 - a0] = double.PositiveInfinity;
+                var rmin = new double[Math.Max(0, b1 - b0 + 1)];
+                run = double.PositiveInfinity;
+                for (int i = hi + 1; i <= b1; i++) { run = Math.Min(run, G(i)); if (i >= b0) rmin[i - b0] = run; }
+                if (b0 == hi && rmin.Length > 0) rmin[0] = double.PositiveInfinity;
+                bool one = k1 == k2;
+                double lips = (lip + Math.Max(Math.Abs(k1), Math.Abs(k2))) * 0.5 * h + margin, best = -1;
+                int bs = BestStart, be = BestEnd;
+                double br = BestR;
+                for (int a = a0; a <= a1; a++)
+                {
+                    double sa = s0 + h * a - sJ, ma = Math.Min(core, lmin[a - a0]);
+                    for (int b = b0; b <= b1; b++)
+                    {
+                        double sb = s0 + h * b - sJ, r = Math.Min(ma, rmin[b - b0]) - lips;
+                        double r1 = r + (sa < 0 ? k1 : k2) * sa, r2 = r + (sb < 0 ? k1 : k2) * sb;
+                        if (!(r1 > 0 && r2 > 0 && r > 0)) continue;
+                        double v = !one && sa < 0 && sb > 0 ? Capsule.Vol(r1, r, r2, -sa, sb, e) : Capsule.Vol(r1, r2, sb - sa, e);
+                        if (v > best) { best = v; bs = a; be = b; br = r; }
+                    }
+                }
+                if (best > 0) { BestStart = bs; BestEnd = be; BestR = br; }
+                return best;
+            }
+
             public double Fit(double k1, double k2, int iJ, bool coarse, double lip, double margin, double e)
             {
                 int m = d.Length, lo = Lo, hi = Hi;
