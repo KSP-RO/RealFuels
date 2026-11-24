@@ -169,6 +169,7 @@ namespace RealFuels.Tanks
             if (group != null && group.Owner != this)
             {
                 DisposePill();
+                _others.Clear();
                 pillShared = true;
                 largestPillVolume = -1;
                 RestoreCoM();
@@ -238,6 +239,21 @@ namespace RealFuels.Tanks
         private int _infoStack;
         private string _infoShared;
         private readonly System.Collections.Generic.List<Part> _others = new System.Collections.Generic.List<Part>();
+
+        // A stack's owner switched from tank type `from`: its other tanks (theirs hidden) switch with it, the stack held
+        // together (of another type, they'd leave it). One that can't take the type stays and leaves.
+        internal void ShareTankType(string from)
+        {
+            if (_others.Count == 0 || type == null || type == from) return;
+            bool any = false;
+            foreach (Part p in _others)
+                if (p != null && p.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks t && t.type == from && t.typesAvailable.Exists(d => d.name == type))
+                {
+                    t.type = type;
+                    any = true;
+                }
+            if (any) PillGroup.Forget();    // (grouped this frame by the old types)
+        }
 
         // Opens the PAW of the tank holding this one's stack's pill (in the editor: selects it), the next frame (not from
         // inside this PAW's own button, which the switch closes).

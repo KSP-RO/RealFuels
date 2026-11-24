@@ -21,6 +21,9 @@ namespace RealFuels.Tanks
         private static PropertyInfo _currentShape;
         private static readonly Dictionary<Type, PropertyInfo> _volume = new Dictionary<Type, PropertyInfo>();
 
+        // The frame's groups dropped: worked out again on the next call (a tank's type changed).
+        public static void Forget() => _frame = -1;
+
         // A pill tank's group (just it, when it joins none).
         public static PillGroup Of(ModuleFuelTanks m)
         {

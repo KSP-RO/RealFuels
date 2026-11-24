@@ -333,7 +333,9 @@ namespace RealFuels.Tanks
         private void OnTypeDispChanged(BaseField f, object obj)
         {
             TankDefinition def = typesAvailable.First(t => t.Title == typeDisp);
+            string from = type;
             type = def.name;
+            ShareTankType(from);
         }
 
         private void OnEditorShipModified(ShipConstruct _) => PartResourcesChanged();
@@ -593,6 +595,7 @@ namespace RealFuels.Tanks
             }
             EditorPartSetMaintainer.Instance?.ScheduleUsedBySetsUpdate();
 
+            if (oldTypeForEvent != null) ShareTankType(oldTypeForEvent);   // (set some other way than the PAW's)
             UpdateTankTypeRF(def);
             UpdateTestFlight();
             RaiseTankDefinitionChanged(oldTypeForEvent, def);
