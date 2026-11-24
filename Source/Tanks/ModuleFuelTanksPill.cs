@@ -162,7 +162,7 @@ namespace RealFuels.Tanks
             pillTankView = view.ToString();
             bool pillTank = PillSizesTank;
             bool parts = EditorLogic.fetch != null && EditorLogic.fetch.editorScreen == EditorScreen.Parts;
-            bool open = part.PartActionWindow != null && parts;
+            bool open = PawOpen(part) && parts;
             PillGroup group = pillTank ? PillGroup.Of(this) : null;
 
             // stacked with a bigger tank of its type: the stack's pill is that one's, this one holds nothing
@@ -174,10 +174,12 @@ namespace RealFuels.Tanks
                 RestoreCoM();
                 SetTotalVolume(MinNoPillVolume);
                 PillLines(true);
-                if (open && pillTankInfo != (_infoShared = Localizer.Format("#RF_FuelTank_PillShared", group.Owner.part.partInfo.title)))
-                    pillTankInfo = _infoShared; // in <<1>>'s pill
+                MemberSection(true);
+                if (open && pillTankInfo != (_infoShared = Localizer.Format("#RF_FuelTank_PillShared", group.Tanks.Count)))
+                    pillTankInfo = _infoShared; // Part of a group of <<1>> tanks
                 return;
             }
+            MemberSection(false);
             // out of a stack, or its owner now: a fit of its own (no longer a pill tank: the part's volume back)
             if (pillShared)
             {
@@ -189,7 +191,7 @@ namespace RealFuels.Tanks
             _others.Clear();
             if (owner) foreach (ModuleFuelTanks t in group.Tanks) if (t != this) _others.Add(t.part);
             // one of the stack's PAWs open: the pill shown, its skin watched closely
-            bool stackOpen = open || owner && parts && group.Tanks.Exists(t => t.part.PartActionWindow != null);
+            bool stackOpen = open || owner && parts && group.Tanks.Exists(t => PawOpen(t.part));
             bool draw = pillTank && parts && (view == PillTankView.All || view == PillTankView.Selected && stackOpen);
             // a tank that was a pill tank keeps solving until it has the part's volume back (RestorePartVolume)
             bool solve = pillTank || trackPillTank || largestPillVolume >= 0;
@@ -216,7 +218,7 @@ namespace RealFuels.Tanks
 
             // the PAW's pill lines: on pill tanks
             PillLines(pillTank);
-            if (_pillLine && part.PartActionWindow != null)
+            if (_pillLine && PawOpen(part))
             {
                 PillFit last = _pill?.Last;
                 bool pending = _pill == null || _pill.Pending;
@@ -236,6 +238,70 @@ namespace RealFuels.Tanks
         private int _infoStack;
         private string _infoShared;
         private readonly System.Collections.Generic.List<Part> _others = new System.Collections.Generic.List<Part>();
+
+        // Opens the PAW of the tank holding this one's stack's pill (in the editor: selects it), the next frame (not from
+        // inside this PAW's own button, which the switch closes).
+        [KSPEvent(guiActiveEditor = false, guiName = "#RF_FuelTank_PillSelectMain", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // Select main tank
+        public void SelectPillOwner()
+        {
+            if (PillTankStack?.Owner is ModuleFuelTanks o && o != this) StartCoroutine(Select(o.part));
+        }
+
+        private static System.Collections.IEnumerator Select(Part p)
+        {
+            yield return null;
+            if (p == null || UIPartActionController.Instance == null) yield break;
+            UIPartActionController.Instance.SpawnPartActionWindow(p);
+        }
+
+        // A part's PAW is showing (a closed one is kept, hidden, for the next time: its part still points to it).
+        private static bool PawOpen(Part p) => p.PartActionWindow != null && p.PartActionWindow.gameObject.activeInHierarchy;
+
+        // A stack's tank whose volume went to another (member): its Real Fuels PAW section is only the group line and
+        // the button to the main tank. Everything else in it is hidden while it is one (each item's own showing kept, an
+        // item shown again meanwhile counted as shown), and back as kept once it isn't; the tank window closed.
+        private readonly System.Collections.Generic.Dictionary<object, bool> _memberHidden = new System.Collections.Generic.Dictionary<object, bool>();
+        private bool _memberSection;
+
+        private void MemberSection(bool member)
+        {
+            if (!member && !_memberSection) return;
+            bool changed = member != _memberSection;
+            _memberSection = member;
+            BaseEvent select = Events[nameof(SelectPillOwner)];
+            if (member)
+            {
+                foreach (BaseField f in Fields)
+                    if (f.group?.name == guiGroupName && f.name != nameof(pillTankInfo)) changed |= Hide(f, f.guiActiveEditor, () => f.guiActiveEditor = false);
+                foreach (BaseEvent e in Events)
+                    if (e.group?.name == guiGroupName && e != select) changed |= Hide(e, e.guiActiveEditor, () => e.guiActiveEditor = false);
+                select.guiActiveEditor = true;
+                if (showUI)
+                {
+                    showUI = false;
+                    RealFuelsWindow.HideGUIForModule(this);
+                }
+            }
+            else
+            {
+                foreach (BaseField f in Fields)
+                    if (_memberHidden.TryGetValue(f, out bool shown)) f.guiActiveEditor = shown;
+                foreach (BaseEvent e in Events)
+                    if (_memberHidden.TryGetValue(e, out bool shown)) e.guiActiveEditor = shown;
+                _memberHidden.Clear();
+                select.guiActiveEditor = false;
+            }
+            if (changed) MonoUtilities.RefreshPartContextWindow(part);
+        }
+
+        // Hides a PAW item, keeping whether it was meant to show; true when it was showing.
+        private bool Hide(object item, bool showing, Action hide)
+        {
+            if (showing || !_memberHidden.ContainsKey(item)) _memberHidden[item] = showing;
+            if (!showing) return false;
+            hide();
+            return true;
+        }
 
         private void PillLines(bool on)
         {
