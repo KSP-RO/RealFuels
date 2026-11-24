@@ -707,10 +707,14 @@ namespace RealFuels.Tanks.PillTank
         // finds a ball, any way round). The best of those, fitted exactly on the part itself; null if none fits.
         Capsule DomeSearch(Capsule round, int[] stack)
         {
-            var dirs = new List<V3> { (round.B - round.A).Norm };     // (a ball's too: VoxelSearch keeps its line's)
+            var dirs = new List<V3>();
+            V3 ra = (round.B - round.A).Norm;
+            bool ball = round.Length < 0.05 * round.MaxR;
+            if (ball) dirs.Add(ra);
             foreach (V3 hnt in mesh.Hints)
             {
                 V3 h = hnt.Norm;
+                if (!ball && Math.Abs(V3.Dot(ra, h)) > 0.995) continue;
                 if (!dirs.Exists(d => Math.Abs(V3.Dot(d, h)) > 0.995)) dirs.Add(h);
             }
             Capsule best = null;
@@ -1119,9 +1123,16 @@ namespace RealFuels.Tanks.PillTank
         // r(k) = min(d_i - k s_i) - (1 / Dome + |k|) h/2 (d - k s is that Lipschitz along the axis, the points h apart)
         // and the k with the most volume. reach: how far either end may move, in or out, for more volume (each end on
         // the points within that of it; 0: A and B as they are). dir: the axis's direction (else B - A's, which a
-        // pill of no length lacks). Two tapers allowed (Kink): a slope each side of a joint anywhere along the axis
-        // (joint: a place to try first, the fraction of AB), the ends free to run on out to where the axis leaves the
-        // part (a nose past where one taper stops); kept if it adds more than 1%. R <= 0: nothing fits.
+        // pill of no length lacks). Two tapers allowed (Kink): a slope each side of a joint anywhere along the axis,
+        // the second no steeper outward than the first (the pill convex: a nose, never a waist; joint: a place to try
+        // first, the fraction of AB), the ends free to run on out to where the axis leaves the part (a nose past where
+        // one taper stops); kept if it adds more than 1%. R <= 0: nothing fits.
+        //
+        // The room in two passes (the queries are most of the time): every F-th point first (F h some 5% of the
+        // radius), the points between given the least the Lipschitz bound allows from those either side, and the pills
+        // fitted to that; then the points that might be the tightest for those pills (within the bound's slack of it)
+        // queried too, and the pills fitted again. A point not queried keeps its bound (no more than its room): the fit
+        // stays sure. (A cylinder's wall is about as tight everywhere: most of it gets queried.)
         Capsule ExactFit(V3 A, V3 B, double step, int[] stack, double maxTaper, double reach = 0, V3? dir = null, double joint = -1)
         {
             double L = (B - A).Len, e = Dome, lip = 1 / e;
@@ -1134,22 +1145,6 @@ namespace RealFuels.Tanks.PillTank
             double h = Lt / (m - 1);
             // the points [lo, hi] are always in the pill; its start is one of the points up to lo, its end one from hi
             int lo = Math.Min(m - 1, (int)Math.Round((outA + wIn) / h)), hi = Math.Max(lo, Math.Min(m - 1, (int)Math.Round((outA + L - wIn) / h)));
-            var d = new double[m];
-            TriBvh.Stretched sq = e < 1 ? bvh.Stretch(u, lip) : null;
-            // a point whose room is past `bound` can't be the tightest for any slopes allowed (some point before it, and
-            // in the pill whenever it is, is tighter for all of them): its query stops there (and the room taken as
-            // `bound`, which changes nothing). (The start's points: each queried in full.)
-            double lead = double.PositiveInfinity;      // min over the points from lo so far of d_j - maxTaper s_j
-            for (int i = 0; i < m; i++)
-            {
-                if ((i & 255) == 255) Check();     // a long axis at a fine step: many queries
-                double s = s0 + h * i;
-                V3 p = A + u * s;
-                double ob = i > lo ? lead + maxTaper * s : double.PositiveInfinity;
-                foreach (var o in placed) ob = Math.Min(ob, Clear(p, o));      // (a plain distance: no more than the room)
-                d[i] = ob > 0 ? Math.Sqrt(bvh.Query(p, ob * ob, stack, sq)) : ob;
-                if (i >= lo) lead = Math.Min(lead, d[i] - maxTaper * s);
-            }
 
             // the ends tried: every few points (some 33 each) out to `reach` past A and B, then (two tapers) some 16 more
             // on to the outermost
@@ -1162,49 +1157,128 @@ namespace RealFuels.Tanks.PillTank
             for (int i = hi, st = Math.Max(1, (nearB - hi) / 32); i <= nearB; i += st) ends.Add(i);
             for (int i = ends[ends.Count - 1] + 1, st = Math.Max(1, (m - 1 - nearB) / 16); i < m; i += st) ends.Add(i);
             if (ends[ends.Count - 1] != m - 1) ends.Add(m - 1);
+
+            var d = new double[m];
+            var queried = new bool[m];
+            TriBvh.Stretched sq = e < 1 ? bvh.Stretch(u, lip) : null;
+            // a point's room, queried no further than `ob`: the room taken as that. ob: what's known to be no less than its
+            // room (cap), or (useLead: the points queried in order) past which it can't be the tightest for any slopes
+            // allowed, some point before it in the pill tighter for all of them (d_j - maxTaper s_j, the least of those
+            // from lo on, plus maxTaper s_i)
+            double lead = double.PositiveInfinity;
+            void Query(int i, double cap, bool useLead)
+            {
+                if ((i & 255) == 255) Check();
+                double s = s0 + h * i;
+                V3 p = A + u * s;
+                double ob = Math.Min(cap, useLead && i > lo ? lead + maxTaper * s : double.PositiveInfinity);
+                foreach (var o in placed) ob = Math.Min(ob, Clear(p, o));      // (a plain distance: no more than the room)
+                d[i] = ob > 0 ? Math.Sqrt(bvh.Query(p, ob * ob, stack, sq)) : ob;
+                queried[i] = true;
+            }
+
+            // pass 1: every F-th point (and the last)
+            int F = reach > 0 ? Math.Max(1, Math.Min(16, (int)(0.1 * reach / h))) : 1;     // (reach: half the radius)
+            var firsts = new List<int>();
+            for (int i = 0; i < m; i += F) firsts.Add(i);
+            if (firsts[firsts.Count - 1] != m - 1) firsts.Add(m - 1);
+            foreach (int i in firsts)
+            {
+                Query(i, double.PositiveInfinity, true);
+                if (i >= lo) lead = Math.Min(lead, d[i] - maxTaper * (s0 + h * i));
+            }
+
             var fine = new Axis(d, s0, h, lo, hi, starts, ends);
-            Func<double, double, int, double> Fit = (k1, k2, iJ) => fine.Fit(k1, k2, iJ, false, lip, Margin, e);
-            // the k (in [-maxTaper, maxTaper]) with the most volume F(k), and that volume: a sweep of n + 1 (and k0),
-            // then a golden-section search around the best
-            double Best(Func<double, double> F, double k0, out double vbest, int n, int its)
+            // the stretches between queried points that hold a point not queried within the slack (what its room may yet
+            // be over its bound) of the tightest for slopes k1, k2 (joint jF) from sF to eF; true if any
+            var mark = new bool[firsts.Count];
+            double slack = (lip + maxTaper) * F * h * 2;     // (a point's room at most lip F h over its bound; more: the pills the fit then moves to)
+            bool Mark(double k1, double k2, int jF, int sF, int eF)
             {
-                double kb1 = k0, vb1 = F(k0), dk = 2 * maxTaper / n;
-                for (int i = 0; i <= n; i++)
+                double sJ = s0 + h * jF, gmin = double.PositiveInfinity;
+                int i0 = Math.Max(0, sF - F), i1 = Math.Min(m - 1, eF + F);
+                for (int i = i0; i <= i1; i++) { double s = s0 + h * i - sJ; gmin = Math.Min(gmin, d[i] - (s < 0 ? k1 : k2) * s); }
+                bool any = false;
+                for (int i = i0; i <= i1; i++)
                 {
-                    double k = -maxTaper + dk * i, v = F(k);
-                    if (v > vb1) { vb1 = v; kb1 = k; }
+                    if (queried[i]) continue;
+                    double s = s0 + h * i - sJ;
+                    if (d[i] - (s < 0 ? k1 : k2) * s >= gmin + slack) continue;
+                    int q = Math.Max(0, Math.Min(firsts.Count - 2, i / F));
+                    any |= !mark[q];
+                    mark[q] = true;
                 }
-                double klo = Math.Max(-maxTaper, kb1 - dk), khi = Math.Min(maxTaper, kb1 + dk);
-                const double g = 0.6180339887498949;
-                double x1 = khi - g * (khi - klo), x2 = klo + g * (khi - klo), v1 = F(x1), v2 = F(x2);
-                for (int it = 0; it < its && khi - klo > 1e-6 * maxTaper; it++)
+                return any;
+            }
+            // the marked stretches queried (each point no further than the bound from the queried point either side:
+            // that much is sure)
+            void Refine()
+            {
+                for (int q = 0; q + 1 < firsts.Count; q++)
                 {
-                    if (v1 < v2) { klo = x1; x1 = x2; v1 = v2; x2 = klo + g * (khi - klo); v2 = F(x2); }
-                    else { khi = x2; x2 = x1; v2 = v1; x1 = khi - g * (khi - klo); v1 = F(x1); }
+                    if (!mark[q]) continue;
+                    int a = firsts[q], b = firsts[q + 1];
+                    for (int i = a + 1; i < b; i++)
+                        if (!queried[i]) Query(i, Math.Min(d[a] + lip * h * (i - a), d[b] + lip * h * (b - i)) + 1e-9, false);
                 }
-                if (v1 > vb1) { vb1 = v1; kb1 = x1; }
-                if (v2 > vb1) { vb1 = v2; kb1 = x2; }
-                vbest = vb1;
-                return kb1;
             }
-            // one taper (the joint inside the core: anywhere there is the same)
-            int jMid = (lo + hi) / 2;
-            double kb = 0, vb = Fit(0, 0, jMid);
-            if (maxTaper > 0)
+            if (F > 1)
             {
-                kb = Best(k => Fit(k, k, jMid), 0, out vb, 32, 40);
-                // a taper that hardly adds (a cylinder's, from an axis a little off centre): a plain pill
-                if (Fit(0, 0, jMid) >= 0.99 * vb) { kb = 0; vb = Fit(0, 0, jMid); }
+                // the points between: the least room the Lipschitz bound allows from the two queried either side
+                for (int q = 0; q + 1 < firsts.Count; q++)
+                {
+                    int a = firsts[q], b = firsts[q + 1];
+                    for (int i = a + 1; i < b; i++) d[i] = Math.Max(d[a] - lip * h * (i - a), d[b] - lip * h * (b - i));
+                }
+                // the pills fitted to that (on every F-th point, each the least of its F): what might bind them, queried
+                Search(fine.Coarse(F), out double k1p, out double k2p, out int jp, out double kOne, out int sOne, out int eOne, out int sTwo, out int eTwo);
+                Mark(kOne, kOne, (sOne + eOne) / 2 * F, sOne * F, eOne * F);
+                if (k1p != k2p) Mark(k1p, k2p, jp * F, sTwo * F, eTwo * F);
+                Refine();
             }
-            double k1b = kb, k2b = kb;
-            int jb = jMid;
-            // two: searched on the axis at a coarser step (each point the least room of the ones it stands for, every
-            // other end): at each of a few joints (and the one given), each slope in turn from the one taper's, then
-            // the joint moved about the best; then the slopes again on every point. Kept if it adds more than a little
-            // (else a cone would come out with a kink as noise).
-            if (kink)
+            // the pills on every point; again while a point not queried might bind them
+            double k1b, k2b;
+            int jb;
+            for (int pass = 0; ; pass++)
             {
-                Axis coarse = fine.Coarse(Math.Max(1, m / 1500));
+                Search(fine, out k1b, out k2b, out jb, out double kO, out int sO, out int eO, out int s2, out int e2);
+                if (F <= 1 || pass >= 3) break;
+                bool more = Mark(kO, kO, (sO + eO) / 2, sO, eO);
+                if (k1b != k2b) more |= Mark(k1b, k2b, jb, s2, e2);
+                if (!more) break;
+                Refine();
+            }
+            if (fine.Fit(k1b, k2b, jb, false, lip, Margin, e) < 0) return new Capsule { A = A, B = B, R = -1, R2 = -1, E = e };
+            int bs = fine.BestStart, be = fine.BestEnd;
+            double br = fine.BestR;
+            double sA = s0 + h * bs, sB = s0 + h * be, sJb = s0 + h * jb;
+            var cap = new Capsule { A = A + u * sA, B = A + u * sB, R = br + k1b * (sA - sJb), R2 = br + k2b * (sB - sJb), E = e };
+            if (k1b != k2b && sA < sJb && sJb < sB) { cap.J = (sJb - sA) / (sB - sA); cap.RJ = br; }
+            return cap;
+
+            // The slopes (k1 = k2: one taper) and joint with the most volume on axis ax; also the one taper's slope and
+            // ends, and the two's ends (ax's indices).
+            void Search(Axis ax, out double k1o, out double k2o, out int jo, out double ko, out int so, out int eo, out int s2, out int e2)
+            {
+                Func<double, double, int, double> Fit = (k1, k2, iJ) => ax.Fit(k1, k2, iJ, false, lip, Margin, e);
+                int mAx = ax.M, jMid = (ax.Lo + ax.Hi) / 2;
+                // one taper (the joint inside the core: anywhere there is the same)
+                double kb = 0, vb = Fit(0, 0, jMid);
+                if (maxTaper > 0)
+                {
+                    kb = Best(k => Fit(k, k, jMid), 0, out vb, 32, 40);
+                    // a taper that hardly adds (a cylinder's, from an axis a little off centre): a plain pill
+                    if (Fit(0, 0, jMid) >= 0.99 * vb) { kb = 0; vb = Fit(0, 0, jMid); }
+                }
+                Fit(kb, kb, jMid);
+                ko = kb; so = ax.BestStart; eo = ax.BestEnd;
+                k1o = k2o = kb; jo = jMid; s2 = so; e2 = eo;
+                if (!kink) return;
+                // two: searched on the axis at a coarser step (each point the least room of the ones it stands for,
+                // every other end): at each of a few joints (and the one given), each slope in turn from the one
+                // taper's, then the joint moved about the best; then the slopes again on every point. Kept if it adds
+                // more than a little (else a cone would come out with a kink as noise).
+                Axis coarse = ax.Coarse(Math.Max(1, mAx / 1500));
                 int f = coarse.Factor;
                 Func<double, double, int, double> FitC = (k1, k2, jc) => coarse.Fit(k1, k2, jc, true, lip, Margin, e);
                 double vk = -1, k1k = kb, k2k = kb;
@@ -1213,29 +1287,66 @@ namespace RealFuels.Tanks.PillTank
                 {
                     Check();
                     double k1 = kb, k2 = kb;
-                    k1 = Best(k => FitC(k, k2, jc), k1, out double v, 6, 12);
-                    k2 = Best(k => FitC(k1, k, jc), k2, out v, 6, 12);
+                    k1 = Best(k => FitC(k, k2, jc), k1, out double v, 6, 12, k2, maxTaper);
+                    k2 = Best(k => FitC(k1, k, jc), k2, out v, 6, 12, -maxTaper, k1);
                     if (v > vk) { vk = v; k1k = k1; k2k = k2; jk = jc; }
                 }
                 int mc = coarse.M;
-                const int nJ = 8;
-                if (joint > 0 && joint < 1) Try(Math.Max(0, Math.Min(mc - 1, (int)Math.Round((outA + joint * L) / (h * f)))));
+                const int nJ = 12;
+                if (joint > 0 && joint < 1) Try(Math.Max(0, Math.Min(mc - 1, (int)Math.Round((outA + joint * L) / (ax.H * f)))));
                 for (int q = 1; q < nJ; q++) Try((mc - 1) * q / nJ);
                 int span = (mc - 1) / nJ, j0 = jk;
-                for (int q = -3; q <= 3; q++) if (q != 0) Try(Math.Max(0, Math.Min(mc - 1, j0 + span * q / 4)));
-                int jf = Math.Min(m - 1, jk * f);
+                for (int q = -4; q <= 4; q++) if (q != 0) Try(Math.Max(0, Math.Min(mc - 1, j0 + span * q / 4)));
+                int jf = Math.Min(mAx - 1, jk * f);
                 double v2;
-                k1k = Best(k => Fit(k, k2k, jf), k1k, out v2, 4, 20);
-                k2k = Best(k => Fit(k1k, k, jf), k2k, out v2, 4, 20);
-                if (v2 > 1.01 * vb) { k1b = k1k; k2b = k2k; jb = jf; }
+                k1k = Best(k => Fit(k, k2k, jf), k1k, out v2, 4, 20, k2k, maxTaper);
+                k2k = Best(k => Fit(k1k, k, jf), k2k, out v2, 4, 20, -maxTaper, k1k);
+                if (v2 > 1.01 * vb)
+                {
+                    k1o = k1k; k2o = k2k; jo = jf;
+                    Fit(k1k, k2k, jf);
+                    s2 = ax.BestStart; e2 = ax.BestEnd;
+                }
             }
-            if (Fit(k1b, k2b, jb) < 0) return new Capsule { A = A, B = B, R = -1, R2 = -1, E = e };
-            int bs = fine.BestStart, be = fine.BestEnd;
-            double br = fine.BestR;
-            double sA = s0 + h * bs, sB = s0 + h * be, sJb = s0 + h * jb;
-            var cap = new Capsule { A = A + u * sA, B = A + u * sB, R = br + k1b * (sA - sJb), R2 = br + k2b * (sB - sJb), E = e };
-            if (k1b != k2b && sA < sJb && sJb < sB) { cap.J = (sJb - sA) / (sB - sA); cap.RJ = br; }
-            return cap;
+
+            // the k (in [kmin, kmax], else [-maxTaper, maxTaper]) with the most volume F(k), and that volume: a sweep of
+            // n + 1 (and k0), then a golden-section search around the best
+            double Best(Func<double, double> Fk, double k0, out double vbest, int n, int its, double kmin = double.NaN, double kmax = double.NaN)
+            {
+                if (double.IsNaN(kmin)) kmin = -maxTaper;
+                if (double.IsNaN(kmax)) kmax = maxTaper;
+                k0 = Math.Max(kmin, Math.Min(kmax, k0));
+                double kb1 = k0, vb1 = Fk(k0), dk = (kmax - kmin) / n;
+                for (int i = 0; i <= n && dk > 0; i++)
+                {
+                    double k = kmin + dk * i, v = Fk(k);
+                    if (v > vb1) { vb1 = v; kb1 = k; }
+                }
+                double klo = Math.Max(kmin, kb1 - dk), khi = Math.Min(kmax, kb1 + dk);
+                const double g = 0.6180339887498949;
+                double x1 = khi - g * (khi - klo), x2 = klo + g * (khi - klo), v1 = Fk(x1), v2 = Fk(x2);
+                for (int it = 0; it < its && khi - klo > 1e-6 * maxTaper; it++)
+                {
+                    if (v1 < v2) { klo = x1; x1 = x2; v1 = v2; x2 = klo + g * (khi - klo); v2 = Fk(x2); }
+                    else { khi = x2; x2 = x1; v2 = v1; x1 = khi - g * (khi - klo); v1 = Fk(x1); }
+                }
+                if (v1 > vb1) { vb1 = v1; kb1 = x1; }
+                if (v2 > vb1) { vb1 = v2; kb1 = x2; }
+                vbest = vb1;
+                return kb1;
+            }
+        }
+
+        // How far from p along u (a unit vector) the axis stays inside the part, by the voxel distance (to a cell).
+        double Exit(V3 p, V3 u)
+        {
+            double t = 0;
+            for (double x = grid.H; x <= grid.Diag; x += grid.H)
+            {
+                if (grid.Sample(p + u * x) <= 0) break;
+                t = x;
+            }
+            return t;
         }
 
         // An exact fit's axis: the room d at points s0 + h i, those always in the pill [lo, hi], and the ends tried
@@ -1243,9 +1354,10 @@ namespace RealFuels.Tanks.PillTank
         sealed class Axis
         {
             readonly double[] d, left, right;
-            readonly double s0, h;
-            readonly int lo, hi;
+            readonly double s0;
             readonly List<int> starts, ends;
+            public readonly double H;
+            public readonly int Lo, Hi;
             public int M => d.Length;
             public int Factor = 1;
             public int BestStart, BestEnd;      // the last Fit's best
@@ -1253,7 +1365,7 @@ namespace RealFuels.Tanks.PillTank
 
             public Axis(double[] d, double s0, double h, int lo, int hi, List<int> starts, List<int> ends)
             {
-                this.d = d; this.s0 = s0; this.h = h; this.lo = lo; this.hi = hi; this.starts = starts; this.ends = ends;
+                this.d = d; this.s0 = s0; H = h; Lo = lo; Hi = hi; this.starts = starts; this.ends = ends;
                 left = new double[starts.Count];
                 right = new double[ends.Count];
             }
@@ -1272,7 +1384,7 @@ namespace RealFuels.Tanks.PillTank
                     dc[j] = mn;
                 }
                 Func<List<int>, List<int>> Map = l => { var r = new List<int>(); foreach (int i in l) { int c = i / f; if (r.Count == 0 || r[r.Count - 1] != c) r.Add(c); } return r; };
-                return new Axis(dc, s0, h * f, lo / f, hi / f, Map(starts), Map(ends)) { Factor = f };
+                return new Axis(dc, s0, H * f, Lo / f, Hi / f, Map(starts), Map(ends)) { Factor = f };
             }
 
             // The most volume (-1: none) with slope k1 up to the joint (point iJ) and k2 on from it (k1 = k2: one
@@ -1280,8 +1392,8 @@ namespace RealFuels.Tanks.PillTank
             // the slope's part from the joint at each point. coarse: every other end tried.
             public double Fit(double k1, double k2, int iJ, bool coarse, double lip, double margin, double e)
             {
-                int m = d.Length;
-                double sJ = s0 + h * iJ;
+                int m = d.Length, lo = Lo, hi = Hi;
+                double h = H, sJ = s0 + h * iJ;
                 double core = double.PositiveInfinity;
                 for (int i = lo; i <= hi; i++) { double s = s0 + h * i - sJ; core = Math.Min(core, d[i] - (s < 0 ? k1 : k2) * s); }
                 double run = double.PositiveInfinity;
@@ -1315,18 +1427,6 @@ namespace RealFuels.Tanks.PillTank
                 }
                 return best;
             }
-        }
-
-        // How far from p along u (a unit vector) the axis stays inside the part, by the voxel distance (to a cell).
-        double Exit(V3 p, V3 u)
-        {
-            double t = 0;
-            for (double x = grid.H; x <= grid.Diag; x += grid.H)
-            {
-                if (grid.Sample(p + u * x) <= 0) break;
-                t = x;
-            }
-            return t;
         }
 
         Capsule ExactPolish(Capsule v, out int evals)
