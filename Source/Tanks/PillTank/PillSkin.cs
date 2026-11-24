@@ -23,6 +23,34 @@ namespace RealFuels.Tanks.PillTank
         // ProceduralParts whose skins join this part's (a stack sharing one tank), read into this part's frame; each
         // part's sides and ends a closed piece of its own. Only with a ProceduralPart skin of this part's own.
         public IList<Part> Others = new Part[0];
+        // The last Capture's skin (ProceduralPart) a solid of revolution or a regular prism about the part's y axis: each part
+        // such a shape, the stack's others on that axis (theirs along it, their origins on it). Solver.Symmetric.
+        public bool Symmetric { get; private set; }
+        private static readonly HashSet<string> SymmetricShapes = new HashSet<string>
+            { "ProceduralShapeCylinder", "ProceduralShapePill", "ProceduralShapeCone", "ProceduralShapeBezierCone", "ProceduralShapePolygon" };
+        private static System.Reflection.PropertyInfo _currentShape;
+
+        private bool AllSymmetric()
+        {
+            if (!SymmetricShape(_part)) return false;
+            Transform pt = _part.transform;
+            Quaternion inv = Quaternion.Inverse(pt.rotation);
+            foreach (Part o in Others)
+            {
+                if (o == null || !SymmetricShape(o)) return false;
+                Vector3 up = inv * o.transform.up, at = inv * (o.transform.position - pt.position);
+                if (Mathf.Abs(up.y) < 0.9999f || new Vector2(at.x, at.z).magnitude > 1e-3f) return false;
+            }
+            return true;
+        }
+
+        private static bool SymmetricShape(Part p)
+        {
+            if (!p.Modules.Contains("ProceduralPart")) return false;
+            PartModule pp = p.Modules["ProceduralPart"];
+            _currentShape ??= pp.GetType().GetProperty("CurrentShape", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+            return _currentShape?.GetValue(pp) is PartModule shape && SymmetricShapes.Contains(shape.moduleName);
+        }
 
         public PillSkin(Part part, string names)
         {
@@ -174,6 +202,7 @@ namespace RealFuels.Tanks.PillTank
         public List<SkinPiece> Capture()
         {
             Gather();
+            Symmetric = Source == Kind.ProceduralPart && AllSymmetric();
             Matrix4x4 toPart = ToPart();
             var pieces = new List<SkinPiece>();
             if (Source == Kind.Named || Source == Kind.ProceduralPart)

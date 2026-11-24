@@ -142,8 +142,8 @@ namespace RealFuels.Tanks.PillTank
             List<SkinPiece> pieces;
             PillSkin.Kind kind;
             var sw = Stopwatch.StartNew();
-            bool stack;
-            try { pieces = _skin.Capture(); kind = _skin.Source; stack = _skin.Others.Count > 0 && kind == PillSkin.Kind.ProceduralPart; }
+            bool stack, sym = false;
+            try { pieces = _skin.Capture(); kind = _skin.Source; stack = _skin.Others.Count > 0 && kind == PillSkin.Kind.ProceduralPart; sym = _skin.Symmetric; }
             catch (Exception e)
             {
                 Report("reading the skin", e);
@@ -153,7 +153,7 @@ namespace RealFuels.Tanks.PillTank
             double read = sw.Elapsed.TotalSeconds;
             _running = _want;
             // (the pieces' union on the worker too: it tests faces against other pieces)
-            var solver = new Solver(null) { Polish = false, MaxTaper = MaxTaper, Dome = Dome, Kink = Kink };
+            var solver = new Solver(null) { Polish = false, MaxTaper = MaxTaper, Dome = Dome, Kink = Kink, Symmetric = sym };
             _solver = solver;
             _task = Task.Run(() =>
             {
