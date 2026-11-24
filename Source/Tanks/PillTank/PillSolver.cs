@@ -5,9 +5,11 @@
 //  2. exact Euclidean distance transform (Felzenszwalb-Huttenlocher) -> interior distance D
 //  3. global line search: centre c + direction u; running minima of D outward from c give the
 //     axis length L(r) for every r at once -> best r per line in O(n)
-//  4. Nelder-Mead refine of the best few lines on the voxel field
-//  5. exact polish: Nelder-Mead on the endpoints with r = exact min distance to the triangles
-//     (BVH nearest-triangle query), then a fine rigorous final radius (distance is 1-Lipschitz)
+//  4. Nelder-Mead refine of the best few lines on the voxel field (and, a taper allowed, the radius's slope
+//     along the line: the room past r0 + k t is D(t) - k t, the same running minima)
+//  5. exact fit on the axis found: the room at fine steps along it (BVH nearest-triangle query), then the
+//     slope with the most volume and its rigorous radius (distance is 1-Lipschitz); optional polish:
+//     Nelder-Mead on the endpoints with that fit
 //  6. optional greedy packing: carve the tank out of the voxel field and repeat
 using System;
 using System.Collections.Generic;
@@ -37,13 +39,26 @@ namespace RealFuels.Tanks.PillTank
         public override string ToString() => string.Format(CultureInfo.InvariantCulture, "({0:F3}, {1:F3}, {2:F3})", x, y, z);
     }
 
+    // A pill, maybe tapered: the spheres along axis AB, their radius going linearly from R (at A) to R2 (at B). That's
+    // the hull of the two end spheres (|R - R2| < length): a cone between round ends.
     public sealed class Capsule
     {
         public V3 A, B;
-        public double R;
+        public double R, R2;
         public double Length => (B - A).Len;
-        public double Volume => Vol(R, Length);
+        public double Volume => Vol(R, R2, Length);
         public static double Vol(double r, double L) => Math.PI * r * r * L + 4.0 / 3.0 * Math.PI * r * r * r;
+
+        // The hull of spheres r1 and r2 a distance L apart: each sphere's cap out to the tangent circle, and the cone's
+        // frustum between them (half-angle a: sin a = (r1 - r2) / L, the tangent circles r cos a across).
+        public static double Vol(double r1, double r2, double L)
+        {
+            if (r1 < r2) { double t = r1; r1 = r2; r2 = t; }
+            if (!(L > r1 - r2)) return 4.0 / 3.0 * Math.PI * r1 * r1 * r1;    // the small sphere inside the big one
+            double s = (r1 - r2) / L, c2 = 1 - s * s;
+            double h1 = r1 * (1 + s), h2 = r2 * (1 - s);
+            return Math.PI / 3 * (h1 * h1 * (3 * r1 - h1) + h2 * h2 * (3 * r2 - h2) + L * c2 * c2 * (r1 * r1 + r1 * r2 + r2 * r2));
+        }
     }
 
     // Closed triangle surfaces (any triangle soup that encloses a volume; seams and duplicate vertices are fine).
@@ -408,6 +423,7 @@ namespace RealFuels.Tanks.PillTank
         public double Budget = 2.5e6, MinCellsRadius = 10, Gap = 0.02, Margin = 0;
         public int Dirs = 256, Centers = 40, Refine = 6;
         public bool Polish = false;      // full exact optimisation (slower); off = guaranteed-fit radius only
+        public double MaxTaper = 0;      // the most a pill's radius may change along its axis, per unit length (0: none)
 
         readonly TriSoup mesh;
         Grid grid;
@@ -484,10 +500,10 @@ namespace RealFuels.Tanks.PillTank
 
                 Check();
                 sw.Restart();
-                double r0 = tr.Voxel.R;
+                double r0 = Math.Max(tr.Voxel.R, tr.Voxel.R2);
                 var stack = new int[256];
                 double fine = Math.Min(0.002, r0 / 100);
-                tr.Checked = new Capsule { A = tr.Voxel.A, B = tr.Voxel.B, R = ExactRadius(tr.Voxel.A, tr.Voxel.B, fine, stack) };
+                tr.Checked = ExactFit(tr.Voxel.A, tr.Voxel.B, fine, stack, MaxTaper);
                 tr.T.FinalOnly = sw.Elapsed.TotalSeconds;
 
                 if (Polish)
@@ -498,11 +514,11 @@ namespace RealFuels.Tanks.PillTank
                 }
                 var best = tr.Polished ?? tr.Checked;
                 res.Add(tr);
-                placed.Add(new Capsule { A = best.A, B = best.B, R = best.R + Gap });
+                placed.Add(new Capsule { A = best.A, B = best.B, R = best.R + Gap, R2 = best.R2 + Gap });
                 if (n == nTanks - 1) break;
 
-                // carve: voxels within r+gap of the axis are no longer free
-                var g = grid; var A = best.A; var B = best.B; double rr = best.R + Gap + 0.5 * g.H;
+                // carve: voxels within r+gap of the axis are no longer free (the wider end's r: a tapered one's too)
+                var g = grid; var A = best.A; var B = best.B; double rr = Math.Max(best.R, best.R2) + Gap + 0.5 * g.H;
                 Par.For(g.Cells, () => 0, (i, _) => { if (inside[i] && SegDist(g.Center(i), A, B) < rr) inside[i] = false; });
             }
             return res;
@@ -537,6 +553,7 @@ namespace RealFuels.Tanks.PillTank
             {
                 Budget = Budget, MinCellsRadius = MinCellsRadius, Gap = Gap, Margin = Margin,
                 Dirs = Dirs, Centers = Centers, Refine = Refine, Polish = false, _outer = this,
+                MaxTaper = 0,       // (a stretched taper isn't one: the axis only, its taper fitted below)
             };
             List<TankResult> found = inner.Solve(nTanks);
             VoxelVolume = inner.VoxelVolume / (s.x * s.y * s.z);
@@ -548,18 +565,19 @@ namespace RealFuels.Tanks.PillTank
                 Check();
                 V3 A = Div(t.Voxel.A, s), B = Div(t.Voxel.B, s);
                 double fine = Math.Max(2e-5, Math.Min(0.002, t.Voxel.R / shrink / 100));
-                double r = ExactRadius(A, B, fine, stack);
+                Capsule c = ExactFit(A, B, fine, stack, MaxTaper);
+                double r = Math.Min(c.R, c.R2);
                 if (!(r > 0)) break;
                 // the stretched search's round ends were fat: the axis runs on, at about this radius, to the part's
                 // ends (kept only if that's the bigger pill)
                 V3 A2 = A, B2 = B;
                 Extend(ref A2, ref B2, r, fine, stack);
                 Extend(ref B2, ref A2, r, fine, stack);
-                var c = new Capsule { A = A, B = B, R = r };
-                var c2 = new Capsule { A = A2, B = B2, R = ExactRadius(A2, B2, fine, stack) };
-                if (c2.R > 0 && c2.Volume > c.Volume) c = c2;
-                res.Add(new TankResult { Voxel = new Capsule { A = A, B = B, R = t.Voxel.R / shrink }, Checked = c, T = t.T });
-                placed.Add(new Capsule { A = c.A, B = c.B, R = c.R + Gap });     // the one kept (maybe stretched)
+                Capsule c2 = ExactFit(A2, B2, fine, stack, MaxTaper);
+                if (Math.Min(c2.R, c2.R2) > 0 && c2.Volume > c.Volume) c = c2;
+                double rv = t.Voxel.R / shrink;
+                res.Add(new TankResult { Voxel = new Capsule { A = A, B = B, R = rv, R2 = rv }, Checked = c, T = t.T });
+                placed.Add(new Capsule { A = c.A, B = c.B, R = c.R + Gap, R2 = c.R2 + Gap });     // the one kept (maybe stretched)
             }
             return res;
         }
@@ -581,7 +599,7 @@ namespace RealFuels.Tanks.PillTank
                 if ((i & 1023) == 0) Check();
                 V3 p = e + u * (i * st);
                 double ob = double.PositiveInfinity;
-                foreach (var o in placed) ob = Math.Min(ob, SegDist(p, o.A, o.B) - o.R);
+                foreach (var o in placed) ob = Math.Min(ob, Clear(p, o));
                 if (ob < need || Math.Sqrt(bvh.Query(p, need * need, stack)) < need) break;
                 d = i * st;
             }
@@ -610,14 +628,16 @@ namespace RealFuels.Tanks.PillTank
             public LineBuf(int n) { R = new double[n + 1]; L = new double[n + 1]; }
         }
 
-        int March(V3 c, V3 u, double step, int nmax, double d0, double[] arr)
+        // Running minima outward from c of the room past a radius growing k per unit length along u (the room left
+        // for the radius at c).
+        int March(V3 c, V3 u, double step, int nmax, double d0, double k, double[] arr)
         {
             arr[0] = d0;
             double m = d0;
             int n = 1;
             for (int i = 1; i <= nmax; i++)
             {
-                double d = grid.Sample(c + u * (i * step));
+                double d = grid.Sample(c + u * (i * step)) - k * (i * step);
                 if (d < m) m = d;
                 if (m <= 0) break;           // running min only falls: no positive radius past here
                 arr[n++] = m;
@@ -625,35 +645,40 @@ namespace RealFuels.Tanks.PillTank
             return n;
         }
 
-        // Best capsule on line (c, u): returns volume (or -1), r, and axis extents tL / tR from c.
-        double EvalLine(V3 c, V3 u, double step, int nmax, LineBuf buf, out double r, out double tL, out double tR)
+        // Best pill on line (c, u) whose radius grows k per unit length along u: returns volume (or -1), the radius at
+        // each end (rL at c - u tL, rR at c + u tR) and the axis extents tL / tR from c.
+        double EvalLine(V3 c, V3 u, double k, double step, int nmax, LineBuf buf, out double rL, out double rR, out double tL, out double tR)
         {
-            r = tL = tR = 0;
+            rL = rR = tL = tR = 0;
             double d0 = grid.Sample(c);
             if (d0 <= 0) return -1;
-            int nR = March(c, u, step, nmax, d0, buf.R);
-            int nL = March(c, -u, step, nmax, d0, buf.L);
+            int nR = March(c, u, step, nmax, d0, k, buf.R);
+            int nL = March(c, -u, step, nmax, d0, -k, buf.L);
             double best = -1;
-            Scan(buf.R, nR, buf.L, nL, step, false, ref best, ref r, ref tL, ref tR);
-            Scan(buf.L, nL, buf.R, nR, step, true, ref best, ref r, ref tL, ref tR);
+            Scan(buf.R, nR, buf.L, nL, step, k, false, ref best, ref rL, ref rR, ref tL, ref tR);
+            Scan(buf.L, nL, buf.R, nR, step, -k, true, ref best, ref rL, ref rR, ref tL, ref tR);
             return best;
         }
 
-        // Candidate radii from side P (non-increasing running minima); count of side Q >= r by pointer.
-        static void Scan(double[] P, int nP, double[] Q, int nQ, double step, bool swapped,
-                         ref double best, ref double r, ref double tL, ref double tR)
+        // Candidate radii at c from side P (non-increasing running minima); count of side Q >= r by pointer. kP: the
+        // slope towards P (a side whose end would narrow past nothing is cut back to a point there).
+        static void Scan(double[] P, int nP, double[] Q, int nQ, double step, double kP, bool swapped,
+                         ref double best, ref double rL, ref double rR, ref double tL, ref double tR)
         {
             int j = 0;
             for (int i = 0; i < nP; i++)
             {
                 double rr = P[i];
                 while (j < nQ && Q[j] >= rr) j++;
-                double L = step * (i + j - 1);
-                double v = Capsule.Vol(rr, L);
+                double tP = step * i, tQ = step * (j - 1);
+                if (kP < 0) tP = Math.Min(tP, rr / -kP);
+                if (kP > 0) tQ = Math.Min(tQ, rr / kP);
+                double rP = rr + kP * tP, rQ = rr - kP * tQ;
+                double v = Capsule.Vol(rP, rQ, tP + tQ);
                 if (v > best)
                 {
-                    best = v; r = rr;
-                    if (swapped) { tL = step * i; tR = step * (j - 1); } else { tR = step * i; tL = step * (j - 1); }
+                    best = v;
+                    if (swapped) { tL = tP; rL = rP; tR = tQ; rR = rQ; } else { tR = tP; rR = rP; tL = tQ; rL = rQ; }
                 }
             }
         }
@@ -765,15 +790,17 @@ namespace RealFuels.Tanks.PillTank
 
         Capsule VoxelSearch(out int nLines)
         {
-            double step = grid.H, half = 0.5 * grid.Diag;
-            int nmax = (int)Math.Ceiling(half / step);
+            // a march's reach: the whole part from a centre at one end of it (the fattest spot, where the centres are
+            // seeded, can be at an end: a cone's base). A march stops where it leaves the part.
+            double step = grid.H;
+            int nmax = (int)Math.Ceiling(grid.Diag / step);
             var C = SeedCenters(Centers);
             var U = Directions();
             int nu = U.Count;
             nLines = C.Count * nu;
             var Vb = new double[nLines];
             Par.For(nLines, () => new LineBuf(nmax), (li, buf) =>
-                Vb[li] = EvalLine(C[li / nu], U[li % nu], step, nmax, buf, out _, out _, out _));
+                Vb[li] = EvalLine(C[li / nu], U[li % nu], 0, step, nmax, buf, out _, out _, out _, out _));
             var idx = new int[nLines];
             for (int i = 0; i < nLines; i++) idx[i] = i;
             Array.Sort((double[])Vb.Clone(), idx);
@@ -798,22 +825,38 @@ namespace RealFuels.Tanks.PillTank
                 if (dup) continue;
                 tried.Add(li);
                 V3 c = C[ci];
-                seeds.Add(new[] { c.x, c.y, c.z, Math.Acos(Math.Max(-1, Math.Min(1, u.z))), Math.Atan2(u.y, u.x) });
+                seeds.Add(new[] { c.x, c.y, c.z, Math.Acos(Math.Max(-1, Math.Min(1, u.z))), Math.Atan2(u.y, u.x), 0 });
                 if (seeds.Count >= Refine) break;
             }
 
+            // refined: the line, and (a taper allowed) its slope, from none
             Check();
+            int dims = MaxTaper > 0 ? 6 : 5;
+            Func<double[], double> Slope = x => dims > 5 ? Math.Max(-MaxTaper, Math.Min(MaxTaper, x[5])) : 0;
             var results = new double[seeds.Count][];
             var fvals = new double[seeds.Count];
             Par.For(seeds.Count, () => new LineBuf(nmax), (si, buf) =>
             {
-                Func<double[], double> f = x => -EvalLine(new V3(x[0], x[1], x[2]), Dir(x[3], x[4]), step, nmax, buf, out _, out _, out _);
-                var x0 = seeds[si];
-                var simplex = new double[6][];
-                for (int k = 0; k < 6; k++)
+                Func<double[], double> f = x => -EvalLine(new V3(x[0], x[1], x[2]), Dir(x[3], x[4]), Slope(x), step, nmax, buf, out _, out _, out _, out _);
+                var x0 = seeds[si].Take(dims).ToArray();
+                // the slope's start: the best of a sweep on the seed's line (the volume is flat in it near none, a
+                // simplex from there stalls short of a long taper)
+                if (dims > 5)
+                {
+                    double fb = f(x0), k0 = 0;
+                    for (int i = 0; i <= 16; i++)
+                    {
+                        x0[5] = MaxTaper * (i / 8.0 - 1);
+                        double fk = f(x0);
+                        if (fk < fb) { fb = fk; k0 = x0[5]; }
+                    }
+                    x0[5] = k0;
+                }
+                var simplex = new double[dims + 1][];
+                for (int k = 0; k <= dims; k++)
                 {
                     simplex[k] = (double[])x0.Clone();
-                    if (k > 0) simplex[k][k - 1] += k - 1 < 3 ? 2 * grid.H : 0.06;
+                    if (k > 0) simplex[k][k - 1] += k - 1 < 3 ? 2 * grid.H : (k - 1 < 5 ? 0.06 : 0.5 * MaxTaper);
                 }
                 results[si] = NelderMead(f, simplex, 500, 1e-4, 1e-6, out fvals[si], out _);
             });
@@ -821,8 +864,8 @@ namespace RealFuels.Tanks.PillTank
             for (int i = 1; i < fvals.Length; i++) if (fvals[i] < fvals[bi]) bi = i;
             var xb = results[bi];
             V3 cc = new V3(xb[0], xb[1], xb[2]), uu = Dir(xb[3], xb[4]);
-            EvalLine(cc, uu, step, nmax, new LineBuf(nmax), out double r, out double tL, out double tR);
-            return new Capsule { A = cc - uu * tL, B = cc + uu * tR, R = r };
+            EvalLine(cc, uu, Slope(xb), step, nmax, new LineBuf(nmax), out double rL, out double rR, out double tL, out double tR);
+            return new Capsule { A = cc - uu * tL, B = cc + uu * tR, R = rL, R2 = rR };
         }
 
         // ---------------------------------------------------------------- exact
@@ -835,36 +878,83 @@ namespace RealFuels.Tanks.PillTank
             return (p - (a + ab * t)).Len;
         }
 
-        // Rigorous inscribed radius for axis AB: min sampled distance - step/2 (distance is 1-Lipschitz).
-        double ExactRadius(V3 A, V3 B, double step, int[] stack)
+        // Room around p left by a tank already placed: at least this (a tapered one taken at its wider end).
+        static double Clear(V3 p, Capsule o) => SegDist(p, o.A, o.B) - Math.Max(o.R, o.R2);
+
+        // The pill on axis AB sure to fit with the most volume, its radius going from r (at A) by slope k (|k| <=
+        // maxTaper): the room d_i at points s_i along the axis (exact distance to the skin, and to tanks placed), then
+        // r(k) = min(d_i - k s_i) - (1 + |k|) h/2 (d - k s is (1 + |k|)-Lipschitz along the axis, the points h apart)
+        // and the k with the most volume. R <= 0: nothing fits.
+        Capsule ExactFit(V3 A, V3 B, double step, int[] stack, double maxTaper)
         {
             double L = (B - A).Len;
             int m = Math.Max(2, (int)Math.Ceiling(L / step) + 1);
-            double best = double.PositiveInfinity;
+            double h = L / (m - 1);
+            var d = new double[m];
+            // a point whose room is past `bound` can't be the tightest for any slope allowed (some point before it is
+            // tighter for all of them): its query stops there (and the room taken as `bound`, which changes nothing)
+            double lead = double.PositiveInfinity;      // min over the points so far of d_j - maxTaper s_j
             for (int i = 0; i < m; i++)
             {
                 if ((i & 255) == 255) Check();     // a long axis at a fine step: many queries
+                double s = h * i;
                 V3 p = A + (B - A) * ((double)i / (m - 1));
-                double ob = best;
-                foreach (var o in placed) ob = Math.Min(ob, SegDist(p, o.A, o.B) - o.R);
-                double b2 = ob > 0 ? ob * ob : 0;
-                double d = ob > 0 ? Math.Sqrt(bvh.Query(p, b2, stack)) : ob;
-                if (d < best) best = d;
+                double ob = lead + maxTaper * s;
+                foreach (var o in placed) ob = Math.Min(ob, Clear(p, o));
+                d[i] = ob > 0 ? Math.Sqrt(bvh.Query(p, ob * ob, stack)) : ob;
+                lead = Math.Min(lead, d[i] - maxTaper * s);
             }
-            return best - 0.5 * L / (m - 1) - Margin;
+
+            Func<double, double> R0 = k =>
+            {
+                double mn = double.PositiveInfinity;
+                for (int i = 0; i < m; i++) mn = Math.Min(mn, d[i] - k * h * i);
+                return mn - (1 + Math.Abs(k)) * 0.5 * h - Margin;
+            };
+            Func<double, double> V = k =>
+            {
+                double r = R0(k), r2 = r + k * L;
+                return r > 0 && r2 > 0 ? Capsule.Vol(r, r2, L) : -1;
+            };
+            double kb = 0, vb = V(0);
+            if (maxTaper > 0)
+            {
+                // a coarse sweep, then a golden-section search around the best
+                const int n = 32;
+                double dk = 2 * maxTaper / n;
+                for (int i = 0; i <= n; i++)
+                {
+                    double k = -maxTaper + dk * i, v = V(k);
+                    if (v > vb) { vb = v; kb = k; }
+                }
+                double lo = Math.Max(-maxTaper, kb - dk), hi = Math.Min(maxTaper, kb + dk);
+                const double g = 0.6180339887498949;
+                double x1 = hi - g * (hi - lo), x2 = lo + g * (hi - lo), v1 = V(x1), v2 = V(x2);
+                for (int it = 0; it < 40 && hi - lo > 1e-6 * maxTaper; it++)
+                {
+                    if (v1 < v2) { lo = x1; x1 = x2; v1 = v2; x2 = lo + g * (hi - lo); v2 = V(x2); }
+                    else { hi = x2; x2 = x1; v2 = v1; x1 = hi - g * (hi - lo); v1 = V(x1); }
+                }
+                if (v1 > vb) { vb = v1; kb = x1; }
+                if (v2 > vb) { vb = v2; kb = x2; }
+                // a taper that hardly adds (a cylinder's, from an axis a little off centre): a plain pill
+                if (V(0) >= 0.99 * vb) kb = 0;
+            }
+            double r0 = R0(kb);
+            return new Capsule { A = A, B = B, R = r0, R2 = r0 + kb * L };
         }
 
         Capsule ExactPolish(Capsule v, out int evals)
         {
-            double r0 = v.R, coarse = Math.Max(r0 / 6, grid.H / 2);
+            double r0 = Math.Max(v.R, v.R2), coarse = Math.Max(r0 / 6, grid.H / 2);
             var stack = new int[256];
             double H = grid.H;
             Func<double[], double> f = x =>
             {
                 V3 a = new V3(x[0], x[1], x[2]), b = new V3(x[3], x[4], x[5]);
                 if (Math.Min(grid.Sample(a), grid.Sample(b)) < -H) return 0;   // endpoint left the shape
-                double r = ExactRadius(a, b, coarse, stack);
-                return r > 0 ? -Capsule.Vol(r, (b - a).Len) : 0;
+                Capsule c = ExactFit(a, b, coarse, stack, MaxTaper);
+                return Math.Min(c.R, c.R2) > 0 ? -c.Volume : 0;
             };
             var x0 = new[] { v.A.x, v.A.y, v.A.z, v.B.x, v.B.y, v.B.z };
             var simplex = new double[7][];
@@ -872,7 +962,7 @@ namespace RealFuels.Tanks.PillTank
             var xb = NelderMead(f, simplex, 600, 1e-5, 1e-7, out double fb, out evals);
             if (!(fb < f(x0))) xb = x0;
             V3 A = new V3(xb[0], xb[1], xb[2]), B = new V3(xb[3], xb[4], xb[5]);
-            return new Capsule { A = A, B = B, R = ExactRadius(A, B, Math.Min(0.002, r0 / 100), stack) };
+            return ExactFit(A, B, Math.Min(0.002, r0 / 100), stack, MaxTaper);
         }
 
         // ---------------------------------------------------------------- Nelder-Mead (scipy defaults, non-adaptive)

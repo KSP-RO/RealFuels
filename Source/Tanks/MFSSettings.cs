@@ -24,7 +24,11 @@ namespace RealFuels
         // Parts whose tank is the largest pill that fits in them: ProceduralParts shapes (module names; a hollow shell
         // - a shape with shellMode on - never), and parts with one of these modules.
         private static readonly string[] pillTankShapesDefault =
-            { "ProceduralShapeCone", "ProceduralShapeBezierCone", "ProceduralShapePolygon", "ProceduralShapeSpine" };
+            { "ProceduralShapeCylinder", "ProceduralShapePill", "ProceduralShapeCone", "ProceduralShapeBezierCone",
+              "ProceduralShapePolygon", "ProceduralShapeSpine" };
+        // The steepest a pill may taper (its cone's half-angle, degrees): a conical part's tank narrows with it. 0: a
+        // plain pill, one radius end to end.
+        public static double pillTankMaxTaper = 15;
         private static readonly string[] pillTankModulesDefault = { "WingProcedural" };
         public static readonly HashSet<string> pillTankShapes = new HashSet<string>(pillTankShapesDefault);
         public static readonly HashSet<string> pillTankModules = new HashSet<string>(pillTankModulesDefault);
@@ -122,6 +126,7 @@ namespace RealFuels
                     if (bool.TryParse(view, out bool on)) pillTankPreview = on ? Tanks.PillTankView.Selected : Tanks.PillTankView.Off;
                     else if (System.Enum.TryParse(view, true, out Tanks.PillTankView v)) pillTankPreview = v;
                 }
+                node.TryGetValue("pillTankMaxTaper", ref pillTankMaxTaper);
 
                 ignoreFuelsForFill.Clear();
                 if (node.GetNode("IgnoreFuelsForFill") is ConfigNode ignoreNode)

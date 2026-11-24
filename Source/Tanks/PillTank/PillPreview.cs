@@ -124,7 +124,7 @@ namespace RealFuels.Tanks.PillTank
             }
             double read = sw.Elapsed.TotalSeconds;
             _running = _want;
-            Solver solver = soup == null ? null : new Solver(soup) { Polish = false };
+            Solver solver = soup == null ? null : new Solver(soup) { Polish = false, MaxTaper = MaxTaper };
             _solver = solver;
             _task = Task.Run(() =>
             {
@@ -135,6 +135,10 @@ namespace RealFuels.Tanks.PillTank
                 return r;
             });
         }
+
+        // MFSSettings.pillTankMaxTaper (a half-angle) as the most the radius may change per unit length: the round
+        // cone's sides make that angle when the end radii differ by its sine times the length.
+        private static double MaxTaper => Math.Sin(Math.Min(Math.Max(MFSSettings.pillTankMaxTaper, 0), 60) * Math.PI / 180);
 
         private void Land(PillFit r, int sig, bool draw)
         {
@@ -162,7 +166,7 @@ namespace RealFuels.Tanks.PillTank
             List<TankResult> res = solver.Solve(1);
             r.PartVolume = (float)(soup.ExactVolume ? soup.Volume() : solver.VoxelVolume);
             r.Seconds = sw.Elapsed.TotalSeconds;
-            if (res.Count == 0 || res[0].Checked.R <= 0) { r.Error = "no room for a tank"; r.Empty = true; return r; }
+            if (res.Count == 0 || !(Math.Min(res[0].Checked.R, res[0].Checked.R2) > 0)) { r.Error = "no room for a tank"; r.Empty = true; return r; }
             Capsule c = res[0].Checked;
             // a pill can't hold more than the part: one that does sat in a skin read wrong (open, so its inside test
             // fails). The voxel volume (no exact one) is a little rough: some slack.
@@ -174,6 +178,7 @@ namespace RealFuels.Tanks.PillTank
             r.A = new Vector3((float)c.A.x, (float)c.A.y, (float)c.A.z);
             r.B = new Vector3((float)c.B.x, (float)c.B.y, (float)c.B.z);
             r.R = (float)c.R;
+            r.R2 = (float)c.R2;
             r.Volume = (float)c.Volume;
             return r;
         }
@@ -211,7 +216,7 @@ namespace RealFuels.Tanks.PillTank
                 _renderer.receiveShadows = false;
             }
             Follow();
-            BuildCapsule(_mesh, r.A, r.B, r.R, Tint);
+            BuildCapsule(_mesh, r.A, r.B, r.R, r.R2, Tint);
         }
 
         // The part's frame without scale (the one the solve ran in).
@@ -221,13 +226,16 @@ namespace RealFuels.Tanks.PillTank
             _go.transform.SetPositionAndRotation(pt.position, pt.rotation);
         }
 
-        // Capsule mesh with simple baked shading (vertex colours; the shader multiplies them by _Color).
-        private static void BuildCapsule(Mesh mesh, Vector3 a, Vector3 b, float r, Color col)
+        // Capsule mesh (ra at a, rb at b: a tapered one's sides a cone touching both spheres) with simple baked shading
+        // (vertex colours; the shader multiplies them by _Color).
+        private static void BuildCapsule(Mesh mesh, Vector3 a, Vector3 b, float ra, float rb, Color col)
         {
-            const int seg = 40, half = 10;       // around; rows per hemisphere (plus the equator)
+            const int seg = 40, half = 10;       // around; rows per end (plus the tangent circle)
             Vector3 u = b - a;
             float len = u.magnitude;
             u = len > 1e-6f ? u / len : Vector3.up;
+            // the sides' latitude on both spheres (0 for a plain pill): sin = (ra - rb) / len
+            float alpha = Mathf.Asin(Mathf.Clamp(len > 1e-6f ? (ra - rb) / len : 0f, -0.99f, 0.99f));
             Vector3 e1 = Vector3.Cross(u, Mathf.Abs(u.y) < 0.9f ? Vector3.up : Vector3.right).normalized;
             Vector3 e2 = Vector3.Cross(u, e1);
             Vector3 light = new Vector3(0.35f, 0.55f, -0.75f).normalized;
@@ -237,8 +245,9 @@ namespace RealFuels.Tanks.PillTank
             for (int i = 0; i < rows; i++)
             {
                 bool top = i > half;
-                float phi = top ? Mathf.PI / 2f * (i - half - 1) / half : -Mathf.PI / 2f + Mathf.PI / 2f * i / half;
+                float phi = top ? alpha + (Mathf.PI / 2f - alpha) * (i - half - 1) / half : -Mathf.PI / 2f + (Mathf.PI / 2f + alpha) * i / half;
                 Vector3 c = top ? b : a;
+                float r = top ? rb : ra;
                 for (int j = 0; j <= seg; j++)
                 {
                     float th = 2f * Mathf.PI * j / seg;
@@ -291,7 +300,8 @@ namespace RealFuels.Tanks.PillTank
     public sealed class PillFit
     {
         public Vector3 A, B;                  // axis ends
-        public float R, Volume;               // m, m^3
+        public float R, R2;                   // m: the radius at A, at B (a tapered pill: between them linearly)
+        public float Volume;                  // m^3
         public float PartVolume;              // m^3 enclosed by the skin it was fitted in
         public string Source;                 // where the skin came from (PillSkin.Kind)
         public int Pieces;                    // closed pieces in that skin
@@ -301,5 +311,7 @@ namespace RealFuels.Tanks.PillTank
         public bool Empty;                    // with Error: the skin was read and holds no pill (else it couldn't be read)
         internal bool Cancelled;              // the solve was stopped (never landed)
         public float Length => (B - A).magnitude;
+        public bool Tapered => Mathf.Abs(R - R2) > 0.005f * Mathf.Max(R, R2);
+        public float RadiusAt(float t) => R + (R2 - R) * t;      // t: 0 at A, 1 at B
     }
 }

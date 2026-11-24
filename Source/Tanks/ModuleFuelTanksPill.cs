@@ -246,7 +246,9 @@ namespace RealFuels.Tanks
             {
                 // in the tank's units (kL in Real Fuels), like its Volume line
                 string units = KSPUtil.PrintSI(r.Volume * tankVolumeConversion, MFSSettings.unitLabel);
-                s = Localizer.Format("#RF_FuelTank_PillInfo", units, r.R.ToString("F2"), r.Length.ToString("F2"));
+                // a tapered one: r at both ends
+                string radius = r.Tapered ? $"{r.R:F2}-{r.R2:F2}" : r.R.ToString("F2");
+                s = Localizer.Format("#RF_FuelTank_PillInfo", units, radius, r.Length.ToString("F2"));
             }
             return _pill.Pending ? $"{s} {Localizer.GetStringByTag("#RF_FuelTank_PillUpdating")}" : s; // (updating)
         }
