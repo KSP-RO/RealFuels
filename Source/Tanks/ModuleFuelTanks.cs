@@ -379,6 +379,7 @@ namespace RealFuels.Tanks
                     RealFuelsWindow.HideGUIForModule(this);
                 UpdatePill();
             }
+            else KeepCoM();     // a stack's owner: its pill's centre of mass, whatever ProceduralParts set
             UpdateRF();
         }
 
@@ -607,6 +608,14 @@ namespace RealFuels.Tanks
                 double newTotalVolume = data.Get<double>("newTotalVolume") * tankVolumeConversion;
                 _partTotalVolume = newTotalVolume;
                 _partVolumeKnown = true;
+                // a stack's tank whose volume went to its owner's pill: holds nothing still; the owner's cap moves
+                if (pillShared && PillSizesTank)
+                {
+                    ApplyPill(null);
+                    if (HighLogic.LoadedSceneIsEditor && PillGroup.Of(this).Owner is ModuleFuelTanks o && o != this && o.PillTank != null)
+                        o.ApplyPill(o.PillTank);
+                    return;
+                }
                 // a pill tank's volume comes from its fit (ModuleFuelTanksPill), capped at the part's (now, from the fit
                 // it has); until the first fit lands (a new part, or one just made a pill tank), the part's
                 if (PillSizesTank && largestPillVolume >= 0)

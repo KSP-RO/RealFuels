@@ -159,9 +159,17 @@ namespace RealFuels.Tanks.PillTank
     {
         // A soup of the pieces (each its own closed piece, PieceStart) with the union's outer surface (SV/ST): every
         // piece's triangles less what convex pieces cover. Faces two pieces share (or abut on, facing each other) go;
-        // of two coincident faces facing the same way the first piece's stays.
-        public static TriSoup Build(IList<SkinPiece> pieces)
+        // of two coincident faces facing the same way the first piece's stays. `stack` (tanks joined end to end, a few
+        // pieces): a nearly convex piece is taken as its hull, and what of a face lies inside (or against) a concave
+        // piece goes too.
+        public static TriSoup Build(IList<SkinPiece> pieces, bool stack = false)
         {
+            // a ProceduralParts cylinder or cone, a stack's tank, is convex but for its facets (rings of different vertex
+            // counts zig-zag): taken as its hull (the same vertices, its faces within the facets' sag of the mesh's), so
+            // its faces cut others' exactly (the disks where two tanks meet go, an annulus left over stays)
+            if (stack && pieces.Count > 1)
+                for (int i = 0; i < pieces.Count; i++)
+                    if (!pieces[i].Convex && NearlyConvex(pieces[i]) is SkinPiece h) pieces[i] = h;
             var V = new List<V3>();
             var T = new List<int>();
             var starts = new List<int>();
@@ -174,7 +182,7 @@ namespace RealFuels.Tanks.PillTank
             }
             // overlapping concave pieces keep their inner walls in the surface: no exact volume from it
             var soup = new TriSoup(V.ToArray(), T.ToArray()) { PieceStart = starts.ToArray(), ExactVolume = pieces.Count < 2 || pieces.All(p => p.Convex) };
-            if (pieces.Count < 2 || !pieces.Any(p => p.Convex)) return soup;
+            if (pieces.Count < 2 || !stack && !pieces.Any(p => p.Convex)) return soup;
 
             V3 lo = pieces[0].Lo, hi = pieces[0].Hi;
             foreach (SkinPiece p in pieces) { lo = V3.Min(lo, p.Lo); hi = V3.Max(hi, p.Hi); }
@@ -199,9 +207,11 @@ namespace RealFuels.Tanks.PillTank
                     for (int j = 0; j < pieces.Count && polys.Count > 0; j++)
                     {
                         SkinPiece cut = pieces[j];
-                        if (j == i || !cut.Convex || !Overlap(tlo, thi, cut.Lo, cut.Hi, eps)) continue;
+                        if (j == i || !(cut.Convex || stack) || !Overlap(tlo, thi, cut.Lo, cut.Hi, eps)) continue;
                         next.Clear();
-                        foreach (List<V3> poly in polys) Subtract(poly, n, cut, j < i, eps, next);
+                        if (cut.Convex) foreach (List<V3> poly in polys) Subtract(poly, n, cut, j < i, eps, next);
+                        // a concave piece: what of a polygon lies inside it (or against it, facing in) goes
+                        else foreach (List<V3> poly in polys) Carve(poly, n.Norm, cut, 1e-4 * (hi - lo).Len, 4, next);
                         polys.Clear();
                         polys.AddRange(next);
                     }
@@ -216,6 +226,98 @@ namespace RealFuels.Tanks.PillTank
             soup.SV = SV.ToArray();
             soup.ST = ST.ToArray();
             return soup;
+        }
+
+        // The piece's convex hull, if the piece's surface is nowhere far inside it (each face's middle within 0.5% of the
+        // piece's size of the hull's surface): convex but for its facets. Else null (a waist, a dip: concave).
+        static SkinPiece NearlyConvex(SkinPiece p)
+        {
+            SkinPiece h = SkinPiece.Hull(p.V);
+            double vp = SignedVolume(p);
+            // (the hull holding about what the piece does: a hull of many coplanar rings can come out wrong)
+            if (h == null || !(vp > 0) || !(Math.Abs(SignedVolume(h) / vp - 1) < 0.05)) return null;
+            double size = (p.Hi - p.Lo).Len, sag = 0.005 * size;
+            Planes(h, 1e-6 * size);
+            for (int t = 0; t < p.T.Length; t += 3)
+            {
+                V3 c = (p.V[p.T[t]] + p.V[p.T[t + 1]] + p.V[p.T[t + 2]]) * (1.0 / 3);
+                double depth = double.PositiveInfinity;
+                for (int k = 0; k < h.N.Length; k++) depth = Math.Min(depth, h.D[k] - V3.Dot(h.N[k], c));
+                if (depth > sag) return null;
+            }
+            return h;
+        }
+
+        static double SignedVolume(SkinPiece p)
+        {
+            double v = 0;
+            for (int t = 0; t < p.T.Length; t += 3)
+                v += V3.Dot(p.V[p.T[t]], V3.Cross(p.V[p.T[t + 1]], p.V[p.T[t + 2]]));
+            return v / 6;
+        }
+
+        // `poly` (another piece's face, outward normal n) less what of it lies inside concave piece `p`, to `depth`
+        // levels: a polygon whose probes are all inside goes; one with some inside is split in four (by its
+        // triangles' midpoints) and each part tried again; one with none inside, or at the last level not all, stays.
+        static void Carve(List<V3> poly, V3 n, SkinPiece p, double delta, int depth, List<List<V3>> outPolys)
+        {
+            int inside = Probe(poly, n, p, delta, out int probes);
+            if (inside == probes) return;
+            if (inside == 0 || depth == 0) { outPolys.Add(poly); return; }
+            for (int k = 1; k + 1 < poly.Count; k++)
+            {
+                V3 a = poly[0], b = poly[k], c = poly[k + 1], ab = (a + b) * 0.5, bc = (b + c) * 0.5, ca = (c + a) * 0.5;
+                Carve(new List<V3> { a, ab, ca }, n, p, delta, depth - 1, outPolys);
+                Carve(new List<V3> { ab, b, bc }, n, p, delta, depth - 1, outPolys);
+                Carve(new List<V3> { ca, bc, c }, n, p, delta, depth - 1, outPolys);
+                Carve(new List<V3> { ab, bc, ca }, n, p, delta, depth - 1, outPolys);
+            }
+        }
+
+        // How many of a polygon's probes are inside concave piece `p`: its middle and each vertex (pulled a little
+        // towards the middle), stepped `delta` off it along its outward normal `n` (so a face against p's, facing into
+        // it, counts as inside). A point on p's surface may go either way: only all of them inside removes a polygon.
+        static int Probe(List<V3> poly, V3 n, SkinPiece p, double delta, out int probes)
+        {
+            V3 mid = default(V3);
+            foreach (V3 q in poly) mid = mid + q;
+            mid = mid * (1.0 / poly.Count);
+            probes = poly.Count + 1;
+            int inside = Inside(p, mid + n * delta) ? 1 : 0;
+            foreach (V3 q in poly)
+                if (Inside(p, q + (mid - q) * 0.01 + n * delta)) inside++;
+            return inside;
+        }
+
+        // Inside a closed piece by ray parity, three skewed rays agreeing (any odd one out: not inside).
+        static readonly V3[] Rays = { new V3(0.5773, 0.5774, 0.5775).Norm, new V3(-0.6011, 0.3989, 0.6927).Norm, new V3(0.2117, -0.8003, 0.5609).Norm };
+        static bool Inside(SkinPiece p, V3 q)
+        {
+            if (q.x < p.Lo.x || q.y < p.Lo.y || q.z < p.Lo.z || q.x > p.Hi.x || q.y > p.Hi.y || q.z > p.Hi.z) return false;
+            foreach (V3 d in Rays)
+            {
+                int hits = 0;
+                for (int t = 0; t < p.T.Length; t += 3)
+                    if (RayHits(q, d, p.V[p.T[t]], p.V[p.T[t + 1]], p.V[p.T[t + 2]])) hits++;
+                if ((hits & 1) == 0) return false;
+            }
+            return true;
+        }
+
+        // Moller-Trumbore, the far side only (t > 0).
+        static bool RayHits(V3 o, V3 d, V3 a, V3 b, V3 c)
+        {
+            V3 e1 = b - a, e2 = c - a, pv = V3.Cross(d, e2);
+            double det = V3.Dot(e1, pv);
+            if (Math.Abs(det) < 1e-18) return false;
+            double inv = 1 / det;
+            V3 tv = o - a;
+            double u = V3.Dot(tv, pv) * inv;
+            if (u < 0 || u > 1) return false;
+            V3 qv = V3.Cross(tv, e1);
+            double v = V3.Dot(d, qv) * inv;
+            if (v < 0 || u + v > 1) return false;
+            return V3.Dot(e2, qv) * inv > 0;
         }
 
         static bool Overlap(V3 alo, V3 ahi, V3 blo, V3 bhi, double eps) =>

@@ -18,7 +18,11 @@ namespace RealFuels.Tanks.PillTank
         private readonly Part _part;
         private readonly string[] _names;
         private readonly List<Component> _found = new List<Component>();
+        private readonly List<int> _foundPart = new List<int>();     // each found component's part: 0 ours, i + 1 Others[i]
         public Kind Source { get; private set; }
+        // ProceduralParts whose skins join this part's (a stack sharing one tank), read into this part's frame; each
+        // part's sides and ends a closed piece of its own. Only with a ProceduralPart skin of this part's own.
+        public IList<Part> Others = new Part[0];
 
         public PillSkin(Part part, string names)
         {
@@ -39,8 +43,10 @@ namespace RealFuels.Tanks.PillTank
             unchecked
             {
                 int h = (int)Source * 31 + _found.Count, ids = 0;
-                foreach (Component c in _found)
+                for (int k = 0; k < _found.Count; k++)
                 {
+                    Component c = _found[k];
+                    h = h * 31 + _foundPart[k];
                     ids = ids * 31 + c.GetInstanceID();
                     Mesh m = MeshOf(c);
                     if (m != null)
@@ -88,6 +94,7 @@ namespace RealFuels.Tanks.PillTank
         private void Gather()
         {
             _found.Clear();
+            _foundPart.Clear();
             Source = Kind.None;
             Transform model = Model;
             if (_names.Length > 0)
@@ -98,16 +105,12 @@ namespace RealFuels.Tanks.PillTank
                 if (_found.Count > 0) { Source = Kind.Named; return; }
             }
 
-            PartModule pp = _part.Modules.Contains("ProceduralPart") ? _part.Modules["ProceduralPart"] : null;
-            if (pp != null)
+            if (AddProcedural(_part, 0))
             {
-                foreach (string f in new[] { "sidesName", "endsName" })
-                {
-                    string n = pp.Fields.GetValue<string>(f);
-                    Transform t = string.IsNullOrEmpty(n) ? null : _part.FindModelTransform(n);
-                    if (t != null) AddFilter(t);
-                }
-                if (_found.Count > 0) { Source = Kind.ProceduralPart; return; }
+                Source = Kind.ProceduralPart;
+                for (int i = 0; i < Others.Count; i++)
+                    if (Others[i] != null) AddProcedural(Others[i], i + 1);
+                return;
             }
 
             foreach (Collider c in model.GetComponentsInChildren<Collider>(false))
@@ -115,13 +118,28 @@ namespace RealFuels.Tanks.PillTank
                 if (!c.enabled || !Solid(c) || !Ours(c.transform)) continue;
                 if (c is MeshCollider mc ? mc.sharedMesh != null && mc.sharedMesh.isReadable
                     : c is BoxCollider || c is SphereCollider || c is CapsuleCollider)
-                    _found.Add(c);
+                    { _found.Add(c); _foundPart.Add(0); }
             }
             if (_found.Count > 0) { Source = Kind.Colliders; return; }
 
             foreach (MeshFilter mf in model.GetComponentsInChildren<MeshFilter>(false))
                 if (Ours(mf.transform) && mf.GetComponent<Renderer>() is Renderer r && r.enabled) AddFilter(mf.transform);
             if (_found.Count > 0) Source = Kind.Meshes;
+        }
+
+        // A ProceduralPart's sides and ends (its own, not an attached part's); false: p has none.
+        private bool AddProcedural(Part p, int index)
+        {
+            PartModule pp = p.Modules.Contains("ProceduralPart") ? p.Modules["ProceduralPart"] : null;
+            if (pp == null) return false;
+            int n0 = _found.Count;
+            foreach (string f in new[] { "sidesName", "endsName" })
+            {
+                string n = pp.Fields.GetValue<string>(f);
+                Transform t = string.IsNullOrEmpty(n) ? null : p.FindModelTransform(n);
+                if (t != null && t.GetComponentInParent<Part>() == p) AddFilter(t, index);
+            }
+            return _found.Count > n0;
         }
 
         // A part's body: in the editor KSP makes every part collider a trigger, so there only airlocks and ladders
@@ -132,10 +150,10 @@ namespace RealFuels.Tanks.PillTank
         // Not under another part (attached parts hang under their parent's transform).
         private bool Ours(Transform t) => t.GetComponentInParent<Part>() == _part;
 
-        private void AddFilter(Transform t)
+        private void AddFilter(Transform t, int index = 0)
         {
             MeshFilter mf = t.GetComponent<MeshFilter>();
-            if (mf != null && mf.sharedMesh != null && mf.sharedMesh.isReadable) _found.Add(mf);
+            if (mf != null && mf.sharedMesh != null && mf.sharedMesh.isReadable) { _found.Add(mf); _foundPart.Add(index); }
         }
 
         private static Mesh MeshOf(Component c) =>
@@ -152,19 +170,23 @@ namespace RealFuels.Tanks.PillTank
             }
         }
 
-        // The skin as the solver's soup (pieces and their union's surface). Main thread only.
-        public TriSoup Capture()
+        // The skin's closed pieces, in the part's frame (null: none). Main thread only; Soup makes them the solver's.
+        public List<SkinPiece> Capture()
         {
             Gather();
             Matrix4x4 toPart = ToPart();
             var pieces = new List<SkinPiece>();
             if (Source == Kind.Named || Source == Kind.ProceduralPart)
             {
-                // all of them together close the volume: one piece
-                var v = new List<V3>();
-                var t = new List<int>();
-                foreach (Component c in _found) AppendMesh(MeshOf(c), toPart * c.transform.localToWorldMatrix, v, t);
-                if (t.Count >= 12) pieces.Add(new SkinPiece(v.ToArray(), t.ToArray(), false));
+                // all of a part's together close its volume: one piece a part
+                for (int part = 0; part <= Others.Count; part++)
+                {
+                    var v = new List<V3>();
+                    var t = new List<int>();
+                    for (int k = 0; k < _found.Count; k++)
+                        if (_foundPart[k] == part) AppendMesh(MeshOf(_found[k]), toPart * _found[k].transform.localToWorldMatrix, v, t);
+                    if (t.Count >= 12) pieces.Add(new SkinPiece(v.ToArray(), t.ToArray(), false));
+                }
             }
             else
             {
@@ -188,8 +210,14 @@ namespace RealFuels.Tanks.PillTank
                     if (p != null) pieces.Add(p);
                 }
             }
-            if (pieces.Count == 0) return null;
-            TriSoup soup = Union.Build(pieces);
+            return pieces.Count == 0 ? null : pieces;
+        }
+
+        // The pieces as the solver's soup: their union's surface (any thread). stack: they're a stack of tanks' skins.
+        public static TriSoup Soup(List<SkinPiece> pieces, bool stack)
+        {
+            if (pieces == null) return null;
+            TriSoup soup = Union.Build(pieces, stack);
             soup.Hints.Add(new V3(0, 1, 0));    // a stack part's long axis
             return soup;
         }

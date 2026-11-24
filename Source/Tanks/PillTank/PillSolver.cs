@@ -59,6 +59,29 @@ namespace RealFuels.Tanks.PillTank
             double h1 = r1 * (1 + s), h2 = r2 * (1 - s);
             return Math.PI / 3 * (h1 * h1 * (3 * r1 - h1) + h2 * h2 * (3 * r2 - h2) + L * c2 * c2 * (r1 * r1 + r1 * r2 + r2 * r2));
         }
+
+        // The volume's centroid (on the axis): the caps' and the frustum's, weighted by their volumes. A cap h high
+        // on a sphere r has its centroid 3 (2r - h)^2 / (4 (3r - h)) from the sphere's centre; a frustum l long, radii
+        // p1 and p2, l (p1^2 + 2 p1 p2 + 3 p2^2) / (4 (p1^2 + p1 p2 + p2^2)) from its p1 end.
+        public V3 Centroid
+        {
+            get
+            {
+                double L = Length;
+                if (!(L > Math.Abs(R - R2))) return R >= R2 ? A : B;     // one sphere (the other inside it)
+                V3 u = (B - A) * (1 / L);
+                double s = (R - R2) / L, c = Math.Sqrt(1 - s * s);
+                double h1 = R * (1 + s), h2 = R2 * (1 - s);
+                double v1 = Math.PI / 3 * h1 * h1 * (3 * R - h1), v2 = Math.PI / 3 * h2 * h2 * (3 * R2 - h2);
+                double x1 = R > 0 ? -3 * (2 * R - h1) * (2 * R - h1) / (4 * (3 * R - h1)) : 0;
+                double x2 = L + (R2 > 0 ? 3 * (2 * R2 - h2) * (2 * R2 - h2) / (4 * (3 * R2 - h2)) : 0);
+                double p1 = R * c, p2 = R2 * c, l = L * c * c, q = p1 * p1 + p1 * p2 + p2 * p2;
+                double vf = Math.PI / 3 * l * q;
+                double xf = R * s + (q > 0 ? l * (p1 * p1 + 2 * p1 * p2 + 3 * p2 * p2) / (4 * q) : 0);
+                double v = v1 + vf + v2;
+                return v > 0 ? A + u * ((v1 * x1 + vf * xf + v2 * x2) / v) : A + u * (0.5 * L);
+            }
+        }
     }
 
     // Closed triangle surfaces (any triangle soup that encloses a volume; seams and duplicate vertices are fine).
@@ -425,12 +448,14 @@ namespace RealFuels.Tanks.PillTank
         public bool Polish = false;      // full exact optimisation (slower); off = guaranteed-fit radius only
         public double MaxTaper = 0;      // the most a pill's radius may change along its axis, per unit length (0: none)
 
-        readonly TriSoup mesh;
+        TriSoup mesh;
         Grid grid;
         TriBvh bvh;
         readonly List<Capsule> placed = new List<Capsule>();
 
         public Solver(TriSoup m) { mesh = m; }
+        // The mesh, when it is made after the solver (on the thread that solves).
+        public TriSoup Mesh { set => mesh = value; }
 
         // The inside's volume as the (final) grid has it, once Solve has run.
         public double VoxelVolume { get; private set; }

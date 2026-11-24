@@ -29,6 +29,22 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         public double largestPillVolume = -1;
 
+        // Stacked ProceduralParts tanks of one type share one pill (PillGroup), its owner's: this tank's volume went to
+        // it (it holds nothing).
+        [KSPField(isPersistant = true)]
+        public bool pillShared;
+
+        // How many tanks the saved fit (largestPillVolume) was fitted across: a saved fit holds only for as many.
+        [KSPField(isPersistant = true)]
+        public int pillStack = 1;
+
+        // A stack's owner: the part's centre of mass is its pill's (pillCoM, part frame), kept so as ProceduralParts
+        // moves it.
+        [KSPField(isPersistant = true)]
+        public bool pillSetsCoM;
+        [KSPField(isPersistant = true)]
+        public Vector3 pillCoM;
+
         // Which pills are drawn (PillTankView, one setting for every tank this session).
         [KSPField(guiActiveEditor = false, guiName = "#RF_FuelTank_PillPreview", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // Pill tank fit
         [UI_ChooseOption(options = new[] { nameof(PillTankView.Off), nameof(PillTankView.Selected), nameof(PillTankView.All) }, suppressEditorShipModified = true)]
@@ -42,10 +58,16 @@ namespace RealFuels.Tanks
         [NonSerialized]
         public bool trackPillTank;
 
-        // The latest fit (part frame without scale, metres), or null before the first solve.
+        // The latest fit (part frame without scale, metres), or null before the first solve (and on a tank whose volume
+        // went to a stack's pill: PillTankStack's owner has it).
         public PillFit PillTank => _pill?.Last;
-        // The part's skin changed since PillTank was solved (a new solve is waiting or running).
-        public bool PillTankPending => _pill == null || _pill.Pending;
+        // The part's skin changed since PillTank was solved (a new solve is waiting or running); a stack's other tank:
+        // its owner's.
+        public bool PillTankPending => pillShared ? PillTankStack?.Owner is ModuleFuelTanks o && o != this && o.PillTankPending : _pill == null || _pill.Pending;
+        // The tank's volume went to its stack's pill, another tank's.
+        public bool PillTankShared => pillShared;
+        // The pill tanks stacked with this one (in the editor; just this one when it's alone), null if not a pill tank.
+        public PillGroup PillTankStack => PillSizesTank ? PillGroup.Of(this) : null;
         // The pill is drawn in the editor now.
         public bool PillTankDrawn => _pill != null && _pill.Drawn;
         public event Action<ModuleFuelTanks> PillTankChanged;
@@ -141,17 +163,50 @@ namespace RealFuels.Tanks
             bool pillTank = PillSizesTank;
             bool parts = EditorLogic.fetch != null && EditorLogic.fetch.editorScreen == EditorScreen.Parts;
             bool open = part.PartActionWindow != null && parts;
-            bool draw = pillTank && parts && (view == PillTankView.All || view == PillTankView.Selected && open);
+            PillGroup group = pillTank ? PillGroup.Of(this) : null;
+
+            // stacked with a bigger tank of its type: the stack's pill is that one's, this one holds nothing
+            if (group != null && group.Owner != this)
+            {
+                DisposePill();
+                pillShared = true;
+                largestPillVolume = -1;
+                RestoreCoM();
+                SetTotalVolume(MinNoPillVolume);
+                PillLines(true);
+                if (open && pillTankInfo != (_infoShared = Localizer.Format("#RF_FuelTank_PillShared", group.Owner.part.partInfo.title)))
+                    pillTankInfo = _infoShared; // in <<1>>'s pill
+                return;
+            }
+            // out of a stack, or its owner now: a fit of its own (no longer a pill tank: the part's volume back)
+            if (pillShared)
+            {
+                pillShared = false;
+                largestPillVolume = pillTank ? -1 : 0;
+            }
+            bool owner = group != null && group.Shared;
+            if (!owner) RestoreCoM();
+            _others.Clear();
+            if (owner) foreach (ModuleFuelTanks t in group.Tanks) if (t != this) _others.Add(t.part);
+            // one of the stack's PAWs open: the pill shown, its skin watched closely
+            bool stackOpen = open || owner && parts && group.Tanks.Exists(t => t.part.PartActionWindow != null);
+            bool draw = pillTank && parts && (view == PillTankView.All || view == PillTankView.Selected && stackOpen);
             // a tank that was a pill tank keeps solving until it has the part's volume back (RestorePartVolume)
             bool solve = pillTank || trackPillTank || largestPillVolume >= 0;
             if (solve && _pill == null)
             {
-                // a fit saved with the part (largestPillVolume) holds until its skin changes
-                _pill = new PillPreview(part, pillSkin, saved: largestPillVolume >= 0);
+                // a fit saved with the part (largestPillVolume) holds until its skin changes, if fitted across as many
+                // tanks as are stacked now
+                _pill = new PillPreview(part, pillSkin, saved: largestPillVolume >= 0 && pillStack == _others.Count + 1);
                 _pill.Changed += OnPillSolved;
             }
-            _pill?.Tick(solve, draw, pillTank && open, _pillEvents);
+            if (_pill != null) _pill.Others = _others;
+            // (the stack's make-up in the signature's extra: a tank joining or leaving is seen at once)
+            int extra = _pillEvents;
+            foreach (Part p in _others) extra = unchecked(extra * 31 + (int)p.persistentId);
+            _pill?.Tick(solve, draw, pillTank && stackOpen, extra);
             if (pillTank && _pill != null && _pill.Pending) PillLaunchLock.PendingFrame = Time.frameCount;
+            KeepCoM();
 
             // made a pill tank or not with no volume event (the tank type switched, or a craft saved before the type
             // took no pill): a pill tank with no pill volume takes its fit's (OnPillSolved does once a new fit lands);
@@ -160,28 +215,51 @@ namespace RealFuels.Tanks
             else if (!pillTank && largestPillVolume >= 0) RestorePartVolume();
 
             // the PAW's pill lines: on pill tanks
-            if (pillTank != _pillLine)
-            {
-                _pillLine = pillTank;
-                Fields[nameof(pillTankView)].guiActiveEditor = _pillLine;
-                Fields[nameof(pillTankInfo)].guiActiveEditor = _pillLine;
-                MonoUtilities.RefreshPartContextWindow(part);
-            }
+            PillLines(pillTank);
             if (_pillLine && part.PartActionWindow != null)
             {
                 PillFit last = _pill?.Last;
                 bool pending = _pill == null || _pill.Pending;
-                if (!_infoSet || last != _infoFit || pending != _infoPending)
+                int stack = _others.Count + 1;
+                if (!_infoSet || last != _infoFit || pending != _infoPending || stack != _infoStack)
                 {
                     pillTankInfo = PillInfo();
                     _infoSet = true;
                     _infoFit = last;
                     _infoPending = pending;
+                    _infoStack = stack;
                 }
             }
         }
         private PillFit _infoFit;
         private bool _infoSet, _infoPending;
+        private int _infoStack;
+        private string _infoShared;
+        private readonly System.Collections.Generic.List<Part> _others = new System.Collections.Generic.List<Part>();
+
+        private void PillLines(bool on)
+        {
+            if (on == _pillLine) return;
+            _pillLine = on;
+            _infoSet = false;
+            Fields[nameof(pillTankView)].guiActiveEditor = _pillLine;
+            Fields[nameof(pillTankInfo)].guiActiveEditor = _pillLine;
+            MonoUtilities.RefreshPartContextWindow(part);
+        }
+
+        // A stack's owner keeps its pill's centre of mass on the part (ProceduralParts sets the shape's whenever it
+        // rebuilds); any other tank, the shape's back.
+        internal void KeepCoM()
+        {
+            if (pillSetsCoM && part.CoMOffset != pillCoM) part.CoMOffset = pillCoM;
+        }
+
+        private void RestoreCoM()
+        {
+            if (!pillSetsCoM) return;
+            pillSetsCoM = false;
+            part.CoMOffset = PillGroup.ShapeCoM(part);
+        }
 
         // With no pill, a pill tank keeps this share of the part's volume: never 0, so the fuel mix (kept only as each
         // fuel's amount) scales back when a pill fits again.
@@ -198,19 +276,45 @@ namespace RealFuels.Tanks
         // NoPillShare of the part's (a skin that couldn't be read leaves the volume as it was).
         internal void ApplyPill(PillFit r)
         {
-            if (!PillSizesTank || r == null || (r.Error != null && !r.Empty)) return;
+            if (!PillSizesTank) return;
+            if (pillShared)
+            {
+                SetTotalVolume(MinNoPillVolume);     // a stack's: the owner holds it all
+                return;
+            }
+            if (r == null || (r.Error != null && !r.Empty)) return;
             double total;
             if (r.Error == null)
             {
                 largestPillVolume = r.Volume;
                 total = r.Volume * tankVolumeConversion;
-                if (_partVolumeKnown && part.Modules.Contains("ProceduralPart")) total = Math.Min(total, _partTotalVolume);
+                // capped at the parts' volumes as their volume events have them (each known; a stack's all of them)
+                PillGroup g = PillGroup.Of(this);
+                double cap = 0;
+                bool known = part.Modules.Contains("ProceduralPart");
+                foreach (ModuleFuelTanks t in g.Tanks)
+                {
+                    known &= t._partVolumeKnown;
+                    cap += t._partTotalVolume;
+                }
+                if (known) total = Math.Min(total, cap);
+                pillStack = g.Tanks.Count;
+                // a stack's owner: the part's centre of mass the pill's
+                if (g.Shared)
+                {
+                    pillCoM = r.Centroid;
+                    pillSetsCoM = true;
+                    KeepCoM();
+                }
+                else RestoreCoM();
             }
             else
             {
                 double partVolume = _partTotalVolume > 0 ? _partTotalVolume : r.PartVolume * tankVolumeConversion;
                 if (!(partVolume > 0)) return;     // nothing to go by: as it was
                 largestPillVolume = 0;
+                pillStack = PillGroup.Of(this).Tanks.Count;
+                RestoreCoM();
                 total = Math.Max(NoPillShare * partVolume, MinNoPillVolume);
             }
             SetTotalVolume(total);
@@ -249,6 +353,7 @@ namespace RealFuels.Tanks
                 // a tapered one: r at both ends
                 string radius = r.Tapered ? $"{r.R:F2}-{r.R2:F2}" : r.R.ToString("F2");
                 s = Localizer.Format("#RF_FuelTank_PillInfo", units, radius, r.Length.ToString("F2"));
+                if (_others.Count > 0) s = $"{s} {Localizer.Format("#RF_FuelTank_PillStack", _others.Count + 1)}"; // (<<1>> tanks)
             }
             return _pill.Pending ? $"{s} {Localizer.GetStringByTag("#RF_FuelTank_PillUpdating")}" : s; // (updating)
         }

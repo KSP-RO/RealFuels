@@ -123,6 +123,7 @@
     <Compile Include="Tanks\PillTank\PillSolver.cs" />
     <Compile Include="Tanks\ModuleFuelTanks.cs" />
     <Compile Include="Tanks\ModuleFuelTanksPill.cs" />
+    <Compile Include="Tanks\PillGroup.cs" />
     <Compile Include="Tanks\ModuleFuelTanksRF.cs" />
     <Compile Include="Tanks\ModuleFuelTanksTestFlight.cs" />
     <Compile Include="Tanks\RealFuelsWindow.cs" />

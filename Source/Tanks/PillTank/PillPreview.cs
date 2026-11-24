@@ -41,6 +41,8 @@ namespace RealFuels.Tanks.PillTank
         private static Material _mat;
 
         public PillFit Last { get; private set; }
+        // Other parts whose skins join this one's (a stack of tanks sharing one pill), in a fixed order; empty: none.
+        public IList<Part> Others { set => _skin.Others = value; }
         public bool Drawn => _go != null && _go.activeSelf;
         public bool Pending => _solved != _want && !_saved;
         public event Action Changed;               // a new result landed
@@ -112,10 +114,11 @@ namespace RealFuels.Tanks.PillTank
 
         private void Start(bool draw)
         {
-            TriSoup soup;
+            List<SkinPiece> pieces;
             PillSkin.Kind kind;
             var sw = Stopwatch.StartNew();
-            try { soup = _skin.Capture(); kind = _skin.Source; }
+            bool stack;
+            try { pieces = _skin.Capture(); kind = _skin.Source; stack = _skin.Others.Count > 0 && kind == PillSkin.Kind.ProceduralPart; }
             catch (Exception e)
             {
                 Report("reading the skin", e);
@@ -124,12 +127,18 @@ namespace RealFuels.Tanks.PillTank
             }
             double read = sw.Elapsed.TotalSeconds;
             _running = _want;
-            Solver solver = soup == null ? null : new Solver(soup) { Polish = false, MaxTaper = MaxTaper };
+            // (the pieces' union on the worker too: it tests faces against other pieces)
+            var solver = new Solver(null) { Polish = false, MaxTaper = MaxTaper };
             _solver = solver;
             _task = Task.Run(() =>
             {
                 PillFit r;
-                try { r = Solve(soup, solver, kind); }
+                try
+                {
+                    TriSoup soup = PillSkin.Soup(pieces, stack);
+                    solver.Mesh = soup;
+                    r = Solve(soup, solver, kind);
+                }
                 catch (OperationCanceledException) { r = new PillFit { Source = kind.ToString(), Error = "cancelled", Cancelled = true }; }
                 r.ReadSeconds = read;
                 return r;
@@ -180,6 +189,8 @@ namespace RealFuels.Tanks.PillTank
             r.R = (float)c.R;
             r.R2 = (float)c.R2;
             r.Volume = (float)c.Volume;
+            V3 m = c.Centroid;
+            r.Centroid = new Vector3((float)m.x, (float)m.y, (float)m.z);
             return r;
         }
 
@@ -302,6 +313,7 @@ namespace RealFuels.Tanks.PillTank
         public Vector3 A, B;                  // axis ends
         public float R, R2;                   // m: the radius at A, at B (a tapered pill: between them linearly)
         public float Volume;                  // m^3
+        public Vector3 Centroid;              // the pill's volume's
         public float PartVolume;              // m^3 enclosed by the skin it was fitted in
         public string Source;                 // where the skin came from (PillSkin.Kind)
         public int Pieces;                    // closed pieces in that skin
