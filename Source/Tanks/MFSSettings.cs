@@ -32,6 +32,9 @@ namespace RealFuels
         // A pill's end domes: their height over the radius. 1: hemispheres (highly pressurized types); less, flatter
         // (ellipsoidal) domes. A tank type can set its own (TankDefinition.pillTankDome).
         public static double pillTankDome = 0.70710678, pillTankDomeHP = 1;
+        // Low pressure (not highly pressurized) types' pills may taper two ways, kinked once along the axis (a cylinder
+        // under a nose cone, say).
+        public static bool pillTankTwoTapers = true;
         private static readonly string[] pillTankModulesDefault = { "WingProcedural" };
         public static readonly HashSet<string> pillTankShapes = new HashSet<string>(pillTankShapesDefault);
         public static readonly HashSet<string> pillTankModules = new HashSet<string>(pillTankModulesDefault);
@@ -132,6 +135,7 @@ namespace RealFuels
                 node.TryGetValue("pillTankMaxTaper", ref pillTankMaxTaper);
                 node.TryGetValue("pillTankDome", ref pillTankDome);
                 node.TryGetValue("pillTankDomeHP", ref pillTankDomeHP);
+                node.TryGetValue("pillTankTwoTapers", ref pillTankTwoTapers);
 
                 ignoreFuelsForFill.Clear();
                 if (node.GetNode("IgnoreFuelsForFill") is ConfigNode ignoreNode)

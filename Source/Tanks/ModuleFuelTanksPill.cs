@@ -99,6 +99,8 @@ namespace RealFuels.Tanks
 
         // The pill's end domes' height over its radius, by the tank type (TankDefinition.PillDome).
         internal double PillDome => type != null && MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def) ? def.PillDome : 1;
+        // The pill may taper two ways, by the tank type (TankDefinition.PillKink).
+        internal bool PillKink => type != null && MFSSettings.tankDefinitions.TryGetValue(type, out TankDefinition def) && def.PillKink;
 
         // "Pill tank fit" is one setting for every tank, this session.
         private static PillTankView? _view;
@@ -207,10 +209,11 @@ namespace RealFuels.Tanks
                 _pill.Changed += OnPillSolved;
             }
             double dome = PillDome;
-            if (_pill != null) { _pill.Others = _others; _pill.Dome = dome; }
+            bool kink = PillKink;
+            if (_pill != null) { _pill.Others = _others; _pill.Dome = dome; _pill.Kink = kink; }
             // (the stack's make-up in the signature's extra: a tank joining or leaving is seen at once)
-            // (the domes too: a new tank type's may differ)
-            int extra = unchecked(_pillEvents * 31 + dome.GetHashCode());
+            // (the domes and tapers too: a new tank type's may differ)
+            int extra = unchecked((_pillEvents * 31 + dome.GetHashCode()) * 2 + (kink ? 1 : 0));
             foreach (Part p in _others) extra = unchecked(extra * 31 + (int)p.persistentId);
             _pill?.Tick(solve, draw, pillTank && stackOpen, extra);
             if (pillTank && _pill != null && _pill.Pending) PillLaunchLock.PendingFrame = Time.frameCount;
@@ -437,8 +440,8 @@ namespace RealFuels.Tanks
             {
                 // in the tank's units (kL in Real Fuels), like its Volume line
                 string units = KSPUtil.PrintSI(r.Volume * tankVolumeConversion, MFSSettings.unitLabel);
-                // a tapered one: r at both ends
-                string radius = r.Tapered ? $"{r.R:F2}-{r.R2:F2}" : r.R.ToString("F2");
+                // a tapered one: r at both ends (and at the joint: two tapers)
+                string radius = r.Kinked ? $"{r.R:F2}-{r.RJ:F2}-{r.R2:F2}" : r.Tapered ? $"{r.R:F2}-{r.R2:F2}" : r.R.ToString("F2");
                 s = Localizer.Format("#RF_FuelTank_PillInfo", units, radius, r.Length.ToString("F2"));
                 if (_others.Count > 0) s = $"{s} {Localizer.Format("#RF_FuelTank_PillStack", _others.Count + 1)}"; // (<<1>> tanks)
             }

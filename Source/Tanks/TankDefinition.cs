@@ -35,6 +35,9 @@ namespace RealFuels.Tanks
 
         public double PillDome => System.Math.Max(0.1, System.Math.Min(1, pillTankDome > 0 ? pillTankDome : highlyPressurized ? MFSSettings.pillTankDomeHP : MFSSettings.pillTankDome));
 
+        // The pill may taper two ways (Capsule.Kinked): a low pressure type's (MFSSettings.pillTankTwoTapers).
+        public bool PillKink => !highlyPressurized && MFSSettings.pillTankTwoTapers;
+
         [Persistent]
         public int numberOfMLILayers = 0;
 
