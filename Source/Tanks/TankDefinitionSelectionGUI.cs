@@ -156,7 +156,9 @@ namespace RealFuels.Tanks
                 GUIContent content = new GUIContent(def.Title, $"{def.Title}: {def.description} {Localizer.GetStringByTag("#RF_TankDefineSelection_MaxUtilization")}: {def.maxUtilization}"); // Max Utilization
                 if (GUILayout.Button(content, expandWidth) && parentModule.type != def.name)
                 {
+                    string from = parentModule.type;
                     parentModule.Fields[nameof(parentModule.type)].SetValue(def.name, parentModule);
+                    parentModule.ShareTankType(from);
                     MonoUtilities.RefreshPartContextWindow(parentModule.part);
                 }
             }

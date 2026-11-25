@@ -117,7 +117,13 @@
     <Compile Include="Tanks\FuelTank.cs" />
     <Compile Include="Tanks\FuelTankList.cs" />
     <Compile Include="Tanks\MFSSettings.cs" />
+    <Compile Include="Tanks\PillTank\PillGeometry.cs" />
+    <Compile Include="Tanks\PillTank\PillPreview.cs" />
+    <Compile Include="Tanks\PillTank\PillSkin.cs" />
+    <Compile Include="Tanks\PillTank\PillSolver.cs" />
     <Compile Include="Tanks\ModuleFuelTanks.cs" />
+    <Compile Include="Tanks\ModuleFuelTanksPill.cs" />
+    <Compile Include="Tanks\PillGroup.cs" />
     <Compile Include="Tanks\ModuleFuelTanksRF.cs" />
     <Compile Include="Tanks\ModuleFuelTanksTestFlight.cs" />
     <Compile Include="Tanks\RealFuelsWindow.cs" />

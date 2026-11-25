@@ -295,6 +295,7 @@ namespace RealFuels.Tanks
                 Fields[nameof(typeDisp)].uiControlEditor.onFieldChanged += OnTypeDispChanged;
                 Fields[nameof(typeDisp)].uiControlEditor.onSymmetryFieldChanged += OnTypeDispChanged;
                 EditorPartSetMaintainer.Instance.ScheduleUsedBySetsUpdate();
+                InitPill();
             }
 
             OnStartRF(state);
@@ -312,6 +313,7 @@ namespace RealFuels.Tanks
             GameEvents.onPartActionUIDismiss.Remove(OnPartActionGuiDismiss);
             GameEvents.onPartActionUIShown.Remove(OnPartActionUIShown);
             RealFuelsWindow.HideGUI();
+            DisposePill();
         }
 
         public override void OnSave (ConfigNode node)
@@ -331,10 +333,16 @@ namespace RealFuels.Tanks
         private void OnTypeDispChanged(BaseField f, object obj)
         {
             TankDefinition def = typesAvailable.First(t => t.Title == typeDisp);
+            string from = type;
             type = def.name;
+            ShareTankType(from);
         }
 
-        private void OnEditorShipModified(ShipConstruct _) => PartResourcesChanged();
+        private void OnEditorShipModified(ShipConstruct _)
+        {
+            PillGroup.Forget();     // (a part attached or detached: the frame's pill tank groups may be stale)
+            PartResourcesChanged();
+        }
 
         private void OnPartActionUIShown(UIPartActionWindow window, Part p)
         {
@@ -375,6 +383,12 @@ namespace RealFuels.Tanks
                 }
                 else
                     RealFuelsWindow.HideGUIForModule(this);
+                UpdatePill();
+            }
+            else
+            {
+                KeepCoM();      // a stack's owner: its pill's centre of mass, whatever ProceduralParts set
+                if (HighLogic.LoadedSceneIsFlight) WatchPillGroup();
             }
             UpdateRF();
         }
@@ -589,6 +603,7 @@ namespace RealFuels.Tanks
             }
             EditorPartSetMaintainer.Instance?.ScheduleUsedBySetsUpdate();
 
+            if (oldTypeForEvent != null) ShareTankType(oldTypeForEvent);   // (set some other way than the PAW's)
             UpdateTankTypeRF(def);
             UpdateTestFlight();
             RaiseTankDefinitionChanged(oldTypeForEvent, def);
@@ -600,7 +615,26 @@ namespace RealFuels.Tanks
         {
             if (data.Get<string>("volName").Equals("Tankage"))
             {
+                _pillEvents++;     // the shape changed: a new pill fit
                 double newTotalVolume = data.Get<double>("newTotalVolume") * tankVolumeConversion;
+                _partTotalVolume = newTotalVolume;
+                _partVolumeKnown = true;
+                // a stack's tank whose volume went to its owner's pill: holds nothing still; the owner's cap moves
+                if (pillShared && PillSizesTank)
+                {
+                    ApplyPill(null);
+                    if (HighLogic.LoadedSceneIsEditor && PillGroup.Of(this).Owner is ModuleFuelTanks o && o != this && o.PillTank != null)
+                        o.ApplyPill(o.PillTank);
+                    return;
+                }
+                // a pill tank's volume comes from its fit (ModuleFuelTanksPill), capped at the part's (now, from the fit
+                // it has); until the first fit lands (a new part, or one just made a pill tank), the part's
+                if (PillSizesTank && largestPillVolume >= 0)
+                {
+                    ApplyPill(PillTank);
+                    return;
+                }
+                largestPillVolume = -1;
                 ChangeTotalVolume(newTotalVolume);
             }
         }
@@ -835,8 +869,9 @@ namespace RealFuels.Tanks
             bool activeEditor = (UsedVolume != 0);
             BaseEvent evt = Events["Empty"];
             if (evt != null) {
-                activeChanged |= evt.guiActiveEditor != activeEditor;
-                evt.guiActiveEditor = activeEditor;
+                bool shown = PawShown(evt, activeEditor);
+                activeChanged |= evt.guiActiveEditor != shown;
+                evt.guiActiveEditor = shown;
             }
 
             activeEditor = (AvailableVolume >= 0.001);
@@ -846,8 +881,9 @@ namespace RealFuels.Tanks
                 if (!evt.name.StartsWith ("MFT")) {
                     continue;
                 }
-                activeChanged |= evt.guiActiveEditor != activeEditor;
-                evt.guiActiveEditor = activeEditor;
+                bool shown = PawShown(evt, activeEditor);
+                activeChanged |= evt.guiActiveEditor != shown;
+                evt.guiActiveEditor = shown;
             }
         }
 
@@ -1043,10 +1079,8 @@ namespace RealFuels.Tanks
                             groupDisplayName = guiGroupDisplayName
                         };
                         FuelInfo info1 = info;
-                        BaseEvent button = new BaseEvent(Events, kspEvent.name, () => ConfigureFor(info1), kspEvent)
-                        {
-                            guiActiveEditor = activeEditor
-                        };
+                        BaseEvent button = new BaseEvent(Events, kspEvent.name, () => ConfigureFor(info1), kspEvent);
+                        button.guiActiveEditor = PawShown(button, activeEditor);
                         Events.Add(button);
                         displayedParts.Add(info.title);
                     }
