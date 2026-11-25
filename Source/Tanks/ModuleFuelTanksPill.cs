@@ -45,6 +45,11 @@ namespace RealFuels.Tanks
         [KSPField(isPersistant = true)]
         public Vector3 pillCoM;
 
+        // A stack's tanks, as the editor last grouped them: its owner's persistentId (a label only), 0 alone. In flight
+        // they are one tank: one of them lost (broken off, destroyed), the rest explode.
+        [KSPField(isPersistant = true)]
+        public uint pillGroup;
+
         // Which pills are drawn (PillTankView, one setting for every tank this session).
         [KSPField(guiActiveEditor = false, guiName = "#RF_FuelTank_PillPreview", groupName = guiGroupName, groupDisplayName = guiGroupDisplayName)] // Pill tank fit
         [UI_ChooseOption(options = new[] { nameof(PillTankView.Off), nameof(PillTankView.Selected), nameof(PillTankView.All) }, suppressEditorShipModified = true)]
@@ -175,6 +180,8 @@ namespace RealFuels.Tanks
             {
                 DisposePill();
                 _others.Clear();
+                _infoSet = false;     // (its own info line again once it leaves)
+                pillGroup = group.Owner.part.persistentId;
                 pillShared = true;
                 largestPillVolume = -1;
                 RestoreCoM();
@@ -193,6 +200,7 @@ namespace RealFuels.Tanks
                 largestPillVolume = pillTank ? -1 : 0;
             }
             bool owner = group != null && group.Shared;
+            pillGroup = owner ? part.persistentId : 0;
             if (!owner) RestoreCoM();
             _others.Clear();
             if (owner) foreach (ModuleFuelTanks t in group.Tanks) if (t != this) _others.Add(t.part);
@@ -252,15 +260,44 @@ namespace RealFuels.Tanks
         // together (of another type, they'd leave it). One that can't take the type stays and leaves.
         internal void ShareTankType(string from)
         {
-            if (_others.Count == 0 || type == null || type == from) return;
-            bool any = false;
+            if (type == from) return;
+            PillGroup.Forget();     // (grouped this frame by the old types)
+            if (_others.Count == 0 || type == null) return;
             foreach (Part p in _others)
                 if (p != null && p.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks t && t.type == from && t.typesAvailable.Exists(d => d.name == type))
-                {
                     t.type = type;
-                    any = true;
+        }
+
+        // In flight, a stack's tank (pillGroup) explodes once any of its stack is gone from its vessel: the stack is
+        // one tank, its fuel and centre of mass all on the owner. The stack as it is when the vessel loads: its tanks
+        // joined end to end with this pillGroup.
+        private System.Collections.Generic.List<Part> _flightGroup;
+
+        private void WatchPillGroup()
+        {
+            if (pillGroup == 0 || part.vessel == null || part.State == PartStates.DEAD) return;
+            if (_flightGroup == null)
+            {
+                _flightGroup = new System.Collections.Generic.List<Part>();
+                var todo = new System.Collections.Generic.Stack<Part>();
+                var seen = new System.Collections.Generic.HashSet<Part> { part };
+                todo.Push(part);
+                while (todo.Count > 0)
+                {
+                    Part p = todo.Pop();
+                    _flightGroup.Add(p);
+                    foreach (Part n in PillGroup.Stacked(p, false))
+                        if (seen.Add(n) && n.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks t && t.pillGroup == pillGroup) todo.Push(n);
                 }
-            if (any) PillGroup.Forget();    // (grouped this frame by the old types)
+            }
+            foreach (Part p in _flightGroup)
+                if (p == null || p.State == PartStates.DEAD || p.vessel != part.vessel)
+                {
+                    pillGroup = 0;
+                    _flightGroup = null;
+                    part.explode();
+                    return;
+                }
         }
 
         // Opens the PAW of the tank holding this one's stack's pill (in the editor: selects it), the next frame (not from
@@ -284,8 +321,17 @@ namespace RealFuels.Tanks
         // A stack's tank whose volume went to another (member): its Real Fuels PAW section is only the group line and
         // the button to the main tank. Everything else in it is hidden while it is one (each item's own showing kept, an
         // item shown again meanwhile counted as shown), and back as kept once it isn't; the tank window closed.
-        private readonly System.Collections.Generic.Dictionary<object, bool> _memberHidden = new System.Collections.Generic.Dictionary<object, bool>();
+        // (by name, F/E + the item's: Real Fuels makes its fill buttons anew)
+        private readonly System.Collections.Generic.Dictionary<string, bool> _memberHidden = new System.Collections.Generic.Dictionary<string, bool>();
         private bool _memberSection;
+
+        // What a PAW item of the section meant to be `shown` shows: on a member nothing, kept for when it isn't one.
+        private bool PawShown(BaseEvent e, bool shown)
+        {
+            if (!_memberSection || e.name == nameof(SelectPillOwner)) return shown;
+            _memberHidden["E" + e.name] = shown;
+            return false;
+        }
 
         private void MemberSection(bool member)
         {
@@ -296,9 +342,9 @@ namespace RealFuels.Tanks
             if (member)
             {
                 foreach (BaseField f in Fields)
-                    if (f.group?.name == guiGroupName && f.name != nameof(pillTankInfo)) changed |= Hide(f, f.guiActiveEditor, () => f.guiActiveEditor = false);
+                    if (f.group?.name == guiGroupName && f.name != nameof(pillTankInfo)) changed |= Hide("F" + f.name, f.guiActiveEditor, () => f.guiActiveEditor = false);
                 foreach (BaseEvent e in Events)
-                    if (e.group?.name == guiGroupName && e != select) changed |= Hide(e, e.guiActiveEditor, () => e.guiActiveEditor = false);
+                    if (e.group?.name == guiGroupName && e != select) changed |= Hide("E" + e.name, e.guiActiveEditor, () => e.guiActiveEditor = false);
                 select.guiActiveEditor = true;
                 if (showUI)
                 {
@@ -309,9 +355,9 @@ namespace RealFuels.Tanks
             else
             {
                 foreach (BaseField f in Fields)
-                    if (_memberHidden.TryGetValue(f, out bool shown)) f.guiActiveEditor = shown;
+                    if (_memberHidden.TryGetValue("F" + f.name, out bool shown)) f.guiActiveEditor = shown;
                 foreach (BaseEvent e in Events)
-                    if (_memberHidden.TryGetValue(e, out bool shown)) e.guiActiveEditor = shown;
+                    if (_memberHidden.TryGetValue("E" + e.name, out bool shown)) e.guiActiveEditor = shown;
                 _memberHidden.Clear();
                 select.guiActiveEditor = false;
             }
@@ -319,7 +365,7 @@ namespace RealFuels.Tanks
         }
 
         // Hides a PAW item, keeping whether it was meant to show; true when it was showing.
-        private bool Hide(object item, bool showing, Action hide)
+        private bool Hide(string item, bool showing, Action hide)
         {
             if (showing || !_memberHidden.ContainsKey(item)) _memberHidden[item] = showing;
             if (!showing) return false;

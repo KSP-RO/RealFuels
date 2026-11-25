@@ -153,14 +153,14 @@ namespace RealFuels.Tanks.PillTank
             double read = sw.Elapsed.TotalSeconds;
             _running = _want;
             // (the pieces' union on the worker too: it tests faces against other pieces)
-            var solver = new Solver(null) { Polish = false, MaxTaper = MaxTaper, Dome = Dome, Kink = Kink, Symmetric = sym };
+            var solver = new Solver(null) { Polish = false, MaxTaper = MaxTaper, Dome = Dome, Kink = Kink, Symmetric = sym, MinEnd = Math.Max(0, MFSSettings.pillTankMinEndRadius) };
             _solver = solver;
             _task = Task.Run(() =>
             {
                 PillFit r;
                 try
                 {
-                    TriSoup soup = PillSkin.Soup(pieces, stack);
+                    TriSoup soup = PillSkin.Soup(pieces, stack, () => { if (solver.Cancel) throw new OperationCanceledException(); });
                     solver.Mesh = soup;
                     r = Solve(soup, solver, kind);
                 }

@@ -155,6 +155,21 @@ namespace RealFuels.Tanks.PillTank
             if (_found.Count > 0) Source = Kind.Meshes;
         }
 
+        // p's ProceduralPart sides or ends are there to read (what AddProcedural takes).
+        internal static bool HasProceduralSkin(Part p)
+        {
+            PartModule pp = p.Modules.Contains("ProceduralPart") ? p.Modules["ProceduralPart"] : null;
+            if (pp == null) return false;
+            foreach (string f in new[] { "sidesName", "endsName" })
+            {
+                string n = pp.Fields.GetValue<string>(f);
+                Transform t = string.IsNullOrEmpty(n) ? null : p.FindModelTransform(n);
+                if (t != null && t.GetComponentInParent<Part>() == p && t.GetComponent<MeshFilter>() is MeshFilter mf && mf.sharedMesh != null && mf.sharedMesh.isReadable)
+                    return true;
+            }
+            return false;
+        }
+
         // A ProceduralPart's sides and ends (its own, not an attached part's); false: p has none.
         private bool AddProcedural(Part p, int index)
         {
@@ -243,10 +258,11 @@ namespace RealFuels.Tanks.PillTank
         }
 
         // The pieces as the solver's soup: their union's surface (any thread). stack: they're a stack of tanks' skins.
-        public static TriSoup Soup(List<SkinPiece> pieces, bool stack)
+        // check: called now and then (Union.Build's).
+        public static TriSoup Soup(List<SkinPiece> pieces, bool stack, Action check = null)
         {
             if (pieces == null) return null;
-            TriSoup soup = Union.Build(pieces, stack);
+            TriSoup soup = Union.Build(pieces, stack, check);
             soup.Hints.Add(new V3(0, 1, 0));    // a stack part's long axis
             return soup;
         }

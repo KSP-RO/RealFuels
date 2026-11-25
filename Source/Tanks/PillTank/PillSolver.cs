@@ -647,6 +647,7 @@ namespace RealFuels.Tanks.PillTank
         public double MaxTaper = 0;      // the most a pill's radius may change along its axis, per unit length (0: none)
         public double Dome = 1;          // the pill's end domes' height over its radius (Capsule.E; 1: hemispheres)
         public bool Kink;                // two tapers allowed (Capsule.Kinked): a cylinder with a nose cone, say
+        public double MinEnd;            // a tapered pill's smaller end at least this radius (m), unless the pill is no wider (0: any)
         public bool Symmetric;           // the part a solid of revolution (or a regular prism) about its hint axis (AxisOnly)
         private V3? _convexCentre;       // AxisOnly's: the part convex, this inside it (Exit by its faces, no grid)
         private V3? _fixedDir;           // a dome search's (DomeSearch): the one direction searched
@@ -804,7 +805,7 @@ namespace RealFuels.Tanks.PillTank
                 var inner = new Solver(sm)
                 {
                     Budget = 0.5 * Budget, MinCellsRadius = MinCellsRadius, Gap = Gap, Margin = Margin,
-                    Centers = Centers, Refine = Refine, MaxTaper = MaxTaper * Dome, Kink = Kink,     // (a slope per length stretched)
+                    Centers = Centers, Refine = Refine, MaxTaper = MaxTaper * Dome, Kink = Kink, MinEnd = MinEnd,     // (a slope per length stretched)
                     _fixedDir = u, _voxelOnly = true, _outer = this,
                 };
                 List<TankResult> found = inner.Solve(1);
@@ -1017,14 +1018,15 @@ namespace RealFuels.Tanks.PillTank
             int nR = March(c, u, step, nmax, d0, kR, buf.R);
             int nL = March(c, -u, step, nmax, d0, kL, buf.L);
             double best = -1;
-            Scan(buf.R, nR, buf.L, nL, step, kR, kL, false, ref best, ref rL, ref rR, ref rC, ref tL, ref tR);
-            Scan(buf.L, nL, buf.R, nR, step, kL, kR, true, ref best, ref rL, ref rR, ref rC, ref tL, ref tR);
+            Scan(buf.R, nR, buf.L, nL, step, kR, kL, false, MinEnd, ref best, ref rL, ref rR, ref rC, ref tL, ref tR);
+            Scan(buf.L, nL, buf.R, nR, step, kL, kR, true, MinEnd, ref best, ref rL, ref rR, ref rC, ref tL, ref tR);
             return best;
         }
 
         // Candidate radii at c from side P (non-increasing running minima); count of side Q >= r by pointer. kP, kQ: the
-        // slopes out towards P and Q (a side whose end would narrow past nothing is cut back to a point there).
-        static void Scan(double[] P, int nP, double[] Q, int nQ, double step, double kP, double kQ, bool swapped,
+        // slopes out towards P and Q (a side whose end would narrow past nothing is cut back to a point there; with the
+        // pill wider than minEnd, back to minEnd).
+        static void Scan(double[] P, int nP, double[] Q, int nQ, double step, double kP, double kQ, bool swapped, double minEnd,
                          ref double best, ref double rL, ref double rR, ref double rC, ref double tL, ref double tR)
         {
             bool one = kP == -kQ;
@@ -1036,6 +1038,11 @@ namespace RealFuels.Tanks.PillTank
                 double tP = step * i, tQ = step * (j - 1);
                 if (kP < 0) tP = Math.Min(tP, rr / -kP);
                 if (kQ < 0) tQ = Math.Min(tQ, rr / -kQ);
+                if (minEnd > 0 && Math.Max(rr, Math.Max(rr + kP * tP, rr + kQ * tQ)) > minEnd)
+                {
+                    if (kP < 0) tP = Math.Min(tP, Math.Max(0, (rr - minEnd) / -kP));
+                    if (kQ < 0) tQ = Math.Min(tQ, Math.Max(0, (rr - minEnd) / -kQ));
+                }
                 double rP = rr + kP * tP, rQ = rr + kQ * tQ;
                 double v = one ? Capsule.Vol(rP, rQ, tP + tQ) : Capsule.Vol2(rQ, rr, rP, tQ, tP);
                 if (v > best)
@@ -1326,7 +1333,7 @@ namespace RealFuels.Tanks.PillTank
                 if (i >= lo) lead = Math.Min(lead, d[i] - maxTaper * (s0 + h * i));
             }
 
-            var fine = new Axis(d, s0, h, lo, hi, starts, ends);
+            var fine = new Axis(d, s0, h, lo, hi, starts, ends) { MinEnd = MinEnd };
             // the stretches between queried points that hold a point not queried within the slack (what its room may yet
             // be over its bound) of the tightest for slopes k1, k2 (joint jF) from sF to eF; true if any
             var mark = new bool[firsts.Count];
@@ -1525,6 +1532,12 @@ namespace RealFuels.Tanks.PillTank
             public int Factor = 1;
             public int BestStart, BestEnd;      // the last Fit's best
             public double BestR;
+            public double MinEnd;               // Solver.MinEnd
+
+            // End radii r1, r2 and joint radius r a pill may have: all over 0, the smaller end at least MinEnd unless
+            // the pill is no wider than that
+            bool Allowed(double r1, double r, double r2) =>
+                r1 > 0 && r2 > 0 && r > 0 && (Math.Min(r1, r2) >= MinEnd || Math.Max(r, Math.Max(r1, r2)) <= MinEnd);
 
             public Axis(double[] d, double s0, double h, int lo, int hi, List<int> starts, List<int> ends)
             {
@@ -1547,7 +1560,7 @@ namespace RealFuels.Tanks.PillTank
                     dc[j] = mn;
                 }
                 Func<List<int>, List<int>> Map = l => { var r = new List<int>(); foreach (int i in l) { int c = i / f; if (r.Count == 0 || r[r.Count - 1] != c) r.Add(c); } return r; };
-                return new Axis(dc, s0, H * f, Lo / f, Hi / f, Map(starts), Map(ends)) { Factor = f };
+                return new Axis(dc, s0, H * f, Lo / f, Hi / f, Map(starts), Map(ends)) { Factor = f, MinEnd = MinEnd };
             }
 
             // The most volume (-1: none) with slope k1 up to the joint (point iJ) and k2 on from it (k1 = k2: one
@@ -1596,7 +1609,7 @@ namespace RealFuels.Tanks.PillTank
                     {
                         double sb = s0 + h * b - sJ, r = Math.Min(ma, rmin[b - b0]) - lips;
                         double r1 = r + (sa < 0 ? k1 : k2) * sa, r2 = r + (sb < 0 ? k1 : k2) * sb;
-                        if (!(r1 > 0 && r2 > 0 && r > 0)) continue;
+                        if (!Allowed(r1, r, r2)) continue;
                         double v = !one && sa < 0 && sb > 0 ? Capsule.Vol(r1, r, r2, -sa, sb, e) : Capsule.Vol(r1, r2, sb - sa, e);
                         if (v > best) { best = v; bs = a; be = b; br = r; }
                     }
@@ -1635,7 +1648,7 @@ namespace RealFuels.Tanks.PillTank
                         if (ends[b] < iJ) continue;
                         double sb = s0 + h * ends[b] - sJ, r = Math.Min(ma, right[b]) - lips;
                         double r1 = r + (sa < 0 ? k1 : k2) * sa, r2 = r + (sb < 0 ? k1 : k2) * sb;
-                        if (!(r1 > 0 && r2 > 0 && r > 0)) continue;
+                        if (!Allowed(r1, r, r2)) continue;
                         double v = !one && sa < 0 && sb > 0 ? Capsule.Vol(r1, r, r2, -sa, sb, e) : Capsule.Vol(r1, r2, sb - sa, e);
                         if (v > best) { best = v; BestStart = starts[a]; BestEnd = ends[b]; BestR = r; }
                     }

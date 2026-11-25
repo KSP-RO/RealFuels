@@ -35,6 +35,8 @@ namespace RealFuels
         // Low pressure (not highly pressurized) types' pills may taper two ways, kinked once along the axis (a cylinder
         // under a nose cone, say).
         public static bool pillTankTwoTapers = true;
+        // A tapered pill's smaller end: its radius at least this (m), unless the whole pill is no wider.
+        public static double pillTankMinEndRadius = 0.1;
         private static readonly string[] pillTankModulesDefault = { "WingProcedural" };
         public static readonly HashSet<string> pillTankShapes = new HashSet<string>(pillTankShapesDefault);
         public static readonly HashSet<string> pillTankModules = new HashSet<string>(pillTankModulesDefault);
@@ -136,6 +138,7 @@ namespace RealFuels
                 node.TryGetValue("pillTankDome", ref pillTankDome);
                 node.TryGetValue("pillTankDomeHP", ref pillTankDomeHP);
                 node.TryGetValue("pillTankTwoTapers", ref pillTankTwoTapers);
+                node.TryGetValue("pillTankMinEndRadius", ref pillTankMinEndRadius);
 
                 ignoreFuelsForFill.Clear();
                 if (node.GetNode("IgnoreFuelsForFill") is ConfigNode ignoreNode)

@@ -338,7 +338,11 @@ namespace RealFuels.Tanks
             ShareTankType(from);
         }
 
-        private void OnEditorShipModified(ShipConstruct _) => PartResourcesChanged();
+        private void OnEditorShipModified(ShipConstruct _)
+        {
+            PillGroup.Forget();     // (a part attached or detached: the frame's pill tank groups may be stale)
+            PartResourcesChanged();
+        }
 
         private void OnPartActionUIShown(UIPartActionWindow window, Part p)
         {
@@ -381,7 +385,11 @@ namespace RealFuels.Tanks
                     RealFuelsWindow.HideGUIForModule(this);
                 UpdatePill();
             }
-            else KeepCoM();     // a stack's owner: its pill's centre of mass, whatever ProceduralParts set
+            else
+            {
+                KeepCoM();      // a stack's owner: its pill's centre of mass, whatever ProceduralParts set
+                if (HighLogic.LoadedSceneIsFlight) WatchPillGroup();
+            }
             UpdateRF();
         }
 
@@ -861,8 +869,9 @@ namespace RealFuels.Tanks
             bool activeEditor = (UsedVolume != 0);
             BaseEvent evt = Events["Empty"];
             if (evt != null) {
-                activeChanged |= evt.guiActiveEditor != activeEditor;
-                evt.guiActiveEditor = activeEditor;
+                bool shown = PawShown(evt, activeEditor);
+                activeChanged |= evt.guiActiveEditor != shown;
+                evt.guiActiveEditor = shown;
             }
 
             activeEditor = (AvailableVolume >= 0.001);
@@ -872,8 +881,9 @@ namespace RealFuels.Tanks
                 if (!evt.name.StartsWith ("MFT")) {
                     continue;
                 }
-                activeChanged |= evt.guiActiveEditor != activeEditor;
-                evt.guiActiveEditor = activeEditor;
+                bool shown = PawShown(evt, activeEditor);
+                activeChanged |= evt.guiActiveEditor != shown;
+                evt.guiActiveEditor = shown;
             }
         }
 
@@ -1069,10 +1079,8 @@ namespace RealFuels.Tanks
                             groupDisplayName = guiGroupDisplayName
                         };
                         FuelInfo info1 = info;
-                        BaseEvent button = new BaseEvent(Events, kspEvent.name, () => ConfigureFor(info1), kspEvent)
-                        {
-                            guiActiveEditor = activeEditor
-                        };
+                        BaseEvent button = new BaseEvent(Events, kspEvent.name, () => ConfigureFor(info1), kspEvent);
+                        button.guiActiveEditor = PawShown(button, activeEditor);
                         Events.Add(button);
                         displayedParts.Add(info.title);
                     }

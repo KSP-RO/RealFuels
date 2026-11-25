@@ -16,6 +16,7 @@ namespace RealFuels.Tanks.PillTank
         internal V3 Lo, Hi;
         internal V3[] N;          // convex: face planes (deduplicated), outward n.p = d
         internal double[] D;
+        internal RayGrid[] Grids;   // concave: Union.Inside's, one a ray direction, made on first use
 
         public SkinPiece(V3[] v, int[] t, bool convex)
         {
@@ -27,6 +28,77 @@ namespace RealFuels.Tanks.PillTank
         // The convex hull of the points as a piece, or null if they are (nearly) flat.
         public static SkinPiece Hull(IList<V3> pts) =>
             PillTank.Hull.Build(pts, out V3[] v, out int[] t) ? new SkinPiece(v, t, true) : null;
+    }
+
+    // A piece's triangles binned by where they lie seen along a ray direction: a ray that way from a point meets only
+    // triangles in the point's cell (each binned in every cell its outline's box spans).
+    sealed class RayGrid
+    {
+        readonly V3 _d, _e1, _e2;
+        readonly double _u0, _v0, _su, _sv;
+        readonly int _g;
+        readonly int[] _start, _tris;
+
+        public RayGrid(SkinPiece p, V3 d)
+        {
+            _d = d;
+            _e1 = V3.Cross(d, Math.Abs(d.x) < 0.9 ? new V3(1, 0, 0) : new V3(0, 1, 0)).Norm;
+            _e2 = V3.Cross(d, _e1);
+            int n = p.T.Length / 3;
+            _g = Math.Max(1, Math.Min(64, (int)Math.Sqrt(n / 2.0)));
+            var box = new double[4 * n];
+            double u0 = double.PositiveInfinity, u1 = double.NegativeInfinity, v0 = u0, v1 = u1;
+            for (int t = 0; t < n; t++)
+            {
+                double ul = double.PositiveInfinity, uh = double.NegativeInfinity, vl = ul, vh = uh;
+                for (int k = 0; k < 3; k++)
+                {
+                    V3 q = p.V[p.T[3 * t + k]];
+                    double u = V3.Dot(q, _e1), v = V3.Dot(q, _e2);
+                    ul = Math.Min(ul, u); uh = Math.Max(uh, u); vl = Math.Min(vl, v); vh = Math.Max(vh, v);
+                }
+                box[4 * t] = ul; box[4 * t + 1] = uh; box[4 * t + 2] = vl; box[4 * t + 3] = vh;
+                u0 = Math.Min(u0, ul); u1 = Math.Max(u1, uh); v0 = Math.Min(v0, vl); v1 = Math.Max(v1, vh);
+            }
+            _u0 = u0; _v0 = v0;
+            _su = _g / Math.Max(u1 - u0, 1e-12);
+            _sv = _g / Math.Max(v1 - v0, 1e-12);
+            _start = new int[_g * _g + 1];
+            for (int pass = 0; pass < 2; pass++)
+            {
+                var fill = pass == 1 ? (int[])_start.Clone() : null;
+                for (int t = 0; t < n; t++)
+                {
+                    int ia = Cell(box[4 * t], _u0, _su), ib = Cell(box[4 * t + 1], _u0, _su);
+                    int ja = Cell(box[4 * t + 2], _v0, _sv), jb = Cell(box[4 * t + 3], _v0, _sv);
+                    for (int i = ia; i <= ib; i++)
+                        for (int j = ja; j <= jb; j++)
+                            if (pass == 0) _start[i * _g + j + 1]++;
+                            else _tris[fill[i * _g + j]++] = t;
+                }
+                if (pass == 0)
+                {
+                    for (int c = 0; c < _g * _g; c++) _start[c + 1] += _start[c];
+                    _tris = new int[_start[_g * _g]];
+                }
+            }
+        }
+
+        int Cell(double x, double x0, double s) => Math.Max(0, Math.Min(_g - 1, (int)((x - x0) * s)));
+
+        // How many of the piece's triangles the ray from q meets.
+        public int Hits(SkinPiece p, V3 q)
+        {
+            double u = V3.Dot(q, _e1), v = V3.Dot(q, _e2);
+            if (u < _u0 || v < _v0 || u > _u0 + _g / _su || v > _v0 + _g / _sv) return 0;
+            int c = Cell(u, _u0, _su) * _g + Cell(v, _v0, _sv), hits = 0;
+            for (int k = _start[c]; k < _start[c + 1]; k++)
+            {
+                int t = 3 * _tris[k];
+                if (Union.RayHits(q, _d, p.V[p.T[t]], p.V[p.T[t + 1]], p.V[p.T[t + 2]])) hits++;
+            }
+            return hits;
+        }
     }
 
     public static class Hull
@@ -161,15 +233,18 @@ namespace RealFuels.Tanks.PillTank
         // piece's triangles less what convex pieces cover. Faces two pieces share (or abut on, facing each other) go;
         // of two coincident faces facing the same way the first piece's stays. `stack` (tanks joined end to end, a few
         // pieces): a nearly convex piece is taken as its hull, and what of a face lies inside (or against) a concave
-        // piece goes too.
-        public static TriSoup Build(IList<SkinPiece> pieces, bool stack = false)
+        // piece goes too. check: called now and then (to stop: it throws).
+        public static TriSoup Build(IList<SkinPiece> pieces, bool stack = false, Action check = null)
         {
             // a ProceduralParts cylinder or cone, a stack's tank, is convex but for its facets (rings of different vertex
             // counts zig-zag): taken as its hull (the same vertices, its faces within the facets' sag of the mesh's), so
             // its faces cut others' exactly (the disks where two tanks meet go, an annulus left over stays)
             if (stack && pieces.Count > 1)
                 for (int i = 0; i < pieces.Count; i++)
+                {
+                    check?.Invoke();
                     if (!pieces[i].Convex && NearlyConvex(pieces[i]) is SkinPiece h) pieces[i] = h;
+                }
             var V = new List<V3>();
             var T = new List<int>();
             var starts = new List<int>();
@@ -198,6 +273,7 @@ namespace RealFuels.Tanks.PillTank
                 SkinPiece pc = pieces[i];
                 for (int t = 0; t < pc.T.Length; t += 3)
                 {
+                    check?.Invoke();
                     V3 a = pc.V[pc.T[t]], b = pc.V[pc.T[t + 1]], c = pc.V[pc.T[t + 2]];
                     V3 n = V3.Cross(b - a, c - a);
                     if (n.Len2 <= 0) continue;
@@ -294,18 +370,17 @@ namespace RealFuels.Tanks.PillTank
         static bool Inside(SkinPiece p, V3 q)
         {
             if (q.x < p.Lo.x || q.y < p.Lo.y || q.z < p.Lo.z || q.x > p.Hi.x || q.y > p.Hi.y || q.z > p.Hi.z) return false;
-            foreach (V3 d in Rays)
+            p.Grids ??= new RayGrid[Rays.Length];
+            for (int k = 0; k < Rays.Length; k++)
             {
-                int hits = 0;
-                for (int t = 0; t < p.T.Length; t += 3)
-                    if (RayHits(q, d, p.V[p.T[t]], p.V[p.T[t + 1]], p.V[p.T[t + 2]])) hits++;
-                if ((hits & 1) == 0) return false;
+                RayGrid g = p.Grids[k] ??= new RayGrid(p, Rays[k]);
+                if ((g.Hits(p, q) & 1) == 0) return false;
             }
             return true;
         }
 
         // Moller-Trumbore, the far side only (t > 0).
-        static bool RayHits(V3 o, V3 d, V3 a, V3 b, V3 c)
+        internal static bool RayHits(V3 o, V3 d, V3 a, V3 b, V3 c)
         {
             V3 e1 = b - a, e2 = c - a, pv = V3.Cross(d, e2);
             double det = V3.Dot(e1, pv);

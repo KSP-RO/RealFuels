@@ -37,7 +37,7 @@ namespace RealFuels.Tanks
             _cache[m.part] = g;
             var todo = new Stack<ModuleFuelTanks>();
             todo.Push(m);
-            bool procedural = Procedural(m.part) != null;
+            bool procedural = Groupable(m);
             while (todo.Count > 0)
             {
                 ModuleFuelTanks t = todo.Pop();
@@ -61,17 +61,39 @@ namespace RealFuels.Tanks
         }
 
         // The parts attached to p by a node: its parent (when p hangs on one of the parent's nodes) and its children
-        // so attached. Not surface attachment (a radial booster is a tank of its own).
-        private static IEnumerable<Part> Stacked(Part p)
+        // so attached. Not surface attachment (a radial booster is a tank of its own). touching: only those whose node
+        // is where p's is (not moved off it with the offset tool: the two skins would not meet).
+        internal static IEnumerable<Part> Stacked(Part p, bool touching = true)
         {
-            if (p.parent != null && p.attachMode == AttachModes.STACK) yield return p.parent;
+            if (p.parent != null && p.attachMode == AttachModes.STACK && (!touching || Touching(p, p.parent))) yield return p.parent;
             foreach (Part c in p.children)
-                if (c.attachMode == AttachModes.STACK) yield return c;
+                if (c.attachMode == AttachModes.STACK && (!touching || Touching(c, p))) yield return c;
         }
+
+        // A stack-attached child's node and its parent's (or, with only one known, any of the other's) within TouchGap.
+        private const float TouchGap = 0.01f;
+        private static bool Touching(Part child, Part parent)
+        {
+            AttachNode nc = child.FindAttachNodeByPart(parent), np = parent.FindAttachNodeByPart(child);
+            if (nc != null && np != null) return (NodeAt(child, nc) - NodeAt(parent, np)).sqrMagnitude <= TouchGap * TouchGap;
+            if (nc == null && np == null) return false;
+            Part from = nc != null ? child : parent, to = nc != null ? parent : child;
+            Vector3 w = NodeAt(from, nc ?? np);
+            foreach (AttachNode n in to.attachNodes)
+                if ((NodeAt(to, n) - w).sqrMagnitude <= TouchGap * TouchGap) return true;
+            return false;
+        }
+
+        private static Vector3 NodeAt(Part p, AttachNode n) => p.transform.TransformPoint(n.position);
 
         // n's tank, if it joins a group of tanks of `type`: a ProceduralPart pill tank of that type.
         private static ModuleFuelTanks Joins(Part n, string type) =>
-            Procedural(n) != null && n.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks t && t.type == type && t.PillSizesTank ? t : null;
+            n.FindModuleImplementing<ModuleFuelTanks>() is ModuleFuelTanks t && t.type == type && t.PillSizesTank && Groupable(t) ? t : null;
+
+        // A tank whose skin is its ProceduralPart's sides and ends (no pillSkin of its own, the sides or ends found):
+        // only such skins join into one.
+        private static bool Groupable(ModuleFuelTanks t) =>
+            string.IsNullOrEmpty(t.pillSkin) && Procedural(t.part) != null && PillTank.PillSkin.HasProceduralSkin(t.part);
 
         private static PartModule Procedural(Part p) => p.Modules.Contains("ProceduralPart") ? p.Modules["ProceduralPart"] : null;
 
